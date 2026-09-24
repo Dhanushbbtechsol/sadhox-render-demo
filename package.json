@@ -1,0 +1,28 @@
+{
+  "name": "sadhox",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm -r dev",
+    "build": "pnpm -r build",
+    "check-types": "pnpm -r --if-present check-types",
+    "dev:web": "pnpm --filter web dev",
+    "dev:server": "pnpm --filter server dev"
+  },
+  "dependencies": {
+    "@sadhox/env": "workspace:*",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@sadhox/config": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "^6.0.3",
+    "vercel": "^54.18.2"
+  },
+  "packageManager": "pnpm@11.13.0"
+}

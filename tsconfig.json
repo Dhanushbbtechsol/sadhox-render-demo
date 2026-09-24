@@ -1,0 +1,3 @@
+{
+  "extends": "@sadhox/config/tsconfig.base.json"
+}
