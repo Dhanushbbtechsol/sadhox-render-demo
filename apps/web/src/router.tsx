@@ -1,6 +1,11 @@
 import { createBrowserRouter } from "react-router";
 
+import AdminRoute from "./components/admin-route";
 import AppShell from "./app-shell";
+import AdminLayout from "./features/admin/admin-layout";
+import AuditLogsPage from "./features/admin/audit-logs-page";
+import DashboardPage from "./features/admin/dashboard-page";
+import AssetRegisterPage from "./features/assets/asset-register-page";
 import Home from "./routes/home";
 
 function NotFound() {
@@ -18,6 +23,19 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <Home /> },
+      {
+        element: <AdminRoute />,
+        children: [
+          {
+            element: <AdminLayout />,
+            children: [
+              { path: "admin/dashboard", element: <DashboardPage /> },
+              { path: "assets", element: <AssetRegisterPage /> },
+              { path: "admin/audit-logs", element: <AuditLogsPage /> },
+            ],
+          },
+        ],
+      },
       { path: "*", element: <NotFound /> },
     ],
   },

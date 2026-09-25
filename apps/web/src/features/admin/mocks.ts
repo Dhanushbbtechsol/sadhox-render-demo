@@ -1,0 +1,137 @@
+import type { AdminStats, Asset, AuditLog } from "./types";
+
+export const mockAssets: Asset[] = [
+  {
+    id: "ast-001",
+    assetTag: "HW-1042",
+    name: "Dell Latitude 5540",
+    category: "Hardware",
+    ownerName: "Alice Chen",
+    status: "Active",
+    linkedTicketCount: 2,
+  },
+  {
+    id: "ast-002",
+    assetTag: "HW-1108",
+    name: "ThinkPad docking station",
+    category: "Hardware",
+    ownerName: "Unassigned",
+    status: "Procured",
+    linkedTicketCount: 0,
+  },
+  {
+    id: "ast-003",
+    assetTag: "SW-2201",
+    name: "Microsoft 365 E3",
+    category: "Software",
+    ownerName: "Finance",
+    status: "Active",
+    linkedTicketCount: 1,
+  },
+  {
+    id: "ast-004",
+    assetTag: "SW-2314",
+    name: "Adobe Acrobat Pro",
+    category: "Software",
+    ownerName: "Priya Nair",
+    status: "Under Maintenance",
+    linkedTicketCount: 3,
+  },
+  {
+    id: "ast-005",
+    assetTag: "NW-3007",
+    name: "Core switch A",
+    category: "Network",
+    ownerName: "Network Ops",
+    status: "Active",
+    linkedTicketCount: 1,
+  },
+  {
+    id: "ast-006",
+    assetTag: "NW-3012",
+    name: "Branch firewall",
+    category: "Network",
+    ownerName: "Network Ops",
+    status: "Under Maintenance",
+    linkedTicketCount: 4,
+  },
+  {
+    id: "ast-007",
+    assetTag: "HW-0988",
+    name: "HP LaserJet MFP",
+    category: "Hardware",
+    ownerName: "Reception",
+    status: "Retired",
+    linkedTicketCount: 0,
+  },
+  {
+    id: "ast-008",
+    assetTag: "SW-2402",
+    name: "Jira Service Management",
+    category: "Software",
+    ownerName: "IT Operations",
+    status: "Active",
+    linkedTicketCount: 6,
+  },
+];
+
+export const mockAdminStats: AdminStats = {
+  kpis: [
+    { id: "total", label: "Total tickets", value: "186", delta: "+12 this week", trend: "up" },
+    { id: "open", label: "Open tickets", value: "47", delta: "-5 vs last week", trend: "down" },
+    { id: "p1", label: "P1 incidents", value: "3", delta: "No change", trend: "flat" },
+    { id: "sla", label: "SLA compliance", value: "94%", delta: "+1.2 pts", trend: "up" },
+  ],
+  ticketsByStatus: [
+    { label: "New", count: 18 },
+    { label: "In Progress", count: 29 },
+    { label: "Resolved", count: 86 },
+    { label: "Closed", count: 53 },
+  ],
+  ticketsByPriority: [
+    { label: "P1", count: 3 },
+    { label: "P2", count: 21 },
+    { label: "P3", count: 74 },
+    { label: "P4", count: 88 },
+  ],
+  ticketsByModule: [
+    { label: "Incident", count: 92 },
+    { label: "Service Request", count: 61 },
+    { label: "Change", count: 33 },
+  ],
+};
+
+export const mockAuditLogs: AuditLog[] = [
+  {
+    id: "aud-001",
+    actor: "Ian Okonkwo",
+    action: "asset.status_changed",
+    entityType: "asset",
+    entityId: "HW-1042",
+    createdAt: "2026-09-24T09:12:00Z",
+  },
+  {
+    id: "aud-002",
+    actor: "Alice Chen",
+    action: "incident.assigned",
+    entityType: "incident",
+    entityId: "INC-441",
+    createdAt: "2026-09-24T11:40:00Z",
+  },
+  {
+    id: "aud-003",
+    actor: "System",
+    action: "sla.breached",
+    entityType: "incident",
+    entityId: "INC-438",
+    createdAt: "2026-09-25T02:05:00Z",
+  },
+  {
+    id: "aud-004",
+    actor: "Ian Okonkwo",
+    action: "asset.created",
+    entityType: "asset",
+    entityId: "NW-3012",
+    createdAt: "2026-09-25T08:18:00Z",
+  },
+];
