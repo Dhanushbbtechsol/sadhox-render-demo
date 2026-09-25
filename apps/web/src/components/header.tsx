@@ -43,6 +43,14 @@ export default function Header() {
               Changes
             </NavLink>
           </Can>
+          <Can roles={["Admin"]}>
+            <NavLink
+              to="/admin/dashboard"
+              className={({ isActive }) => (isActive ? "font-bold" : "")}
+            >
+              Dashboard
+            </NavLink>
+          </Can>
         </nav>
         <div className="flex items-center gap-2">
           {isAuthenticated && user ? (

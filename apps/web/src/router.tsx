@@ -7,6 +7,11 @@ import LoginPage from "./routes/login";
 import CatalogPage from "./routes/catalog";
 import RequestsPage from "./routes/requests";
 import ChangesPage from "./routes/changes";
+import AdminRoute from "./components/admin-route";
+import AdminLayout from "./features/admin/admin-layout";
+import AuditLogsPage from "./features/admin/audit-logs-page";
+import DashboardPage from "./features/admin/dashboard-page";
+import AssetRegisterPage from "./features/assets/asset-register-page";
 
 function NotFound() {
   return (
@@ -32,6 +37,19 @@ export const router = createBrowserRouter([
           {
             element: <RequireRoles roles={["Agent", "Admin"]} />,
             children: [{ path: "changes", element: <ChangesPage /> }],
+          },
+        ],
+      },
+      {
+        element: <AdminRoute />,
+        children: [
+          {
+            element: <AdminLayout />,
+            children: [
+              { path: "admin/dashboard", element: <DashboardPage /> },
+              { path: "assets", element: <AssetRegisterPage /> },
+              { path: "admin/audit-logs", element: <AuditLogsPage /> },
+            ],
           },
         ],
       },
