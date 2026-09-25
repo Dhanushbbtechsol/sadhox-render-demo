@@ -1,50 +1,82 @@
-# Functional Requirements Document — ITSM Demo (Free Trial Build)
+# Functional Requirements Document
 
-**Timeline:** 7 days | **Team:** 3 developers | **Backend:** Supabase (Postgres, Auth, Realtime, Storage, Edge Functions)
-**Frontend:** React + Tailwind (recommended for speed)
-**Goal:** Working demo covering core ITSM modules, deployable for client trial access.
+**Timeline:** 4 weeks (~20 working days) | **Team:** 4 developers  
+**Frontend:** React (Vite) + Tailwind CSS + shadcn/ui + React Query + Zustand + React Router  
+**Backend:** Node.js + NestJS (TypeScript), PostgreSQL + Drizzle ORM, Passport.js (JWT + refresh tokens), BullMQ + Redis, Socket.io, Resend  
+**Hosting & Infra:** Vercel (Frontend), Railway / Render (Backend API + PostgreSQL + Redis), GitHub Actions CI/CD  
+**Goal:** Production-grade ITSM platform with a modular custom backend, end-to-end ITIL workflows, automated background processing, real-time collaboration, and enterprise-grade security/observability.
 
 ---
 
-## 1. Scope (Demo-Level, Not Full Product)
-Out: multi-tenant billing, SSO, advanced reporting/BI, mobile apps, CMDB dependency mapping.
-In: core CRUD workflows, role-based access, basic automation, single-tenant demo data.
+## 1. Scope (Production Build)
+- **In-Scope:** Core ITIL workflows (Incident, Problem, Service Request, Change, Asset), JWT authentication with rotating refresh tokens, granular RBAC route guards, real-time comment streams via WebSockets, time & event-driven automations (BullMQ + Redis), transactional emails (Resend), audit logging, and automated CI/CD with full e2e test verification.
+- **Out-of-Scope:** Multi-tenant billing architectures, SSO / Active Directory / SAML integrations, advanced BI / drag-and-drop report builders, native mobile applications, and visual CMDB dependency node graphs.
 
 ## 2. Modules & Developer Split
 
-### Dev 1 — Incident + Problem Management
-- Incident: create/view/update/close, priority (P1–P4) auto-calc from Impact×Urgency, SLA timer field, assignment (manual + round-robin auto-assign), status workflow (New→Assigned→In Progress→Resolved→Closed).
-- Comments/activity log per ticket (Supabase Realtime).
-- Problem: link problems to incidents, root-cause field, known-error flag.
+### Dev D (Backend Lead, backend-exclusive) — Core API, Auth & Infra
+- NestJS project scaffolding, Drizzle ORM schema definitions, and automated migration pipeline.
+- Passport.js authentication (JWT access token + secure httpOnly refresh tokens with rotation and revoke-on-logout).
+- Custom RBAC guard and decorator framework (`@UseGuards(JwtAuthGuard, RolesGuard)` for `Admin`, `Agent`, `EndUser`).
+- Socket.io gateway for real-time ticket comment feeds (`ticket:{id}` rooms).
+- BullMQ + Redis worker infrastructure: repeatable jobs for SLA breach detection and resolved ticket auto-closure.
+- Resend transactional email service integration.
+- System-wide audit log middleware, Pino structured logging, Sentry error tracking, and rate limiting (`@nestjs/throttler`).
+- CI/CD pipeline setup (GitHub Actions), Swagger (OpenAPI) docs, and staging/production deployments.
 
-### Dev 2 — Service Request + Change Management
-- Service Catalog: predefined request types (table-driven), approval step (single-level).
-- Service Request workflow: Submitted→Approved/Rejected→Fulfilled.
-- Change Management: Change record (Standard/Normal/Emergency type), approval workflow, scheduled implementation date/time, rollback plan text field.
+### Dev A (Full-stack) — Incident & Problem Management
+- NestJS module & React UI for Incident lifecycle (`New` → `Assigned` → `In Progress` → `Resolved` → `Closed`).
+- Priority auto-calculation service (P1–P4 matrix computed from Impact × Urgency on create/update).
+- Round-robin agent auto-assignment service and manual assignment actions.
+- NestJS module & React UI for Problem records (root-cause documentation, known-error flags, and multi-incident linking).
+- Ticket comment endpoints and real-time Socket.io UI integration.
+- Unit and e2e integration tests for incident/problem modules.
 
-### Dev 3 — Asset Management + Auth/Admin + Automation
-- Asset register: CRUD (hardware/software type, owner, status, linked tickets).
-- Auth: Supabase Auth (email/password), roles — Admin, Agent, End User (RLS policies per role).
-- Automation (Edge Functions): SLA breach flagging (cron), email/notification on ticket assignment & status change, auto-close after N days in Resolved.
-- Admin dashboard: ticket counts by status/module (basic charts).
+### Dev B (Full-stack) — Service Request & Change Management
+- Predefined, table-driven Service Catalog and request submission portal for End Users.
+- Service Request approval workflow state machine (`Submitted` → `Approved` / `Rejected` → `Fulfilled`).
+- Change Management module: Change records (`Standard`, `Normal`, `Emergency`), single-level approval workflow, scheduled rollout timestamps, and mandatory rollback plan documentation.
+- Unit and e2e integration tests for service request and change modules.
 
-## 3. Data Model (Supabase Tables)
-`users`, `incidents`, `service_requests`, `changes`, `problems`, `assets`, `comments`, `sla_rules`, `notifications`. Foreign keys link comments/assets to any ticket type via `ticket_type` + `ticket_id`.
+### Dev C (Full-stack) — Assets, Admin & Automation UI
+- Asset Management module: CRUD register for hardware and software assets, owner assignment, status tracking, and linked ticket associations.
+- Admin dashboard UI with aggregate metric visualisations (ticket volumes by status, module, and SLA state).
+- Resend email HTML templates for ticket assignments and status transitions.
+- Unit and e2e integration tests for asset and admin analytics modules.
 
-## 4. Non-Functional
-- RLS enforced per role on all tables.
-- Seed script with demo data for client walkthrough.
-- Deployed on Vercel/Netlify (frontend) + Supabase project (backend); shareable trial URL with demo login credentials.
+## 3. Data Model (PostgreSQL via Drizzle ORM)
+- `users`: Core identity, role (`Admin`, `Agent`, `EndUser`), password hash, timestamps.
+- `refresh_tokens`: Session persistence (`id`, `user_id`, `token_hash`, `expires_at`, `revoked`).
+- `audit_log`: System audit trail (`id`, `actor_id`, `action`, `entity_type`, `entity_id`, `created_at`, `diff`).
+- `incidents`: Incident records (`id`, `title`, `description`, `priority`, `impact`, `urgency`, `status`, `assigned_to`, `reporter_id`, `sla_due_at`, `resolved_at`, `closed_at`).
+- `problems`: Problem management records (`id`, `title`, `description`, `root_cause`, `known_error`, `status`, `assigned_to`).
+- `service_requests`: Request records linked to catalog items with approval states (`id`, `catalog_id`, `requester_id`, `approver_id`, `status`).
+- `changes`: Change control records (`id`, `title`, `type`, `scheduled_at`, `rollback_plan`, `status`, `approved_by`).
+- `assets`: Hardware/software inventory (`id`, `name`, `type`, `owner_id`, `status`, `linked_ticket_id`).
+- `comments`: Polymorphic comments (`id`, `ticket_id`, `ticket_type`, `author_id`, `content`, `created_at`) with Nest service-layer referential validation and cascading soft-delete.
+- `sla_rules`: SLA threshold definitions per priority level.
+- `notifications`: User notification delivery records.
 
-## 5. Day-by-Day Plan
-| Day | Milestone |
-|---|---|
-| 1 | Supabase schema, auth, RLS setup |
-| 2–3 | Core CRUD per module (parallel) |
-| 4 | Workflow states + approvals |
-| 5 | Automation (SLA, notifications) + Asset module |
-| 6 | Admin dashboard, seed data, integration |
-| 7 | QA pass, deploy, demo login setup |
+## 4. Non-Functional Requirements
+- **Security & Authorization:** Passport JWT strategy with httpOnly secure cookies; NestJS RBAC guards enforced across all controllers; 100% test assertion for 401/403 authorization boundaries.
+- **Reliability & Background Automation:** BullMQ + Redis running background jobs every 5 minutes for SLA checks and auto-closure; dead-letter queue and Sentry alerts on failed jobs.
+- **Real-Time Collaboration:** Socket.io room broadcasting per ticket ID ensuring sub-second message delivery.
+- **Observability:** Pino structured logging with contextual request correlation IDs; Sentry integration for real-time error tracking.
+- **Testing & Quality:** Jest unit testing + Supertest e2e suite covering critical paths; rate limiting via `@nestjs/throttler`.
+- **Infrastructure & CI/CD:** GitHub Actions (linting, tests, build) deploying frontend to Vercel and backend/database/Redis to Railway or Render.
+- **Seed Script:** Production-like seed dataset populating users, assets, catalog items, and active ITIL workflows for testing and client evaluation.
 
-## 6. Out-of-Scope Follow-ups (mention to client post-demo)
-Advanced reporting, CMDB relationships, multi-level approvals, SSO/AD integration, SLA policy builder UI.
+## 5. Week-by-Week Milestone Plan
+| Week | Focus | Milestones & Checkpoints |
+|---|---|---|
+| **Week 1** | Foundation & Architecture | Dev 1 sets up NestJS, Drizzle schema, migrations, JWT auth, RBAC guards, Swagger, and CI pipeline. Devs 2–4 scaffold React app, layout, and auth context. **Checkpoint (Day 5):** Auth working end-to-end; schema migrated on staging. |
+| **Week 2** | Core CRUD & Realtime | Socket.io gateway and BullMQ/Redis wired. Incident, Problem, Service Request, Change, and Asset modules CRUD complete with real DB access and RBAC guards active. **Checkpoint (Day 10):** All modules functional; e2e role tests passing. |
+| **Week 3** | Workflows, Automation & Hardening | Round-robin assignment, BullMQ SLA breach/auto-close jobs, Resend email triggers, approval state machines, and Admin charts live. **Checkpoint (Day 15):** Automation active; test coverage baseline achieved across all modules. |
+| **Week 4** | QA, Security Pass & Deploy | Cross-module QA walkthrough, full 401/403 security matrix audit, endpoint load testing, seed data loaded, production deployment to Railway/Render and Vercel. **Checkpoint (Day 20):** Production go-live with active monitoring. |
+
+## 6. Out-of-Scope Follow-ups
+- Multi-tenant tenant isolation and billing management.
+- Enterprise SSO (SAML 2.0 / Okta / Azure AD).
+- Interactive visual CMDB dependency graph.
+- Multi-tier conditional approval hierarchies.
+- Dynamic drag-and-drop SLA policy configuration UI.

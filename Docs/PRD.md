@@ -1,61 +1,62 @@
-**Product Requirements Document (PRD)**
+# Product Requirements Document (PRD)
 
 ### 1. Executive Summary
 
-A 7-day, fast-tracked functional ITSM demonstration platform designed to showcase operational efficiency and ease of use to IT Directors. Built as a deployable, single-tenant free trial, the application focuses on core ITIL workflows (Incident, Problem, Service Request, Change, Asset) utilizing a React + shadcn/ui frontend and a robust Supabase backend. The UI will balance a polished Admin Dashboard for decision-makers with a highly efficient ticketing interface for IT Agents.
+A 4-week production-grade IT Service Management (ITSM) platform designed to deliver operational efficiency and robust service operations for IT Directors and support teams. Built as a custom-backend production application, the platform implements core ITIL workflows (Incident, Problem, Service Request, Change, Asset Management) using a React (Vite) + Tailwind CSS + shadcn/ui frontend paired with a modular NestJS (TypeScript) REST API, PostgreSQL (Drizzle ORM), Socket.io real-time collaboration, BullMQ + Redis background automation, and Resend transactional notifications.
 
 ### 2. User Personas
 
-* **Ian (IT Director / Admin):** Evaluates the platform for operational efficiency. Needs to see high-level ticket metrics, ensure SLA compliance, manage user access, and configure assets.
-* **Alice (IT Support Agent):** The daily power user. Needs a fast, frictionless interface to manage queues, update statuses, link records (Incidents to Problems), and communicate in real-time.
-* **Eve (End User):** The employee needing help. Requires a dead-simple portal to submit standard service requests and report incidents.
+* **Ian (IT Director / Admin):** Evaluates the platform for operational efficiency. Needs high-level ticket metrics, SLA compliance tracking, user role management, asset visibility, and system audit logs.
+* **Alice (IT Support Agent):** The daily power user. Needs a fast, responsive interface to manage queues, auto-calculate priorities, update statuses, link Incidents to Problems, receive real-time ticket comment updates, and execute changes.
+* **Eve (End User):** The employee needing IT assistance. Requires an intuitive portal to browse the Service Catalog, submit requests, and report incidents with clear status tracking.
 
 ### 3. User Stories
 
-**Must-Have (MVP Scope for 7-Day Build):**
+**Must-Have (Production Scope — 4 Weeks):**
 
-* *Global:* As a user, I can log in via email/password and only see data/actions permitted by my role (Admin, Agent, End User).
-* *Incident & Problem:*
-* As an Agent, I can create, view, update, and close incidents.
-* As the system, I will auto-calculate Incident Priority (P1–P4) based on Impact × Urgency.
-* As an Agent/User, I can add comments to a ticket and see them update in real-time.
-* As an Agent, I can link a Problem record (with root-cause and known-error flags) to multiple Incidents.
+* *Auth, Access & Audit:*
+  * As a user, I can log in via email/password and obtain secure JWT tokens (short-lived access token + rotating httpOnly refresh token).
+  * As the system, access to endpoints and UI views is strictly governed by RBAC guards (Admin, Agent, End User).
+  * As an Admin, critical state changes, assignment events, and entity mutations are recorded in an `audit_log` table for traceability.
 
+* *Incident & Problem Management:*
+  * As an Agent, I can create, view, update, assign, and close incidents across defined lifecycle states (`New` → `Assigned` → `In Progress` → `Resolved` → `Closed`).
+  * As the system, Incident Priority (P1–P4) is automatically computed during creation/update from Impact × Urgency.
+  * As an Agent/User, I can add comments to any ticket and see incoming comments stream in real-time via Socket.io.
+  * As an Agent, I can link a Problem record (with root-cause analysis and known-error flags) to one or multiple Incidents.
+  * As the system, incidents can be auto-assigned to available agents using a round-robin assignment service.
 
-* *Service Request & Change:*
-* As an End User, I can select a predefined service request from a table-driven Service Catalog.
-* As an Admin, I can approve or reject submitted service requests and changes (single-level approval).
-* As an Agent, I can create a Change record (Standard/Normal/Emergency) with a scheduled implementation date and a text-based rollback plan.
-
+* *Service Request & Change Management:*
+  * As an End User, I can select and submit predefined requests from a table-driven Service Catalog.
+  * As an Admin, I can approve or reject submitted service requests and changes (single-level approval state machine).
+  * As an Agent, I can create Change records (Standard, Normal, Emergency) specifying implementation schedules and rollback plans.
 
 * *Assets & Automation:*
-* As an Admin, I can manage an asset register (CRUD hardware/software) and view linked tickets.
-* As an Admin, I can view a dashboard with basic charts (ticket counts by status/module).
-* As the system, I will flag SLA breaches automatically via cron jobs.
-* As the system, I will send email notifications via Resend upon ticket assignment or status change.
+  * As an Admin, I can manage an asset register (CRUD hardware/software assets) and view linked tickets.
+  * As an Admin, I can view an aggregate dashboard displaying ticket distributions by status, module, and SLA state.
+  * As the system, background BullMQ jobs run on Redis schedules (every 5 minutes) to detect SLA breaches and automatically close tickets that have remained in `Resolved` for N days.
+  * As the system, transactional email notifications are dispatched via Resend upon ticket assignment and status transitions.
 
+**Nice-to-Have (Secondary Polish):**
 
-
-**Nice-to-Have (If time permits within 7 days):**
-
-* Dark mode toggle (easily supported by shadcn/ui).
-* In-app toast notifications for real-time updates.
+* Dark mode toggle (supported natively via Tailwind + shadcn/ui).
+* In-app toast notifications for real-time WebSocket events.
 
 ### 4. Out of Scope (Explicitly Excluded)
 
-* Multi-tenant billing architecture.
-* SSO / Active Directory integration.
-* Advanced reporting / BI tools.
-* Native mobile applications.
-* Complex CMDB dependency mapping (node graphs).
-* Multi-level or conditional approval workflows.
-* Dynamic SLA policy builder UI (SLA rules will be hardcoded or simple DB rows for the demo).
+* Multi-tenant billing and subscription architecture.
+* Enterprise SSO / Active Directory / SAML integrations.
+* Advanced BI and custom drag-and-drop report builders.
+* Native mobile applications (responsive web application only).
+* Complex CMDB CI graph visualizations / dependency maps.
+* Multi-level conditional approval chains.
+* Dynamic drag-and-drop SLA policy rule builder UI (SLA rules are table-driven/seeded).
 
-### 5. Success Metrics (Demo Validation)
+### 5. Success Metrics (Production Validation)
 
-1. **Workflow Completion:** 100% of defined CRUD workflows (Incident, Problem, Service, Change, Asset) can be executed from creation to closure without errors.
-2. **Security Enforcement:** Supabase Row Level Security (RLS) successfully blocks End Users from accessing Admin/Agent-only endpoints and views.
-3. **Automation Reliability:** Edge Functions successfully trigger Resend emails and flag SLA breaches on a consistent schedule.
-4. **Deployment:** Frontend live on Vercel/Netlify and Backend live on Supabase by Day 7.
+1. **Workflow Completion:** 100% of defined ITIL workflows (Incident, Problem, Service Request, Change, Asset) execute seamlessly from creation to resolution and closure.
+2. **Security & Authorization Rigor:** NestJS RBAC guards enforce role isolation with a 100% green e2e test suite (401/403 matrix) across all protected routes.
+3. **Automation & Queue Reliability:** BullMQ + Redis background workers reliably process SLA breach detection, auto-closure, and Resend email dispatches without job drops or unmonitored failures.
+4. **Real-time Performance:** Socket.io gateway delivers comment and activity updates to ticket rooms with sub-second latency.
+5. **Deployment & Observability:** Frontend running on Vercel; NestJS API, PostgreSQL, and Redis running on Railway/Render with active Pino logging and Sentry error monitoring.
 
----
