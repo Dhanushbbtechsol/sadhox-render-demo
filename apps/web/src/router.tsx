@@ -1,7 +1,12 @@
 import { createBrowserRouter } from "react-router";
 
 import AppShell from "./app-shell";
+import { RequireAuth, RequireRoles } from "./components/auth/protected-route";
 import Home from "./routes/home";
+import LoginPage from "./routes/login";
+import CatalogPage from "./routes/catalog";
+import RequestsPage from "./routes/requests";
+import ChangesPage from "./routes/changes";
 
 function NotFound() {
   return (
@@ -18,6 +23,18 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <Home /> },
+      { path: "login", element: <LoginPage /> },
+      {
+        element: <RequireAuth />,
+        children: [
+          { path: "catalog", element: <CatalogPage /> },
+          { path: "requests", element: <RequestsPage /> },
+          {
+            element: <RequireRoles roles={["Agent", "Admin"]} />,
+            children: [{ path: "changes", element: <ChangesPage /> }],
+          },
+        ],
+      },
       { path: "*", element: <NotFound /> },
     ],
   },
