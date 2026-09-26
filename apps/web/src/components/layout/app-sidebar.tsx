@@ -1,7 +1,9 @@
 import {
   AlertTriangleIcon,
   ClipboardListIcon,
+  LayoutGridIcon,
   LifeBuoyIcon,
+  ListTodoIcon,
   PanelLeftIcon,
 } from "lucide-react";
 import { NavLink } from "react-router";
@@ -37,6 +39,18 @@ const NAV_ITEMS: NavItem[] = [
     label: "My Portal",
     icon: LifeBuoyIcon,
     roles: ["EndUser", "Admin"],
+  },
+  {
+    to: "/catalog",
+    label: "Catalog",
+    icon: LayoutGridIcon,
+    roles: ["Admin", "Agent", "EndUser"],
+  },
+  {
+    to: "/requests",
+    label: "Requests",
+    icon: ListTodoIcon,
+    roles: ["Admin", "Agent", "EndUser"],
   },
 ];
 

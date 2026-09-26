@@ -28,8 +28,15 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 async function parseError(response: Response): Promise<Error> {
   let message = `Request failed (${response.status})`;
   try {
-    const data = (await response.json()) as { message?: string; error?: string };
-    message = data.message ?? data.error ?? message;
+    const data = (await response.json()) as {
+      message?: string | string[];
+      error?: string;
+    };
+    if (Array.isArray(data.message)) {
+      message = data.message.join(", ");
+    } else {
+      message = data.message ?? data.error ?? message;
+    }
   } catch {
     // ignore non-JSON bodies
   }
