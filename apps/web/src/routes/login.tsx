@@ -17,11 +17,15 @@ import {
 import { useAuthStore } from "@/stores/auth-store";
 import type { UserRole } from "@/types/api";
 
-const ROLE_PRESETS: { role: UserRole; email: string; label: string }[] = [
-  { role: "EndUser", email: "enduser@sadhox.local", label: "EndUser" },
-  { role: "Agent", email: "agent@sadhox.local", label: "Agent" },
-  { role: "Admin", email: "admin@sadhox.local", label: "Admin" },
-];
+/** Dev-only email shortcuts — no passwords in the client bundle. */
+const ROLE_PRESETS: { role: UserRole; email: string; label: string }[] =
+  import.meta.env.DEV
+    ? [
+        { role: "EndUser", email: "enduser@sadhox.local", label: "EndUser" },
+        { role: "Agent", email: "agent@sadhox.local", label: "Agent" },
+        { role: "Admin", email: "admin@sadhox.local", label: "Admin" },
+      ]
+    : [];
 
 export default function LoginPage() {
   const login = useAuthStore((state) => state.login);
@@ -31,8 +35,8 @@ export default function LoginPage() {
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? "/catalog";
 
-  const [email, setEmail] = useState("enduser@sadhox.local");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -60,8 +64,7 @@ export default function LoginPage() {
         <CardHeader>
           <CardTitle>Sign in</CardTitle>
           <CardDescription>
-            Use mock accounts for Phase 1. Password for all presets:{" "}
-            <code>password</code>
+            Sign in with your Sadhox account to access the service catalog.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -74,6 +77,7 @@ export default function LoginPage() {
                 autoComplete="username"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                required
               />
             </div>
             <div className="space-y-2">
@@ -86,6 +90,7 @@ export default function LoginPage() {
                   className="pr-9"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
+                  required
                 />
                 <Button
                   type="button"
@@ -105,26 +110,30 @@ export default function LoginPage() {
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="flex flex-col items-stretch gap-2">
-          <p className="text-muted-foreground text-xs">Quick role switch (dev)</p>
-          <div className="grid grid-cols-3 gap-2">
-            {ROLE_PRESETS.map((preset) => (
-              <Button
-                key={preset.role}
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  loginAsRole(preset.role);
-                  toast.success(`Signed in as ${preset.label}`);
-                  navigate(from, { replace: true });
-                }}
-              >
-                {preset.label}
-              </Button>
-            ))}
-          </div>
-        </CardFooter>
+        {ROLE_PRESETS.length > 0 ? (
+          <CardFooter className="flex flex-col items-stretch gap-2">
+            <p className="text-muted-foreground text-xs">
+              Quick role switch (dev only)
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {ROLE_PRESETS.map((preset) => (
+                <Button
+                  key={preset.role}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    loginAsRole(preset.role);
+                    toast.success(`Signed in as ${preset.label}`);
+                    navigate(from, { replace: true });
+                  }}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          </CardFooter>
+        ) : null}
       </Card>
     </main>
   );

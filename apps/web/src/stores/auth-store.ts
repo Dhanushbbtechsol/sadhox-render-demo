@@ -5,29 +5,33 @@ import { env } from "@sadhox/env/web";
 
 import type { AuthUser, UserRole } from "@/types/api";
 
-const MOCK_USERS: Record<string, AuthUser & { password: string }> = {
-  "enduser@sadhox.local": {
-    id: "user-enduser",
-    email: "enduser@sadhox.local",
-    name: "End User",
-    role: "EndUser",
-    password: "password",
-  },
-  "agent@sadhox.local": {
-    id: "user-agent",
-    email: "agent@sadhox.local",
-    name: "Support Agent",
-    role: "Agent",
-    password: "password",
-  },
-  "admin@sadhox.local": {
-    id: "user-admin",
-    email: "admin@sadhox.local",
-    name: "IT Admin",
-    role: "Admin",
-    password: "password",
-  },
-};
+/** Local mock users — only referenced from DEV code paths. */
+const MOCK_USERS: Record<string, AuthUser & { password: string }> = import.meta
+  .env.DEV
+  ? {
+      "enduser@sadhox.local": {
+        id: "user-enduser",
+        email: "enduser@sadhox.local",
+        name: "End User",
+        role: "EndUser",
+        password: "password",
+      },
+      "agent@sadhox.local": {
+        id: "user-agent",
+        email: "agent@sadhox.local",
+        name: "Support Agent",
+        role: "Agent",
+        password: "password",
+      },
+      "admin@sadhox.local": {
+        id: "user-admin",
+        email: "admin@sadhox.local",
+        name: "IT Admin",
+        role: "Admin",
+        password: "password",
+      },
+    }
+  : {};
 
 interface AuthState {
   user: AuthUser | null;
@@ -62,6 +66,18 @@ async function tryRemoteLogin(email: string, password: string) {
   }
 }
 
+function applyMockSession(
+  set: (partial: Partial<AuthState>) => void,
+  mockUser: AuthUser & { password: string },
+) {
+  const { password: _password, ...user } = mockUser;
+  set({
+    user,
+    accessToken: `mock-token-${user.role.toLowerCase()}`,
+    isAuthenticated: true,
+  });
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -82,8 +98,11 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
           });
           return;
-        } catch {
-          // Fall back to local mock auth until Dev D staging is available.
+        } catch (error) {
+          // Never fall back to mock auth outside development.
+          if (!import.meta.env.DEV) {
+            throw error instanceof Error ? error : new Error("Login failed");
+          }
         }
 
         const mockUser = MOCK_USERS[email.toLowerCase()];
@@ -91,23 +110,16 @@ export const useAuthStore = create<AuthState>()(
           throw new Error("Invalid email or password");
         }
 
-        const { password: _password, ...user } = mockUser;
-        set({
-          user,
-          accessToken: `mock-token-${user.role.toLowerCase()}`,
-          isAuthenticated: true,
-        });
+        applyMockSession(set, mockUser);
       },
 
       loginAsRole: (role) => {
-        const mockUser = Object.values(MOCK_USERS).find((entry) => entry.role === role);
+        if (!import.meta.env.DEV) return;
+        const mockUser = Object.values(MOCK_USERS).find(
+          (entry) => entry.role === role,
+        );
         if (!mockUser) return;
-        const { password: _password, ...user } = mockUser;
-        set({
-          user,
-          accessToken: `mock-token-${user.role.toLowerCase()}`,
-          isAuthenticated: true,
-        });
+        applyMockSession(set, mockUser);
       },
 
       logout: async () => {
