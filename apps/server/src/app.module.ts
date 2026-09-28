@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import type { Sql } from "postgres";
+import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
 import { AssetsModule } from "./assets/assets.module";
 import { ChangesModule } from "./changes/changes.module";
@@ -50,6 +51,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     ServiceRequestsModule,
     ChangesModule,
     AssetsModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [

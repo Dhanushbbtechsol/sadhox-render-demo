@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { apiFetch, setAccessToken, setRefreshHandler, setUnauthorizedHandler } from "@/lib/api";
+import { apiFetch, getAccessToken, isMockAccessToken, setAccessToken, setRefreshHandler, setUnauthorizedHandler } from "@/lib/api";
 import type { AuthUser, LoginResponse, UserRole } from "@/types/itsm";
 
 /** Local mock users — only referenced from DEV code paths. */
@@ -87,6 +87,7 @@ export const useAuthStore = create<AuthState>()(
             method: "POST",
             body: { email, password },
             skipAuth: true,
+            signal: AbortSignal.timeout(5_000),
           });
 
           setAccessToken(data.accessToken);
@@ -102,9 +103,13 @@ export const useAuthStore = create<AuthState>()(
           }
         }
 
+        // Offline / DB-down fallback for local UI work (Phase stubs).
         const mockUser = MOCK_USERS[email.toLowerCase()];
-        if (!mockUser || mockUser.password !== password) {
-          throw new Error("Invalid email or password");
+        const allowedPasswords = new Set([mockUser?.password, "ChangeMe123!", "password"]);
+        if (!mockUser || !allowedPasswords.has(password)) {
+          throw new Error(
+            "Invalid email or password (API unreachable — use Quick role switch or password `password` / `ChangeMe123!`)",
+          );
         }
 
         applyMockSession(set, mockUser);
@@ -122,20 +127,31 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        try {
-          await apiFetch<void>("/auth/logout", { method: "POST" });
-        } catch {
-          // Clear local session even if revoke fails
+        if (!isMockAccessToken(getAccessToken())) {
+          try {
+            await apiFetch<void>("/auth/logout", { method: "POST" });
+          } catch {
+            // Clear local session even if revoke fails
+          }
         }
         setAccessToken(null);
         set({ user: null, accessToken: null, isAuthenticated: false });
       },
 
       refresh: async () => {
+        const current = getAccessToken() ?? get().accessToken;
+        if (isMockAccessToken(current)) {
+          return current;
+        }
+
         try {
           const data = await apiFetch<{ accessToken: string; user: AuthUser }>(
             "/auth/refresh",
-            { method: "POST", skipAuth: true },
+            {
+              method: "POST",
+              skipAuth: true,
+              signal: AbortSignal.timeout(5_000),
+            },
           );
           setAccessToken(data.accessToken);
           set({
@@ -157,19 +173,46 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
       }),
-      onRehydrateStorage: () => (state) => {
-        const finish = () => {
-          useAuthStore.getState().setHydrated();
-        };
-        if (state?.isAuthenticated) {
-          void useAuthStore.getState().refresh().finally(finish);
-        } else {
-          finish();
-        }
-      },
     },
   ),
 );
+
+function finishAuthHydration() {
+  const state = useAuthStore.getState();
+  if (state.isHydrated) return;
+
+  if (state.isAuthenticated) {
+    void state.refresh().finally(() => {
+      useAuthStore.getState().setHydrated();
+    });
+    return;
+  }
+
+  state.setHydrated();
+}
+
+if (typeof window !== "undefined") {
+  if (useAuthStore.persist.hasHydrated()) {
+    finishAuthHydration();
+  } else {
+    useAuthStore.persist.onFinishHydration(() => {
+      finishAuthHydration();
+    });
+  }
+
+  // Failsafe: never leave the app on the hydration spinner (e.g. hung refresh / DB down).
+  window.setTimeout(() => {
+    if (!useAuthStore.getState().isHydrated) {
+      setAccessToken(null);
+      useAuthStore.setState({
+        user: null,
+        accessToken: null,
+        isAuthenticated: false,
+      });
+      useAuthStore.getState().setHydrated();
+    }
+  }, 5_000);
+}
 
 setRefreshHandler(() => useAuthStore.getState().refresh());
 setUnauthorizedHandler(() => {

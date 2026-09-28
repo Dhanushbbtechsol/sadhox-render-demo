@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
+import type { ReactNode } from "react";
 
+import Loader from "@/components/loader";
 import { homePathForRole, useAuthStore } from "@/stores/auth-store";
 import type { UserRole } from "@/types/itsm";
-import Loader from "@/components/loader";
 
 export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
   const location = useLocation();
@@ -30,13 +30,6 @@ export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
   return <Outlet />;
 }
 
-/** UI-only role gate for buttons/sections. API must still enforce RBAC. */
-export function Can({ roles, children }: { roles: UserRole[]; children: ReactNode }) {
-  const hasRole = useAuthStore((s) => s.hasRole);
-  if (!hasRole(...roles)) return null;
-  return children;
-}
-
 export function GuestRoute() {
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -55,4 +48,31 @@ export function GuestRoute() {
   }
 
   return <Outlet />;
+}
+
+/** @deprecated Prefer ProtectedRoute — kept for catalog/change role gates. */
+export function RequireAuth() {
+  return <ProtectedRoute />;
+}
+
+/** @deprecated Prefer ProtectedRoute roles=… */
+export function RequireRoles({ roles }: { roles: UserRole[] }) {
+  return <ProtectedRoute roles={roles} />;
+}
+
+export function Can({
+  roles,
+  children,
+  fallback = null,
+}: {
+  roles: UserRole[];
+  children: ReactNode;
+  fallback?: ReactNode;
+}) {
+  const hasRole = useAuthStore((state) => state.hasRole);
+  return hasRole(...roles) ? children : fallback;
+}
+
+export function useCan(...roles: UserRole[]) {
+  return useAuthStore((state) => state.hasRole(...roles));
 }
