@@ -4,12 +4,41 @@ import { persist } from "zustand/middleware";
 import { apiFetch, setAccessToken, setRefreshHandler, setUnauthorizedHandler } from "@/lib/api";
 import type { AuthUser, LoginResponse, UserRole } from "@/types/itsm";
 
+/** Local mock users — only referenced from DEV code paths. */
+const MOCK_USERS: Record<string, AuthUser & { password: string }> = import.meta
+  .env.DEV
+  ? {
+      "enduser@sadhox.local": {
+        id: "user-enduser",
+        email: "enduser@sadhox.local",
+        name: "End User",
+        role: "EndUser",
+        password: "password",
+      },
+      "agent@sadhox.local": {
+        id: "user-agent",
+        email: "agent@sadhox.local",
+        name: "Support Agent",
+        role: "Agent",
+        password: "password",
+      },
+      "admin@sadhox.local": {
+        id: "user-admin",
+        email: "admin@sadhox.local",
+        name: "IT Admin",
+        role: "Admin",
+        password: "password",
+      },
+    }
+  : {};
+
 interface AuthState {
   user: AuthUser | null;
   accessToken: string | null;
   isAuthenticated: boolean;
   isHydrated: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
+  loginAsRole: (role: UserRole) => void;
   logout: () => Promise<void>;
   refresh: () => Promise<string | null>;
   setHydrated: () => void;
@@ -19,6 +48,20 @@ interface AuthState {
 export function homePathForRole(role: UserRole): string {
   if (role === "EndUser") return "/portal";
   return "/incidents";
+}
+
+function applyMockSession(
+  set: (partial: Partial<AuthState>) => void,
+  mockUser: AuthUser & { password: string },
+) {
+  const { password: _password, ...user } = mockUser;
+  const accessToken = `mock-token-${user.role.toLowerCase()}`;
+  setAccessToken(accessToken);
+  set({
+    user,
+    accessToken,
+    isAuthenticated: true,
+  });
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -37,19 +80,43 @@ export const useAuthStore = create<AuthState>()(
       },
 
       login: async (email, password) => {
-        const data = await apiFetch<LoginResponse>("/auth/login", {
-          method: "POST",
-          body: { email, password },
-          skipAuth: true,
-        });
+        try {
+          const data = await apiFetch<LoginResponse>("/auth/login", {
+            method: "POST",
+            body: { email, password },
+            skipAuth: true,
+          });
 
-        setAccessToken(data.accessToken);
-        set({
-          user: data.user,
-          accessToken: data.accessToken,
-          isAuthenticated: true,
-        });
-        return data.user;
+          setAccessToken(data.accessToken);
+          set({
+            user: data.user,
+            accessToken: data.accessToken,
+            isAuthenticated: true,
+          });
+          return data.user;
+        } catch (error) {
+          if (!import.meta.env.DEV) {
+            throw error instanceof Error ? error : new Error("Login failed");
+          }
+        }
+
+        const mockUser = MOCK_USERS[email.toLowerCase()];
+        if (!mockUser || mockUser.password !== password) {
+          throw new Error("Invalid email or password");
+        }
+
+        applyMockSession(set, mockUser);
+        const { password: _password, ...user } = mockUser;
+        return user;
+      },
+
+      loginAsRole: (role) => {
+        if (!import.meta.env.DEV) return;
+        const mockUser = Object.values(MOCK_USERS).find(
+          (entry) => entry.role === role,
+        );
+        if (!mockUser) return;
+        applyMockSession(set, mockUser);
       },
 
       logout: async () => {
