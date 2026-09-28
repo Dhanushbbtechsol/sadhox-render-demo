@@ -31,6 +31,8 @@
     "dist",
     "src/**/*.spec.ts",
     "src/emails/**/*",
-    "src/lib/**/*"
+    "src/lib/**/*",
+    "src/index.ts",
+    "src/routes/**/*"
   ]
 }
