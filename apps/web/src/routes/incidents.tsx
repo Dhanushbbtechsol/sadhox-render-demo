@@ -1,16 +1,25 @@
 import { AlertCircleIcon, CheckCircle2Icon, Clock3Icon, TicketIcon } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
 
 import { CreateIncidentDialog } from "@/components/incidents/create-incident-dialog";
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useIncidents } from "@/hooks/use-tickets";
 import { cn } from "@/lib/utils";
+import { INCIDENT_STATUS_LABELS, type IncidentStatus } from "@/types/itsm";
 
 function statusVariant(status: string) {
   if (status === "Resolved" || status === "Closed") return "success" as const;
-  if (status === "In Progress") return "default" as const;
+  if (status === "InProgress") return "default" as const;
   return "outline" as const;
 }
 
@@ -61,14 +70,31 @@ function StatCard({
   );
 }
 
+type SortKey = "createdAt" | "priority" | "status" | "slaDueAt";
+
 export default function IncidentsPage() {
-  const { data, isLoading, isError, error } = useIncidents();
+  const [sortBy, setSortBy] = useState<SortKey>("createdAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const { data, isLoading, isError, error } = useIncidents({
+    sortBy,
+    sortDir,
+    status: statusFilter === "all" ? undefined : statusFilter,
+    pageSize: 50,
+  });
+
+  const incidents = data?.data;
 
   const openCount =
-    data?.filter((i) => i.status !== "Resolved" && i.status !== "Closed").length ?? 0;
-  const p1Count = data?.filter((i) => i.priority === "P1").length ?? 0;
-  const inProgress = data?.filter((i) => i.status === "In Progress").length ?? 0;
-  const resolved = data?.filter((i) => i.status === "Resolved" || i.status === "Closed").length ?? 0;
+    incidents?.filter((i) => i.status !== "Resolved" && i.status !== "Closed")
+      .length ?? 0;
+  const p1Count = incidents?.filter((i) => i.priority === "P1").length ?? 0;
+  const inProgress =
+    incidents?.filter((i) => i.status === "InProgress").length ?? 0;
+  const resolved =
+    incidents?.filter((i) => i.status === "Resolved" || i.status === "Closed")
+      .length ?? 0;
 
   return (
     <div className="space-y-6">
@@ -82,7 +108,7 @@ export default function IncidentsPage() {
         <CreateIncidentDialog />
       </div>
 
-      {!isLoading && data && data.length > 0 ? (
+      {!isLoading && incidents && incidents.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Open" value={openCount} icon={TicketIcon} tone="primary" />
           <StatCard
@@ -109,6 +135,50 @@ export default function IncidentsPage() {
         </div>
       ) : null}
 
+      <div className="flex flex-wrap items-center gap-3">
+        <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            {(Object.keys(INCIDENT_STATUS_LABELS) as IncidentStatus[]).map((status) => (
+              <SelectItem key={status} value={status}>
+                {INCIDENT_STATUS_LABELS[status]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={sortBy}
+          onValueChange={(v) => v && setSortBy(v as SortKey)}
+        >
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="createdAt">Created</SelectItem>
+            <SelectItem value="priority">Priority</SelectItem>
+            <SelectItem value="status">Status</SelectItem>
+            <SelectItem value="slaDueAt">SLA due</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={sortDir}
+          onValueChange={(v) => v && setSortDir(v as "asc" | "desc")}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Direction" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="desc">Descending</SelectItem>
+            <SelectItem value="asc">Ascending</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {isLoading ? <TicketListSkeleton /> : null}
 
       {isError ? (
@@ -118,7 +188,7 @@ export default function IncidentsPage() {
         />
       ) : null}
 
-      {!isLoading && !isError && data?.length === 0 ? (
+      {!isLoading && !isError && incidents?.length === 0 ? (
         <EmptyState
           title="No incidents yet"
           description="Create the first ticket to populate the agent queue."
@@ -126,49 +196,57 @@ export default function IncidentsPage() {
         />
       ) : null}
 
-      {!isLoading && data && data.length > 0 ? (
-        <div className="space-y-2">
-          {data.map((incident, index) => (
-            <Link
-              key={incident.id}
-              to={`/incidents/${incident.id}`}
-              className={cn(
-                "border-border/80 bg-card group relative flex flex-col gap-3 overflow-hidden rounded-xl border px-4 py-3.5 shadow-soft transition-all duration-200",
-                "hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-lift",
-                "sm:flex-row sm:items-center sm:justify-between",
-                "animate-in-up",
-                index === 1 && "stagger-1",
-                index === 2 && "stagger-2",
-                index === 3 && "stagger-3",
-              )}
-            >
-              <span className="bg-primary absolute inset-y-0 left-0 w-0.5 origin-center scale-y-0 rounded-r-full transition-transform duration-200 group-hover:scale-y-100" />
-              <div className="min-w-0 space-y-1.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground bg-muted/80 rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-                    {incident.id}
-                  </span>
-                  <PriorityBadge priority={incident.priority} showLabel={false} />
-                  <Badge variant={statusVariant(incident.status)}>{incident.status}</Badge>
-                </div>
-                <p className="group-hover:text-primary truncate text-sm font-semibold tracking-tight transition-colors">
-                  {incident.title}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {incident.category}
-                  {incident.assignedTo ? ` · ${incident.assignedTo}` : " · Unassigned"}
-                </p>
-              </div>
-              <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
-                <span className="text-muted-foreground text-xs whitespace-nowrap">
-                  {new Date(incident.createdAt).toLocaleString()}
-                </span>
-                <span className="text-primary text-xs font-medium opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                  View details →
-                </span>
-              </div>
-            </Link>
-          ))}
+      {!isLoading && incidents && incidents.length > 0 ? (
+        <div className="border-border/80 bg-card overflow-hidden rounded-xl border shadow-soft">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-muted/50 text-muted-foreground text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Ticket</th>
+                  <th className="px-4 py-3 font-medium">Priority</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Category</th>
+                  <th className="px-4 py-3 font-medium">Assignee</th>
+                  <th className="px-4 py-3 font-medium">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {incidents.map((incident) => (
+                  <tr
+                    key={incident.id}
+                    className="border-border/60 hover:bg-muted/30 border-t transition-colors"
+                  >
+                    <td className="px-4 py-3">
+                      <Link
+                        to={`/incidents/${incident.id}`}
+                        className="hover:text-primary font-medium tracking-tight transition-colors"
+                      >
+                        {incident.title}
+                      </Link>
+                      <p className="text-muted-foreground mt-0.5 font-mono text-[11px]">
+                        {incident.id.slice(0, 8)}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <PriorityBadge priority={incident.priority} showLabel={false} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={statusVariant(incident.status)}>
+                        {INCIDENT_STATUS_LABELS[incident.status]}
+                      </Badge>
+                    </td>
+                    <td className="text-muted-foreground px-4 py-3">{incident.category}</td>
+                    <td className="text-muted-foreground px-4 py-3">
+                      {incident.assigneeName ?? "Unassigned"}
+                    </td>
+                    <td className="text-muted-foreground px-4 py-3 whitespace-nowrap">
+                      {new Date(incident.createdAt).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
     </div>

@@ -12,6 +12,7 @@ import { PostgresThrottlerStorage } from "./common/postgres-throttler.storage";
 import { validateEnv } from "./config/validate-env";
 import { DRIZZLE } from "./database/database.constants";
 import { DatabaseModule, type DrizzleDB } from "./database/database.module";
+import { EventsModule } from "./events/events.module";
 import { HealthController } from "./health/health.controller";
 import { IncidentsModule } from "./incidents/incidents.module";
 import { ProblemsModule } from "./problems/problems.module";
@@ -41,6 +42,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
         ),
       }),
     }),
+    EventsModule,
     AuthModule,
     IncidentsModule,
     ProblemsModule,

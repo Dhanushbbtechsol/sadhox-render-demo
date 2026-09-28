@@ -3,23 +3,18 @@ import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { useIncidents } from "@/hooks/use-tickets";
-import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
+import { INCIDENT_STATUS_LABELS } from "@/types/itsm";
 
 function statusVariant(status: string) {
   if (status === "Resolved" || status === "Closed") return "success" as const;
-  if (status === "In Progress") return "default" as const;
+  if (status === "InProgress") return "default" as const;
   return "outline" as const;
 }
 
 export default function PortalPage() {
-  const user = useAuthStore((s) => s.user);
-  const { data, isLoading } = useIncidents();
-
-  const mine = data?.filter(
-    (incident) =>
-      incident.reporterId === user?.id || incident.reporterId.startsWith("user-end"),
-  );
+  const { data, isLoading } = useIncidents({ pageSize: 50 });
+  const mine = data?.data;
 
   return (
     <div className="space-y-6">
@@ -60,10 +55,12 @@ export default function PortalPage() {
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-muted-foreground bg-muted/80 rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-                    {incident.id}
+                    {incident.id.slice(0, 8)}
                   </span>
                   <PriorityBadge priority={incident.priority} showLabel={false} />
-                  <Badge variant={statusVariant(incident.status)}>{incident.status}</Badge>
+                  <Badge variant={statusVariant(incident.status)}>
+                    {INCIDENT_STATUS_LABELS[incident.status]}
+                  </Badge>
                 </div>
                 <p className="text-sm font-semibold tracking-tight">{incident.title}</p>
               </div>
