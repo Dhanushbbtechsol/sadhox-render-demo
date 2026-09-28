@@ -27,8 +27,9 @@ export class RolesGuard implements CanActivate {
       ROLES_KEY,
       [context.getHandler(), context.getClass()],
     );
+    // Default-deny: authenticated routes must declare @Roles(...)
     if (!requiredRoles || requiredRoles.length === 0) {
-      return true;
+      throw new ForbiddenException("Missing role requirements");
     }
 
     const request = context.switchToHttp().getRequest<{ user?: AuthUser }>();

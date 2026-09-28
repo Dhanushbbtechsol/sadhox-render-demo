@@ -3,6 +3,10 @@ import * as bcrypt from "bcryptjs";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import postgres from "postgres";
+import {
+  assertPasswordComplexity,
+  generateSeedPassword,
+} from "../src/common/password-policy";
 import { users, slaRules } from "../src/database/schema";
 
 async function seed() {
@@ -14,24 +18,32 @@ async function seed() {
   const client = postgres(url, { max: 1 });
   const db = drizzle(client);
 
-  const adminHash = await bcrypt.hash("ChangeMe123!", 12);
-  const agentHash = await bcrypt.hash("ChangeMe123!", 12);
+  const seedPassword = process.env.SEED_PASSWORD ?? generateSeedPassword();
+  assertPasswordComplexity(seedPassword);
+  const passwordHash = await bcrypt.hash(seedPassword, 12);
 
   const seedUsers = [
     {
       email: "admin@sadhox.local",
-      passwordHash: adminHash,
+      passwordHash,
       role: "Admin" as const,
       name: "Ian Admin",
     },
     {
       email: "agent@sadhox.local",
-      passwordHash: agentHash,
+      passwordHash,
       role: "Agent" as const,
       name: "Alice Agent",
     },
+    {
+      email: "user@sadhox.local",
+      passwordHash,
+      role: "EndUser" as const,
+      name: "End User",
+    },
   ];
 
+  let createdAny = false;
   for (const u of seedUsers) {
     const [existing] = await db
       .select()
@@ -43,7 +55,18 @@ async function seed() {
       continue;
     }
     await db.insert(users).values(u);
+    createdAny = true;
     console.log(`created ${u.role} ${u.email}`);
+  }
+
+  if (createdAny) {
+    console.log("");
+    console.log("=== ONE-TIME SEED PASSWORD (store securely; not logged elsewhere) ===");
+    console.log(seedPassword);
+    console.log("======================================================================");
+    console.log("Override with SEED_PASSWORD=... on future seeds if needed.");
+  } else {
+    console.log("No new users created — password not printed.");
   }
 
   const defaults = [

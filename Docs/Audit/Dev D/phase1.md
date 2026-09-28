@@ -1,39 +1,38 @@
 # Security Audit: Dev D (Phase 1)
 
-## High
+**Reverified: 2026-09-28**  
+**Result: CLEAN — 0 open findings, 0 advisories**
 
-### [A01] Missing Global Authorization Guard — apps/server/src/app.controller.ts
+Scope: NestJS API in `apps/server` (Passport JWT, Drizzle, RBAC stubs).
 
-**Status: FIXED**
+## Checklist (all FIXED)
 
-There is no `app.controller.ts`. Nest is the only API entry (`src/main.ts`).
+| ID | Finding | Status |
+| --- | --- | --- |
+| A01 | Missing global auth / public-by-default Nest scaffold | **FIXED** — `JwtAuthGuard` + `RolesGuard` (default-deny) + `ThrottlerGuard` as `APP_GUARD` |
+| A01 | Hono demo auth / public entry | **FIXED** — `src/index.ts`, `src/routes/auth.ts`, `src/routes/catalog.ts` deleted |
+| A01 | RolesGuard fail-open without `@Roles` | **FIXED** — denies unless `@Public()` or `@Roles(...)` |
+| A01 | JWT role not re-checked vs DB | **FIXED** — `JwtStrategy.validate` loads live user/role |
+| A01 | Incident stubs allow EndUser | **FIXED** — Admin/Agent only until reporter filters |
+| A01 | Catalog/request RBAC on Nest | **FIXED** — catalog + service-requests with role filtering |
+| A05 | DB connection string / secrets | **FIXED** — env + Zod only; `.env` gitignored; no `packages/db` |
+| A05 | Public Swagger in production | **FIXED** — `/docs` only when `NODE_ENV !== "production"` |
+| A05 | Missing security headers | **FIXED** — Helmet; HSTS in production |
+| A07 | Login rate limit | **FIXED** — login 5/min, refresh 10/min |
+| A07 | Seed / OpenAPI shared password | **FIXED** — one-time generated seed password; generic OpenAPI examples |
+| A07 | Auth failures unused | **FIXED** — `auth.login_failed` → logger + `audit_log` |
+| A07 | Password policy | **FIXED** — complexity on seed/create (`password-policy.ts`) |
+| — | `cred.md` secrets in repo | **FIXED** — untracked + gitignored |
 
-Global auth (deny-by-default) in [`apps/server/src/app.module.ts`](../../apps/server/src/app.module.ts):
+## Evidence (runtime entry)
 
-- `JwtAuthGuard` (Passport-JWT) as `APP_GUARD` — Bearer required unless `@Public()`
-- `RolesGuard` as `APP_GUARD` — `@Roles('Admin'|'Agent'|'EndUser')` enforced
+- Entry: `apps/server/src/main.ts` only (Nest)
+- Guards: `apps/server/src/app.module.ts`
+- Auth: `apps/server/src/auth/*`
+- Verify: `pnpm --filter server check-types` and `pnpm --filter server test` pass
 
-`@Public()` only on: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /health`.
+## Out of scope (not advisories)
 
-Phase 1 uses Passport JWT (not Supabase Auth), per Dev D phase docs.
-Auth implementation: `apps/server/src/auth/` (`AuthModule`, `JwtStrategy`, refresh rotation).
-
-**Also removed:** temporary Hono entry (`src/index.ts`) and demo `src/routes/auth.ts`
-that bypassed Nest guards with hardcoded demo passwords.
-
-## Low / Hardening
-
-### [A05] Database Connection String — packages/db/.env
-
-**Status: FIXED** (note: there is no `packages/db` package)
-
-`DATABASE_URL` is loaded only from env via Nest `ConfigModule` + Zod
-(`apps/server/src/config/validate-env.ts` → `DatabaseModule`). Not hardcoded in app code.
-
-Hardening:
-
-- Root [`.gitignore`](../../.gitignore): `.env` / `.env.*` (allows `.env.example` only)
-- `apps/server/.gitignore`: `.env*`
-- Template: [`apps/server/.env.example`](../../apps/server/.env.example) (placeholders only; port `5436`)
-- Runtime secrets: local gitignored `apps/server/.env`, or Render `DATABASE_URL` from managed DB
-- Removed tracked credentials scratch file `cred.md` from the git index and added it to `.gitignore`
+- Staging/Render TLS and cloud secret stores
+- Full `pnpm-lock.yaml` CVE audit
+- Phase 2+ business logic still stubbed by design
