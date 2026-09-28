@@ -50,10 +50,19 @@ async function seed() {
     { priority: "P1" as const, responseMinutes: 15, resolveMinutes: 240 },
     { priority: "P2" as const, responseMinutes: 60, resolveMinutes: 480 },
     { priority: "P3" as const, responseMinutes: 240, resolveMinutes: 1440 },
-    { priority: "P4" as const, responseMinutes: 480, resolveMinutes: 2880 },
+    { priority: "P4" as const, responseMinutes: 480, resolveMinutes: 4320 },
   ];
   for (const rule of defaults) {
-    await db.insert(slaRules).values(rule).onConflictDoNothing();
+    await db
+      .insert(slaRules)
+      .values(rule)
+      .onConflictDoUpdate({
+        target: slaRules.priority,
+        set: {
+          responseMinutes: rule.responseMinutes,
+          resolveMinutes: rule.resolveMinutes,
+        },
+      });
   }
   console.log("SLA rules ensured");
 

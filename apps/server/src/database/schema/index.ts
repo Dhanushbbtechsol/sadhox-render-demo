@@ -9,6 +9,8 @@ import {
   integer,
   jsonb,
   index,
+  primaryKey,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -132,6 +134,7 @@ export const incidents = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description").notNull(),
+    category: varchar("category", { length: 64 }).notNull().default("Other"),
     priority: priorityEnum("priority").notNull().default("P3"),
     impact: impactUrgencyEnum("impact").notNull().default("Medium"),
     urgency: impactUrgencyEnum("urgency").notNull().default("Medium"),
@@ -155,6 +158,7 @@ export const incidents = pgTable(
   (t) => [
     index("incidents_status_idx").on(t.status),
     index("incidents_assigned_to_idx").on(t.assignedTo),
+    index("incidents_reporter_id_idx").on(t.reporterId),
   ],
 );
 
@@ -178,6 +182,27 @@ export const problems = pgTable(
       .defaultNow(),
   },
   (t) => [index("problems_status_idx").on(t.status)],
+);
+
+/** Links one Problem to many Incident records (root-cause grouping). */
+export const problemIncidents = pgTable(
+  "problem_incidents",
+  {
+    problemId: uuid("problem_id")
+      .notNull()
+      .references(() => problems.id, { onDelete: "cascade" }),
+    incidentId: uuid("incident_id")
+      .notNull()
+      .references(() => incidents.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.problemId, t.incidentId] }),
+    unique("problem_incidents_incident_unique").on(t.incidentId),
+    index("problem_incidents_problem_id_idx").on(t.problemId),
+  ],
 );
 
 /** GUESS: catalog_items not in Phase 1 table list; catalogId stored as UUID without FK until catalog module lands. */
@@ -300,6 +325,8 @@ export const notifications = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   refreshTokens: many(refreshTokens),
+  reportedIncidents: many(incidents, { relationName: "incidentReporter" }),
+  assignedIncidents: many(incidents, { relationName: "incidentAssignee" }),
 }));
 
 export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
@@ -309,6 +336,45 @@ export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
   }),
 }));
 
+export const incidentsRelations = relations(incidents, ({ one, many }) => ({
+  reporter: one(users, {
+    fields: [incidents.reporterId],
+    references: [users.id],
+    relationName: "incidentReporter",
+  }),
+  assignee: one(users, {
+    fields: [incidents.assignedTo],
+    references: [users.id],
+    relationName: "incidentAssignee",
+  }),
+  problemLinks: many(problemIncidents),
+}));
+
+export const problemsRelations = relations(problems, ({ many }) => ({
+  incidentLinks: many(problemIncidents),
+}));
+
+export const problemIncidentsRelations = relations(
+  problemIncidents,
+  ({ one }) => ({
+    problem: one(problems, {
+      fields: [problemIncidents.problemId],
+      references: [problems.id],
+    }),
+    incident: one(incidents, {
+      fields: [problemIncidents.incidentId],
+      references: [incidents.id],
+    }),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type UserRole = (typeof userRoleEnum.enumValues)[number];
+export type Incident = typeof incidents.$inferSelect;
+export type Problem = typeof problems.$inferSelect;
+export type Comment = typeof comments.$inferSelect;
+export type Priority = (typeof priorityEnum.enumValues)[number];
+export type ImpactUrgency = (typeof impactUrgencyEnum.enumValues)[number];
+export type IncidentStatus = (typeof incidentStatusEnum.enumValues)[number];
+export type ProblemStatus = (typeof problemStatusEnum.enumValues)[number];

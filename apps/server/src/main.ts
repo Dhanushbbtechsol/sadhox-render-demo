@@ -4,6 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import cookieParser = require("cookie-parser");
+import { IoAdapter } from "@nestjs/platform-socket.io";
 import { AppModule } from "./app.module";
 import { RejectRequesterOverridePipe } from "./service-requests/pipes/reject-requester-override.pipe";
 
@@ -11,6 +12,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
+  app.useWebSocketAdapter(new IoAdapter(app));
   app.use(cookieParser());
   app.enableCors({
     origin: config.getOrThrow<string>("CORS_ORIGIN"),
@@ -27,8 +29,8 @@ async function bootstrap() {
 
   const swagger = new DocumentBuilder()
     .setTitle("Sadhox API")
-    .setDescription("ITSM platform API — Phase 1 foundation contract")
-    .setVersion("0.1.0")
+    .setDescription("ITSM platform API — Phase 2 incidents/problems CRUD")
+    .setVersion("0.2.0")
     .addBearerAuth()
     .addCookieAuth("refresh_token")
     .build();

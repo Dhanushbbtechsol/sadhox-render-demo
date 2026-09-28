@@ -2,15 +2,17 @@ import { ArrowLeftIcon, CalendarClockIcon, UserIcon } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
+import { IncidentComments } from "@/components/incidents/incident-comments";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useIncident } from "@/hooks/use-tickets";
+import { INCIDENT_STATUS_LABELS } from "@/types/itsm";
 
 function statusVariant(status: string) {
   if (status === "Resolved" || status === "Closed") return "success" as const;
-  if (status === "In Progress") return "default" as const;
+  if (status === "InProgress") return "default" as const;
   return "outline" as const;
 }
 
@@ -44,10 +46,12 @@ export default function IncidentDetailPage() {
         <CardHeader className="space-y-3 pt-5">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-muted-foreground bg-muted rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-              {data.id}
+              {data.id.slice(0, 8)}
             </span>
             <PriorityBadge priority={data.priority} />
-            <Badge variant={statusVariant(data.status)}>{data.status}</Badge>
+            <Badge variant={statusVariant(data.status)}>
+              {INCIDENT_STATUS_LABELS[data.status]}
+            </Badge>
             <Badge variant="secondary">{data.category}</Badge>
           </div>
           <CardTitle className="text-xl font-semibold tracking-tight">{data.title}</CardTitle>
@@ -62,14 +66,26 @@ export default function IncidentDetailPage() {
               { label: "Impact", value: data.impact },
               { label: "Urgency", value: data.urgency },
               {
+                label: "Reporter",
+                value: data.reporter?.name ?? data.reporterName ?? "—",
+                icon: UserIcon,
+              },
+              {
                 label: "Assignee",
-                value: data.assignedTo ?? "Unassigned",
+                value: data.assignee?.name ?? data.assigneeName ?? "Unassigned",
                 icon: UserIcon,
               },
               {
                 label: "SLA due",
                 value: data.slaDueAt ? new Date(data.slaDueAt).toLocaleString() : "—",
                 icon: CalendarClockIcon,
+              },
+              {
+                label: "SLA target",
+                value:
+                  data.slaTargetMinutes != null
+                    ? `${Math.round(data.slaTargetMinutes / 60)}h resolve`
+                    : "—",
               },
             ].map((item) => (
               <div
@@ -84,6 +100,8 @@ export default function IncidentDetailPage() {
               </div>
             ))}
           </dl>
+
+          <IncidentComments incidentId={data.id} />
         </CardContent>
       </Card>
     </div>

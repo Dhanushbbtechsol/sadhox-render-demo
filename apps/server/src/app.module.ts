@@ -8,6 +8,7 @@ import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { validateEnv } from "./config/validate-env";
 import { DatabaseModule } from "./database/database.module";
+import { EventsModule } from "./events/events.module";
 import { HealthController } from "./health/health.controller";
 import { IncidentsModule } from "./incidents/incidents.module";
 import { ProblemsModule } from "./problems/problems.module";
@@ -21,6 +22,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
       validate: validateEnv,
     }),
     DatabaseModule,
+    EventsModule,
     AuthModule,
     IncidentsModule,
     ProblemsModule,
