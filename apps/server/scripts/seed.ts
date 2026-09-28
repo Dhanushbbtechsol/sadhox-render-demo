@@ -7,7 +7,8 @@ import {
   assertPasswordComplexity,
   generateSeedPassword,
 } from "../src/common/password-policy";
-import { users, slaRules } from "../src/database/schema";
+import { users, slaRules, serviceCatalog } from "../src/database/schema";
+import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
 
 async function seed() {
   const url = process.env.DATABASE_URL;
@@ -34,6 +35,12 @@ async function seed() {
       passwordHash,
       role: "Agent" as const,
       name: "Alice Agent",
+    },
+    {
+      email: "enduser@sadhox.local",
+      passwordHash,
+      role: "EndUser" as const,
+      name: "End User",
     },
     {
       email: "user@sadhox.local",
@@ -88,6 +95,26 @@ async function seed() {
       });
   }
   console.log("SLA rules ensured");
+
+  for (const item of CATALOG_SEED) {
+    const [existing] = await db
+      .select()
+      .from(serviceCatalog)
+      .where(eq(serviceCatalog.id, item.id))
+      .limit(1);
+    if (existing) {
+      console.log(`skip existing catalog ${item.name}`);
+      continue;
+    }
+    await db.insert(serviceCatalog).values({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      department: item.department,
+      formFields: item.formFields,
+    });
+    console.log(`created catalog ${item.name}`);
+  }
 
   await client.end();
   console.log("Seed complete");

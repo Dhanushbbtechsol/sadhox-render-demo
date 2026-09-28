@@ -41,8 +41,14 @@ export const requestStatusEnum = pgEnum("request_status", [
   "PendingApproval",
   "Approved",
   "Rejected",
+  "InFulfillment",
   "Fulfilled",
   "Closed",
+]);
+export const requestUrgencyEnum = pgEnum("request_urgency", [
+  "Low",
+  "Medium",
+  "High",
 ]);
 export const changeTypeEnum = pgEnum("change_type", [
   "Standard",
@@ -52,11 +58,15 @@ export const changeTypeEnum = pgEnum("change_type", [
 export const changeStatusEnum = pgEnum("change_status", [
   "Draft",
   "PendingApproval",
+  "Submitted",
   "Approved",
   "Scheduled",
   "Implementing",
+  "Implemented",
   "Completed",
+  "Closed",
   "Failed",
+  "RolledBack",
   "Cancelled",
 ]);
 export const assetTypeEnum = pgEnum("asset_type", ["Hardware", "Software"]);
@@ -205,12 +215,43 @@ export const problemIncidents = pgTable(
   ],
 );
 
-/** GUESS: catalog_items not in Phase 1 table list; catalogId stored as UUID without FK until catalog module lands. */
+export type CatalogFormField = {
+  name: string;
+  label: string;
+  type: "text" | "textarea" | "select";
+  required?: boolean;
+  options?: string[];
+};
+
+export const serviceCatalog = pgTable(
+  "service_catalog",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description").notNull(),
+    department: varchar("department", { length: 128 }).notNull(),
+    formFields: jsonb("form_fields")
+      .$type<CatalogFormField[]>()
+      .notNull()
+      .default([]),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("service_catalog_department_idx").on(t.department)],
+);
+
 export const serviceRequests = pgTable(
   "service_requests",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    catalogId: uuid("catalog_id").notNull(),
+    catalogId: uuid("catalog_id")
+      .notNull()
+      .references(() => serviceCatalog.id),
     requesterId: uuid("requester_id")
       .notNull()
       .references(() => users.id),
@@ -219,7 +260,15 @@ export const serviceRequests = pgTable(
     }),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
+    justification: text("justification").notNull().default(""),
+    urgency: requestUrgencyEnum("urgency").notNull().default("Medium"),
+    fields: jsonb("fields")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
     status: requestStatusEnum("status").notNull().default("Draft"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    rejectionReason: text("rejection_reason"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -227,7 +276,10 @@ export const serviceRequests = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("service_requests_status_idx").on(t.status)],
+  (t) => [
+    index("service_requests_status_idx").on(t.status),
+    index("service_requests_requester_id_idx").on(t.requesterId),
+  ],
 );
 
 export const changes = pgTable(
@@ -237,12 +289,17 @@ export const changes = pgTable(
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
     type: changeTypeEnum("type").notNull().default("Normal"),
-    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    scheduledStart: timestamp("scheduled_start", { withTimezone: true }),
+    scheduledEnd: timestamp("scheduled_end", { withTimezone: true }),
     rollbackPlan: text("rollback_plan"),
     status: changeStatusEnum("status").notNull().default("Draft"),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
     approvedBy: uuid("approved_by").references(() => users.id, {
       onDelete: "set null",
     }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -250,7 +307,10 @@ export const changes = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("changes_status_idx").on(t.status)],
+  (t) => [
+    index("changes_status_idx").on(t.status),
+    index("changes_type_idx").on(t.type),
+  ],
 );
 
 export const assets = pgTable(
