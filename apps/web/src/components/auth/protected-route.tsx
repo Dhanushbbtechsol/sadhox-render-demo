@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 
 import { homePathForRole, useAuthStore } from "@/stores/auth-store";
@@ -27,6 +28,13 @@ export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
   }
 
   return <Outlet />;
+}
+
+/** UI-only role gate for buttons/sections. API must still enforce RBAC. */
+export function Can({ roles, children }: { roles: UserRole[]; children: ReactNode }) {
+  const hasRole = useAuthStore((s) => s.hasRole);
+  if (!hasRole(...roles)) return null;
+  return children;
 }
 
 export function GuestRoute() {

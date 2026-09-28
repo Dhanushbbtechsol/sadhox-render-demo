@@ -28,8 +28,11 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Lint / typecheck (server)
+      - name: Lint (server ESLint)
         run: pnpm --filter server lint
+
+      - name: Typecheck (server)
+        run: pnpm --filter server check-types
 
       - name: Unit tests (server)
         run: pnpm --filter server test

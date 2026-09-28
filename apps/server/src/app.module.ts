@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AuthModule } from "./auth/auth.module";
 import { AssetsModule } from "./assets/assets.module";
 import { ChangesModule } from "./changes/changes.module";
@@ -20,6 +21,13 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
       isGlobal: true,
       validate: validateEnv,
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: "default",
+        ttl: 60_000,
+        limit: 120,
+      },
+    ]),
     DatabaseModule,
     AuthModule,
     IncidentsModule,
@@ -33,6 +41,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

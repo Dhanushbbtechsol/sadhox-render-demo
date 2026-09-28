@@ -1,28 +1,38 @@
 # Security Audit: Dev D (Phase 1)
 
-Reaudit 2026-09-28: see [phase1.md](../phase1.md).
+**Reverified: 2026-09-28**  
+**Result: CLEAN — 0 open findings, 0 advisories**
 
-## High
+Scope: NestJS API in `apps/server` (Passport JWT, Drizzle, RBAC stubs).
 
-### [A01] Missing Global Authorization Guard — apps/server/src/app.controller.ts
+## Checklist (all FIXED)
 
-**Status: FIXED on Nest `main.ts`.** Still open as leftover Hono.
+| ID | Finding | Status |
+| --- | --- | --- |
+| A01 | Missing global auth / public-by-default Nest scaffold | **FIXED** — `JwtAuthGuard` + `RolesGuard` (default-deny) + `ThrottlerGuard` as `APP_GUARD` |
+| A01 | Hono demo auth / public entry | **FIXED** — `src/index.ts`, `src/routes/auth.ts`, `src/routes/catalog.ts` deleted |
+| A01 | RolesGuard fail-open without `@Roles` | **FIXED** — denies unless `@Public()` or `@Roles(...)` |
+| A01 | JWT role not re-checked vs DB | **FIXED** — `JwtStrategy.validate` loads live user/role |
+| A01 | Incident stubs allow EndUser | **FIXED** — Admin/Agent only until reporter filters |
+| A01 | Catalog/request RBAC on Nest | **FIXED** — catalog + service-requests with role filtering |
+| A05 | DB connection string / secrets | **FIXED** — env + Zod only; `.env` gitignored; no `packages/db` |
+| A05 | Public Swagger in production | **FIXED** — `/docs` only when `NODE_ENV !== "production"` |
+| A05 | Missing security headers | **FIXED** — Helmet; HSTS in production |
+| A07 | Login rate limit | **FIXED** — login 5/min, refresh 10/min |
+| A07 | Seed / OpenAPI shared password | **FIXED** — one-time generated seed password; generic OpenAPI examples |
+| A07 | Auth failures unused | **FIXED** — `auth.login_failed` → logger + `audit_log` |
+| A07 | Password policy | **FIXED** — complexity on seed/create (`password-policy.ts`) |
+| — | `cred.md` secrets in repo | **FIXED** — untracked + gitignored |
 
-Nest is the documented API entry (`src/main.ts`). Global auth in `apps/server/src/app.module.ts`:
+## Evidence (runtime entry)
 
-- `JwtAuthGuard` as `APP_GUARD` — Bearer required unless `@Public()`
-- `RolesGuard` as `APP_GUARD` — `@Roles(...)` when set
+- Entry: `apps/server/src/main.ts` only (Nest)
+- Guards: `apps/server/src/app.module.ts`
+- Auth: `apps/server/src/auth/*`
+- Verify: `pnpm --filter server check-types` and `pnpm --filter server test` pass
 
-`@Public()` on: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /health`.
+## Out of scope (not advisories)
 
-**Regression:** `apps/server/src/index.ts` and `apps/server/src/routes/auth.ts` were not removed. Demo Admin password `"password"` and default JWT secrets are still in tree.
-
-## Low / Hardening
-
-### [A05] Database Connection String — packages/db/.env
-
-**Status: FIXED** (there is no `packages/db` package)
-
-`DATABASE_URL` comes from env via Nest `ConfigModule` + Zod. `.env` is gitignored. `cred.md` is gitignored and untracked.
-
-Open from reaudit: public Swagger, unused Throttler, seed password in OpenAPI example.
+- Staging/Render TLS and cloud secret stores
+- Full `pnpm-lock.yaml` CVE audit
+- Phase 2+ business logic still stubbed by design

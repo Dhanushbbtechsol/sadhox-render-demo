@@ -1,20 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { apiFetch } from "@/lib/api";
 import { mockChanges, updateMockChangeStatus } from "@/lib/mocks/changes";
 import { useAuthStore } from "@/stores/auth-store";
-import type { ChangeStatus } from "@/types/api";
+import type { ChangeRecord, ChangeStatus } from "@/types/api";
 
 const CHANGES_KEY = ["changes"] as const;
 
-function delay(ms = 250) {
+function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function useChanges() {
   return useQuery({
     queryKey: CHANGES_KEY,
-    queryFn: async () => {
-      await delay();
+    queryFn: async (): Promise<ChangeRecord[]> => {
+      const res = await apiFetch<{ data: ChangeRecord[] }>("/changes");
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return res.data;
+      }
+      await delay(250);
       return [...mockChanges];
     },
   });
@@ -26,7 +31,10 @@ export function useUpdateChangeStatus() {
 
   return useMutation({
     mutationFn: async (input: { id: string; status: ChangeStatus }) => {
-      await delay(300);
+      await apiFetch(`/changes/${input.id}/status`, {
+        method: "PATCH",
+        body: { status: input.status },
+      });
       const updated = updateMockChangeStatus(input.id, input.status, user?.id);
       if (!updated) throw new Error("Change not found");
       return updated;

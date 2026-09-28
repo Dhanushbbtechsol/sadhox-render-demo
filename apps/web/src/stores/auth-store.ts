@@ -34,6 +34,7 @@ const MOCK_USERS: Record<string, AuthUser & { password: string }> = import.meta
 
 interface AuthState {
   user: AuthUser | null;
+  /** In-memory only — never written to localStorage (XSS mitigation). */
   accessToken: string | null;
   isAuthenticated: boolean;
   isHydrated: boolean;
@@ -152,16 +153,16 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "sadhox-auth",
+      // Persist identity flag only — access token stays in memory; restore via refresh cookie.
       partialize: (state) => ({
         user: state.user,
-        accessToken: state.accessToken,
         isAuthenticated: state.isAuthenticated,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state?.accessToken) {
-          setAccessToken(state.accessToken);
-        }
         state?.setHydrated();
+        if (state?.isAuthenticated) {
+          void useAuthStore.getState().refresh();
+        }
       },
     },
   ),

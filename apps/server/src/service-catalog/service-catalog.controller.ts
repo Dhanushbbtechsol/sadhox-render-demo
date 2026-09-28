@@ -1,4 +1,9 @@
-import { Controller, Get } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import {
   CurrentUser,
@@ -20,5 +25,18 @@ export class ServiceCatalogController {
   })
   list(@CurrentUser() user: AuthUser) {
     return { data: this.serviceRequests.listCatalog(user) };
+  }
+
+  @Get(":id")
+  @Roles("Admin", "Agent", "EndUser")
+  @ApiOperation({ summary: "Get a catalog item if allowed for the caller" })
+  get(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    const item = this.serviceRequests
+      .listCatalog(user)
+      .find((entry) => entry.id === id);
+    if (!item) {
+      throw new NotFoundException("Catalog item not found");
+    }
+    return item;
   }
 }
