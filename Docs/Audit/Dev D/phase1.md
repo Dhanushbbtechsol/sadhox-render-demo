@@ -1,6 +1,6 @@
 # Security Audit: Dev D (Phase 1)
 
-Reaudit 2026-09-28: Nest remediations verified in source. Combined report: [phase1.md](../phase1.md).
+Reaudit 2026-09-28: Nest remediations verified in source. Phase 1 closed. Combined report: [phase1.md](../phase1.md).
 
 Scope: NestJS API in `apps/server` (Passport JWT, Drizzle, RBAC stubs).
 
@@ -18,9 +18,11 @@ Scope: NestJS API in `apps/server` (Passport JWT, Drizzle, RBAC stubs).
 | A05 | Public Swagger in production | **FIXED** — `/docs` only when not production |
 | A05 | Missing security headers | **FIXED** — Helmet; HSTS in production |
 | A07 | Login rate limit | **FIXED** — 5/min login, 10/min refresh; shared `throttle_hits` |
+| A07 | Login email timing | **FIXED** — `bcrypt.compare` against `MISSING_USER_HASH` |
 | A07 | Seed / OpenAPI password | **FIXED** — generated seed; generic examples |
 | A07 | Auth failures unused | **FIXED** — `auth.login_failed` audit rows |
 | A07 | Password policy | **FIXED** — `password-policy.ts` on seed/create |
+| A09 | Spoofable `X-Forwarded-For` | **FIXED** — prod `trust proxy` 1; login uses `req.ip` |
 | — | `cred.md` | **FIXED** — gitignored |
 
 ## Out of scope

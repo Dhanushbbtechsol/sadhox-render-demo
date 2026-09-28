@@ -1,31 +1,19 @@
-# Phase 1 reaudit — 2026-09-28 (post Dev-A-/C/D merge)
+# Phase 1 reaudit — 2026-09-28
 
 Scope: current `Audit` tree. Stack: React/Vite + Zustand, NestJS (`apps/server` `main.ts`), Drizzle/Postgres, Passport JWT.
 
-**High / Medium: none open.** Low items below were fixed in source.
+**Open findings: none.** High / Medium / Low from this phase are closed in source.
 
-## Low / Hardening
-
-### [A02] Session user still written to localStorage — apps/web/src/stores/auth-store.ts
-**Status: Fixed.** Persist only `isAuthenticated`. Restore user/token via `POST /auth/refresh` before `isHydrated`.
-
-### [A07] Login timing differs when the email does not exist — apps/server/src/auth/auth.service.ts
-**Status: Fixed.** Unknown emails still run `bcrypt.compare` against `MISSING_USER_HASH`.
-
-### [A07] Rate limits are in-process only — apps/server/src/app.module.ts
-**Status: Fixed.** Shared `throttle_hits` table on `DATABASE_URL` (`PostgresThrottlerStorage`). No extra Redis client.
-
-### [A09] Login audit IP trusts `X-Forwarded-For` — apps/server/src/auth/auth.controller.ts
-**Status: Fixed.** Production `trust proxy` hop count 1; login records `req.ip` only.
-
-## Verified remediations (still hold)
+## Verified remediations
 
 | Item | Evidence |
 | --- | --- |
 | Hono demo auth gone | No `src/index.ts` / `src/routes/auth.ts` |
 | Nest JWT + Roles default-deny + Throttler | `app.module.ts` |
-| Login 5/min, refresh 10/min | `auth.controller.ts` |
-| Access token not in persist | `auth-store.ts` partialize |
+| Login 5/min, refresh 10/min; shared store | `auth.controller.ts`, `PostgresThrottlerStorage` + `throttle_hits` |
+| Persist only `isAuthenticated` | `auth-store.ts` partialize; user/token from `POST /auth/refresh` |
+| Unknown-email login still bcrypt | `auth.service.ts` `MISSING_USER_HASH` |
+| Login audit IP is `req.ip` | `auth.controller.ts`; prod `trust proxy` 1 in `main.ts` |
 | Swagger off in production | `main.ts` `if (!isProd)` |
 | Seed password generated / OpenAPI generic | `scripts/seed.ts`, `login.dto.ts` |
 | Catalog/request RBAC + reject requester override | Nest controllers + `request-store` |

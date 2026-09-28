@@ -1,6 +1,6 @@
 # Security Audit: Dev B (Phase 1)
 
-Reaudit 2026-09-28: remediations below still hold. Access token and user are not persisted. See [phase1.md](../phase1.md).
+Reaudit 2026-09-28: remediations below still hold. Access token and user are not persisted. Phase 1 closed. See [phase1.md](../phase1.md).
 
 **Status:** Remediated (auth-store / login UI)
 

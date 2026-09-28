@@ -20,6 +20,9 @@ build
 cred.md
 **/cred.md
 
+# Cursor hook runtime (generation IDs, turn counters)
+.cursor/hooks/state/
+
 # IDEs and editors
 .vscode/*
 !.vscode/settings.json

@@ -1,8 +1,8 @@
 # Security Audit: Dev A (Phase 1)
 
-Reaudit 2026-09-28: catalog/request RBAC is on Nest `main.ts`. See [phase1.md](../phase1.md).
+Reaudit 2026-09-28: catalog/request RBAC is on Nest `main.ts`. Phase 1 closed. See [phase1.md](../phase1.md).
 
-## Low / Hardening
+## Low / Hardening — Resolved
 ### [A07] Missing actual API integration — previously apps/web/src/lib/mocks/service-catalog.ts
 **Status: Fixed on the Nest start path.**
 
