@@ -1,10 +1,17 @@
-import { LogOutIcon } from "lucide-react";
+import { ChevronDownIcon, LogOutIcon } from "lucide-react";
 import { useNavigate } from "react-router";
 
 import { ModeToggle } from "@/components/mode-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuthStore } from "@/stores/auth-store";
 
 function initials(name: string) {
@@ -27,33 +34,59 @@ export function TopNavbar() {
   }
 
   return (
-    <header className="border-border bg-background flex h-12 items-center justify-between gap-4 border-b px-4">
-      <div className="text-muted-foreground text-xs">IT Service Management</div>
+    <header className="border-border/80 bg-card/70 supports-backdrop-filter:bg-card/55 flex h-14 items-center justify-between gap-4 border-b px-4 backdrop-blur-md md:px-6">
+      <div>
+        <p className="text-foreground text-sm font-medium tracking-tight">IT Service Management</p>
+        <p className="text-muted-foreground hidden text-xs sm:block">
+          Track, prioritize, and resolve tickets
+        </p>
+      </div>
       <div className="flex items-center gap-2">
         <ModeToggle />
         {user ? (
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 px-1">
-              <Avatar className="size-7">
-                <AvatarFallback>{initials(user.name)}</AvatarFallback>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  className="hover:bg-muted/70 h-10 gap-2 rounded-xl px-2"
+                  aria-label="Account menu"
+                />
+              }
+            >
+              <Avatar className="ring-primary/25 size-8 ring-2">
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                  {initials(user.name)}
+                </AvatarFallback>
               </Avatar>
-              <div className="hidden leading-tight sm:block">
-                <p className="text-xs font-medium">{user.name}</p>
-                <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+              <span className="hidden max-w-28 truncate text-sm font-medium sm:inline">
+                {user.name}
+              </span>
+              <ChevronDownIcon className="text-muted-foreground hidden size-3.5 sm:inline" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={8}
+              className="w-64 rounded-xl p-1.5 shadow-lift"
+            >
+              <div className="px-2.5 py-2.5">
+                <p className="truncate text-sm font-semibold tracking-tight">{user.name}</p>
+                <p className="text-muted-foreground truncate text-xs">{user.email}</p>
+                <Badge variant="secondary" className="mt-2">
                   {user.role}
                 </Badge>
               </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void handleLogout()}
-              aria-label="Sign out"
-            >
-              <LogOutIcon />
-              <span className="hidden sm:inline">Sign out</span>
-            </Button>
-          </div>
+              <DropdownMenuSeparator className="mx-1" />
+              <DropdownMenuItem
+                variant="destructive"
+                className="rounded-lg px-2.5 py-2 text-sm"
+                onClick={() => void handleLogout()}
+              >
+                <LogOutIcon />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </div>
     </header>

@@ -27,7 +27,7 @@ function SelectTrigger({
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
-        "dark:bg-input/30 border-input focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex h-8 w-full items-center justify-between gap-2 rounded-none border bg-transparent px-2.5 py-1 text-xs outline-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50",
+        "dark:bg-input/30 border-input bg-card/80 focus-visible:border-primary/50 focus-visible:ring-primary/25 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex h-10 w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm shadow-soft outline-none transition-all duration-200 hover:border-primary/25 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
@@ -60,7 +60,7 @@ function SelectContent({
         <SelectPrimitive.Popup
           data-slot="select-content"
           className={cn(
-            "bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 relative z-50 max-h-72 min-w-(--anchor-width) overflow-y-auto rounded-none border shadow-md outline-none",
+            "bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 relative z-50 max-h-72 min-w-(--anchor-width) overflow-y-auto rounded-xl border shadow-lift outline-none",
             className,
           )}
           {...props}
@@ -77,7 +77,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-default items-center gap-2 rounded-none py-1.5 pr-8 pl-2 text-xs outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-50",
+        "focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-default items-center gap-2 rounded-lg py-2 pr-8 pl-2.5 text-sm outline-none select-none transition-colors data-disabled:pointer-events-none data-disabled:opacity-50",
         className,
       )}
       {...props}

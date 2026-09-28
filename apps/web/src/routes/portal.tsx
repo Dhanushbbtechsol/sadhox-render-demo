@@ -4,6 +4,13 @@ import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { useIncidents } from "@/hooks/use-tickets";
 import { useAuthStore } from "@/stores/auth-store";
+import { cn } from "@/lib/utils";
+
+function statusVariant(status: string) {
+  if (status === "Resolved" || status === "Closed") return "success" as const;
+  if (status === "In Progress") return "default" as const;
+  return "outline" as const;
+}
 
 export default function PortalPage() {
   const user = useAuthStore((s) => s.user);
@@ -15,15 +22,18 @@ export default function PortalPage() {
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">End-user portal</h1>
-          <p className="text-muted-foreground text-xs">
-            Report an issue and track status of your tickets.
-          </p>
+    <div className="space-y-6">
+      <div className="from-primary/10 via-card to-card border-border/80 relative overflow-hidden rounded-2xl border bg-gradient-to-br p-6 shadow-soft animate-in-up">
+        <div className="relative z-10 flex flex-wrap items-end justify-between gap-4">
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-semibold tracking-tight">My portal</h1>
+            <p className="text-muted-foreground max-w-md text-sm">
+              Report an issue and track status of your tickets without leaving this page.
+            </p>
+          </div>
+          <CreateIncidentDialog triggerLabel="Report an issue" />
         </div>
-        <CreateIncidentDialog triggerLabel="Report an issue" />
+        <div className="bg-primary/5 pointer-events-none absolute -top-10 -right-10 size-40 rounded-full blur-2xl" />
       </div>
 
       {isLoading ? <TicketListSkeleton rows={3} /> : null}
@@ -37,17 +47,29 @@ export default function PortalPage() {
       ) : null}
 
       {!isLoading && mine && mine.length > 0 ? (
-        <div className="border-border divide-border divide-y border">
-          {mine.map((incident) => (
-            <div key={incident.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1">
+        <div className="space-y-2">
+          {mine.map((incident, index) => (
+            <div
+              key={incident.id}
+              className={cn(
+                "border-border/80 bg-card flex flex-col gap-3 rounded-xl border px-4 py-3.5 shadow-soft transition-all duration-200 hover:border-primary/20 hover:shadow-lift sm:flex-row sm:items-center sm:justify-between animate-in-up",
+                index === 1 && "stagger-1",
+                index === 2 && "stagger-2",
+              )}
+            >
+              <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground font-mono text-xs">{incident.id}</span>
+                  <span className="text-muted-foreground bg-muted/80 rounded-md px-1.5 py-0.5 font-mono text-[11px]">
+                    {incident.id}
+                  </span>
                   <PriorityBadge priority={incident.priority} showLabel={false} />
-                  <Badge variant="outline">{incident.status}</Badge>
+                  <Badge variant={statusVariant(incident.status)}>{incident.status}</Badge>
                 </div>
-                <p className="text-sm font-medium">{incident.title}</p>
+                <p className="text-sm font-semibold tracking-tight">{incident.title}</p>
               </div>
+              <span className="text-muted-foreground text-xs">
+                {new Date(incident.createdAt).toLocaleString()}
+              </span>
             </div>
           ))}
         </div>

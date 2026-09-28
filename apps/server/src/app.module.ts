@@ -11,6 +11,7 @@ import { DatabaseModule } from "./database/database.module";
 import { HealthController } from "./health/health.controller";
 import { IncidentsModule } from "./incidents/incidents.module";
 import { ProblemsModule } from "./problems/problems.module";
+import { ServiceCatalogModule } from "./service-catalog/service-catalog.module";
 import { ServiceRequestsModule } from "./service-requests/service-requests.module";
 
 @Module({
@@ -23,6 +24,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     AuthModule,
     IncidentsModule,
     ProblemsModule,
+    ServiceCatalogModule,
     ServiceRequestsModule,
     ChangesModule,
     AssetsModule,

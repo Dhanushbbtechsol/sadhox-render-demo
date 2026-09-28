@@ -31,8 +31,8 @@ export function AppBreadcrumbs() {
   if (crumbs.length === 0) return null;
 
   return (
-    <Breadcrumb className="mb-4">
-      <BreadcrumbList>
+    <Breadcrumb className="mb-1">
+      <BreadcrumbList className="text-xs">
         {crumbs.map((crumb, index) => {
           const isLast = index === crumbs.length - 1;
           return (

@@ -5,6 +5,7 @@ import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import cookieParser = require("cookie-parser");
 import { AppModule } from "./app.module";
+import { RejectRequesterOverridePipe } from "./service-requests/pipes/reject-requester-override.pipe";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,6 +17,7 @@ async function bootstrap() {
     credentials: true,
   });
   app.useGlobalPipes(
+    new RejectRequesterOverridePipe(),
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,

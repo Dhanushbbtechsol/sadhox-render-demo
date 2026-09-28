@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
@@ -83,7 +84,10 @@ export function CreateIncidentDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button />}>{triggerLabel}</DialogTrigger>
+      <DialogTrigger render={<Button />}>
+        <PlusIcon />
+        {triggerLabel}
+      </DialogTrigger>
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Create incident</DialogTitle>
@@ -92,8 +96,8 @@ export function CreateIncidentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="space-y-1.5">
+        <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)}>
+          <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input id="title" {...form.register("title")} placeholder="Short summary of the issue" />
             {form.formState.errors.title ? (
@@ -101,7 +105,7 @@ export function CreateIncidentDialog({
             ) : null}
           </div>
 
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
@@ -117,7 +121,7 @@ export function CreateIncidentDialog({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Category</Label>
               <Controller
                 control={form.control}
@@ -144,7 +148,7 @@ export function CreateIncidentDialog({
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Impact</Label>
               <Controller
                 control={form.control}
@@ -171,7 +175,7 @@ export function CreateIncidentDialog({
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Urgency</Label>
               <Controller
                 control={form.control}
@@ -199,8 +203,8 @@ export function CreateIncidentDialog({
             </div>
           </div>
 
-          <div className="bg-muted/40 flex items-center justify-between border px-3 py-2">
-            <span className="text-muted-foreground text-xs">Priority preview</span>
+          <div className="from-primary/10 via-accent/50 to-muted/40 flex items-center justify-between rounded-xl border border-primary/10 bg-gradient-to-r px-4 py-3">
+            <span className="text-muted-foreground text-sm">Priority preview</span>
             <PriorityBadge priority={previewPriority} />
           </div>
 

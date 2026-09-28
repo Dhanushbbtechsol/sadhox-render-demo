@@ -1,15 +1,11 @@
 # Phase 1 reaudit — 2026-09-28
 
-Scope: merged `Audit` tree after Dev A–D Phase 1. Stack: React/Vite + Zustand, NestJS (`apps/server` start = `main.ts`), Drizzle/Postgres, Passport JWT. Hono files still exist but are not the Nest start path.
+Scope: merged `Audit` tree after Dev A–D Phase 1. Stack: React/Vite + Zustand, NestJS (`apps/server` start = `main.ts`), Drizzle/Postgres, Passport JWT. Hono entrypoints (`src/index.ts`, `src/routes/*`) have been removed; Nest is the only compiled server entry.
 
 ## High
 
 ### [A07] Leftover Hono demo auth with hardcoded Admin password — apps/server/src/routes/auth.ts:19
-`DEMO_USERS` still ships plaintext `"password"` for Admin, Agent, and EndUser. JWT secrets fall back to `dev-access-secret-change-me` / `dev-refresh-secret-change-me` (lines 43–44). `apps/server/src/index.ts` still mounts these routes and listens on port 3000.
-
-Nest `pnpm dev` / `start` uses `main.ts`, not this file. The previous Dev D remediations claimed this entry was removed. It is still in `src/` and will be compiled. Anyone who runs `index.ts` gets Admin with `password`.
-
-Fix: delete `apps/server/src/index.ts`, `apps/server/src/routes/auth.ts`, and unused Hono catalog wiring, or isolate them behind a non-compiled fixture that is not in the deploy artifact.
+**Status: Fixed.** Deleted `apps/server/src/index.ts`, `apps/server/src/routes/auth.ts`, and unused Hono catalog wiring. Nest `main.ts` is the only server entry.
 
 ## Medium
 
@@ -33,10 +29,8 @@ Seed creates `admin@sadhox.local` / `agent@sadhox.local` with `ChangeMe123!`. `L
 
 Fix: generate a one-time password at seed time and print it once; remove real passwords from `@ApiProperty` examples.
 
-### [A01] Catalog/request RBAC is not on the Nest API — apps/server/src/service-requests/service-requests.controller.ts:9
-The remediations described in Dev A (`allowedRoles`, reject client `requesterId`, EndUser sees own rows) live in unused Hono `apps/server/src/routes/catalog.ts` + `request-store.ts`. Nest only stubs `GET` and returns empty data / `{ id }`. Frontend `use-service-catalog.ts` still calls `/service-catalog` and `POST /service-requests`.
-
-Fix: move catalog/request handlers onto Nest modules with the same checks, or stop calling those paths until they exist.
+### [A01] Catalog/request RBAC is not on the Nest API — apps/server/src/service-requests/service-requests.controller.ts
+**Status: Fixed.** Nest `ServiceCatalogController` + `ServiceRequestsController` use `request-store` on the `main.ts` path: catalog filtered by `allowedRoles`, POST requester from JWT (`RejectRequesterOverridePipe` + `forbidNonWhitelisted` reject client `requesterId`/`requesterName`), EndUser list/get scoped to own rows. Covered by `request-store.spec.ts`.
 
 ### [A01] Incident stubs allow EndUser on the API — apps/server/src/incidents/incidents.controller.ts:10
 `GET /incidents` and `GET /incidents/:id` are `@Roles("Admin", "Agent", "EndUser")`. The web router blocks EndUser from `/incidents` (`apps/web/src/router.tsx`). Client checks are bypassable. Stubs return no records today; the role set will become IDOR the moment list/get return real rows without a reporter filter.
@@ -85,14 +79,14 @@ Fix: log failed login (email + IP, no password) and write authz denials to `audi
 | Dev D: Nest global JWT + Roles guards | Holds (`app.module.ts`) |
 | Dev D: bcrypt cost 12, refresh rotation, env secrets | Holds |
 | Dev D: `cred.md` removed + gitignored | Holds |
-| Dev D: Hono demo auth deleted | **Failed** — files still present |
-| Dev A: catalog/request API RBAC | **Failed** — logic not on Nest start path |
+| Dev D: Hono demo auth deleted | **Fixed** — `index.ts` / Hono routes removed |
+| Dev A: catalog/request API RBAC | **Fixed** — Nest controllers + `request-store` RBAC |
 | Dev C: client-only route RBAC | Still open; backend must enforce |
 
 ## Not checked / out of scope
 - Staging/Render/Railway TLS and secret stores (not in repo)
 - Dependency CVE scan of `pnpm-lock.yaml`
-- Whether anyone still starts `src/index.ts` in a process manager
+- Whether anyone still starts a non-Nest process manager entry (Hono `index.ts` removed)
 - Phase 2+ business logic that is still stubbed
 
 A03 (parameterized Drizzle + `ValidationPipe` whitelist), A08 (lockfile present), and A10 (no user-controlled URL fetch) had nothing worth filing on this pass.

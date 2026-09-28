@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ArrowUpRightIcon } from "lucide-react";
 
 import {
   Card,
@@ -30,7 +31,7 @@ export function CatalogGrid() {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, index) => (
-          <Skeleton key={index} className="h-36 w-full" />
+          <Skeleton key={index} className="h-40 w-full rounded-xl" />
         ))}
       </div>
     );
@@ -52,9 +53,9 @@ export function CatalogGrid() {
     <>
       <div className="space-y-8">
         {Object.entries(grouped).map(([department, items]) => (
-          <section key={department} className="space-y-3">
+          <section key={department} className="space-y-3 animate-in-up">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-medium">{department}</h2>
+              <h2 className="text-base font-semibold tracking-tight">{department}</h2>
               <Badge variant="secondary">{items.length}</Badge>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -62,12 +63,17 @@ export function CatalogGrid() {
                 <button
                   key={item.id}
                   type="button"
-                  className="text-left"
+                  className="group text-left"
                   onClick={() => setSelected(item)}
                 >
-                  <Card className="h-full transition-colors hover:bg-muted/40">
+                  <Card className="h-full transition-all duration-200 group-hover:-translate-y-1 group-hover:border-primary/25 group-hover:shadow-lift">
                     <CardHeader>
-                      <CardTitle>{item.name}</CardTitle>
+                      <div className="flex items-start justify-between gap-2">
+                        <CardTitle className="group-hover:text-primary transition-colors">
+                          {item.name}
+                        </CardTitle>
+                        <ArrowUpRightIcon className="text-muted-foreground size-4 shrink-0 opacity-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />
+                      </div>
                       <CardDescription>{item.description}</CardDescription>
                     </CardHeader>
                     <CardContent>

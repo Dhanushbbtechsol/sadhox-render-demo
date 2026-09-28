@@ -1,10 +1,18 @@
+import { ArrowLeftIcon, CalendarClockIcon, UserIcon } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useIncident } from "@/hooks/use-tickets";
+
+function statusVariant(status: string) {
+  if (status === "Resolved" || status === "Closed") return "success" as const;
+  if (status === "In Progress") return "default" as const;
+  return "outline" as const;
+}
 
 export default function IncidentDetailPage() {
   const { id } = useParams();
@@ -25,40 +33,59 @@ export default function IncidentDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-muted-foreground font-mono text-xs">{data.id}</span>
-          <PriorityBadge priority={data.priority} />
-          <Badge variant="outline">{data.status}</Badge>
-          <Badge variant="secondary">{data.category}</Badge>
-        </div>
-        <h1 className="text-xl font-semibold tracking-tight">{data.title}</h1>
-        <p className="text-muted-foreground text-sm whitespace-pre-wrap">{data.description}</p>
-      </div>
+    <div className="mx-auto max-w-3xl space-y-6 animate-in-up">
+      <Button variant="ghost" size="sm" render={<Link to="/incidents" />} className="-ml-2">
+        <ArrowLeftIcon />
+        Back to queue
+      </Button>
 
-      <dl className="border-border grid gap-3 border p-4 text-sm sm:grid-cols-2">
-        <div>
-          <dt className="text-muted-foreground text-xs">Impact</dt>
-          <dd>{data.impact}</dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground text-xs">Urgency</dt>
-          <dd>{data.urgency}</dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground text-xs">Assignee</dt>
-          <dd>{data.assignedTo ?? "Unassigned"}</dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground text-xs">SLA due</dt>
-          <dd>{data.slaDueAt ? new Date(data.slaDueAt).toLocaleString() : "—"}</dd>
-        </div>
-      </dl>
+      <Card className="overflow-hidden">
+        <div className="from-primary/12 via-accent/40 to-transparent h-1.5 bg-gradient-to-r" />
+        <CardHeader className="space-y-3 pt-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-muted-foreground bg-muted rounded-md px-1.5 py-0.5 font-mono text-[11px]">
+              {data.id}
+            </span>
+            <PriorityBadge priority={data.priority} />
+            <Badge variant={statusVariant(data.status)}>{data.status}</Badge>
+            <Badge variant="secondary">{data.category}</Badge>
+          </div>
+          <CardTitle className="text-xl font-semibold tracking-tight">{data.title}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap">
+            {data.description}
+          </p>
 
-      <p className="text-muted-foreground text-xs">
-        Comments and live updates arrive in Phase 2.
-      </p>
+          <dl className="grid gap-3 sm:grid-cols-2">
+            {[
+              { label: "Impact", value: data.impact },
+              { label: "Urgency", value: data.urgency },
+              {
+                label: "Assignee",
+                value: data.assignedTo ?? "Unassigned",
+                icon: UserIcon,
+              },
+              {
+                label: "SLA due",
+                value: data.slaDueAt ? new Date(data.slaDueAt).toLocaleString() : "—",
+                icon: CalendarClockIcon,
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="border-border/80 bg-muted/40 hover:bg-muted/70 rounded-xl border p-3.5 transition-colors"
+              >
+                <dt className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+                  {item.icon ? <item.icon className="size-3.5" /> : null}
+                  {item.label}
+                </dt>
+                <dd className="mt-1 text-sm font-medium">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </CardContent>
+      </Card>
     </div>
   );
 }
