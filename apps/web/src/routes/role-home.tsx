@@ -7,12 +7,16 @@ export default function RoleHomeRedirect() {
   const user = useAuthStore((s) => s.user);
   const isHydrated = useAuthStore((s) => s.isHydrated);
 
-  if (!isHydrated || !user) {
+  if (!isHydrated) {
     return (
       <div className="flex h-40 items-center justify-center">
         <Loader />
       </div>
     );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
   }
 
   return <Navigate to={homePathForRole(user.role)} replace />;

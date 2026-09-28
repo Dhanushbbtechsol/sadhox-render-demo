@@ -1,17 +1,40 @@
 export type Role = "Admin" | "Agent" | "EndUser";
 
-export type AssetCategory = "Hardware" | "Software" | "Network";
+export type AssetType = "Hardware" | "Software";
 
-export type AssetStatus = "Procured" | "Active" | "Under Maintenance" | "Retired";
+export type AssetStatus = "Active" | "InRepair" | "Retired";
 
 export type Asset = {
   id: string;
   assetTag: string;
   name: string;
-  category: AssetCategory;
-  ownerName: string;
+  type: AssetType;
   status: AssetStatus;
+  ownerId: string | null;
+  ownerName: string | null;
+  linkedTicketId: string | null;
   linkedTicketCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AssetListResponse = {
+  data: Asset[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
+export type CreateAssetInput = {
+  assetTag: string;
+  name: string;
+  type: AssetType;
+  status?: AssetStatus;
+  ownerId?: string;
+};
+
+export type UpdateAssetInput = Partial<CreateAssetInput> & {
+  ownerId?: string | null;
 };
 
 export type TrendDirection = "up" | "down" | "flat";

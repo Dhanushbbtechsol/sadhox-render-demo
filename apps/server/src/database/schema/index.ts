@@ -232,13 +232,14 @@ export const assets = pgTable(
   "assets",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    assetTag: varchar("asset_tag", { length: 64 }).notNull().unique(),
     name: varchar("name", { length: 255 }).notNull(),
     type: assetTypeEnum("type").notNull(),
     ownerId: uuid("owner_id").references(() => users.id, {
       onDelete: "set null",
     }),
     status: assetStatusEnum("status").notNull().default("Active"),
-    /** GUESS: linked_ticket_id is polymorphic; ticket_type not in FRD — store ticket UUID only for Phase 1. */
+    /** Polymorphic ticket UUID (incident or service_request); no FK. */
     linkedTicketId: uuid("linked_ticket_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -312,3 +313,7 @@ export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type UserRole = (typeof userRoleEnum.enumValues)[number];
+export type Asset = typeof assets.$inferSelect;
+export type NewAsset = typeof assets.$inferInsert;
+export type AssetType = (typeof assetTypeEnum.enumValues)[number];
+export type AssetStatus = (typeof assetStatusEnum.enumValues)[number];

@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { PlusIcon, MoreHorizontal } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -27,51 +27,61 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useAssets } from "@/features/admin/hooks";
-import type { AssetCategory, AssetStatus } from "@/features/admin/types";
+import { useAssets, useRetireAsset } from "@/features/admin/hooks";
+import type { Asset, AssetStatus, AssetType } from "@/features/admin/types";
 
-const categories: Array<AssetCategory | "all"> = ["all", "Hardware", "Software", "Network"];
-const statuses: Array<AssetStatus | "all"> = [
-  "all",
-  "Procured",
-  "Active",
-  "Under Maintenance",
-  "Retired",
-];
+import { AssetFormDialog } from "./asset-form-dialog";
+
+const types: Array<AssetType | "all"> = ["all", "Hardware", "Software"];
+const statuses: Array<AssetStatus | "all"> = ["all", "Active", "InRepair", "Retired"];
 
 function statusVariant(status: AssetStatus) {
   if (status === "Active") return "default" as const;
   if (status === "Retired") return "destructive" as const;
-  if (status === "Under Maintenance") return "outline" as const;
-  return "secondary" as const;
+  return "outline" as const;
+}
+
+function statusLabel(status: AssetStatus) {
+  return status === "InRepair" ? "In repair" : status;
 }
 
 export default function AssetRegisterPage() {
-  const assets = useAssets();
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<AssetCategory | "all">("all");
+  const [type, setType] = useState<AssetType | "all">("all");
   const [status, setStatus] = useState<AssetStatus | "all">("all");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Asset | null>(null);
 
-  const rows = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return (assets.data ?? []).filter((asset) => {
-      const matchesQuery =
-        needle.length === 0 ||
-        asset.assetTag.toLowerCase().includes(needle) ||
-        asset.name.toLowerCase().includes(needle);
-      const matchesCategory = category === "all" || asset.category === category;
-      const matchesStatus = status === "all" || asset.status === status;
-      return matchesQuery && matchesCategory && matchesStatus;
-    });
-  }, [assets.data, query, category, status]);
+  const assets = useAssets({ search: query, type, status });
+  const retireAsset = useRetireAsset();
+
+  async function handleRetire(asset: Asset) {
+    try {
+      await retireAsset.mutateAsync(asset.id);
+      toast.success(`${asset.assetTag} retired`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Retire failed");
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold">Asset register</h1>
-        <p className="text-sm text-muted-foreground">
-          Hardware, software, and network inventory. Records are mocked for this phase.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Asset register</h1>
+          <p className="text-sm text-muted-foreground">
+            Hardware and software inventory backed by the Nest assets API.
+          </p>
+        </div>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setFormOpen(true);
+          }}
+        >
+          <PlusIcon />
+          New asset
+        </Button>
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -81,29 +91,29 @@ export default function AssetRegisterPage() {
           placeholder="Search tag or name"
           className="sm:max-w-xs"
         />
-        <Select
-          value={category}
-          onValueChange={(value) => setCategory(value as AssetCategory | "all")}
-        >
+        <Select value={type} onValueChange={(value) => setType(value as AssetType | "all")}>
           <SelectTrigger className="w-full sm:w-44">
-            <SelectValue placeholder="Category" />
+            <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent>
-            {categories.map((item) => (
+            {types.map((item) => (
               <SelectItem key={item} value={item}>
-                {item === "all" ? "All categories" : item}
+                {item === "all" ? "All types" : item}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Select value={status} onValueChange={(value) => setStatus(value as AssetStatus | "all")}>
+        <Select
+          value={status}
+          onValueChange={(value) => setStatus(value as AssetStatus | "all")}
+        >
           <SelectTrigger className="w-full sm:w-52">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             {statuses.map((item) => (
               <SelectItem key={item} value={item}>
-                {item === "all" ? "All statuses" : item}
+                {item === "all" ? "All statuses" : statusLabel(item)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -112,18 +122,24 @@ export default function AssetRegisterPage() {
 
       {assets.isLoading ? <Skeleton className="h-64" /> : null}
 
-      {assets.data && rows.length === 0 ? (
+      {assets.isError ? (
+        <p className="text-destructive text-sm">
+          {assets.error instanceof Error ? assets.error.message : "Failed to load assets"}
+        </p>
+      ) : null}
+
+      {assets.data && assets.data.length === 0 ? (
         <p className="text-sm text-muted-foreground">No assets match these filters.</p>
       ) : null}
 
-      {assets.data && rows.length > 0 ? (
+      {assets.data && assets.data.length > 0 ? (
         <div className="ring-foreground/10 overflow-x-auto bg-card ring-1">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Asset Tag</TableHead>
                 <TableHead>Asset Name</TableHead>
-                <TableHead>Category</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Assigned Owner</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Linked Tickets</TableHead>
@@ -131,14 +147,16 @@ export default function AssetRegisterPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((asset) => (
+              {assets.data.map((asset) => (
                 <TableRow key={asset.id}>
                   <TableCell className="font-medium">{asset.assetTag}</TableCell>
                   <TableCell>{asset.name}</TableCell>
-                  <TableCell>{asset.category}</TableCell>
-                  <TableCell>{asset.ownerName}</TableCell>
+                  <TableCell>{asset.type}</TableCell>
+                  <TableCell>{asset.ownerName ?? "Unassigned"}</TableCell>
                   <TableCell>
-                    <Badge variant={statusVariant(asset.status)}>{asset.status}</Badge>
+                    <Badge variant={statusVariant(asset.status)}>
+                      {statusLabel(asset.status)}
+                    </Badge>
                   </TableCell>
                   <TableCell className="tabular-nums">{asset.linkedTicketCount}</TableCell>
                   <TableCell>
@@ -152,10 +170,21 @@ export default function AssetRegisterPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={() => toast(`View ${asset.assetTag} arrives in Phase 2`)}
+                          onClick={() => {
+                            setEditing(asset);
+                            setFormOpen(true);
+                          }}
                         >
-                          View
+                          Edit
                         </DropdownMenuItem>
+                        {asset.status !== "Retired" ? (
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => void handleRetire(asset)}
+                          >
+                            Retire
+                          </DropdownMenuItem>
+                        ) : null}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -165,6 +194,8 @@ export default function AssetRegisterPage() {
           </Table>
         </div>
       ) : null}
+
+      <AssetFormDialog open={formOpen} onOpenChange={setFormOpen} asset={editing} />
     </div>
   );
 }

@@ -17,6 +17,10 @@ export function getAccessToken() {
   return accessToken;
 }
 
+export function isMockAccessToken(token: string | null | undefined = accessToken) {
+  return Boolean(token?.startsWith("mock-token-"));
+}
+
 export function setRefreshHandler(handler: (() => Promise<string | null>) | null) {
   refreshHandler = handler;
 }
@@ -62,6 +66,11 @@ export async function apiFetch<T>(
     });
 
   let response = await makeRequest(accessToken);
+
+  // DEV mock sessions are not Nest JWTs — never try refresh/logout loops on 401.
+  if (response.status === 401 && isMockAccessToken(accessToken)) {
+    throw await parseError(response);
+  }
 
   if (response.status === 401 && !skipAuth && refreshHandler) {
     const nextToken = await refreshHandler();
