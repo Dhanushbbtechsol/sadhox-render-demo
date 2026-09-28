@@ -4,13 +4,16 @@ import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { IoAdapter } from "@nestjs/platform-socket.io";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { Logger } from "nestjs-pino";
 import cookieParser = require("cookie-parser");
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { RejectRequesterOverridePipe } from "./service-requests/pipes/reject-requester-override.pipe";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
+
   const config = app.get(ConfigService);
   const nodeEnv = config.get<string>("NODE_ENV") ?? "development";
   const isProd = nodeEnv === "production";
@@ -45,7 +48,7 @@ async function bootstrap() {
   if (!isProd) {
     const swagger = new DocumentBuilder()
       .setTitle("Sadhox API")
-      .setDescription("ITSM platform API — Phase 2 incidents/problems CRUD")
+      .setDescription("ITSM platform API — Phase 1–2 foundation contract")
       .setVersion("0.2.0")
       .addBearerAuth()
       .addCookieAuth("refresh_token")
@@ -56,9 +59,10 @@ async function bootstrap() {
 
   const port = config.get<number>("PORT") ?? 3000;
   await app.listen(port);
-  console.log(`Server is running on http://localhost:${port}`);
+  const logger = app.get(Logger);
+  logger.log(`Server is running on http://localhost:${port}`);
   if (!isProd) {
-    console.log(`Swagger docs at http://localhost:${port}/docs`);
+    logger.log(`Swagger docs at http://localhost:${port}/docs`);
   }
 }
 

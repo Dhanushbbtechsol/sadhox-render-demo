@@ -5,6 +5,7 @@ allowBuilds:
   '@parcel/watcher': false
   '@scarf/scarf': false
   esbuild: true
+  msgpackr-extract: true
   unrs-resolver: false
 catalog:
   dotenv: ^17.4.2
