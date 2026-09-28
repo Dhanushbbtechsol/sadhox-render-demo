@@ -1,4 +1,4 @@
-# Render Blueprint — Phase 1 Day 5 staging deploy
+# Render Blueprint — Sadhox API staging (Phase 1–2)
 # Connect this repo in Render Dashboard → New → Blueprint
 # Docs: https://render.com/docs/blueprint-spec
 
@@ -16,16 +16,35 @@ services:
         value: production
       - key: PORT
         value: 3000
+      - key: LOG_LEVEL
+        value: info
       - key: CORS_ORIGIN
         sync: false
       - key: JWT_ACCESS_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: sadhox-pg-staging
           property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: sadhox-redis-staging
+          property: connectionString
+
+  - type: keyvalue
+    name: sadhox-redis-staging
+    plan: free
+    maxmemoryPolicy: noeviction
+    ipAllowList: [] # allow internal Render services only via private network; empty = default ACL
 
 databases:
   - name: sadhox-pg-staging

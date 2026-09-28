@@ -18,6 +18,7 @@ build
 # Local credentials scratch notes
 cred.md
 **/cred.md
+apps/server/.seed-password
 
 # IDEs and editors
 .vscode/*
@@ -57,3 +58,6 @@ tmp
 temp
 # Better Fullstack recovery snapshots
 .bts/recovery
+
+# Local one-time seed password
+apps/server/.seed-password

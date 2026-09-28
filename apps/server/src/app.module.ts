@@ -1,17 +1,22 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { APP_GUARD } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { AuthModule } from "./auth/auth.module";
 import { AssetsModule } from "./assets/assets.module";
 import { ChangesModule } from "./changes/changes.module";
+import { AuditLogInterceptor } from "./common/audit/audit-log.interceptor";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { validateEnv } from "./config/validate-env";
 import { DatabaseModule } from "./database/database.module";
+import { EventsModule } from "./events/events.module";
 import { HealthController } from "./health/health.controller";
 import { IncidentsModule } from "./incidents/incidents.module";
+import { MailModule } from "./mail/mail.module";
+import { ObservabilityModule } from "./observability/observability.module";
 import { ProblemsModule } from "./problems/problems.module";
+import { QueuesModule } from "./queues/queues.module";
 import { ServiceCatalogModule } from "./service-catalog/service-catalog.module";
 import { ServiceRequestsModule } from "./service-requests/service-requests.module";
 
@@ -29,7 +34,11 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
       },
     ]),
     DatabaseModule,
+    ObservabilityModule,
     AuthModule,
+    EventsModule,
+    QueuesModule,
+    MailModule,
     IncidentsModule,
     ProblemsModule,
     ServiceCatalogModule,
@@ -42,6 +51,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
   ],
 })
 export class AppModule {}
