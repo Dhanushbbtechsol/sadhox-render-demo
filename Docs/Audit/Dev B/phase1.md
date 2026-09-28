@@ -1,6 +1,8 @@
 # Security Audit: Dev B (Phase 1)
 
-**Status:** Remediated
+Reaudit 2026-09-28: remediations below still hold. New Phase 1 issues are in [phase1.md](../phase1.md) (token persistence, leftover Hono auth).
+
+**Status:** Remediated (auth-store / login UI)
 
 ## Critical — Resolved
 ### [A07] Hardcoded mock credentials — apps/web/src/stores/auth-store.ts

@@ -1,39 +1,28 @@
 # Security Audit: Dev D (Phase 1)
 
+Reaudit 2026-09-28: see [phase1.md](../phase1.md).
+
 ## High
 
 ### [A01] Missing Global Authorization Guard — apps/server/src/app.controller.ts
 
-**Status: FIXED**
+**Status: FIXED on Nest `main.ts`.** Still open as leftover Hono.
 
-There is no `app.controller.ts`. Nest is the only API entry (`src/main.ts`).
+Nest is the documented API entry (`src/main.ts`). Global auth in `apps/server/src/app.module.ts`:
 
-Global auth (deny-by-default) in [`apps/server/src/app.module.ts`](../../apps/server/src/app.module.ts):
+- `JwtAuthGuard` as `APP_GUARD` — Bearer required unless `@Public()`
+- `RolesGuard` as `APP_GUARD` — `@Roles(...)` when set
 
-- `JwtAuthGuard` (Passport-JWT) as `APP_GUARD` — Bearer required unless `@Public()`
-- `RolesGuard` as `APP_GUARD` — `@Roles('Admin'|'Agent'|'EndUser')` enforced
+`@Public()` on: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /health`.
 
-`@Public()` only on: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `GET /health`.
-
-Phase 1 uses Passport JWT (not Supabase Auth), per Dev D phase docs.
-Auth implementation: `apps/server/src/auth/` (`AuthModule`, `JwtStrategy`, refresh rotation).
-
-**Also removed:** temporary Hono entry (`src/index.ts`) and demo `src/routes/auth.ts`
-that bypassed Nest guards with hardcoded demo passwords.
+**Regression:** `apps/server/src/index.ts` and `apps/server/src/routes/auth.ts` were not removed. Demo Admin password `"password"` and default JWT secrets are still in tree.
 
 ## Low / Hardening
 
 ### [A05] Database Connection String — packages/db/.env
 
-**Status: FIXED** (note: there is no `packages/db` package)
+**Status: FIXED** (there is no `packages/db` package)
 
-`DATABASE_URL` is loaded only from env via Nest `ConfigModule` + Zod
-(`apps/server/src/config/validate-env.ts` → `DatabaseModule`). Not hardcoded in app code.
+`DATABASE_URL` comes from env via Nest `ConfigModule` + Zod. `.env` is gitignored. `cred.md` is gitignored and untracked.
 
-Hardening:
-
-- Root [`.gitignore`](../../.gitignore): `.env` / `.env.*` (allows `.env.example` only)
-- `apps/server/.gitignore`: `.env*`
-- Template: [`apps/server/.env.example`](../../apps/server/.env.example) (placeholders only; port `5436`)
-- Runtime secrets: local gitignored `apps/server/.env`, or Render `DATABASE_URL` from managed DB
-- Removed tracked credentials scratch file `cred.md` from the git index and added it to `.gitignore`
+Open from reaudit: public Swagger, unused Throttler, seed password in OpenAPI example.
