@@ -1,13 +1,13 @@
 # Security Audit: Dev B (Phase 1)
 
-Reaudit 2026-09-28: remediations below still hold. New Phase 1 issues are in [phase1.md](../phase1.md) (token persistence, leftover Hono auth).
+Reaudit 2026-09-28: remediations below still hold. Access token is no longer persisted. Remaining lows: [phase1.md](../phase1.md).
 
 **Status:** Remediated (auth-store / login UI)
 
 ## Critical — Resolved
 ### [A07] Hardcoded mock credentials — apps/web/src/stores/auth-store.ts
 **Was:** `MOCK_USERS` with shared `"password"` including Admin, always in the bundle.  
-**Fix:** Mock users and `loginAsRole` are gated behind `import.meta.env.DEV`. Login UI no longer advertises or prefills passwords; role presets are DEV-only.
+**Fix:** Mock users and `loginAsRole` are gated behind `import.meta.env.DEV`. Login UI does not prefill passwords; role presets are DEV-only.
 
 ### [A07] Broken auth fallback — apps/web/src/stores/auth-store.ts
 **Was:** Remote login failure silently fell back to mock users in all builds.  
@@ -17,3 +17,7 @@ Reaudit 2026-09-28: remediations below still hold. New Phase 1 issues are in [ph
 ### [A02] Plaintext passwords on the wire — apps/web/src/stores/auth-store.ts
 **Was:** Password sent in JSON body without transport guarantees.  
 **Fix:** `packages/env/src/web.ts` requires HTTPS for `VITE_SERVER_URL` in production (localhost HTTP allowed locally).
+
+### [A02] Access token in localStorage — apps/web/src/stores/auth-store.ts
+**Was:** Zustand persist wrote `accessToken`.  
+**Fix:** `partialize` omits the token; restore via httpOnly refresh cookie. (`user` is still persisted — see combined reaudit.)
