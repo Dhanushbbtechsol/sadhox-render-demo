@@ -9,9 +9,16 @@ dist
 build
 *.tsbuildinfo
 
-# Environment variables
+# Environment variables — never commit secrets
 .env
+.env.*
+!.env.example
+!.env*.example
 .env*.local
+
+# Local credentials scratch notes
+cred.md
+**/cred.md
 
 # IDEs and editors
 .vscode/*
