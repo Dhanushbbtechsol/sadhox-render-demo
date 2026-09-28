@@ -1,10 +1,13 @@
 import {
   AlertTriangleIcon,
   ClipboardListIcon,
+  LayoutDashboardIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
   ListTodoIcon,
+  PackageIcon,
   PanelLeftIcon,
+  ScrollTextIcon,
 } from "lucide-react";
 import { NavLink } from "react-router";
 
@@ -22,6 +25,24 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  {
+    to: "/admin/dashboard",
+    label: "Dashboard",
+    icon: LayoutDashboardIcon,
+    roles: ["Admin"],
+  },
+  {
+    to: "/assets",
+    label: "Assets",
+    icon: PackageIcon,
+    roles: ["Admin"],
+  },
+  {
+    to: "/admin/audit-logs",
+    label: "Audit logs",
+    icon: ScrollTextIcon,
+    roles: ["Admin"],
+  },
   {
     to: "/incidents",
     label: "Incidents",

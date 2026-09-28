@@ -2,6 +2,9 @@ import { createBrowserRouter } from "react-router";
 
 import AppShell from "./app-shell";
 import { GuestRoute, ProtectedRoute } from "@/components/auth/protected-route";
+import AuditLogsPage from "@/features/admin/audit-logs-page";
+import DashboardPage from "@/features/admin/dashboard-page";
+import AssetRegisterPage from "@/features/assets/asset-register-page";
 import CatalogPage from "@/routes/catalog";
 import IncidentDetailPage from "@/routes/incident-detail";
 import IncidentsPage from "@/routes/incidents";
@@ -41,6 +44,24 @@ export const router = createBrowserRouter([
           {
             index: true,
             element: <RoleHomeRedirect />,
+          },
+          {
+            path: "admin/dashboard",
+            handle: { breadcrumb: "Dashboard" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <DashboardPage /> }],
+          },
+          {
+            path: "assets",
+            handle: { breadcrumb: "Assets" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <AssetRegisterPage /> }],
+          },
+          {
+            path: "admin/audit-logs",
+            handle: { breadcrumb: "Audit logs" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <AuditLogsPage /> }],
           },
           {
             path: "incidents",
