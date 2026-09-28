@@ -7,6 +7,7 @@ import LoginPage from "./routes/login";
 import CatalogPage from "./routes/catalog";
 import RequestsPage from "./routes/requests";
 import ChangesPage from "./routes/changes";
+import ApprovalsPage from "./routes/approvals";
 
 function NotFound() {
   return (
@@ -32,6 +33,10 @@ export const router = createBrowserRouter([
           {
             element: <RequireRoles roles={["Agent", "Admin"]} />,
             children: [{ path: "changes", element: <ChangesPage /> }],
+          },
+          {
+            element: <RequireRoles roles={["Admin"]} />,
+            children: [{ path: "approvals", element: <ApprovalsPage /> }],
           },
         ],
       },

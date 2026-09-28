@@ -51,6 +51,7 @@ export interface ServiceRequest {
   createdAt: string;
   approverId?: string;
   approvedAt?: string;
+  rejectionReason?: string;
 }
 
 export interface ChangeRecord {

@@ -46,7 +46,7 @@ interface AuthState {
 
 async function tryRemoteLogin(email: string, password: string) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 1500);
+  const timeout = setTimeout(() => controller.abort(), 8000);
   try {
     const response = await fetch(`${env.VITE_SERVER_URL}/auth/login`, {
       method: "POST",
