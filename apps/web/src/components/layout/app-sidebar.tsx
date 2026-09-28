@@ -5,6 +5,7 @@ import {
   LifeBuoyIcon,
   ListTodoIcon,
   PanelLeftIcon,
+  TicketIcon,
 } from "lucide-react";
 import { NavLink } from "react-router";
 
@@ -67,20 +68,34 @@ export function AppSidebar({
   return (
     <aside
       className={cn(
-        "bg-sidebar text-sidebar-foreground border-sidebar-border flex h-full flex-col border-r transition-[width] duration-200",
-        collapsed ? "w-14" : "w-56",
+        "bg-sidebar text-sidebar-foreground border-sidebar-border flex h-full flex-col border-r transition-[width] duration-300 ease-out",
+        collapsed ? "w-16" : "w-60",
       )}
     >
-      <div className="flex h-12 items-center gap-2 px-3">
-        <Button variant="ghost" size="icon-sm" onClick={onToggle} aria-label="Toggle sidebar">
+      <div className="flex h-14 items-center gap-2.5 px-3">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={onToggle}
+          aria-label="Toggle sidebar"
+          className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
           <PanelLeftIcon />
         </Button>
         {!collapsed ? (
-          <span className="text-sm font-semibold tracking-tight">Sadhox</span>
+          <div className="flex min-w-0 items-center gap-2 animate-in-up">
+            <span className="bg-sidebar-primary text-sidebar-primary-foreground flex size-7 items-center justify-center rounded-lg shadow-soft">
+              <TicketIcon className="size-3.5" />
+            </span>
+            <div className="min-w-0 leading-tight">
+              <p className="truncate text-sm font-semibold tracking-tight">Sadhox</p>
+              <p className="text-sidebar-foreground/55 truncate text-[10px]">Service desk</p>
+            </div>
+          </div>
         ) : null}
       </div>
-      <Separator />
-      <nav className="flex flex-1 flex-col gap-1 p-2">
+      <Separator className="bg-sidebar-border" />
+      <nav className="flex flex-1 flex-col gap-1 p-2.5">
         {items.map((item) => {
           const Icon = item.icon;
           return (
@@ -89,15 +104,29 @@ export function AppSidebar({
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-2 rounded-none px-2 py-2 text-xs transition-colors",
-                  isActive && "bg-sidebar-accent text-sidebar-accent-foreground font-medium",
+                  "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm transition-all duration-200",
+                  "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  isActive &&
+                    "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-soft",
                   collapsed && "justify-center px-0",
                 )
               }
               title={item.label}
             >
-              <Icon className="size-4 shrink-0" />
-              {!collapsed ? <span>{item.label}</span> : null}
+              {({ isActive }) => (
+                <>
+                  {isActive ? (
+                    <span className="bg-sidebar-primary absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-r-full" />
+                  ) : null}
+                  <Icon
+                    className={cn(
+                      "size-4 shrink-0 transition-transform duration-200 group-hover:scale-110",
+                      isActive && "text-sidebar-primary",
+                    )}
+                  />
+                  {!collapsed ? <span>{item.label}</span> : null}
+                </>
+              )}
             </NavLink>
           );
         })}

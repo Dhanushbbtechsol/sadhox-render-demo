@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useCreateServiceRequest } from "@/hooks/use-service-requests";
 import type { ServiceCatalogItem, Urgency } from "@/types/api";
 
@@ -94,9 +95,8 @@ function RequestFormBody({
                 {field.required === false ? "" : " *"}
               </Label>
               {field.type === "textarea" ? (
-                <textarea
+                <Textarea
                   id={field.name}
-                  className="border-input bg-background ring-foreground/10 placeholder:text-muted-foreground focus-visible:ring-ring/50 flex min-h-24 w-full rounded-none border px-3 py-2 text-sm outline-none focus-visible:ring-1"
                   value={fieldApi.state.value}
                   onChange={(event) => fieldApi.handleChange(event.target.value)}
                 />
