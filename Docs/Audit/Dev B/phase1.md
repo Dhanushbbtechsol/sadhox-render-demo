@@ -1,6 +1,6 @@
 # Security Audit: Dev B (Phase 1)
 
-Reaudit 2026-09-28: remediations below still hold. Access token is no longer persisted. Remaining lows: [phase1.md](../phase1.md).
+Reaudit 2026-09-28: remediations below still hold. Access token and user are not persisted. See [phase1.md](../phase1.md).
 
 **Status:** Remediated (auth-store / login UI)
 
@@ -20,4 +20,4 @@ Reaudit 2026-09-28: remediations below still hold. Access token is no longer per
 
 ### [A02] Access token in localStorage — apps/web/src/stores/auth-store.ts
 **Was:** Zustand persist wrote `accessToken`.  
-**Fix:** `partialize` omits the token; restore via httpOnly refresh cookie. (`user` is still persisted — see combined reaudit.)
+**Fix:** `partialize` stores only `isAuthenticated`; user/token come back from the refresh cookie.

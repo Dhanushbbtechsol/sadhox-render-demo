@@ -23,6 +23,10 @@ async function bootstrap() {
     }),
   );
   app.use(cookieParser());
+  const expressApp = app.getHttpAdapter().getInstance() as {
+    set: (key: string, value: number | boolean) => void;
+  };
+  expressApp.set("trust proxy", isProd ? 1 : false);
   app.enableCors({
     origin: config.getOrThrow<string>("CORS_ORIGIN"),
     credentials: true,

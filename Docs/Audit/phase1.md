@@ -2,29 +2,21 @@
 
 Scope: current `Audit` tree. Stack: React/Vite + Zustand, NestJS (`apps/server` `main.ts`), Drizzle/Postgres, Passport JWT.
 
-**High / Medium: none open.** Prior Phase 1 remediations were checked in source, not taken from docs.
+**High / Medium: none open.** Low items below were fixed in source.
 
 ## Low / Hardening
 
-### [A02] Session user still written to localStorage — apps/web/src/stores/auth-store.ts:157
-`partialize` no longer stores `accessToken` (good). It still persists `user` (email, name, role) and `isAuthenticated`. XSS or a shared browser can read that profile. API access still needs the httpOnly refresh cookie.
+### [A02] Session user still written to localStorage — apps/web/src/stores/auth-store.ts
+**Status: Fixed.** Persist only `isAuthenticated`. Restore user/token via `POST /auth/refresh` before `isHydrated`.
 
-Fix: persist nothing, or only a boolean; restore the session with `POST /auth/refresh` only.
+### [A07] Login timing differs when the email does not exist — apps/server/src/auth/auth.service.ts
+**Status: Fixed.** Unknown emails still run `bcrypt.compare` against `MISSING_USER_HASH`.
 
-### [A07] Login timing differs when the email does not exist — apps/server/src/auth/auth.service.ts:35
-Missing users throw before `bcrypt.compare`. An attacker can tell valid emails from response time.
+### [A07] Rate limits are in-process only — apps/server/src/app.module.ts
+**Status: Fixed.** Shared `throttle_hits` table on `DATABASE_URL` (`PostgresThrottlerStorage`). No extra Redis client.
 
-Fix: run `bcrypt.compare` against a dummy hash when no row is found.
-
-### [A07] Rate limits are in-process only — apps/server/src/app.module.ts:24
-`ThrottlerModule.forRoot` has no Redis store. `REDIS_URL` is optional in env and unused. Extra instances each get their own 5/min login budget.
-
-Fix: use a shared throttler store when `REDIS_URL` is set.
-
-### [A09] Login audit IP trusts `X-Forwarded-For` — apps/server/src/auth/auth.controller.ts:37
-`clientIp` uses the first `X-Forwarded-For` hop with no trusted-proxy check. Clients can put any IP in that header; `audit_log` records it.
-
-Fix: set Express `trust proxy` to the known hop count and use `req.ip` only.
+### [A09] Login audit IP trusts `X-Forwarded-For` — apps/server/src/auth/auth.controller.ts
+**Status: Fixed.** Production `trust proxy` hop count 1; login records `req.ip` only.
 
 ## Verified remediations (still hold)
 
