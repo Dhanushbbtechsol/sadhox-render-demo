@@ -5,6 +5,7 @@ import { logger } from "hono/logger";
 import { serve } from "@hono/node-server";
 
 import { authRoutes } from "./routes/auth";
+import { catalogRoutes, serviceRequestRoutes } from "./routes/catalog";
 
 const app = new Hono();
 
@@ -30,6 +31,8 @@ app.get("/", (c) => {
 });
 
 app.route("/auth", authRoutes);
+app.route("/service-catalog", catalogRoutes);
+app.route("/service-requests", serviceRequestRoutes);
 
 serve(
   {

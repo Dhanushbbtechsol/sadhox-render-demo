@@ -54,6 +54,20 @@ function publicUser(user: DemoUser) {
   };
 }
 
+export async function authenticateAccessToken(authorization: string | undefined) {
+  const token = authorization?.startsWith("Bearer ") ? authorization.slice("Bearer ".length) : "";
+  if (!token) return null;
+
+  try {
+    const payload = await verify(token, ACCESS_SECRET, "HS256");
+    if (payload.typ === "refresh" || typeof payload.sub !== "string") return null;
+    const user = DEMO_USERS.find((entry) => entry.id === payload.sub);
+    return user ? publicUser(user) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function issueTokens(user: DemoUser) {
   const now = Math.floor(Date.now() / 1000);
   const accessToken = await sign(

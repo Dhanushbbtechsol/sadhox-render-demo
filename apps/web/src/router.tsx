@@ -2,11 +2,13 @@ import { createBrowserRouter } from "react-router";
 
 import AppShell from "./app-shell";
 import { GuestRoute, ProtectedRoute } from "@/components/auth/protected-route";
+import CatalogPage from "@/routes/catalog";
 import IncidentDetailPage from "@/routes/incident-detail";
 import IncidentsPage from "@/routes/incidents";
 import LoginPage from "@/routes/login";
 import PortalPage from "@/routes/portal";
 import ProblemsPage from "@/routes/problems";
+import RequestsPage from "@/routes/requests";
 import RoleHomeRedirect from "@/routes/role-home";
 
 function NotFound() {
@@ -64,6 +66,18 @@ export const router = createBrowserRouter([
             handle: { breadcrumb: "Portal" },
             element: <ProtectedRoute roles={["EndUser", "Admin"]} />,
             children: [{ index: true, element: <PortalPage /> }],
+          },
+          {
+            path: "catalog",
+            handle: { breadcrumb: "Catalog" },
+            element: <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />,
+            children: [{ index: true, element: <CatalogPage /> }],
+          },
+          {
+            path: "requests",
+            handle: { breadcrumb: "Requests" },
+            element: <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />,
+            children: [{ index: true, element: <RequestsPage /> }],
           },
           { path: "*", element: <NotFound /> },
         ],

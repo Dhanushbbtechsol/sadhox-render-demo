@@ -1,9 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import {
-  mockChanges,
-  updateMockChangeStatus,
-} from "@/lib/mocks/service-catalog";
+import { mockChanges, updateMockChangeStatus } from "@/lib/mocks/changes";
 import { useAuthStore } from "@/stores/auth-store";
 import type { ChangeStatus } from "@/types/api";
 
