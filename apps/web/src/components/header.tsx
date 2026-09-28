@@ -50,6 +50,12 @@ export default function Header() {
             >
               Approvals
             </NavLink>
+            <NavLink
+              to="/admin/dashboard"
+              className={({ isActive }) => (isActive ? "font-bold" : "")}
+            >
+              Dashboard
+            </NavLink>
           </Can>
         </nav>
         <div className="flex items-center gap-2">
