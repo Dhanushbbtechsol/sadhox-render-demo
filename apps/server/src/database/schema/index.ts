@@ -156,6 +156,8 @@ export const incidents = pgTable(
       .notNull()
       .references(() => users.id),
     slaDueAt: timestamp("sla_due_at", { withTimezone: true }),
+    slaBreached: boolean("sla_breached").notNull().default(false),
+    resolutionNotes: text("resolution_notes"),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })

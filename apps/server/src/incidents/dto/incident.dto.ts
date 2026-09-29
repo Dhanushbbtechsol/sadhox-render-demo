@@ -85,12 +85,33 @@ export class UpdateIncidentDto {
   @ApiPropertyOptional({
     format: "uuid",
     nullable: true,
-    description: "Set null to unassign",
+    description: "Prefer POST /incidents/:id/assign for assignment + email",
   })
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsUUID()
   assignedTo?: string | null;
+
+  @ApiPropertyOptional({
+    description: "Required when transitioning to Resolved",
+    minLength: 5,
+    maxLength: 10_000,
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(5)
+  @MaxLength(10_000)
+  resolutionNotes?: string;
+}
+
+export class AssignIncidentDto {
+  @ApiPropertyOptional({
+    format: "uuid",
+    description: "Omit for round-robin auto-assignment",
+  })
+  @IsOptional()
+  @IsUUID()
+  agentId?: string;
 }
 
 export class CreateCommentDto {

@@ -3,15 +3,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import type {
+  AgentSnippet,
   CreateIncidentInput,
   Incident,
   PageMeta,
   Problem,
   TicketComment,
+  UpdateIncidentInput,
 } from "@/types/itsm";
 
 const incidentsKey = ["incidents"] as const;
 const problemsKey = ["problems"] as const;
+const agentsKey = ["assignment", "agents"] as const;
 
 export type IncidentListParams = {
   page?: number;
@@ -90,6 +93,26 @@ export function useProblems(params: { page?: number; pageSize?: number } = {}) {
   });
 }
 
+export function useProblem(id: string | undefined) {
+  const userId = useAuthStore((state) => state.user?.id);
+
+  return useQuery({
+    queryKey: [...problemsKey, id, userId],
+    enabled: Boolean(id) && Boolean(userId),
+    queryFn: () => apiFetch<Problem>(`/problems/${id}`),
+  });
+}
+
+export function useAgents() {
+  const userId = useAuthStore((state) => state.user?.id);
+
+  return useQuery({
+    queryKey: [...agentsKey, userId],
+    enabled: Boolean(userId),
+    queryFn: () => apiFetch<AgentSnippet[]>("/assignment/agents"),
+  });
+}
+
 export function useCreateIncident() {
   const queryClient = useQueryClient();
 
@@ -101,6 +124,71 @@ export function useCreateIncident() {
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: incidentsKey });
+    },
+  });
+}
+
+export function useAssignIncident(incidentId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (agentId?: string) =>
+      apiFetch<Incident>(`/incidents/${incidentId}/assign`, {
+        method: "POST",
+        body: agentId ? { agentId } : {},
+      }),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: incidentsKey });
+      void queryClient.invalidateQueries({ queryKey: agentsKey });
+      queryClient.setQueryData(
+        [...incidentsKey, incidentId, useAuthStore.getState().user?.id],
+        data,
+      );
+    },
+  });
+}
+
+export function useUpdateIncident(incidentId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UpdateIncidentInput) =>
+      apiFetch<Incident>(`/incidents/${incidentId}`, {
+        method: "PATCH",
+        body: input,
+      }),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: incidentsKey });
+      queryClient.setQueryData(
+        [...incidentsKey, incidentId, useAuthStore.getState().user?.id],
+        data,
+      );
+    },
+  });
+}
+
+export function useUpdateProblem(problemId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: {
+      linkedIncidentIds?: string[];
+      knownError?: boolean;
+      title?: string;
+      description?: string;
+      rootCause?: string | null;
+      status?: string;
+    }) =>
+      apiFetch<Problem>(`/problems/${problemId}`, {
+        method: "PATCH",
+        body: input,
+      }),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: problemsKey });
+      queryClient.setQueryData(
+        [...problemsKey, problemId, useAuthStore.getState().user?.id],
+        data,
+      );
     },
   });
 }

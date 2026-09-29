@@ -1,0 +1,189 @@
+import { useState } from "react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  useAgents,
+  useAssignIncident,
+  useUpdateIncident,
+} from "@/hooks/use-tickets";
+import { useAuthStore } from "@/stores/auth-store";
+import {
+  INCIDENT_STATUS_LABELS,
+  type Incident,
+  type IncidentStatus,
+} from "@/types/itsm";
+
+const NEXT_STATUS: Partial<Record<IncidentStatus, IncidentStatus>> = {
+  Assigned: "InProgress",
+  InProgress: "Resolved",
+  Resolved: "Closed",
+};
+
+export function IncidentActions({ incident }: { incident: Incident }) {
+  const user = useAuthStore((s) => s.user);
+  const canManage = user?.role === "Admin" || user?.role === "Agent";
+  const { data: agents = [] } = useAgents();
+  const assign = useAssignIncident(incident.id);
+  const update = useUpdateIncident(incident.id);
+  const [selectedAgent, setSelectedAgent] = useState<string>("");
+  const [resolutionNotes, setResolutionNotes] = useState(
+    incident.resolutionNotes ?? "",
+  );
+
+  if (!canManage) return null;
+
+  const next = NEXT_STATUS[incident.status];
+  const busy = assign.isPending || update.isPending;
+
+  async function handleAssignToMe() {
+    if (!user?.id) return;
+    try {
+      await assign.mutateAsync(user.id);
+      toast.success("Assigned to you");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Assign failed");
+    }
+  }
+
+  async function handleAutoAssign() {
+    try {
+      await assign.mutateAsync(undefined);
+      toast.success("Auto-assigned via round-robin");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Auto-assign failed");
+    }
+  }
+
+  async function handleAssignSelected() {
+    if (!selectedAgent) return;
+    try {
+      await assign.mutateAsync(selectedAgent);
+      toast.success("Agent assigned");
+      setSelectedAgent("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Assign failed");
+    }
+  }
+
+  async function handleAdvance() {
+    if (!next) return;
+    try {
+      if (next === "Resolved") {
+        const notes = resolutionNotes.trim();
+        if (notes.length < 5) {
+          toast.error("Resolution notes are required (min 5 characters)");
+          return;
+        }
+        await update.mutateAsync({ status: next, resolutionNotes: notes });
+      } else {
+        await update.mutateAsync({ status: next });
+      }
+      toast.success(`Status → ${INCIDENT_STATUS_LABELS[next]}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
+    }
+  }
+
+  const canAssign =
+    incident.status === "New" ||
+    incident.status === "Assigned" ||
+    incident.status === "InProgress";
+
+  return (
+    <div className="border-border/80 bg-muted/30 space-y-4 rounded-xl border p-4">
+      <div>
+        <h3 className="text-sm font-semibold tracking-tight">Workflow</h3>
+        <p className="text-muted-foreground mt-0.5 text-xs">
+          Assign agents and advance through the ITIL lifecycle.
+        </p>
+      </div>
+
+      {canAssign ? (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => void handleAssignToMe()}
+          >
+            Assign to Me
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => void handleAutoAssign()}
+          >
+            Auto-assign
+          </Button>
+        </div>
+      ) : null}
+
+      {canAssign ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Label htmlFor="agent-select">Assign agent</Label>
+            <Select
+              value={selectedAgent}
+              onValueChange={(v) => setSelectedAgent(v ?? "")}
+            >
+              <SelectTrigger id="agent-select">
+                <SelectValue placeholder="Select agent…" />
+              </SelectTrigger>
+              <SelectContent>
+                {agents.map((agent) => (
+                  <SelectItem key={agent.id} value={agent.id}>
+                    {agent.name} ({agent.openTicketCount} open)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            size="sm"
+            disabled={busy || !selectedAgent}
+            onClick={() => void handleAssignSelected()}
+          >
+            Assign
+          </Button>
+        </div>
+      ) : null}
+
+      {next === "Resolved" || incident.status === "InProgress" ? (
+        <div className="space-y-1.5">
+          <Label htmlFor="resolution-notes">Resolution notes</Label>
+          <Textarea
+            id="resolution-notes"
+            value={resolutionNotes}
+            onChange={(e) => setResolutionNotes(e.target.value)}
+            placeholder="Describe the fix (required to resolve)…"
+            rows={3}
+          />
+        </div>
+      ) : null}
+
+      {next ? (
+        <Button size="sm" disabled={busy} onClick={() => void handleAdvance()}>
+          Mark as {INCIDENT_STATUS_LABELS[next]}
+        </Button>
+      ) : null}
+
+      {incident.resolutionNotes ? (
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          <span className="font-medium text-foreground">Resolution: </span>
+          {incident.resolutionNotes}
+        </p>
+      ) : null}
+    </div>
+  );
+}

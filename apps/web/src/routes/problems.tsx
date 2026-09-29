@@ -1,3 +1,5 @@
+import { Link } from "react-router";
+
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { useProblems } from "@/hooks/use-tickets";
@@ -36,10 +38,11 @@ export default function ProblemsPage() {
       {!isLoading && problems && problems.length > 0 ? (
         <div className="space-y-2">
           {problems.map((problem, index) => (
-            <div
+            <Link
               key={problem.id}
+              to={`/problems/${problem.id}`}
               className={cn(
-                "border-border/80 bg-card space-y-2.5 rounded-xl border px-4 py-4 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-lift animate-in-up",
+                "border-border/80 bg-card block space-y-2.5 rounded-xl border px-4 py-4 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-lift animate-in-up",
                 index === 1 && "stagger-1",
                 index === 2 && "stagger-2",
               )}
@@ -48,18 +51,28 @@ export default function ProblemsPage() {
                 <span className="text-muted-foreground bg-muted/80 rounded-md px-1.5 py-0.5 font-mono text-[11px]">
                   {problem.id.slice(0, 8)}
                 </span>
-                <Badge variant="outline">{PROBLEM_STATUS_LABELS[problem.status]}</Badge>
-                {problem.knownError ? <Badge variant="warning">Known error</Badge> : null}
+                <Badge variant="outline">
+                  {PROBLEM_STATUS_LABELS[problem.status]}
+                </Badge>
+                {problem.knownError ? (
+                  <Badge variant="warning">Known error</Badge>
+                ) : null}
               </div>
-              <p className="text-sm font-semibold tracking-tight">{problem.title}</p>
-              <p className="text-muted-foreground text-sm leading-relaxed">{problem.description}</p>
+              <p className="text-sm font-semibold tracking-tight">
+                {problem.title}
+              </p>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                {problem.description}
+              </p>
               <p className="text-muted-foreground text-xs">
                 Linked incidents:{" "}
                 {problem.linkedIncidentIds.length
-                  ? problem.linkedIncidentIds.map((id) => id.slice(0, 8)).join(", ")
+                  ? problem.linkedIncidentIds
+                      .map((id) => id.slice(0, 8))
+                      .join(", ")
                   : "None"}
               </p>
-            </div>
+            </Link>
           ))}
         </div>
       ) : null}

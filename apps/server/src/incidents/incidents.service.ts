@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -6,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { and, asc, count, desc, eq, isNull, SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { AssignmentService } from "../assignment/assignment.service";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
@@ -18,12 +20,19 @@ import {
   type Priority,
 } from "../database/schema";
 import { EventsService } from "../events/events.service";
+import { MailService } from "../mail/mail.service";
 import type {
+  AssignIncidentDto,
   CreateCommentDto,
   CreateIncidentDto,
   UpdateIncidentDto,
 } from "./dto/incident.dto";
 import type { ListIncidentsQueryDto } from "./dto/list-incidents-query.dto";
+import {
+  assertCanTransitionIncident,
+  requiresResolutionNotes,
+} from "./incident-transitions";
+import { canAssignIncident, canMutateIncident } from "./incident-rbac";
 import { PriorityCalculationService } from "./priority-calculation.service";
 
 type UserSnippet = {
@@ -46,6 +55,8 @@ export type IncidentListItem = {
   reporterId: string;
   reporterName: string | null;
   slaDueAt: string | null;
+  slaBreached: boolean;
+  resolutionNotes: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
   createdAt: string;
@@ -74,6 +85,8 @@ export class IncidentsService {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly priorityCalc: PriorityCalculationService,
     private readonly events: EventsService,
+    private readonly assignment: AssignmentService,
+    private readonly mail: MailService,
   ) {}
 
   async list(user: AuthUser, query: ListIncidentsQueryDto) {
@@ -133,7 +146,11 @@ export class IncidentsService {
       .limit(1);
 
     return {
-      ...this.toListItem(row.incident, row.reporter?.name ?? null, row.assignee?.name ?? null),
+      ...this.toListItem(
+        row.incident,
+        row.reporter?.name ?? null,
+        row.assignee?.name ?? null,
+      ),
       reporter: row.reporter,
       assignee: row.assignee,
       slaTargetMinutes: sla?.resolveMinutes ?? null,
@@ -162,6 +179,7 @@ export class IncidentsService {
         status: "New",
         reporterId: user.userId,
         slaDueAt,
+        slaBreached: false,
         createdAt: now,
         updatedAt: now,
       })
@@ -170,8 +188,95 @@ export class IncidentsService {
     return this.get(user, created!.id);
   }
 
+  async assign(user: AuthUser, id: string, dto: AssignIncidentDto) {
+    if (!canAssignIncident(user.role)) {
+      throw new ForbiddenException("End users cannot assign incidents");
+    }
+
+    const existing = await this.loadIncidentRow(id);
+    if (!existing) throw new NotFoundException("Incident not found");
+
+    const current = existing.incident.status;
+    if (current === "Resolved" || current === "Closed") {
+      throw new BadRequestException(
+        `Cannot assign an incident in status ${current}`,
+      );
+    }
+
+    let agentId = dto.agentId;
+    let agentEmail: string;
+    let agentName: string;
+
+    if (agentId) {
+      const [agent] = await this.db
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+        })
+        .from(users)
+        .where(eq(users.id, agentId))
+        .limit(1);
+      if (!agent) throw new NotFoundException("Assignee not found");
+      if (agent.role !== "Agent" && agent.role !== "Admin") {
+        throw new BadRequestException("Assignee must be an Agent or Admin");
+      }
+      agentEmail = agent.email;
+      agentName = agent.name;
+    } else {
+      const next = await this.assignment.assignNextAgent(
+        id,
+        existing.incident.category,
+      );
+      agentId = next.id;
+      agentEmail = next.email;
+      agentName = next.name;
+    }
+
+    const now = new Date();
+    const nextStatus: IncidentStatus =
+      current === "New" ? "Assigned" : current;
+
+    if (nextStatus !== current) {
+      try {
+        assertCanTransitionIncident(current, nextStatus);
+      } catch (err) {
+        throw new BadRequestException(
+          err instanceof Error ? err.message : "Invalid status transition",
+        );
+      }
+    }
+
+    const [updated] = await this.db
+      .update(incidents)
+      .set({
+        assignedTo: agentId,
+        status: nextStatus,
+        updatedAt: now,
+      })
+      .where(eq(incidents.id, id))
+      .returning();
+
+    if (!updated) throw new NotFoundException("Incident not found");
+
+    try {
+      await this.mail.sendTicketAssigned(agentEmail, {
+        ticketId: id,
+        ticketTitle: existing.incident.title,
+        assigneeName: agentName,
+      });
+    } catch {
+      // Assignment succeeded; mail enqueue failures are logged by MailService.
+    }
+
+    const detail = await this.get(user, id);
+    this.events.emitTicketUpdated(id, detail);
+    return detail;
+  }
+
   async update(user: AuthUser, id: string, dto: UpdateIncidentDto) {
-    if (user.role === "EndUser") {
+    if (!canMutateIncident(user.role)) {
       throw new ForbiddenException("End users cannot update incidents");
     }
 
@@ -197,17 +302,56 @@ export class IncidentsService {
       );
     }
 
+    const fromStatus = existing.incident.status;
+    const toStatus = dto.status ?? fromStatus;
+
+    if (dto.status !== undefined && dto.status !== fromStatus) {
+      try {
+        assertCanTransitionIncident(fromStatus, dto.status);
+      } catch (err) {
+        throw new BadRequestException(
+          err instanceof Error ? err.message : "Invalid status transition",
+        );
+      }
+    }
+
+    let resolutionNotes =
+      dto.resolutionNotes ?? existing.incident.resolutionNotes;
+    if (requiresResolutionNotes(fromStatus, toStatus)) {
+      const notes = dto.resolutionNotes?.trim();
+      if (!notes) {
+        throw new BadRequestException(
+          "Resolution notes are required when resolving an incident",
+        );
+      }
+      resolutionNotes = notes;
+    }
+
     let resolvedAt = existing.incident.resolvedAt;
     let closedAt = existing.incident.closedAt;
-    if (dto.status === "Resolved" && !resolvedAt) resolvedAt = now;
-    if (dto.status === "Closed" && !closedAt) closedAt = now;
-    if (dto.status && dto.status !== "Resolved" && dto.status !== "Closed") {
+    if (toStatus === "Resolved" && fromStatus !== "Resolved") {
+      resolvedAt = now;
+    }
+    if (toStatus === "Closed" && fromStatus !== "Closed") {
+      closedAt = now;
+    }
+    if (toStatus !== "Resolved" && toStatus !== "Closed") {
       resolvedAt = null;
       closedAt = null;
     }
 
     if (dto.assignedTo !== undefined && dto.assignedTo !== null) {
       await this.assertUserExists(dto.assignedTo);
+    }
+
+    // Assigning via PATCH on New auto-moves to Assigned (same lifecycle rule).
+    let status = toStatus;
+    if (
+      dto.assignedTo &&
+      fromStatus === "New" &&
+      dto.status === undefined
+    ) {
+      status = "Assigned";
     }
 
     const [updated] = await this.db
@@ -220,10 +364,11 @@ export class IncidentsService {
         ...(dto.category !== undefined ? { category: dto.category } : {}),
         ...(dto.impact !== undefined ? { impact: dto.impact } : {}),
         ...(dto.urgency !== undefined ? { urgency: dto.urgency } : {}),
-        ...(dto.status !== undefined ? { status: dto.status } : {}),
+        status,
         ...(dto.assignedTo !== undefined
           ? { assignedTo: dto.assignedTo }
           : {}),
+        resolutionNotes,
         priority,
         slaDueAt,
         resolvedAt,
@@ -403,6 +548,8 @@ export class IncidentsService {
       reporterId: row.reporterId,
       reporterName,
       slaDueAt: row.slaDueAt?.toISOString() ?? null,
+      slaBreached: row.slaBreached,
+      resolutionNotes: row.resolutionNotes,
       resolvedAt: row.resolvedAt?.toISOString() ?? null,
       closedAt: row.closedAt?.toISOString() ?? null,
       createdAt: row.createdAt.toISOString(),

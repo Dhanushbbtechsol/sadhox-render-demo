@@ -19,6 +19,14 @@ const sampleProblem = {
   assignedTo: null,
   assigneeName: null,
   linkedIncidentIds: ["22222222-2222-4222-8222-222222222222"],
+  linkedIncidents: [
+    {
+      id: "22222222-2222-4222-8222-222222222222",
+      title: "VPN drop site A",
+      status: "InProgress",
+      priority: "P2",
+    },
+  ],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -38,10 +46,10 @@ async function parseDto<T extends object>(
 }
 
 function buildApp(problems: {
-  list: jest.Mock;
-  get: jest.Mock;
-  create: jest.Mock;
-  update: jest.Mock;
+  list: ReturnType<typeof vi.fn>;
+  get: ReturnType<typeof vi.fn>;
+  create: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
 }): Express {
   const app = express();
   app.use(express.json());
@@ -73,15 +81,15 @@ function buildApp(problems: {
 
 describe("Problems API (supertest)", () => {
   const problems = {
-    list: jest.fn(),
-    get: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
+    list: vi.fn(),
+    get: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
   };
   const app = buildApp(problems);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("GET /problems returns paginated list", async () => {

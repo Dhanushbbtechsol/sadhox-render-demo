@@ -13,6 +13,7 @@ import IncidentsPage from "@/routes/incidents";
 import LoginPage from "@/routes/login";
 import PortalPage from "@/routes/portal";
 import ProblemsPage from "@/routes/problems";
+import ProblemDetailPage from "@/routes/problem-detail";
 import RequestsPage from "@/routes/requests";
 import RoleHomeRedirect from "@/routes/role-home";
 
@@ -82,7 +83,14 @@ export const router = createBrowserRouter([
             path: "problems",
             handle: { breadcrumb: "Problems" },
             element: <ProtectedRoute roles={["Admin", "Agent"]} />,
-            children: [{ index: true, element: <ProblemsPage /> }],
+            children: [
+              { index: true, element: <ProblemsPage /> },
+              {
+                path: ":id",
+                element: <ProblemDetailPage />,
+                handle: { breadcrumb: "Detail" },
+              },
+            ],
           },
           {
             path: "portal",

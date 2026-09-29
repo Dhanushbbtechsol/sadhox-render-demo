@@ -4,6 +4,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import type { Sql } from "postgres";
 import { AdminModule } from "./admin/admin.module";
+import { AssignmentModule } from "./assignment/assignment.module";
 import { AuthModule } from "./auth/auth.module";
 import { AssetsModule } from "./assets/assets.module";
 import { ChangesModule } from "./changes/changes.module";
@@ -52,6 +53,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     EventsModule,
     QueuesModule,
     MailModule,
+    AssignmentModule,
     IncidentsModule,
     ProblemsModule,
     ServiceCatalogModule,
