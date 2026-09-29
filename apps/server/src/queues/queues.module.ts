@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { BullModule } from "@nestjs/bullmq";
+import { MailModule } from "../mail/mail.module";
 import {
   DEFAULT_JOB_OPTIONS,
   EMAIL_QUEUE,
@@ -9,6 +10,7 @@ import {
 } from "./queue.constants";
 import { SlaProcessor } from "./sla.processor";
 import { SlaScheduleService } from "./sla-schedule.service";
+import { AutoCloseScheduleService } from "./auto-close-schedule.service";
 import { TicketLifecycleProcessor } from "./ticket-lifecycle.processor";
 
 @Module({
@@ -29,8 +31,14 @@ import { TicketLifecycleProcessor } from "./ticket-lifecycle.processor";
       { name: TICKET_LIFECYCLE_QUEUE },
       { name: EMAIL_QUEUE },
     ),
+    MailModule,
   ],
-  providers: [SlaProcessor, TicketLifecycleProcessor, SlaScheduleService],
+  providers: [
+    SlaProcessor,
+    TicketLifecycleProcessor,
+    SlaScheduleService,
+    AutoCloseScheduleService,
+  ],
   exports: [BullModule],
 })
 export class QueuesModule {}

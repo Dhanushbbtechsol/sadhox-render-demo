@@ -3,12 +3,16 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Queue } from "bullmq";
 import { EMAIL_QUEUE } from "../queues/queue.constants";
 import {
+  EMAIL_JOB_APPROVAL_OUTCOME,
+  EMAIL_JOB_ASSET_NOTIFICATION,
   EMAIL_JOB_CHANGE_REVIEW,
   EMAIL_JOB_REQUEST_DECISION,
   EMAIL_JOB_SLA_BREACH,
   EMAIL_JOB_STATUS_CHANGED,
   EMAIL_JOB_TICKET_ASSIGNED,
   maskEmail,
+  type ApprovalOutcomeMailData,
+  type AssetNotificationMailData,
   type ChangeReviewMailData,
   type EmailJobPayload,
   type RequestDecisionMailData,
@@ -128,6 +132,48 @@ export class MailService {
     });
     this.logger.log(
       `enqueued ${EMAIL_JOB_CHANGE_REVIEW} to=${maskEmail(to)} change=${data.changeId}`,
+    );
+  }
+
+  async sendApprovalOutcome(to: string, data: ApprovalOutcomeMailData) {
+    const payload: EmailJobPayload = {
+      kind: EMAIL_JOB_APPROVAL_OUTCOME,
+      to,
+      data: {
+        entityType: data.entityType,
+        entityId: data.entityId,
+        entityTitle: data.entityTitle,
+        outcome: data.outcome,
+        reason: data.reason,
+      },
+    };
+    await this.emailQueue.add(EMAIL_JOB_APPROVAL_OUTCOME, payload, {
+      jobId: `${EMAIL_JOB_APPROVAL_OUTCOME}:${data.entityType}:${data.entityId}:${data.outcome}:${to}`,
+    });
+    this.logger.log(
+      `enqueued ${EMAIL_JOB_APPROVAL_OUTCOME} to=${maskEmail(to)} ` +
+        `${data.entityType}=${data.entityId} outcome=${data.outcome}`,
+    );
+  }
+
+  async sendAssetNotification(to: string, data: AssetNotificationMailData) {
+    const payload: EmailJobPayload = {
+      kind: EMAIL_JOB_ASSET_NOTIFICATION,
+      to,
+      data: {
+        assetId: data.assetId,
+        assetTag: data.assetTag,
+        assetName: data.assetName,
+        event: data.event,
+        ticketId: data.ticketId,
+      },
+    };
+    await this.emailQueue.add(EMAIL_JOB_ASSET_NOTIFICATION, payload, {
+      jobId: `${EMAIL_JOB_ASSET_NOTIFICATION}:${data.assetId}:${data.event}:${to}`,
+    });
+    this.logger.log(
+      `enqueued ${EMAIL_JOB_ASSET_NOTIFICATION} to=${maskEmail(to)} ` +
+        `asset=${data.assetId} event=${data.event}`,
     );
   }
 }

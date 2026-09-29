@@ -14,6 +14,8 @@ import {
 import { EMAIL_QUEUE } from "../queues/queue.constants";
 import { escapeHtml } from "./html-escape";
 import {
+  EMAIL_JOB_APPROVAL_OUTCOME,
+  EMAIL_JOB_ASSET_NOTIFICATION,
   EMAIL_JOB_CHANGE_REVIEW,
   EMAIL_JOB_REQUEST_DECISION,
   EMAIL_JOB_SLA_BREACH,
@@ -179,6 +181,41 @@ export class EmailProcessor extends WorkerHost {
       const subject = `[Sadhox] Change review needed: ${d.changeTitle}`;
       const text = `${d.submitterName} submitted ${d.changeType} change ${d.changeId} for review.`;
       const html = `<p><strong>${submitter}</strong> submitted a <strong>${changeType}</strong> change for review:</p><p><strong>${title}</strong> (${changeId})</p>`;
+      return { subject, html, text };
+    }
+
+    if (payload.kind === EMAIL_JOB_APPROVAL_OUTCOME) {
+      const d = payload.data;
+      const title = escapeHtml(d.entityTitle);
+      const entityId = escapeHtml(d.entityId);
+      const entityType = escapeHtml(d.entityType);
+      const outcome = escapeHtml(d.outcome);
+      const reason = d.reason ? escapeHtml(d.reason) : null;
+      const subject = `[Sadhox] ${d.entityType} ${d.outcome}: ${d.entityTitle}`;
+      const text =
+        `${d.entityType} ${d.entityId} was ${d.outcome}.` +
+        (d.reason ? ` Reason: ${d.reason}` : "");
+      const html =
+        `<p>${entityType} ${entityId} was <strong>${outcome}</strong>: ${title}</p>` +
+        (reason ? `<p>Reason: ${reason}</p>` : "");
+      return { subject, html, text };
+    }
+
+    if (payload.kind === EMAIL_JOB_ASSET_NOTIFICATION) {
+      const d = payload.data;
+      const tag = escapeHtml(d.assetTag);
+      const name = escapeHtml(d.assetName);
+      const assetId = escapeHtml(d.assetId);
+      const event = escapeHtml(d.event);
+      const ticketId = d.ticketId ? escapeHtml(d.ticketId) : null;
+      const subject = `[Sadhox] Asset ${d.event}: ${d.assetTag}`;
+      const text =
+        `Asset ${d.assetTag} (${d.assetId}) event=${d.event}` +
+        (d.ticketId ? ` ticket=${d.ticketId}` : "");
+      const html =
+        `<p>Asset <strong>${tag}</strong> (${name}) — ${event}</p>` +
+        `<p>id=${assetId}</p>` +
+        (ticketId ? `<p>Linked ticket: ${ticketId}</p>` : "");
       return { subject, html, text };
     }
 

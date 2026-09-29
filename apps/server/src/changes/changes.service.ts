@@ -258,7 +258,46 @@ export class ChangesService {
       })
       .where(eq(changes.id, id));
 
+    await this.notifyCreator(existing.createdBy, {
+      entityId: existing.id,
+      entityTitle: existing.title,
+      outcome: "approved",
+    });
+
     return this.get(id);
+  }
+
+  private async notifyCreator(
+    createdBy: string | null,
+    info: {
+      entityId: string;
+      entityTitle: string;
+      outcome: "approved" | "rejected";
+      reason?: string;
+    },
+  ) {
+    if (!createdBy) return;
+    try {
+      const [creator] = await this.db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, createdBy))
+        .limit(1);
+      if (!creator?.email) return;
+      await this.mail.sendApprovalOutcome(creator.email, {
+        entityType: "change",
+        entityId: info.entityId,
+        entityTitle: info.entityTitle,
+        outcome: info.outcome,
+        reason: info.reason,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `approval mail enqueue failed change=${info.entityId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   async update(user: AuthUser, id: string, dto: UpdateChangeDto) {
@@ -320,6 +359,22 @@ export class ChangesService {
     }
 
     await this.db.update(changes).set(patch).where(eq(changes.id, id));
+
+    if (dto.status === "Approved") {
+      await this.notifyCreator(existing.createdBy, {
+        entityId: existing.id,
+        entityTitle: patch.title ?? existing.title,
+        outcome: "approved",
+      });
+    } else if (dto.status === "Rolled Back") {
+      await this.notifyCreator(existing.createdBy, {
+        entityId: existing.id,
+        entityTitle: patch.title ?? existing.title,
+        outcome: "rejected",
+        reason: "Change rolled back",
+      });
+    }
+
     return this.get(id);
   }
 }

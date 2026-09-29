@@ -82,7 +82,9 @@ describe("ChangesService.update Admin gates", () => {
 
   it("rejects Submitted → Scheduled as invalid transition (no approval skip)", async () => {
     const db = createDbMock(submitted);
-    const service = new ChangesService(db as never);
+    const service = new ChangesService(db as never, {
+      sendApprovalOutcome: vi.fn().mockResolvedValue(undefined),
+    } as never);
     await expect(
       service.update(agent, submitted.id as string, { status: "Scheduled" }),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -90,7 +92,9 @@ describe("ChangesService.update Admin gates", () => {
 
   it("rejects Agent transition to Scheduled even from Approved", async () => {
     const db = createDbMock(approved);
-    const service = new ChangesService(db as never);
+    const service = new ChangesService(db as never, {
+      sendApprovalOutcome: vi.fn().mockResolvedValue(undefined),
+    } as never);
     await expect(
       service.update(agent, approved.id as string, { status: "Scheduled" }),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -98,7 +102,9 @@ describe("ChangesService.update Admin gates", () => {
 
   it("rejects Agent transition to Approved via PATCH", async () => {
     const db = createDbMock(submitted);
-    const service = new ChangesService(db as never);
+    const service = new ChangesService(db as never, {
+      sendApprovalOutcome: vi.fn().mockResolvedValue(undefined),
+    } as never);
     await expect(
       service.update(agent, submitted.id as string, { status: "Approved" }),
     ).rejects.toBeInstanceOf(ForbiddenException);
@@ -141,7 +147,9 @@ describe("ChangesService.update Admin gates", () => {
       };
     }) as never;
 
-    const service = new ChangesService(db as never);
+    const service = new ChangesService(db as never, {
+      sendApprovalOutcome: vi.fn().mockResolvedValue(undefined),
+    } as never);
     const result = await service.update(admin, approved.id as string, {
       status: "Scheduled",
     });

@@ -65,3 +65,6 @@ temp
 
 # Local one-time seed password
 apps/server/.seed-password
+
+# Local DB dumps (never commit)
+apps/server/backups/

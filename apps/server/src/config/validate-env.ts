@@ -20,6 +20,13 @@ const envSchema = z
     LOG_LEVEL: z
       .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
       .default("info"),
+    /** Cron for daily ticket auto-close (BullMQ job scheduler pattern). */
+    AUTO_CLOSE_CRON: z.preprocess(
+      emptyToUndefined,
+      z.string().min(1).default("0 2 * * *"),
+    ),
+    /** Days a ticket stays Resolved before system auto-close. */
+    AUTO_CLOSE_DAYS: z.coerce.number().int().positive().default(3),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV === "production" && !data.RESEND_API_KEY) {

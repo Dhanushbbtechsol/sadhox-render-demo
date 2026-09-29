@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { and, count, desc, eq, ilike, ne, or } from "drizzle-orm";
@@ -16,6 +17,7 @@ import {
   type AssetStatus,
   type AssetType,
 } from "../database/schema";
+import { MailService } from "../mail/mail.service";
 import {
   isOpenIncidentStatus,
   isOpenRequestStatus,
@@ -40,7 +42,12 @@ export type AssetListItem = {
 
 @Injectable()
 export class AssetsService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  private readonly logger = new Logger(AssetsService.name);
+
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly mail: MailService,
+  ) {}
 
   async list(query: {
     search?: string;
@@ -139,11 +146,20 @@ export class AssetsService {
       })
       .returning();
 
-    return this.getById(created.id);
+    const result = await this.getById(created.id);
+    if (result.ownerId) {
+      await this.notifyOwner(result.ownerId, {
+        assetId: result.id,
+        assetTag: result.assetTag,
+        assetName: result.name,
+        event: "owner_assigned",
+      });
+    }
+    return result;
   }
 
   async update(id: string, dto: UpdateAssetDto) {
-    await this.getById(id);
+    const before = await this.getById(id);
     if (dto.assetTag) await this.ensureUniqueTag(dto.assetTag, id);
     if (dto.ownerId) await this.ensureOwner(dto.ownerId);
 
@@ -161,7 +177,22 @@ export class AssetsService {
       .returning();
 
     if (!updated) throw new NotFoundException("Asset not found");
-    return this.getById(updated.id);
+    const result = await this.getById(updated.id);
+
+    if (
+      dto.ownerId !== undefined &&
+      result.ownerId &&
+      result.ownerId !== before.ownerId
+    ) {
+      await this.notifyOwner(result.ownerId, {
+        assetId: result.id,
+        assetTag: result.assetTag,
+        assetName: result.name,
+        event: "owner_assigned",
+      });
+    }
+
+    return result;
   }
 
   async softDelete(id: string) {
@@ -176,7 +207,7 @@ export class AssetsService {
   }
 
   async linkTicket(id: string, dto: LinkTicketDto) {
-    await this.getById(id);
+    const before = await this.getById(id);
     await this.ensureActiveTicket(dto.ticketId, dto.ticketType);
 
     const [updated] = await this.db
@@ -186,7 +217,19 @@ export class AssetsService {
       .returning();
 
     if (!updated) throw new NotFoundException("Asset not found");
-    return this.getById(updated.id);
+    const result = await this.getById(updated.id);
+
+    if (before.ownerId) {
+      await this.notifyOwner(before.ownerId, {
+        assetId: result.id,
+        assetTag: result.assetTag,
+        assetName: result.name,
+        event: "ticket_linked",
+        ticketId: dto.ticketId,
+      });
+    }
+
+    return result;
   }
 
   async unlinkTicket(id: string) {
@@ -198,6 +241,33 @@ export class AssetsService {
       .returning();
     if (!updated) throw new NotFoundException("Asset not found");
     return this.getById(updated.id);
+  }
+
+  private async notifyOwner(
+    ownerId: string,
+    info: {
+      assetId: string;
+      assetTag: string;
+      assetName: string;
+      event: "owner_assigned" | "ticket_linked";
+      ticketId?: string;
+    },
+  ) {
+    try {
+      const [owner] = await this.db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, ownerId))
+        .limit(1);
+      if (!owner?.email) return;
+      await this.mail.sendAssetNotification(owner.email, info);
+    } catch (err) {
+      this.logger.warn(
+        `asset mail enqueue failed asset=${info.assetId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   private async ensureUniqueTag(tag: string, excludeId?: string) {

@@ -5,6 +5,8 @@ import { MailService } from "./mail.service";
 import { EmailProcessor, throwFromResendError } from "./email.processor";
 import { escapeHtml } from "./html-escape";
 import {
+  EMAIL_JOB_APPROVAL_OUTCOME,
+  EMAIL_JOB_ASSET_NOTIFICATION,
   EMAIL_JOB_CHANGE_REVIEW,
   EMAIL_JOB_REQUEST_DECISION,
   EMAIL_JOB_SLA_BREACH,
@@ -116,6 +118,46 @@ describe("MailService enqueue", () => {
     expect(add).toHaveBeenCalledWith(
       EMAIL_JOB_CHANGE_REVIEW,
       expect.objectContaining({ kind: EMAIL_JOB_CHANGE_REVIEW }),
+      expect.any(Object),
+    );
+  });
+
+  it("sendApprovalOutcome enqueues email-queue job", async () => {
+    const add = vi.fn().mockResolvedValue({ id: "5" });
+    const service = new MailService({ add } as never);
+    await service.sendApprovalOutcome("user@example.com", {
+      entityType: "service-request",
+      entityId: "11111111-1111-1111-1111-111111111111",
+      entityTitle: "Laptop request",
+      outcome: "approved",
+    });
+    expect(add).toHaveBeenCalledWith(
+      EMAIL_JOB_APPROVAL_OUTCOME,
+      expect.objectContaining({
+        kind: EMAIL_JOB_APPROVAL_OUTCOME,
+        to: "user@example.com",
+        data: expect.objectContaining({ outcome: "approved" }),
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it("sendAssetNotification enqueues email-queue job", async () => {
+    const add = vi.fn().mockResolvedValue({ id: "6" });
+    const service = new MailService({ add } as never);
+    await service.sendAssetNotification("owner@example.com", {
+      assetId: "11111111-1111-1111-1111-111111111111",
+      assetTag: "LAP-001",
+      assetName: "Laptop",
+      event: "owner_assigned",
+    });
+    expect(add).toHaveBeenCalledWith(
+      EMAIL_JOB_ASSET_NOTIFICATION,
+      expect.objectContaining({
+        kind: EMAIL_JOB_ASSET_NOTIFICATION,
+        to: "owner@example.com",
+        data: expect.objectContaining({ event: "owner_assigned" }),
+      }),
       expect.any(Object),
     );
   });
