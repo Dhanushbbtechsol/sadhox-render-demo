@@ -1,6 +1,8 @@
 import {
   assertAdminRole,
+  assertAgentOrAdminRole,
   canTransitionChange,
+  canTransitionRequestFulfillment,
   isPendingServiceRequestStatus,
   requiresAdminForChangeStatus,
 } from "./approval-policy";
@@ -37,5 +39,33 @@ describe("Phase 2 approval policy", () => {
     expect(requiresAdminForChangeStatus("Implemented")).toBe(false);
     expect(requiresAdminForChangeStatus("Closed")).toBe(false);
     expect(requiresAdminForChangeStatus("Submitted")).toBe(false);
+  });
+});
+
+describe("Phase 3 request fulfillment policy", () => {
+  it("allows Agent/Admin for fulfillment roles", () => {
+    expect(() => assertAgentOrAdminRole("Admin")).not.toThrow();
+    expect(() => assertAgentOrAdminRole("Agent")).not.toThrow();
+    expect(() => assertAgentOrAdminRole("EndUser")).toThrow(
+      /Agent or Admin role required/,
+    );
+  });
+
+  it("enforces Approved → InFulfillment → Fulfilled only", () => {
+    expect(canTransitionRequestFulfillment("Approved", "InFulfillment")).toBe(
+      true,
+    );
+    expect(canTransitionRequestFulfillment("InFulfillment", "Fulfilled")).toBe(
+      true,
+    );
+    expect(canTransitionRequestFulfillment("Submitted", "InFulfillment")).toBe(
+      false,
+    );
+    expect(canTransitionRequestFulfillment("Approved", "Fulfilled")).toBe(
+      false,
+    );
+    expect(canTransitionRequestFulfillment("Rejected", "InFulfillment")).toBe(
+      false,
+    );
   });
 });

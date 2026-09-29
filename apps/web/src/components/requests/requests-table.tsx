@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useMemo, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -44,8 +45,22 @@ function RequestsDataTable({ rows }: { rows: ServiceRequest[] }) {
               key={request.id}
               className="hover:bg-accent/40 transition-colors"
             >
-              <TableCell className="font-mono text-xs">{request.id}</TableCell>
-              <TableCell className="font-medium">{request.catalogName}</TableCell>
+              <TableCell className="font-mono text-xs">
+                <Link
+                  to={`/requests/${request.id}`}
+                  className="text-primary hover:underline"
+                >
+                  {request.id.slice(0, 8)}
+                </Link>
+              </TableCell>
+              <TableCell className="font-medium">
+                <Link
+                  to={`/requests/${request.id}`}
+                  className="hover:underline"
+                >
+                  {request.catalogName}
+                </Link>
+              </TableCell>
               <TableCell>{request.requesterName}</TableCell>
               <TableCell>
                 <Badge variant="outline">{request.urgency}</Badge>

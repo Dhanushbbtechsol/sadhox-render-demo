@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -84,8 +85,8 @@ export function ChangesTable() {
     <div className="space-y-4">
       <div className="flex justify-end">
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">New change</Button>
+          <DialogTrigger render={<Button size="sm" />}>
+            New change
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
@@ -188,7 +189,12 @@ export function ChangesTable() {
               <TableRow key={change.id}>
                 <TableCell>
                   <div className="space-y-1">
-                    <p className="font-medium">{change.title}</p>
+                    <Link
+                      to={`/changes/${change.id}`}
+                      className="font-medium hover:underline"
+                    >
+                      {change.title}
+                    </Link>
                     <p className="text-muted-foreground line-clamp-1 text-xs">
                       {change.description}
                     </p>

@@ -93,3 +93,38 @@ export function useRejectServiceRequest() {
     },
   });
 }
+
+export function useServiceRequest(id: string | undefined) {
+  return useQuery({
+    queryKey: [...REQUESTS_KEY, "detail", id],
+    enabled: Boolean(id),
+    queryFn: () => apiFetch<ServiceRequest>(`/service-requests/${id}`),
+  });
+}
+
+export function useStartFulfillment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      apiFetch<ServiceRequest>(`/service-requests/${id}/start-fulfillment`, {
+        method: "PATCH",
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: REQUESTS_KEY });
+    },
+  });
+}
+
+export function useFulfillServiceRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; notes: string }) =>
+      apiFetch<ServiceRequest>(`/service-requests/${input.id}/fulfill`, {
+        method: "PATCH",
+        body: { notes: input.notes },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: REQUESTS_KEY });
+    },
+  });
+}

@@ -55,6 +55,9 @@ export interface ServiceRequest {
   approverId?: string;
   approvedAt?: string;
   rejectionReason?: string;
+  assigneeId?: string;
+  fulfillmentNotes?: string;
+  fulfilledAt?: string;
 }
 
 export interface ChangeRecord {

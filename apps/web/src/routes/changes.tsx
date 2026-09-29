@@ -1,6 +1,5 @@
 import { ChangesTable } from "@/components/changes/changes-table";
-import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChangeScheduleCalendar } from "@/components/changes/change-schedule-calendar";
 
 export default function ChangesPage() {
   return (
@@ -13,14 +12,7 @@ export default function ChangesPage() {
       </div>
       <div className="grid gap-6 lg:grid-cols-[1fr_auto]">
         <ChangesTable />
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle>Schedule calendar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Calendar mode="single" selected={new Date("2026-09-28")} />
-          </CardContent>
-        </Card>
+        <ChangeScheduleCalendar />
       </div>
     </main>
   );

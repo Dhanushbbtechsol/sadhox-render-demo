@@ -6,6 +6,8 @@ import { Resend } from "resend";
 import { EMAIL_QUEUE } from "../queues/queue.constants";
 import { escapeHtml } from "./html-escape";
 import {
+  EMAIL_JOB_CHANGE_REVIEW,
+  EMAIL_JOB_REQUEST_DECISION,
   EMAIL_JOB_TICKET_ASSIGNED,
   maskEmail,
   recipientDomain,
@@ -164,6 +166,34 @@ export class EmailProcessor extends WorkerHost {
       const subject = `[Sadhox] Ticket assigned: ${payload.data.ticketTitle}`;
       const text = `Ticket ${payload.data.ticketId} assigned to ${payload.data.assigneeName}.`;
       const html = `<p>Ticket ${ticketId} assigned to ${assignee}: <strong>${title}</strong></p><p><em>Placeholder template (Dev C).</em></p>`;
+      return { subject, html, text };
+    }
+
+    if (payload.kind === EMAIL_JOB_REQUEST_DECISION) {
+      const title = escapeHtml(payload.data.requestTitle);
+      const requestId = escapeHtml(payload.data.requestId);
+      const decision = escapeHtml(payload.data.decision);
+      const reason = payload.data.reason
+        ? escapeHtml(payload.data.reason)
+        : "";
+      const subject = `[Sadhox] Service request ${payload.data.decision}: ${payload.data.requestTitle}`;
+      const text = reason
+        ? `Your service request ${payload.data.requestId} was ${payload.data.decision}. Reason: ${payload.data.reason}`
+        : `Your service request ${payload.data.requestId} was ${payload.data.decision}.`;
+      const html = reason
+        ? `<p>Your service request <strong>${title}</strong> (${requestId}) was <strong>${decision}</strong>.</p><p>Reason: ${reason}</p>`
+        : `<p>Your service request <strong>${title}</strong> (${requestId}) was <strong>${decision}</strong>.</p>`;
+      return { subject, html, text };
+    }
+
+    if (payload.kind === EMAIL_JOB_CHANGE_REVIEW) {
+      const title = escapeHtml(payload.data.changeTitle);
+      const changeId = escapeHtml(payload.data.changeId);
+      const submitter = escapeHtml(payload.data.submitterName);
+      const changeType = escapeHtml(payload.data.changeType);
+      const subject = `[Sadhox] Change review needed: ${payload.data.changeTitle}`;
+      const text = `${payload.data.submitterName} submitted ${payload.data.changeType} change ${payload.data.changeId} for review.`;
+      const html = `<p><strong>${submitter}</strong> submitted a <strong>${changeType}</strong> change for review:</p><p><strong>${title}</strong> (${changeId})</p>`;
       return { subject, html, text };
     }
 

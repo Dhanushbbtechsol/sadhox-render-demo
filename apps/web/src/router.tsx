@@ -14,8 +14,9 @@ import LoginPage from "@/routes/login";
 import PortalPage from "@/routes/portal";
 import ProblemsPage from "@/routes/problems";
 import RequestsPage from "@/routes/requests";
+import RequestDetailPage from "@/routes/request-detail";
 import RoleHomeRedirect from "@/routes/role-home";
-
+import ChangeDetailPage from "@/routes/change-detail";
 function NotFound() {
   return (
     <main className="space-y-2">
@@ -100,13 +101,27 @@ export const router = createBrowserRouter([
             path: "requests",
             handle: { breadcrumb: "Requests" },
             element: <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />,
-            children: [{ index: true, element: <RequestsPage /> }],
+            children: [
+              { index: true, element: <RequestsPage /> },
+              {
+                path: ":id",
+                element: <RequestDetailPage />,
+                handle: { breadcrumb: "Detail" },
+              },
+            ],
           },
           {
             path: "changes",
             handle: { breadcrumb: "Changes" },
             element: <ProtectedRoute roles={["Admin", "Agent"]} />,
-            children: [{ index: true, element: <ChangesPage /> }],
+            children: [
+              { index: true, element: <ChangesPage /> },
+              {
+                path: ":id",
+                element: <ChangeDetailPage />,
+                handle: { breadcrumb: "Detail" },
+              },
+            ],
           },
           {
             path: "approvals",
