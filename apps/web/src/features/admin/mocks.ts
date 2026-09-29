@@ -105,38 +105,138 @@ export const mockAdminStats: AdminStats = {
   ],
 };
 
-/** Audit log UI stays mocked until Phase 3 Nest audit endpoints land. */
 export const mockAuditLogs: AuditLog[] = [
   {
     id: "aud-001",
+    actorId: null,
     actor: "Ian Okonkwo",
-    action: "asset.status_changed",
-    entityType: "asset",
+    action: "PATCH /assets/:id",
+    entityType: "assets",
     entityId: "HW-1042",
+    diff: {
+      request: { status: "InRepair" },
+      response: { id: "HW-1042", status: "InRepair" },
+    },
     createdAt: "2026-09-24T09:12:00Z",
   },
   {
     id: "aud-002",
+    actorId: null,
     actor: "Alice Chen",
-    action: "incident.assigned",
-    entityType: "incident",
+    action: "PATCH /incidents/:id",
+    entityType: "incidents",
     entityId: "INC-441",
+    diff: {
+      request: { assignedTo: "agent-1" },
+      response: { id: "INC-441", status: "Assigned" },
+    },
     createdAt: "2026-09-24T11:40:00Z",
   },
   {
     id: "aud-003",
+    actorId: null,
     actor: "System",
-    action: "sla.breached",
-    entityType: "incident",
+    action: "POST /incidents/:id/comments",
+    entityType: "incidents",
     entityId: "INC-438",
+    diff: { outcome: "failed", status: 409 },
     createdAt: "2026-09-25T02:05:00Z",
   },
   {
     id: "aud-004",
+    actorId: null,
     actor: "Ian Okonkwo",
-    action: "asset.created",
-    entityType: "asset",
+    action: "POST /assets",
+    entityType: "assets",
     entityId: "NW-3012",
+    diff: {
+      request: { assetTag: "NW-3012", name: "Core switch" },
+      response: { id: "NW-3012", status: "Active" },
+    },
     createdAt: "2026-09-25T08:18:00Z",
   },
 ];
+
+export const mockVolumeByModule = {
+  range: "30d" as const,
+  from: "2026-08-30T00:00:00.000Z",
+  to: "2026-09-29T00:00:00.000Z",
+  data: [
+    { module: "Incident", open: 18, closed: 74, total: 92 },
+    { module: "Service Request", open: 12, closed: 49, total: 61 },
+    { module: "Change", open: 6, closed: 27, total: 33 },
+  ],
+};
+
+export const mockStatusDistribution = {
+  range: "30d" as const,
+  from: "2026-08-30T00:00:00.000Z",
+  to: "2026-09-29T00:00:00.000Z",
+  data: [
+    { status: "Incident:New", module: "Incident", label: "New", count: 18 },
+    { status: "Incident:InProgress", module: "Incident", label: "InProgress", count: 29 },
+    { status: "Incident:Resolved", module: "Incident", label: "Resolved", count: 45 },
+    { status: "ServiceRequest:Submitted", module: "Service Request", label: "Submitted", count: 14 },
+    { status: "Change:Scheduled", module: "Change", label: "Scheduled", count: 8 },
+  ],
+};
+
+export const mockSlaCompliance = {
+  range: "30d" as const,
+  from: "2026-08-30T00:00:00.000Z",
+  to: "2026-09-29T00:00:00.000Z",
+  met: 84,
+  breached: 6,
+  rate: 93.3,
+};
+
+export const mockQueueHealth = {
+  alert: true,
+  queues: [
+    {
+      name: "sla-queue",
+      counts: {
+        active: 0,
+        waiting: 1,
+        completed: 120,
+        failed: 2,
+        delayed: 0,
+        paused: 0,
+        stalled: 1,
+      },
+      paused: false,
+      alert: true,
+      error: null,
+    },
+    {
+      name: "ticket-lifecycle-queue",
+      counts: {
+        active: 1,
+        waiting: 0,
+        completed: 44,
+        failed: 0,
+        delayed: 0,
+        paused: 0,
+        stalled: 0,
+      },
+      paused: false,
+      alert: false,
+      error: null,
+    },
+    {
+      name: "email-queue",
+      counts: {
+        active: 0,
+        waiting: 3,
+        completed: 88,
+        failed: 1,
+        delayed: 0,
+        paused: 0,
+        stalled: 0,
+      },
+      paused: false,
+      alert: true,
+      error: null,
+    },
+  ],
+};
