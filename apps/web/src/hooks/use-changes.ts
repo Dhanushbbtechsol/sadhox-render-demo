@@ -7,7 +7,7 @@ import type { ChangeRecord, ChangeStatus } from "@/types/api";
 
 const CHANGES_KEY = ["changes"] as const;
 
-function delay(ms = 250) {
+function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -15,12 +15,11 @@ export function useChanges() {
   return useQuery({
     queryKey: CHANGES_KEY,
     queryFn: async (): Promise<ChangeRecord[]> => {
-      // Authz check against Nest (Admin/Agent). Empty stub → mock polish for UI.
       const res = await apiFetch<{ data: ChangeRecord[] }>("/changes");
       if (Array.isArray(res.data) && res.data.length > 0) {
         return res.data;
       }
-      await delay();
+      await delay(250);
       return [...mockChanges];
     },
   });
@@ -32,7 +31,6 @@ export function useUpdateChangeStatus() {
 
   return useMutation({
     mutationFn: async (input: { id: string; status: ChangeStatus }) => {
-      // Server enforces Admin-only approve; mock update only after 2xx.
       await apiFetch(`/changes/${input.id}/status`, {
         method: "PATCH",
         body: { status: input.status },

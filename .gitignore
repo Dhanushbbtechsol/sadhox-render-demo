@@ -2,6 +2,7 @@
 node_modules
 .pnp
 .pnp.js
+.pnpm-store
 
 # Build outputs
 dist
@@ -19,6 +20,9 @@ build
 cred.md
 **/cred.md
 apps/server/.seed-password
+
+# Cursor hook runtime (generation IDs, turn counters)
+.cursor/hooks/state/
 
 # IDEs and editors
 .vscode/*

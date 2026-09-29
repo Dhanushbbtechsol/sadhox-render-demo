@@ -7,14 +7,14 @@ import { Roles } from "../common/decorators/roles.decorator";
 @Controller("assets")
 export class AssetsController {
   @Get()
-  @Roles("Admin", "Agent")
+  @Roles("Admin")
   @ApiOperation({ summary: "List assets (stub)" })
   list() {
     return { data: [], message: "stub — business logic in later phase" };
   }
 
   @Get(":id")
-  @Roles("Admin", "Agent")
+  @Roles("Admin")
   @ApiOperation({ summary: "Get asset by id (stub)" })
   get(@Param("id") id: string) {
     return { id, message: "stub" };

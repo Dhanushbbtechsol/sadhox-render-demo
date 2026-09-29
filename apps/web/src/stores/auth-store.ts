@@ -47,6 +47,7 @@ interface AuthState {
 }
 
 export function homePathForRole(role: UserRole): string {
+  if (role === "Admin") return "/admin/dashboard";
   if (role === "EndUser") return "/portal";
   return "/incidents";
 }
@@ -154,13 +155,16 @@ export const useAuthStore = create<AuthState>()(
       name: "sadhox-auth",
       // Persist identity flag only — access token stays in memory; restore via refresh cookie.
       partialize: (state) => ({
-        user: state.user,
         isAuthenticated: state.isAuthenticated,
       }),
       onRehydrateStorage: () => (state) => {
-        state?.setHydrated();
+        const finish = () => {
+          useAuthStore.getState().setHydrated();
+        };
         if (state?.isAuthenticated) {
-          void useAuthStore.getState().refresh();
+          void useAuthStore.getState().refresh().finally(finish);
+        } else {
+          finish();
         }
       },
     },

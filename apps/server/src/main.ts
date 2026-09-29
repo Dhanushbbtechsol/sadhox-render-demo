@@ -7,6 +7,7 @@ import { Logger } from "nestjs-pino";
 import cookieParser = require("cookie-parser");
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import { RejectRequesterOverridePipe } from "./service-requests/pipes/reject-requester-override.pipe";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -25,11 +26,16 @@ async function bootstrap() {
     }),
   );
   app.use(cookieParser());
+  const expressApp = app.getHttpAdapter().getInstance() as {
+    set: (key: string, value: number | boolean) => void;
+  };
+  expressApp.set("trust proxy", isProd ? 1 : false);
   app.enableCors({
     origin: config.getOrThrow<string>("CORS_ORIGIN"),
     credentials: true,
   });
   app.useGlobalPipes(
+    new RejectRequesterOverridePipe(),
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,

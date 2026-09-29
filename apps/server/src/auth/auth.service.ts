@@ -15,6 +15,7 @@ import { auditLog, refreshTokens, users, type User } from "../database/schema";
 
 const ACCESS_TTL = "15m";
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const MISSING_USER_HASH = bcrypt.hashSync("sadhox-missing-user", 12);
 
 @Injectable()
 export class AuthService {
@@ -32,11 +33,11 @@ export class AuthService {
       .from(users)
       .where(eq(users.email, email.toLowerCase()))
       .limit(1);
-    if (!user) {
-      throw new UnauthorizedException("Invalid credentials");
-    }
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) {
+    const ok = await bcrypt.compare(
+      password,
+      user?.passwordHash ?? MISSING_USER_HASH,
+    );
+    if (!user || !ok) {
       throw new UnauthorizedException("Invalid credentials");
     }
     return user;

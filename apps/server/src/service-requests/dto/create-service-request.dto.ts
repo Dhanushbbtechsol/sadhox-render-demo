@@ -1,7 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiProperty } from "@nestjs/swagger";
 import {
+  IsIn,
   IsObject,
-  IsOptional,
   IsString,
   IsUUID,
   MaxLength,
@@ -13,18 +13,21 @@ export class CreateServiceRequestDto {
   @IsUUID()
   catalogId!: string;
 
-  @ApiProperty()
+  @ApiProperty({ maxLength: 4000 })
   @IsString()
   @MinLength(1)
   @MaxLength(4000)
   justification!: string;
 
   @ApiProperty({ enum: ["Low", "Medium", "High"] })
-  @IsString()
-  urgency!: string;
+  @IsIn(["Low", "Medium", "High"])
+  urgency!: "Low" | "Medium" | "High";
 
-  @ApiPropertyOptional({ type: "object", additionalProperties: true })
-  @IsOptional()
+  @ApiProperty({
+    type: "object",
+    additionalProperties: { type: "string" },
+    example: { laptopType: "Developer" },
+  })
   @IsObject()
-  fields?: Record<string, unknown>;
+  fields!: Record<string, unknown>;
 }

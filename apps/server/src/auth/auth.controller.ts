@@ -34,14 +34,6 @@ export class AuthController {
     res.clearCookie(REFRESH_COOKIE, { path: "/auth" });
   }
 
-  private clientIp(req: Request): string | undefined {
-    const forwarded = req.headers["x-forwarded-for"];
-    if (typeof forwarded === "string" && forwarded.length > 0) {
-      return forwarded.split(",")[0]?.trim();
-    }
-    return req.ip;
-  }
-
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("login")
@@ -52,7 +44,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.auth.login(dto.email, dto.password, this.clientIp(req));
+    const result = await this.auth.login(dto.email, dto.password, req.ip);
     this.setRefreshCookie(res, result.refreshToken);
     return {
       accessToken: result.accessToken,
