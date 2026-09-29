@@ -57,6 +57,14 @@ export type AdminStats = {
   ticketsByStatus: CountBucket[];
   ticketsByPriority: CountBucket[];
   ticketsByModule: CountBucket[];
+  slaPerformance: SlaWeekBucket[];
+};
+
+export type SlaWeekBucket = {
+  weekStart: string;
+  met: number;
+  breached: number;
+  label: string;
 };
 
 export type AuditLog = {

@@ -10,7 +10,7 @@ const links = [
 
 export default function AdminLayout() {
   return (
-    <div className="grid h-full min-h-0 md:grid-cols-[200px_1fr]">
+    <div className="grid md:grid-cols-[200px_1fr]">
       <aside className="border-b md:border-r md:border-b-0">
         <nav className="flex gap-1 overflow-x-auto p-2 md:flex-col">
           {links.map(({ to, label }) => (
@@ -29,7 +29,7 @@ export default function AdminLayout() {
           ))}
         </nav>
       </aside>
-      <div className="min-w-0 overflow-auto p-4">
+      <div className="min-w-0 p-4">
         <Outlet />
       </div>
     </div>

@@ -30,11 +30,12 @@
   --border: oklch(0.88 0.03 240);
   --input: oklch(0.88 0.03 240);
   --ring: oklch(0.51 0.124 245);
-  --chart-1: oklch(0.51 0.124 245);
-  --chart-2: oklch(0.303 0.137 265);
-  --chart-3: oklch(0.878 0.069 226);
-  --chart-4: oklch(0.252 0.109 261);
-  --chart-5: oklch(0.58 0.12 200);
+  /* Chart series — soft brand blue (#1A16F3 faded); Bklit-aligned */
+  --chart-1: color-mix(in srgb, #1A16F3 50%, white);
+  --chart-2: color-mix(in srgb, #5041BC 55%, white);
+  --chart-3: #a6e1fa;
+  --chart-4: color-mix(in srgb, #0e6ba8 60%, white);
+  --chart-5: color-mix(in srgb, #001c55 45%, white);
   --sidebar: #5041bc;
   --sidebar-foreground: oklch(0.95 0.02 280);
   --sidebar-primary: #a6e1fa;

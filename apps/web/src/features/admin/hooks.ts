@@ -153,13 +153,16 @@ export function useAdminStats() {
         return mockAdminStats;
       }
       try {
-        const [stats, breakdown] = await Promise.all([
+        const [stats, breakdown, sla] = await Promise.all([
           apiFetch<{ kpis: KpiMetric[] }>("/admin/dashboard/stats"),
           apiFetch<{
             ticketsByStatus: CountBucket[];
             ticketsByPriority: CountBucket[];
             ticketsByModule: CountBucket[];
           }>("/admin/dashboard/tickets-by-status"),
+          apiFetch<{ data: { weekStart: string; met: number; breached: number }[] }>(
+            "/admin/dashboard/sla-performance",
+          ),
         ]);
 
         return {
@@ -167,6 +170,10 @@ export function useAdminStats() {
           ticketsByStatus: breakdown.ticketsByStatus,
           ticketsByPriority: breakdown.ticketsByPriority,
           ticketsByModule: breakdown.ticketsByModule,
+          slaPerformance: sla.data.map((row) => ({
+            ...row,
+            label: formatWeekLabel(row.weekStart),
+          })),
         };
       } catch (error) {
         if (import.meta.env.DEV) return mockAdminStats;
@@ -174,6 +181,12 @@ export function useAdminStats() {
       }
     },
   });
+}
+
+function formatWeekLabel(weekStart: string) {
+  const date = new Date(`${weekStart}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return weekStart;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 export function useAuditLogs() {

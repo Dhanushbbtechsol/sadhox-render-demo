@@ -36,8 +36,9 @@ const types: Array<AssetType | "all"> = ["all", "Hardware", "Software"];
 const statuses: Array<AssetStatus | "all"> = ["all", "Active", "InRepair", "Retired"];
 
 function statusVariant(status: AssetStatus) {
-  if (status === "Active") return "default" as const;
+  if (status === "Active") return "success" as const;
   if (status === "Retired") return "destructive" as const;
+  if (status === "InRepair") return "warning" as const;
   return "outline" as const;
 }
 

@@ -128,7 +128,7 @@ export default function LoginForm({
           <button
             type="submit"
             disabled={pending}
-            className="bg-primary text-primary-foreground shadow-soft hover:bg-primary/90 hover:shadow-lift mt-8 h-11 w-full rounded-xl text-sm font-medium transition-all duration-200 hover:-translate-y-px active:scale-[0.98] disabled:opacity-60"
+            className="btn-gradient mt-8 h-11 w-full rounded-xl text-sm font-medium text-white shadow-soft transition-all duration-200 hover:brightness-110 hover:shadow-lift hover:-translate-y-px active:scale-[0.98] disabled:opacity-60"
           >
             {pending ? "Signing in…" : "Sign in"}
           </button>

@@ -93,6 +93,16 @@ export const mockAdminStats: AdminStats = {
     { label: "Service Request", count: 61 },
     { label: "Change", count: 33 },
   ],
+  slaPerformance: [
+    { weekStart: "2026-08-03", label: "Aug 3", met: 6, breached: 3 },
+    { weekStart: "2026-08-10", label: "Aug 10", met: 7, breached: 2 },
+    { weekStart: "2026-08-17", label: "Aug 17", met: 8, breached: 1 },
+    { weekStart: "2026-08-24", label: "Aug 24", met: 6, breached: 3 },
+    { weekStart: "2026-08-31", label: "Aug 31", met: 7, breached: 2 },
+    { weekStart: "2026-09-07", label: "Sep 7", met: 8, breached: 1 },
+    { weekStart: "2026-09-14", label: "Sep 14", met: 7, breached: 2 },
+    { weekStart: "2026-09-21", label: "Sep 21", met: 9, breached: 1 },
+  ],
 };
 
 /** Audit log UI stays mocked until Phase 3 Nest audit endpoints land. */
