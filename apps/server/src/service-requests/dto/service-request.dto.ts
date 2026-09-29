@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   MinLength,
 } from "class-validator";
 
@@ -13,9 +14,10 @@ export class CreateServiceRequestDto {
   @IsUUID()
   catalogId!: string;
 
-  @ApiProperty()
+  @ApiProperty({ maxLength: 4000 })
   @IsString()
   @MinLength(1)
+  @MaxLength(4000)
   justification!: string;
 
   @ApiProperty({ enum: ["Low", "Medium", "High"] })

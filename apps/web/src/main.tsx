@@ -1,5 +1,6 @@
-import ReactDOM from "react-dom/client";
+import "@fontsource-variable/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import ReactDOM from "react-dom/client";
 import { RouterProvider } from "react-router";
 
 import "./index.css";
@@ -10,6 +11,7 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       retry: 1,
+      refetchOnWindowFocus: false,
     },
   },
 });

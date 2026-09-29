@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -17,6 +18,7 @@ import {
   CreateServiceRequestDto,
   RejectServiceRequestDto,
 } from "./dto/service-request.dto";
+import { RejectRequesterOverridePipe } from "./pipes/reject-requester-override.pipe";
 import { ServiceRequestsService } from "./service-requests.service";
 
 @ApiTags("service-requests")
@@ -35,18 +37,24 @@ export class ServiceRequestsController {
   }
 
   @Post()
+  @HttpCode(201)
   @Roles("Admin", "Agent", "EndUser")
-  @ApiOperation({ summary: "Submit a new service request" })
+  @ApiOperation({
+    summary:
+      "Submit a service request (requester taken from JWT; client requesterId rejected)",
+  })
   create(
     @CurrentUser() user: AuthUser,
-    @Body() dto: CreateServiceRequestDto,
+    @Body(RejectRequesterOverridePipe) dto: CreateServiceRequestDto,
   ) {
     return this.requests.create(user, dto);
   }
 
   @Get(":id")
   @Roles("Admin", "Agent", "EndUser")
-  @ApiOperation({ summary: "Get service request by id" })
+  @ApiOperation({
+    summary: "Get service request by id (EndUser scoped to own rows)",
+  })
   get(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,

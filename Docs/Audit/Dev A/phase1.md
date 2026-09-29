@@ -1,5 +1,11 @@
 # Security Audit: Dev A (Phase 1)
 
-## Low / Hardening
-### [A07] Missing actual API integration — apps/web/src/lib/mocks/service-catalog.ts
-The service catalog is currently using mock data. While secure for now, ensure that when this connects to the real NestJS API, the endpoints enforce access controls (e.g., only authorized users can request items).
+Reaudit 2026-09-28: catalog/request RBAC is on Nest `main.ts`. Phase 1 closed. See [phase1.md](../phase1.md).
+
+## Low / Hardening — Resolved
+### [A07] Missing actual API integration — previously apps/web/src/lib/mocks/service-catalog.ts
+**Status: Fixed on the Nest start path.**
+
+- `GET /service-catalog` filters by `allowedRoles`.
+- `POST /service-requests` uses the JWT subject; `RejectRequesterOverridePipe` rejects client `requesterId` / `requesterName`.
+- List/get scope EndUser to own rows (`request-store`).

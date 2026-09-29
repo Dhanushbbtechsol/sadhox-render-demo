@@ -1,7 +1,8 @@
 import { env } from "@sadhox/env/web";
 
-import type { AuthUser } from "@/types/api";
+import { setAccessToken } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
+import type { AuthUser } from "@/types/itsm";
 
 type ApiOptions = RequestInit & {
   skipAuth?: boolean;
@@ -15,7 +16,12 @@ async function refreshAccessToken(): Promise<string | null> {
     });
     if (!response.ok) return null;
     const data = (await response.json()) as { accessToken: string; user: AuthUser };
-    useAuthStore.getState().setSession(data.user, data.accessToken);
+    setAccessToken(data.accessToken);
+    useAuthStore.setState({
+      user: data.user,
+      accessToken: data.accessToken,
+      isAuthenticated: true,
+    });
     return data.accessToken;
   } catch {
     return null;

@@ -3,11 +3,14 @@ export type UserRole = "EndUser" | "Agent" | "Admin";
 export type Urgency = "Low" | "Medium" | "High";
 
 export type ServiceRequestStatus =
+  | "Draft"
   | "Submitted"
+  | "PendingApproval"
   | "Approved"
   | "Rejected"
   | "In Fulfillment"
-  | "Fulfilled";
+  | "Fulfilled"
+  | "Closed";
 
 export type ChangeType = "Standard" | "Normal" | "Emergency";
 

@@ -12,6 +12,13 @@
     {
       "idx": 1,
       "version": "7",
+      "when": 1790328000000,
+      "tag": "0001_incidents_problems_phase2",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
       "when": 1790580000000,
       "tag": "0001_phase2_catalog_approvals",
       "breakpoints": true

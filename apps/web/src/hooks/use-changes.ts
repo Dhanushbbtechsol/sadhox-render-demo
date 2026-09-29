@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch } from "@/lib/api";
 import type {
   ChangeRecord,
   ChangeStatus,
@@ -11,7 +11,10 @@ const CHANGES_KEY = ["changes"] as const;
 
 type ListResponse<T> = { data: T[] };
 
-export function useChanges(filters?: { type?: ChangeType; status?: ChangeStatus }) {
+export function useChanges(filters?: {
+  type?: ChangeType;
+  status?: ChangeStatus;
+}) {
   const params = new URLSearchParams();
   if (filters?.type) params.set("type", filters.type);
   if (filters?.status) params.set("status", filters.status);
@@ -41,7 +44,7 @@ export function useCreateChange() {
     }) =>
       apiFetch<ChangeRecord>("/changes", {
         method: "POST",
-        body: JSON.stringify(input),
+        body: input,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CHANGES_KEY });
@@ -66,7 +69,7 @@ export function useUpdateChangeStatus() {
     mutationFn: async (input: { id: string; status: ChangeStatus }) =>
       apiFetch<ChangeRecord>(`/changes/${input.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ status: input.status }),
+        body: { status: input.status },
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CHANGES_KEY });

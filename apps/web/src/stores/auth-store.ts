@@ -1,9 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { env } from "@sadhox/env/web";
-
-import type { AuthUser, UserRole } from "@/types/api";
+import { apiFetch, getAccessToken, isMockAccessToken, setAccessToken, setRefreshHandler, setUnauthorizedHandler } from "@/lib/api";
+import type { AuthUser, LoginResponse, UserRole } from "@/types/itsm";
 
 /** Local mock users — only referenced from DEV code paths. */
 const MOCK_USERS: Record<string, AuthUser & { password: string }> = import.meta
@@ -35,35 +34,22 @@ const MOCK_USERS: Record<string, AuthUser & { password: string }> = import.meta
 
 interface AuthState {
   user: AuthUser | null;
+  /** In-memory only — never written to localStorage (XSS mitigation). */
   accessToken: string | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  isHydrated: boolean;
+  login: (email: string, password: string) => Promise<AuthUser>;
   loginAsRole: (role: UserRole) => void;
   logout: () => Promise<void>;
-  setSession: (user: AuthUser, accessToken: string) => void;
+  refresh: () => Promise<string | null>;
+  setHydrated: () => void;
   hasRole: (...roles: UserRole[]) => boolean;
 }
 
-async function tryRemoteLogin(email: string, password: string) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-  try {
-    const response = await fetch(`${env.VITE_SERVER_URL}/auth/login`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error("Remote login failed");
-    }
-
-    return (await response.json()) as { accessToken: string; user: AuthUser };
-  } finally {
-    clearTimeout(timeout);
-  }
+export function homePathForRole(role: UserRole): string {
+  if (role === "Admin") return "/admin/dashboard";
+  if (role === "EndUser") return "/portal";
+  return "/incidents";
 }
 
 function applyMockSession(
@@ -71,9 +57,11 @@ function applyMockSession(
   mockUser: AuthUser & { password: string },
 ) {
   const { password: _password, ...user } = mockUser;
+  const accessToken = `mock-token-${user.role.toLowerCase()}`;
+  setAccessToken(accessToken);
   set({
     user,
-    accessToken: `mock-token-${user.role.toLowerCase()}`,
+    accessToken,
     isAuthenticated: true,
   });
 }
@@ -84,33 +72,49 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       isAuthenticated: false,
+      isHydrated: false,
 
-      setSession: (user, accessToken) => {
-        set({ user, accessToken, isAuthenticated: true });
+      setHydrated: () => set({ isHydrated: true }),
+
+      hasRole: (...roles) => {
+        const role = get().user?.role;
+        return role ? roles.includes(role) : false;
       },
 
       login: async (email, password) => {
         try {
-          const remote = await tryRemoteLogin(email, password);
+          const data = await apiFetch<LoginResponse>("/auth/login", {
+            method: "POST",
+            body: { email, password },
+            skipAuth: true,
+            signal: AbortSignal.timeout(5_000),
+          });
+
+          setAccessToken(data.accessToken);
           set({
-            user: remote.user,
-            accessToken: remote.accessToken,
+            user: data.user,
+            accessToken: data.accessToken,
             isAuthenticated: true,
           });
-          return;
+          return data.user;
         } catch (error) {
-          // Never fall back to mock auth outside development.
           if (!import.meta.env.DEV) {
             throw error instanceof Error ? error : new Error("Login failed");
           }
         }
 
+        // Offline / DB-down fallback for local UI work (Phase stubs).
         const mockUser = MOCK_USERS[email.toLowerCase()];
-        if (!mockUser || mockUser.password !== password) {
-          throw new Error("Invalid email or password");
+        const allowedPasswords = new Set([mockUser?.password, "ChangeMe123!", "password"]);
+        if (!mockUser || !allowedPasswords.has(password)) {
+          throw new Error(
+            "Invalid email or password (API unreachable — use Quick role switch or password `password` / `ChangeMe123!`)",
+          );
         }
 
         applyMockSession(set, mockUser);
+        const { password: _password, ...user } = mockUser;
+        return user;
       },
 
       loginAsRole: (role) => {
@@ -123,33 +127,99 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        set({ user: null, accessToken: null, isAuthenticated: false });
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 1500);
-          await fetch(`${env.VITE_SERVER_URL}/auth/logout`, {
-            method: "POST",
-            credentials: "include",
-            signal: controller.signal,
-          });
-          clearTimeout(timeout);
-        } catch {
-          // Ignore remote logout failures in mock mode.
+        if (!isMockAccessToken(getAccessToken())) {
+          try {
+            await apiFetch<void>("/auth/logout", { method: "POST" });
+          } catch {
+            // Clear local session even if revoke fails
+          }
         }
+        setAccessToken(null);
+        set({ user: null, accessToken: null, isAuthenticated: false });
       },
 
-      hasRole: (...roles) => {
-        const role = get().user?.role;
-        return role ? roles.includes(role) : false;
+      refresh: async () => {
+        const current = getAccessToken() ?? get().accessToken;
+        if (isMockAccessToken(current)) {
+          return current;
+        }
+
+        try {
+          const data = await apiFetch<{ accessToken: string; user: AuthUser }>(
+            "/auth/refresh",
+            {
+              method: "POST",
+              skipAuth: true,
+              signal: AbortSignal.timeout(5_000),
+            },
+          );
+          setAccessToken(data.accessToken);
+          set({
+            accessToken: data.accessToken,
+            user: data.user,
+            isAuthenticated: true,
+          });
+          return data.accessToken;
+        } catch {
+          setAccessToken(null);
+          set({ user: null, accessToken: null, isAuthenticated: false });
+          return null;
+        }
       },
     }),
     {
       name: "sadhox-auth",
+      // Persist identity flag only — access token stays in memory; restore via refresh cookie.
       partialize: (state) => ({
-        user: state.user,
-        accessToken: state.accessToken,
         isAuthenticated: state.isAuthenticated,
       }),
     },
   ),
 );
+
+function finishAuthHydration() {
+  const state = useAuthStore.getState();
+  if (state.isHydrated) return;
+
+  if (state.isAuthenticated) {
+    void state.refresh().finally(() => {
+      useAuthStore.getState().setHydrated();
+    });
+    return;
+  }
+
+  state.setHydrated();
+}
+
+if (typeof window !== "undefined") {
+  if (useAuthStore.persist.hasHydrated()) {
+    finishAuthHydration();
+  } else {
+    useAuthStore.persist.onFinishHydration(() => {
+      finishAuthHydration();
+    });
+  }
+
+  // Failsafe: never leave the app on the hydration spinner (e.g. hung refresh / DB down).
+  window.setTimeout(() => {
+    if (!useAuthStore.getState().isHydrated) {
+      setAccessToken(null);
+      useAuthStore.setState({
+        user: null,
+        accessToken: null,
+        isAuthenticated: false,
+      });
+      useAuthStore.getState().setHydrated();
+    }
+  }, 5_000);
+}
+
+setRefreshHandler(() => useAuthStore.getState().refresh());
+setUnauthorizedHandler(() => {
+  setAccessToken(null);
+  useAuthStore.setState({
+    user: null,
+    accessToken: null,
+    isAuthenticated: false,
+  });
+});

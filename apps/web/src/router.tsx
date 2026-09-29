@@ -1,64 +1,122 @@
 import { createBrowserRouter } from "react-router";
 
 import AppShell from "./app-shell";
-import { RequireAuth, RequireRoles } from "./components/auth/protected-route";
-import Home from "./routes/home";
-import LoginPage from "./routes/login";
-import CatalogPage from "./routes/catalog";
-import RequestsPage from "./routes/requests";
-import ChangesPage from "./routes/changes";
-import ApprovalsPage from "./routes/approvals";
-import AdminRoute from "./components/admin-route";
-import AdminLayout from "./features/admin/admin-layout";
-import AuditLogsPage from "./features/admin/audit-logs-page";
-import DashboardPage from "./features/admin/dashboard-page";
-import AssetRegisterPage from "./features/assets/asset-register-page";
+import { GuestRoute, ProtectedRoute } from "@/components/auth/protected-route";
+import AuditLogsPage from "@/features/admin/audit-logs-page";
+import DashboardPage from "@/features/admin/dashboard-page";
+import AssetRegisterPage from "@/features/assets/asset-register-page";
+import ApprovalsPage from "@/routes/approvals";
+import CatalogPage from "@/routes/catalog";
+import ChangesPage from "@/routes/changes";
+import IncidentDetailPage from "@/routes/incident-detail";
+import IncidentsPage from "@/routes/incidents";
+import LoginPage from "@/routes/login";
+import PortalPage from "@/routes/portal";
+import ProblemsPage from "@/routes/problems";
+import RequestsPage from "@/routes/requests";
+import RoleHomeRedirect from "@/routes/role-home";
 
 function NotFound() {
   return (
-    <main className="container mx-auto max-w-3xl px-4 py-8">
+    <main className="space-y-2">
       <h1 className="text-2xl font-semibold">404</h1>
-      <p className="text-muted-foreground">The requested page could not be found.</p>
+      <p className="text-muted-foreground text-sm">The requested page could not be found.</p>
     </main>
   );
 }
 
 export const router = createBrowserRouter([
   {
-    path: "/",
-    element: <AppShell />,
+    element: <GuestRoute />,
     children: [
-      { index: true, element: <Home /> },
-      { path: "login", element: <LoginPage /> },
       {
-        element: <RequireAuth />,
-        children: [
-          { path: "catalog", element: <CatalogPage /> },
-          { path: "requests", element: <RequestsPage /> },
-          {
-            element: <RequireRoles roles={["Agent", "Admin"]} />,
-            children: [{ path: "changes", element: <ChangesPage /> }],
-          },
-          {
-            element: <RequireRoles roles={["Admin"]} />,
-            children: [{ path: "approvals", element: <ApprovalsPage /> }],
-          },
-        ],
+        path: "/login",
+        element: <LoginPage />,
       },
+    ],
+  },
+  {
+    path: "/",
+    element: <ProtectedRoute />,
+    children: [
       {
-        element: <AdminRoute />,
+        element: <AppShell />,
+        handle: { breadcrumb: "Home" },
         children: [
           {
-            element: <AdminLayout />,
+            index: true,
+            element: <RoleHomeRedirect />,
+          },
+          {
+            path: "admin/dashboard",
+            handle: { breadcrumb: "Dashboard" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <DashboardPage /> }],
+          },
+          {
+            path: "assets",
+            handle: { breadcrumb: "Assets" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <AssetRegisterPage /> }],
+          },
+          {
+            path: "admin/audit-logs",
+            handle: { breadcrumb: "Audit logs" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <AuditLogsPage /> }],
+          },
+          {
+            path: "incidents",
+            handle: { breadcrumb: "Incidents" },
+            element: <ProtectedRoute roles={["Admin", "Agent"]} />,
             children: [
-              { path: "admin/dashboard", element: <DashboardPage /> },
-              { path: "assets", element: <AssetRegisterPage /> },
-              { path: "admin/audit-logs", element: <AuditLogsPage /> },
+              { index: true, element: <IncidentsPage /> },
+              {
+                path: ":id",
+                element: <IncidentDetailPage />,
+                handle: { breadcrumb: "Detail" },
+              },
             ],
           },
+          {
+            path: "problems",
+            handle: { breadcrumb: "Problems" },
+            element: <ProtectedRoute roles={["Admin", "Agent"]} />,
+            children: [{ index: true, element: <ProblemsPage /> }],
+          },
+          {
+            path: "portal",
+            handle: { breadcrumb: "Portal" },
+            element: <ProtectedRoute roles={["EndUser", "Admin"]} />,
+            children: [{ index: true, element: <PortalPage /> }],
+          },
+          {
+            path: "catalog",
+            handle: { breadcrumb: "Catalog" },
+            element: <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />,
+            children: [{ index: true, element: <CatalogPage /> }],
+          },
+          {
+            path: "requests",
+            handle: { breadcrumb: "Requests" },
+            element: <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />,
+            children: [{ index: true, element: <RequestsPage /> }],
+          },
+          {
+            path: "changes",
+            handle: { breadcrumb: "Changes" },
+            element: <ProtectedRoute roles={["Admin", "Agent"]} />,
+            children: [{ index: true, element: <ChangesPage /> }],
+          },
+          {
+            path: "approvals",
+            handle: { breadcrumb: "Approvals" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <ApprovalsPage /> }],
+          },
+          { path: "*", element: <NotFound /> },
         ],
       },
-      { path: "*", element: <NotFound /> },
     ],
   },
 ]);

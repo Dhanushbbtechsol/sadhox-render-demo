@@ -2,6 +2,7 @@ import {
   Injectable,
   Inject,
   UnauthorizedException,
+  Logger,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
@@ -10,13 +11,16 @@ import { createHash, randomBytes } from "crypto";
 import { and, eq } from "drizzle-orm";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
-import { refreshTokens, users, type User } from "../database/schema";
+import { auditLog, refreshTokens, users, type User } from "../database/schema";
 
 const ACCESS_TTL = "15m";
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const MISSING_USER_HASH = bcrypt.hashSync("sadhox-missing-user", 12);
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly jwt: JwtService,
@@ -29,11 +33,11 @@ export class AuthService {
       .from(users)
       .where(eq(users.email, email.toLowerCase()))
       .limit(1);
-    if (!user) {
-      throw new UnauthorizedException("Invalid credentials");
-    }
-    const ok = await bcrypt.compare(password, user.passwordHash);
-    if (!ok) {
+    const ok = await bcrypt.compare(
+      password,
+      user?.passwordHash ?? MISSING_USER_HASH,
+    );
+    if (!user || !ok) {
       throw new UnauthorizedException("Invalid credentials");
     }
     return user;
@@ -43,9 +47,9 @@ export class AuthService {
     return bcrypt.hash(password, 12);
   }
 
-  createAccessToken(user: Pick<User, "id" | "email" | "role">): string {
+  createAccessToken(user: Pick<User, "id" | "email" | "role" | "name">): string {
     return this.jwt.sign(
-      { sub: user.id, email: user.email, role: user.role },
+      { sub: user.id, email: user.email, role: user.role, name: user.name },
       {
         secret: this.config.getOrThrow<string>("JWT_ACCESS_SECRET"),
         expiresIn: ACCESS_TTL,
@@ -72,21 +76,41 @@ export class AuthService {
     });
   }
 
-  async login(email: string, password: string) {
-    const user = await this.validateUser(email, password);
-    const accessToken = this.createAccessToken(user);
-    const refresh = this.generateRefreshToken();
-    await this.persistRefreshToken(user.id, refresh.hash, refresh.expiresAt);
-    return {
-      accessToken,
-      refreshToken: refresh.raw,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-    };
+  private async recordAuthFailure(email: string, ip: string | undefined, reason: string) {
+    this.logger.warn(`auth_failure email=${email} ip=${ip ?? "unknown"} reason=${reason}`);
+    try {
+      await this.db.insert(auditLog).values({
+        actorId: null,
+        action: "auth.login_failed",
+        entityType: "auth",
+        entityId: null,
+        diff: { email, ip: ip ?? null, reason },
+      });
+    } catch (err) {
+      this.logger.error("Failed to write auth failure audit_log", err);
+    }
+  }
+
+  async login(email: string, password: string, ip?: string) {
+    try {
+      const user = await this.validateUser(email, password);
+      const accessToken = this.createAccessToken(user);
+      const refresh = this.generateRefreshToken();
+      await this.persistRefreshToken(user.id, refresh.hash, refresh.expiresAt);
+      return {
+        accessToken,
+        refreshToken: refresh.raw,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+      };
+    } catch (err) {
+      await this.recordAuthFailure(email.toLowerCase(), ip, "invalid_credentials");
+      throw err;
+    }
   }
 
   async refresh(rawRefreshToken: string) {
