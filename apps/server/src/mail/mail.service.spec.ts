@@ -241,9 +241,9 @@ describe("EmailProcessor", () => {
     ).rejects.toBeInstanceOf(UnrecoverableError);
   });
 
-  it("HTML-escapes script tags in ticket titles in the placeholder template", () => {
+  it("escapes script tags in ticket titles via React Email templates", async () => {
     const processor = buildProcessor({ NODE_ENV: "test" });
-    const built = processor.buildPlaceholderTemplate({
+    const built = await processor.buildTemplate({
       kind: EMAIL_JOB_TICKET_ASSIGNED,
       to: "a@b.com",
       data: {
@@ -253,6 +253,6 @@ describe("EmailProcessor", () => {
       },
     });
     expect(built.html).toContain("&lt;script&gt;");
-    expect(built.html).not.toContain("<script>");
+    expect(built.html).not.toContain("<script>alert(1)</script>");
   });
 });

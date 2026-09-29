@@ -6,12 +6,14 @@ import {
   EMAIL_JOB_CHANGE_REVIEW,
   EMAIL_JOB_REQUEST_DECISION,
   EMAIL_JOB_SLA_BREACH,
+  EMAIL_JOB_STATUS_CHANGED,
   EMAIL_JOB_TICKET_ASSIGNED,
   maskEmail,
   type ChangeReviewMailData,
   type EmailJobPayload,
   type RequestDecisionMailData,
   type SlaBreachMailData,
+  type StatusChangedMailData,
   type TicketAssignedMailData,
 } from "./mail.types";
 
@@ -33,6 +35,8 @@ export class MailService {
         ticketId: data.ticketId,
         ticketTitle: data.ticketTitle,
         assigneeName: data.assigneeName,
+        priority: data.priority,
+        ticketUrl: data.ticketUrl,
       },
     };
     await this.emailQueue.add(EMAIL_JOB_TICKET_ASSIGNED, payload, {
@@ -52,6 +56,8 @@ export class MailService {
         ticketTitle: data.ticketTitle,
         priority: data.priority,
         breachType: data.breachType,
+        escalationNotes: data.escalationNotes,
+        ticketUrl: data.ticketUrl,
       },
     };
     await this.emailQueue.add(EMAIL_JOB_SLA_BREACH, payload, {
@@ -59,6 +65,28 @@ export class MailService {
     });
     this.logger.log(
       `enqueued ${EMAIL_JOB_SLA_BREACH} to=${maskEmail(to)} ticket=${data.ticketId}`,
+    );
+  }
+
+  async sendStatusChanged(to: string, data: StatusChangedMailData) {
+    const payload: EmailJobPayload = {
+      kind: EMAIL_JOB_STATUS_CHANGED,
+      to,
+      data: {
+        ticketId: data.ticketId,
+        ticketTitle: data.ticketTitle,
+        previousStatus: data.previousStatus,
+        newStatus: data.newStatus,
+        actorName: data.actorName,
+        remarks: data.remarks,
+        ticketUrl: data.ticketUrl,
+      },
+    };
+    await this.emailQueue.add(EMAIL_JOB_STATUS_CHANGED, payload, {
+      jobId: `${EMAIL_JOB_STATUS_CHANGED}:${data.ticketId}:${data.newStatus}:${to}`,
+    });
+    this.logger.log(
+      `enqueued ${EMAIL_JOB_STATUS_CHANGED} to=${maskEmail(to)} ticket=${data.ticketId}`,
     );
   }
 
@@ -71,6 +99,9 @@ export class MailService {
         requestTitle: data.requestTitle,
         decision: data.decision,
         reason: data.reason,
+        comments: data.comments,
+        actorName: data.actorName,
+        requestUrl: data.requestUrl,
       },
     };
     await this.emailQueue.add(EMAIL_JOB_REQUEST_DECISION, payload, {

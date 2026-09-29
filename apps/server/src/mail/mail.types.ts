@@ -1,5 +1,6 @@
 export const EMAIL_JOB_TICKET_ASSIGNED = "email.ticket-assigned" as const;
 export const EMAIL_JOB_SLA_BREACH = "email.sla-breach" as const;
+export const EMAIL_JOB_STATUS_CHANGED = "email.status-changed" as const;
 export const EMAIL_JOB_REQUEST_DECISION = "email.request-decision" as const;
 export const EMAIL_JOB_CHANGE_REVIEW = "email.change-review" as const;
 
@@ -7,6 +8,8 @@ export type TicketAssignedMailData = {
   ticketId: string;
   ticketTitle: string;
   assigneeName: string;
+  priority?: string;
+  ticketUrl?: string;
 };
 
 export type SlaBreachMailData = {
@@ -14,13 +17,28 @@ export type SlaBreachMailData = {
   ticketTitle: string;
   priority: string;
   breachType: "response" | "resolve";
+  escalationNotes?: string;
+  ticketUrl?: string;
+};
+
+export type StatusChangedMailData = {
+  ticketId: string;
+  ticketTitle: string;
+  previousStatus: string;
+  newStatus: string;
+  actorName: string;
+  remarks?: string;
+  ticketUrl?: string;
 };
 
 export type RequestDecisionMailData = {
   requestId: string;
   requestTitle: string;
   decision: "Approved" | "Rejected";
+  comments?: string;
   reason?: string;
+  actorName?: string;
+  requestUrl?: string;
 };
 
 export type ChangeReviewMailData = {
@@ -40,6 +58,11 @@ export type EmailJobPayload =
       kind: typeof EMAIL_JOB_SLA_BREACH;
       to: string;
       data: SlaBreachMailData;
+    }
+  | {
+      kind: typeof EMAIL_JOB_STATUS_CHANGED;
+      to: string;
+      data: StatusChangedMailData;
     }
   | {
       kind: typeof EMAIL_JOB_REQUEST_DECISION;

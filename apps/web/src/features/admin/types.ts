@@ -67,11 +67,82 @@ export type SlaWeekBucket = {
   label: string;
 };
 
+export type ChartRange = "7d" | "30d" | "ytd";
+
+export type VolumeByModuleRow = {
+  module: string;
+  open: number;
+  closed: number;
+  total: number;
+};
+
+export type VolumeByModuleResponse = {
+  range: ChartRange;
+  from: string;
+  to: string;
+  data: VolumeByModuleRow[];
+};
+
+export type StatusDistributionRow = {
+  status: string;
+  module: string;
+  label: string;
+  count: number;
+};
+
+export type StatusDistributionResponse = {
+  range: ChartRange;
+  from: string;
+  to: string;
+  data: StatusDistributionRow[];
+};
+
+export type SlaComplianceResponse = {
+  range: ChartRange;
+  from: string;
+  to: string;
+  met: number;
+  breached: number;
+  rate: number;
+};
+
 export type AuditLog = {
   id: string;
+  actorId?: string | null;
   actor: string;
   action: string;
   entityType: string;
-  entityId: string;
+  entityId: string | null;
+  diff?: unknown;
   createdAt: string;
+};
+
+export type AuditLogListResponse = {
+  data: AuditLog[];
+  page: number;
+  limit: number;
+  total: number;
+};
+
+export type QueueCounts = {
+  active: number;
+  waiting: number;
+  completed: number;
+  failed: number;
+  delayed: number;
+  paused: number;
+  stalled: number;
+};
+
+export type QueueHealthRow = {
+  name: string;
+  counts: QueueCounts;
+  paused: boolean;
+  alert: boolean;
+  error: string | null;
+};
+
+export type QueueHealthResponse = {
+  queues: QueueHealthRow[];
+  alert: boolean;
 };

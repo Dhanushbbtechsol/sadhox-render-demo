@@ -21,6 +21,7 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "ignoreDeprecations": "6.0",
+    "jsx": "react-jsx",
     "paths": {
       "@/*": ["src/*"]
     }
@@ -30,7 +31,6 @@
     "node_modules",
     "dist",
     "src/**/*.spec.ts",
-    "src/emails/**/*",
     "src/lib/**/*",
     "src/index.ts",
     "src/routes/**/*"

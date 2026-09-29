@@ -4,6 +4,7 @@ import AppShell from "./app-shell";
 import { GuestRoute, ProtectedRoute } from "@/components/auth/protected-route";
 import AuditLogsPage from "@/features/admin/audit-logs-page";
 import DashboardPage from "@/features/admin/dashboard-page";
+import QueueMonitorPage from "@/features/admin/queue-monitor-page";
 import AssetRegisterPage from "@/features/assets/asset-register-page";
 import ApprovalsPage from "@/routes/approvals";
 import CatalogPage from "@/routes/catalog";
@@ -66,6 +67,12 @@ export const router = createBrowserRouter([
             handle: { breadcrumb: "Audit logs" },
             element: <ProtectedRoute roles={["Admin"]} />,
             children: [{ index: true, element: <AuditLogsPage /> }],
+          },
+          {
+            path: "admin/queues",
+            handle: { breadcrumb: "Queues" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <QueueMonitorPage /> }],
           },
           {
             path: "incidents",

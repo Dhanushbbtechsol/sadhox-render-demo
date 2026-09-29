@@ -30,6 +30,7 @@
     "@nestjs/throttler": "^6.7.0",
     "@nestjs/websockets": "^12.1.0",
     "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.1.0",
     "@sadhox/env": "workspace:*",
     "@sentry/nestjs": "^11.0.0",
     "@sentry/node": "^11.0.0",
