@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Outlet } from "react-router";
 
-import { AppBreadcrumbs } from "@/components/layout/app-breadcrumbs";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { TopNavbar } from "@/components/layout/top-navbar";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -24,7 +23,6 @@ export default function AppShell() {
           <main className="bg-muted flex-1 overflow-y-auto">
             <div className="flex min-h-full gap-4 p-4 md:gap-5 md:p-5 lg:gap-6 lg:p-6">
               <div className="bg-card ring-border/60 min-w-0 flex-1 space-y-6 rounded-2xl p-5 shadow-soft ring-1 md:p-6 lg:p-7">
-                <AppBreadcrumbs />
                 <Outlet />
               </div>
             </div>
