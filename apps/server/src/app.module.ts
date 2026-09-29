@@ -4,6 +4,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import type { Sql } from "postgres";
 import { AdminModule } from "./admin/admin.module";
+import { AssignmentModule } from "./assignment/assignment.module";
 import { AuthModule } from "./auth/auth.module";
 import { AssetsModule } from "./assets/assets.module";
 import { ChangesModule } from "./changes/changes.module";
@@ -15,7 +16,7 @@ import { validateEnv } from "./config/validate-env";
 import { DRIZZLE } from "./database/database.constants";
 import { DatabaseModule, type DrizzleDB } from "./database/database.module";
 import { EventsModule } from "./events/events.module";
-import { HealthController } from "./health/health.controller";
+import { HealthModule } from "./health/health.module";
 import { IncidentsModule } from "./incidents/incidents.module";
 import { MailModule } from "./mail/mail.module";
 import { ObservabilityModule } from "./observability/observability.module";
@@ -23,6 +24,7 @@ import { ProblemsModule } from "./problems/problems.module";
 import { QueuesModule } from "./queues/queues.module";
 import { ServiceCatalogModule } from "./service-catalog/service-catalog.module";
 import { ServiceRequestsModule } from "./service-requests/service-requests.module";
+import { THROTTLE_GLOBAL } from "./common/throttle.constants";
 
 @Module({
   imports: [
@@ -35,13 +37,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
       imports: [DatabaseModule],
       inject: [DRIZZLE],
       useFactory: (db: DrizzleDB) => ({
-        throttlers: [
-          {
-            name: "default",
-            ttl: 60_000,
-            limit: 120,
-          },
-        ],
+        throttlers: [THROTTLE_GLOBAL],
         storage: new PostgresThrottlerStorage(
           (db as unknown as { $client: Sql }).$client,
         ),
@@ -49,9 +45,11 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     }),
     ObservabilityModule,
     AuthModule,
+    AssignmentModule,
     EventsModule,
     QueuesModule,
     MailModule,
+    HealthModule,
     IncidentsModule,
     ProblemsModule,
     ServiceCatalogModule,
@@ -60,7 +58,6 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     AssetsModule,
     AdminModule,
   ],
-  controllers: [HealthController],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

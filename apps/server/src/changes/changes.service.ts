@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { and, desc, eq } from "drizzle-orm";
@@ -16,6 +17,7 @@ import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import { changes, users, type UserRole } from "../database/schema";
+import { MailService } from "../mail/mail.service";
 import type { CreateChangeDto, UpdateChangeDto } from "./dto/change.dto";
 
 type DbChangeStatus =
@@ -51,7 +53,12 @@ const DB_TO_API_STATUS: Record<string, string> = {
 
 @Injectable()
 export class ChangesService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  private readonly logger = new Logger(ChangesService.name);
+
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly mail: MailService,
+  ) {}
 
   private mapRow(row: {
     id: string;
@@ -214,7 +221,46 @@ export class ChangesService {
       })
       .where(eq(changes.id, id));
 
+    await this.notifyCreator(existing.createdBy, {
+      entityId: existing.id,
+      entityTitle: existing.title,
+      outcome: "approved",
+    });
+
     return this.get(id);
+  }
+
+  private async notifyCreator(
+    createdBy: string | null,
+    info: {
+      entityId: string;
+      entityTitle: string;
+      outcome: "approved" | "rejected";
+      reason?: string;
+    },
+  ) {
+    if (!createdBy) return;
+    try {
+      const [creator] = await this.db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, createdBy))
+        .limit(1);
+      if (!creator?.email) return;
+      await this.mail.sendApprovalOutcome(creator.email, {
+        entityType: "change",
+        entityId: info.entityId,
+        entityTitle: info.entityTitle,
+        outcome: info.outcome,
+        reason: info.reason,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `approval mail enqueue failed change=${info.entityId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   async update(user: AuthUser, id: string, dto: UpdateChangeDto) {
@@ -276,6 +322,22 @@ export class ChangesService {
     }
 
     await this.db.update(changes).set(patch).where(eq(changes.id, id));
+
+    if (dto.status === "Approved") {
+      await this.notifyCreator(existing.createdBy, {
+        entityId: existing.id,
+        entityTitle: patch.title ?? existing.title,
+        outcome: "approved",
+      });
+    } else if (dto.status === "Rolled Back") {
+      await this.notifyCreator(existing.createdBy, {
+        entityId: existing.id,
+        entityTitle: patch.title ?? existing.title,
+        outcome: "rejected",
+        reason: "Change rolled back",
+      });
+    }
+
     return this.get(id);
   }
 }

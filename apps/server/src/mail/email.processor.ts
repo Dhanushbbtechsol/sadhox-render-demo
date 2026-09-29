@@ -6,6 +6,9 @@ import { Resend } from "resend";
 import { EMAIL_QUEUE } from "../queues/queue.constants";
 import { escapeHtml } from "./html-escape";
 import {
+  EMAIL_JOB_APPROVAL_OUTCOME,
+  EMAIL_JOB_ASSET_NOTIFICATION,
+  EMAIL_JOB_SLA_BREACH,
   EMAIL_JOB_TICKET_ASSIGNED,
   maskEmail,
   recipientDomain,
@@ -167,13 +170,58 @@ export class EmailProcessor extends WorkerHost {
       return { subject, html, text };
     }
 
-    const title = escapeHtml(payload.data.ticketTitle);
-    const ticketId = escapeHtml(payload.data.ticketId);
-    const priority = escapeHtml(payload.data.priority);
-    const breachType = escapeHtml(payload.data.breachType);
-    const subject = `[Sadhox] SLA ${payload.data.breachType} breach: ${payload.data.ticketTitle}`;
-    const text = `SLA ${payload.data.breachType} breach on ${payload.data.ticketId} (${payload.data.priority}).`;
-    const html = `<p>SLA ${breachType} breach on ${ticketId} (${priority}): <strong>${title}</strong></p><p><em>Placeholder template (Dev C).</em></p>`;
-    return { subject, html, text };
+    if (payload.kind === EMAIL_JOB_SLA_BREACH) {
+      const title = escapeHtml(payload.data.ticketTitle);
+      const ticketId = escapeHtml(payload.data.ticketId);
+      const priority = escapeHtml(payload.data.priority);
+      const breachType = escapeHtml(payload.data.breachType);
+      const subject = `[Sadhox] SLA ${payload.data.breachType} breach: ${payload.data.ticketTitle}`;
+      const text = `SLA ${payload.data.breachType} breach on ${payload.data.ticketId} (${payload.data.priority}).`;
+      const html = `<p>SLA ${breachType} breach on ${ticketId} (${priority}): <strong>${title}</strong></p><p><em>Placeholder template (Dev C).</em></p>`;
+      return { subject, html, text };
+    }
+
+    if (payload.kind === EMAIL_JOB_APPROVAL_OUTCOME) {
+      const title = escapeHtml(payload.data.entityTitle);
+      const entityId = escapeHtml(payload.data.entityId);
+      const entityType = escapeHtml(payload.data.entityType);
+      const outcome = escapeHtml(payload.data.outcome);
+      const reason = payload.data.reason
+        ? escapeHtml(payload.data.reason)
+        : null;
+      const subject = `[Sadhox] ${payload.data.entityType} ${payload.data.outcome}: ${payload.data.entityTitle}`;
+      const text =
+        `${payload.data.entityType} ${payload.data.entityId} was ${payload.data.outcome}.` +
+        (payload.data.reason ? ` Reason: ${payload.data.reason}` : "");
+      const html =
+        `<p>${entityType} ${entityId} was <strong>${outcome}</strong>: ${title}</p>` +
+        (reason ? `<p>Reason: ${reason}</p>` : "") +
+        `<p><em>Placeholder template (Dev C).</em></p>`;
+      return { subject, html, text };
+    }
+
+    if (payload.kind === EMAIL_JOB_ASSET_NOTIFICATION) {
+      const tag = escapeHtml(payload.data.assetTag);
+      const name = escapeHtml(payload.data.assetName);
+      const assetId = escapeHtml(payload.data.assetId);
+      const event = escapeHtml(payload.data.event);
+      const ticketId = payload.data.ticketId
+        ? escapeHtml(payload.data.ticketId)
+        : null;
+      const subject = `[Sadhox] Asset ${payload.data.event}: ${payload.data.assetTag}`;
+      const text =
+        `Asset ${payload.data.assetTag} (${payload.data.assetId}) event=${payload.data.event}` +
+        (payload.data.ticketId ? ` ticket=${payload.data.ticketId}` : "");
+      const html =
+        `<p>Asset <strong>${tag}</strong> (${name}) — ${event}</p>` +
+        `<p>id=${assetId}</p>` +
+        (ticketId ? `<p>Linked ticket: ${ticketId}</p>` : "") +
+        `<p><em>Placeholder template (Dev C).</em></p>`;
+      return { subject, html, text };
+    }
+
+    const _exhaustive: never = payload;
+    void _exhaustive;
+    throw new Error("unknown email job kind");
   }
 }

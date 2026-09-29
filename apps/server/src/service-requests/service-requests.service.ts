@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { and, desc, eq } from "drizzle-orm";
@@ -18,6 +19,7 @@ import {
   serviceRequests,
   users,
 } from "../database/schema";
+import { MailService } from "../mail/mail.service";
 import type {
   CreateServiceRequestDto,
   RejectServiceRequestDto,
@@ -30,7 +32,12 @@ function toApiStatus(status: string) {
 
 @Injectable()
 export class ServiceRequestsService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  private readonly logger = new Logger(ServiceRequestsService.name);
+
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly mail: MailService,
+  ) {}
 
   private async mapRow(row: {
     id: string;
@@ -200,6 +207,12 @@ export class ServiceRequestsService {
       .where(eq(serviceRequests.id, existing.id))
       .returning();
 
+    await this.notifyRequester(existing.requesterId, {
+      entityId: updated.id,
+      entityTitle: updated.title,
+      outcome: "approved",
+    });
+
     return this.get(user, updated.id);
   }
 
@@ -226,7 +239,46 @@ export class ServiceRequestsService {
       .where(eq(serviceRequests.id, existing.id))
       .returning();
 
+    await this.notifyRequester(existing.requesterId, {
+      entityId: updated.id,
+      entityTitle: updated.title,
+      outcome: "rejected",
+      reason: dto.reason.trim(),
+    });
+
     return this.get(user, updated.id);
+  }
+
+  private async notifyRequester(
+    requesterId: string,
+    info: {
+      entityId: string;
+      entityTitle: string;
+      outcome: "approved" | "rejected";
+      reason?: string;
+    },
+  ) {
+    try {
+      const [requester] = await this.db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.id, requesterId))
+        .limit(1);
+      if (!requester?.email) return;
+      await this.mail.sendApprovalOutcome(requester.email, {
+        entityType: "service-request",
+        entityId: info.entityId,
+        entityTitle: info.entityTitle,
+        outcome: info.outcome,
+        reason: info.reason,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `approval mail enqueue failed service-request=${info.entityId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   private async requirePending(id: string) {

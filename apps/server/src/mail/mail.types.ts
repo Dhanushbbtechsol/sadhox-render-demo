@@ -1,5 +1,9 @@
 export const EMAIL_JOB_TICKET_ASSIGNED = "email.ticket-assigned" as const;
 export const EMAIL_JOB_SLA_BREACH = "email.sla-breach" as const;
+export const EMAIL_JOB_APPROVAL_OUTCOME = "email.approval-outcome" as const;
+/** Dev D Phase 3 Day 15 — asset notifications (Dev C). */
+export const EMAIL_JOB_ASSET_NOTIFICATION =
+  "email.asset-notification" as const;
 
 export type TicketAssignedMailData = {
   ticketId: string;
@@ -14,6 +18,24 @@ export type SlaBreachMailData = {
   breachType: "response" | "resolve";
 };
 
+export type ApprovalOutcomeMailData = {
+  entityType: "service-request" | "change";
+  entityId: string;
+  entityTitle: string;
+  outcome: "approved" | "rejected";
+  /** Optional rejection reason (service requests). */
+  reason?: string;
+};
+
+export type AssetNotificationMailData = {
+  assetId: string;
+  assetTag: string;
+  assetName: string;
+  event: "owner_assigned" | "ticket_linked";
+  /** Linked ticket id when event is ticket_linked. */
+  ticketId?: string;
+};
+
 export type EmailJobPayload =
   | {
       kind: typeof EMAIL_JOB_TICKET_ASSIGNED;
@@ -24,6 +46,16 @@ export type EmailJobPayload =
       kind: typeof EMAIL_JOB_SLA_BREACH;
       to: string;
       data: SlaBreachMailData;
+    }
+  | {
+      kind: typeof EMAIL_JOB_APPROVAL_OUTCOME;
+      to: string;
+      data: ApprovalOutcomeMailData;
+    }
+  | {
+      kind: typeof EMAIL_JOB_ASSET_NOTIFICATION;
+      to: string;
+      data: AssetNotificationMailData;
     };
 
 /** Mask email for logs: keep domain, hide local part. Never log full address. */
