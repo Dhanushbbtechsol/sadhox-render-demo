@@ -34,7 +34,7 @@ export function TopNavbar() {
   }
 
   return (
-    <header className="border-border/80 flex h-18 items-center justify-between gap-4 border-b bg-white px-4 md:px-6">
+    <header className="border-border/80 bg-card flex h-18 items-center justify-between gap-4 border-b px-4 md:px-6">
       <div>
         <p className="text-foreground text-sm font-medium tracking-tight">IT Service Management</p>
         <p className="text-muted-foreground hidden text-xs sm:block">

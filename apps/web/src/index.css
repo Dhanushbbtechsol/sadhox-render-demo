@@ -57,17 +57,18 @@
 }
 
 .dark {
+  /* Elevation: background < muted < card (darkest → lightest) */
   --background: oklch(0.156 0.079 263);
   --foreground: oklch(0.92 0.03 226);
-  --card: oklch(0.22 0.09 261);
+  --card: oklch(0.24 0.09 261);
   --card-foreground: oklch(0.92 0.03 226);
-  --popover: oklch(0.22 0.09 261);
+  --popover: oklch(0.26 0.09 261);
   --popover-foreground: oklch(0.92 0.03 226);
   --primary: oklch(0.878 0.069 226);
   --primary-foreground: oklch(0.156 0.079 263);
   --secondary: oklch(0.28 0.1 264);
   --secondary-foreground: oklch(0.92 0.03 226);
-  --muted: oklch(0.25 0.09 261);
+  --muted: oklch(0.2 0.085 261);
   --muted-foreground: oklch(0.72 0.04 226);
   --accent: oklch(0.303 0.137 265);
   --accent-foreground: oklch(0.92 0.04 226);
