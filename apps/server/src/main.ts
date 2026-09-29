@@ -2,12 +2,15 @@ import "reflect-metadata";
 import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
-import { IoAdapter } from "@nestjs/platform-socket.io";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { Logger } from "nestjs-pino";
 import cookieParser = require("cookie-parser");
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import {
+  CorsIoAdapter,
+  sharedCorsOptions,
+} from "./common/cors-io.adapter";
 import { RejectRequesterOverridePipe } from "./service-requests/pipes/reject-requester-override.pipe";
 
 async function bootstrap() {
@@ -17,6 +20,8 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const nodeEnv = config.get<string>("NODE_ENV") ?? "development";
   const isProd = nodeEnv === "production";
+  // Same origin for HTTP + Socket.IO; getOrThrow / sharedCorsOptions fail closed (no "*").
+  const cors = sharedCorsOptions(config.getOrThrow<string>("CORS_ORIGIN"));
 
   app.use(
     helmet({
@@ -26,16 +31,13 @@ async function bootstrap() {
         : false,
     }),
   );
-  app.useWebSocketAdapter(new IoAdapter(app));
+  app.useWebSocketAdapter(new CorsIoAdapter(app, cors.origin));
   app.use(cookieParser());
   const expressApp = app.getHttpAdapter().getInstance() as {
     set: (key: string, value: number | boolean) => void;
   };
   expressApp.set("trust proxy", isProd ? 1 : false);
-  app.enableCors({
-    origin: config.getOrThrow<string>("CORS_ORIGIN"),
-    credentials: true,
-  });
+  app.enableCors(cors);
   app.useGlobalPipes(
     new RejectRequesterOverridePipe(),
     new ValidationPipe({
