@@ -9,7 +9,7 @@ if (!password) {
 }
 
 async function main() {
-  // (d) x-request-id + redis health
+  // (d) x-request-id + liveness (no dependency leak)
   const healthRes = await fetch(`${BASE}/health`, {
     headers: { "x-request-id": "cp2-demo-1" },
   });
@@ -37,6 +37,11 @@ async function main() {
     console.error("No accessToken in login response", login);
     process.exit(1);
   }
+
+  const readyRes = await fetch(`${BASE}/health/ready`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  console.log("READY", readyRes.status, JSON.stringify(await readyRes.json()));
 
   // (a) WS auth — socket.io fires connect before Nest can reject; settle on disconnect
   console.log("BAD", await wsSettle({ token: "bad.token" }));

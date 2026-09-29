@@ -55,11 +55,15 @@ export class AuditLogInterceptor implements NestInterceptor {
           void this.persistSuccess(req, method, path, body);
         },
         error: (err: unknown) => {
-          // Do not treat 401/403 (or any failed request) as a successful mutation.
           if (this.isAuthFailure(err)) {
             return;
           }
-          // Other errors: skip audit of "success"; optional debug only (no secrets).
+          const status = this.httpStatus(err);
+          // Trail validation / conflict failures without request bodies.
+          if (status === 400 || status === 409) {
+            void this.persistFailure(req, method, path, status);
+            return;
+          }
           this.logger.debug(
             `audit skip: mutating ${method} ${path} failed before success`,
           );
@@ -69,11 +73,15 @@ export class AuditLogInterceptor implements NestInterceptor {
   }
 
   private isAuthFailure(err: unknown): boolean {
+    const status = this.httpStatus(err);
+    return status === 401 || status === 403;
+  }
+
+  private httpStatus(err: unknown): number | undefined {
     if (err instanceof HttpException) {
-      const status = err.getStatus();
-      return status === 401 || status === 403;
+      return err.getStatus();
     }
-    return false;
+    return undefined;
   }
 
   private normalizePath(req: AuthedRequest): string {
@@ -126,6 +134,34 @@ export class AuditLogInterceptor implements NestInterceptor {
     } catch (err) {
       this.logger.error(
         "Failed to write audit_log (request not affected)",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  /** Status-only trail for 400/409 — no request/response bodies. */
+  private async persistFailure(
+    req: AuthedRequest,
+    method: string,
+    path: string,
+    status: number,
+  ) {
+    const actor = req.user;
+    if (!actor?.userId) {
+      return;
+    }
+
+    try {
+      await this.db.insert(auditLog).values({
+        actorId: actor.userId,
+        action: `${method} ${path} -> ${status}`,
+        entityType: this.inferEntityType(path),
+        entityId: this.inferEntityId(req, null),
+        diff: { outcome: "failed", status },
+      });
+    } catch (err) {
+      this.logger.error(
+        "Failed to write audit_log failure trail (request not affected)",
         err instanceof Error ? err.message : String(err),
       );
     }

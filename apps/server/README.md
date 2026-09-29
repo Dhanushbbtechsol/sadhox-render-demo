@@ -46,7 +46,8 @@ SEED_PASSWORD=... DATABASE_URL=... REDIS_URL=... node scripts/checkpoint2-verify
 
 | Check | Result |
 | --- | --- |
-| `GET /health` | `database=up`, `redis=up`, queues `sla-queue=up`; echoes `x-request-id` |
+| `GET /health` | Liveness `{ status: "ok" }`; echoes `x-request-id` |
+| `GET /health/ready` | Admin JWT; `database` / `redis` / queues |
 | WS bad JWT | Nest logs `ws rejected`; client disconnected (`io server disconnect`) |
 | WS good JWT | Stays connected; `ws connected userId=… role=Admin` |
 | BullMQ Redis | `bull:sla-queue:repeat:sla-breach-evaluator*` keys present |

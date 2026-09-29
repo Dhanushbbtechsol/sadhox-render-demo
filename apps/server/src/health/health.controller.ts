@@ -1,9 +1,10 @@
-import { Controller, Get, Inject } from "@nestjs/common";
+import { Controller, Get, Inject, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { sql } from "drizzle-orm";
 import Redis from "ioredis";
 import { Public } from "../common/decorators/public.decorator";
+import { Roles } from "../common/decorators/roles.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import { SLA_QUEUE } from "../queues/queue.constants";
@@ -18,11 +19,26 @@ export class HealthController {
 
   @Public()
   @Get()
+  @ApiOperation({ summary: "Liveness probe (no dependency details)" })
+  live() {
+    return { status: "ok" };
+  }
+
+  @Get("ready")
+  @Roles("Admin")
+  @ApiBearerAuth()
   @ApiOperation({
-    summary: "Liveness, database, and Redis/queue connectivity check",
+    summary: "Readiness: database and Redis/queue (Admin only)",
   })
-  async check() {
-    await this.db.execute(sql`select 1`);
+  async ready() {
+    try {
+      await this.db.execute(sql`select 1`);
+    } catch {
+      throw new ServiceUnavailableException({
+        status: "unavailable",
+        database: "down",
+      });
+    }
 
     const url = this.config.getOrThrow<string>("REDIS_URL");
     const client = new Redis(url, {
@@ -41,12 +57,21 @@ export class HealthController {
       client.disconnect();
     }
 
+    if (redis === "down") {
+      throw new ServiceUnavailableException({
+        status: "degraded",
+        database: "up",
+        redis: "down",
+        queues: { [SLA_QUEUE]: "down" },
+      });
+    }
+
     return {
-      status: redis === "up" ? "ok" : "degraded",
+      status: "ok",
       database: "up",
-      redis,
+      redis: "up",
       queues: {
-        [SLA_QUEUE]: redis,
+        [SLA_QUEUE]: "up",
       },
     };
   }

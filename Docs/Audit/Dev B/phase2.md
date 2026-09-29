@@ -1,31 +1,22 @@
 # Security Audit: Dev B (Phase 2)
 
-**Reverified: 2026-09-29**  
-**Result: CLEAN — open High/Medium items fixed**
+Reaudit 2026-09-29. Combined: [phase2.md](../phase2.md).
 
-Open mitigations from [phase2.md](../phase2.md). Own: changes / approvals / catalog / catalog migration.
+**Result: CLEAN — assigned High/Medium closed in source.**
 
-## High — Fixed
+## High — Resolved
 
-### [A01 / A04] Agent can schedule a change without Admin approval — **FIXED**
+### [A01 / A04] Agent schedule without Admin approval — **FIXED (verified)**
 
-**Files:** `changes.service.ts`, `approval-policy.ts`, `changes.controller.ts`
-
-**Fix applied:**
-- `CHANGE_ALLOWED_TRANSITIONS` no longer allows `Submitted` / `PendingApproval` → `Scheduled` (must `Approved` first).
+- No `Submitted` / `PendingApproval` → `Scheduled` in `CHANGE_ALLOWED_TRANSITIONS`.
 - `requiresAdminForChangeStatus` gates `Approved` and `Scheduled` in `ChangesService.update`.
-- Tests: `approval-policy.spec.ts`, `changes.service.spec.ts`, `changes.controller.spec.ts`.
 
-## Medium — Fixed
+## Medium — Resolved
 
-### [A08] Rename catalog migration off `0001_` prefix — **FIXED**
+### [A08] Catalog migration `0001_` prefix — **FIXED (verified)**
 
-Renamed to `0002_phase2_catalog_approvals.sql`; journal idx/tag updated. See `drizzle/migrations/RENAME_0002_NOTE.md` for shared-DB rename guidance.
+File + journal tag `0002_phase2_catalog_approvals`. Shared-DB note: `drizzle/migrations/RENAME_0002_NOTE.md`.
 
-## Optional follow-on (if Dev A deletes request-store)
+## Optional follow-on
 
-If catalog must stay role-gated, add `allowedRoles` (or equivalent) to seed + `ServiceCatalogService.list` filter by JWT role. Current seed is all-role — no live hole until restricted items exist.
-
-## Out of scope for Dev B
-- WS CORS / health / audit interceptor → Dev D
-- EndUser ticket-room ownership → Dev A
+If restricted catalog items are needed, add `allowedRoles` on seed + filter in `ServiceCatalogService.list` (after Dev A deletes dead in-memory path).
