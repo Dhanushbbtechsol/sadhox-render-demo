@@ -1,3 +1,4 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import express from "express";
@@ -49,12 +50,12 @@ async function parseDto<T extends object>(
 }
 
 function buildApp(incidents: {
-  list: jest.Mock;
-  get: jest.Mock;
-  create: jest.Mock;
-  update: jest.Mock;
-  listComments: jest.Mock;
-  addComment: jest.Mock;
+  list: ReturnType<typeof vi.fn>;
+  get: ReturnType<typeof vi.fn>;
+  create: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
+  listComments: ReturnType<typeof vi.fn>;
+  addComment: ReturnType<typeof vi.fn>;
 }): Express {
   const app = express();
   app.use(express.json());
@@ -106,17 +107,17 @@ function buildApp(incidents: {
 
 describe("Incidents API (supertest)", () => {
   const incidents = {
-    list: jest.fn(),
-    get: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-    listComments: jest.fn(),
-    addComment: jest.fn(),
+    list: vi.fn(),
+    get: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    listComments: vi.fn(),
+    addComment: vi.fn(),
   };
   const app = buildApp(incidents);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it("GET /incidents returns paginated list", async () => {

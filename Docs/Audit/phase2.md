@@ -8,11 +8,9 @@ No `.review.yml` in repo — review defaults from the sonar skill apply (severit
 
 ## High
 
-### [A01 / A04] Agent can schedule a change without Admin approval — `changes.service.ts` + `approval-policy.ts`
+### [A01 / A04] Agent can schedule a change without Admin approval — `changes.service.ts` + `approval-policy.ts` — **FIXED (Dev B)**
 
-`POST /changes` creates records as `Submitted`. `PATCH /changes/:id` is `@Roles("Admin", "Agent")` and only blocks Agents from setting status `Approved`. `CHANGE_ALLOWED_TRANSITIONS` still allows `Submitted → Scheduled`, so an Agent can skip `PATCH /changes/:id/approve` and go straight to Scheduled (and then Implemented / Closed).
-
-Fix: require Admin for any transition into `Scheduled` / `Approved`, or restrict Agent `PATCH` to non-approval statuses (e.g. Draft ↔ Submitted, Implemented ↔ Closed) and leave CAB transitions Admin-only.
+Mitigation: Admin-only for `Approved`/`Scheduled`; `Submitted → Scheduled` removed from transitions. See [Dev B/phase2.md](./Dev%20B/phase2.md).
 
 ## Medium
 
@@ -22,11 +20,9 @@ HTTP CORS uses `ConfigService` after env validation. The gateway decorator uses 
 
 Fix: pass CORS origin via a factory / `IoAdapter` that reads `ConfigService` after bootstrap (same source as `main.ts`).
 
-### [A08] Two migrations share a `0001_` prefix — `drizzle/migrations/`
+### [A08] Two migrations share a `0001_` prefix — `drizzle/migrations/` — **FIXED (Dev B)**
 
-Journal lists `0001_incidents_problems_phase2` then `0001_phase2_catalog_approvals`. Duplicate numeric prefixes invite apply-order mistakes across environments.
-
-Fix: rename the catalog migration to `0002_…` (and update the journal tag) before any shared deploy.
+Catalog migration renamed to `0002_phase2_catalog_approvals`; journal updated. See `apps/server/drizzle/migrations/RENAME_0002_NOTE.md`.
 
 ## Low / Hardening
 
