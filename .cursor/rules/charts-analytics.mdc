@@ -1,0 +1,28 @@
+---
+description: Analytics and chart UI must follow Bklit visual language
+globs: apps/web/src/**/*{chart,dashboard,kpi,analytics}*
+alwaysApply: false
+---
+
+# Charts & analytics — Bklit reference
+
+For any analytics, KPIs, or chart UI in the web app, **refer to [bklit.com](https://bklit.com)** (gallery + docs) as the visual and interaction reference. Prefer patterns from:
+
+- https://bklit.com/charts/bar-chart
+- https://bklit.com/docs/components/bar-chart
+- https://bklit.com/docs/theming
+
+## Visual language (match even when staying on Recharts / shadcn Chart)
+
+- **Card shell:** title + muted subtitle above the plot; optional footer insight (trend line) below.
+- **Grid:** horizontal dashed lines only; no heavy vertical grid.
+- **Bars:** solid series fill, flat or lightly rounded tops, generous band gap; primary series uses faded brand blue `#1A16F3` (e.g. `color-mix(in srgb, #1A16F3 50%, white)` or equivalent soft opacity) — not neon-saturated.
+- **Axes:** tick labels muted; no axis line / tick marks unless needed.
+- **Chrome:** quiet borders (`ring-1` / hairline), ample padding, no decorative badges on the chart itself.
+- **Series tokens:** keep `--chart-1`…`--chart-5` aligned with brand; avoid default purple chart stacks.
+
+## When adding new charts
+
+1. Open the matching Bklit gallery example first and mirror layout density, grid, and footer treatment.
+2. Reuse `@/components/ui/chart` (`ChartContainer` + config) unless product explicitly adopts Bklit components.
+3. Do not invent a second analytics aesthetic (glow bars, heavy gradients, pill legends in the plot area).

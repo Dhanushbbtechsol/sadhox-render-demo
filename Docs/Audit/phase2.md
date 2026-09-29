@@ -30,9 +30,9 @@ Fix: rename the catalog migration to `0002_…` (and update the journal tag) bef
 
 ## Low / Hardening
 
-### [A01] EndUser can create incident comments but cannot join ticket rooms — `events.gateway.ts` `assertCanJoinTicketRoom`
+### [A01] EndUser WS room join — `events.gateway.ts` `assertCanJoinTicketRoom` — **Fixed (Dev A)**
 
-Default-deny for EndUser on WS join is correct until ownership checks exist. Product gap: EndUsers get no realtime comments even on their own tickets. Phase 3 should gate join on `reporterId === user.id` (or equivalent) instead of blanket deny.
+EndUser may join when the ticket is an incident they reported or a service request they submitted; Admin/Agent unrestricted; others default-deny.
 
 ### [A09] Failed mutating requests (non-401/403) are not written to `audit_log` — `audit-log.interceptor.ts`
 
@@ -42,9 +42,9 @@ Success-only audit is intentional; auth denials are skipped. Validation / busine
 
 Useful for ops; enables probing of internal deps from the internet if the API is public. Prefer authenticated or network-restricted readiness, or a separate internal probe path.
 
-### Dead Phase 1 in-memory catalog path
+### Dead Phase 1 in-memory catalog path — **Fixed (Dev A)**
 
-`request-store.ts` + `catalog.items.ts` (role-filtered) are unused by the live Nest controllers; DB catalog has no `allowedRoles`. Current seed items are all-role — no live RBAC hole — but the dead path can confuse future edits. Delete or wire one source of truth.
+Deleted unused `request-store.ts` / `catalog.items.ts` / `catalog.types.ts`. Live path is DB catalog/requests. Optional: Dev B can add `allowedRoles` on seed + list filter if restricted items are needed.
 
 ## Verified (Phase 2 additions that look sound)
 

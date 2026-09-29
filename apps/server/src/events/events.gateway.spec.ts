@@ -204,14 +204,20 @@ describe("EventsGateway auth handshake", () => {
 
 describe("EventsGateway room join/leave", () => {
   const ticketId = "22222222-2222-2222-2222-222222222222";
+  const endUserId = "33333333-3333-3333-3333-333333333333";
 
-  function buildAuthedGateway() {
+  function buildAuthedGateway(selectQueue: unknown[][] = []) {
     const jwt = { verifyAsync: vi.fn() };
     const config = {
       getOrThrow: vi.fn(() => "test-access-secret-16"),
       get: vi.fn(() => "test"),
     };
-    const db = { select: vi.fn() };
+    const queue = [...selectQueue];
+    const limit = vi.fn(async () => queue.shift() ?? []);
+    const where = vi.fn(() => ({ limit }));
+    const from = vi.fn(() => ({ where }));
+    const select = vi.fn(() => ({ from }));
+    const db = { select };
     const events = { setServer: vi.fn() } as unknown as EventsService;
     const gateway = new EventsGateway(
       jwt as never,
@@ -219,11 +225,11 @@ describe("EventsGateway room join/leave", () => {
       events,
       db as never,
     );
-    return gateway;
+    return { gateway, select };
   }
 
   it("joins ticket room when payload is valid for Admin", async () => {
-    const gateway = buildAuthedGateway();
+    const { gateway } = buildAuthedGateway();
     const client = {
       data: { user: { id: "u1", role: "Admin" } },
       join: vi.fn().mockResolvedValue(undefined),
@@ -234,10 +240,35 @@ describe("EventsGateway room join/leave", () => {
     expect(result).toEqual({ ok: true, room: `ticket:${ticketId}` });
   });
 
-  it("denies EndUser ticket room join until Phase 3 ownership", async () => {
-    const gateway = buildAuthedGateway();
+  it("allows EndUser to join an incident they reported", async () => {
+    const { gateway } = buildAuthedGateway([[{ id: ticketId }]]);
     const client = {
-      data: { user: { id: "u2", role: "EndUser" } },
+      data: { user: { id: endUserId, role: "EndUser" } },
+      join: vi.fn().mockResolvedValue(undefined),
+    };
+    const result = await gateway.handleJoin(client as never, { ticketId });
+    expect(client.join).toHaveBeenCalledWith(`ticket:${ticketId}`);
+    expect(result).toEqual({ ok: true, room: `ticket:${ticketId}` });
+  });
+
+  it("allows EndUser to join a service request they submitted", async () => {
+    const { gateway } = buildAuthedGateway([
+      [], // no owned incident
+      [{ id: ticketId }], // owned service request
+    ]);
+    const client = {
+      data: { user: { id: endUserId, role: "EndUser" } },
+      join: vi.fn().mockResolvedValue(undefined),
+    };
+    const result = await gateway.handleJoin(client as never, { ticketId });
+    expect(client.join).toHaveBeenCalledWith(`ticket:${ticketId}`);
+    expect(result).toEqual({ ok: true, room: `ticket:${ticketId}` });
+  });
+
+  it("denies EndUser ticket room join for tickets they do not own", async () => {
+    const { gateway } = buildAuthedGateway([[], []]);
+    const client = {
+      data: { user: { id: endUserId, role: "EndUser" } },
       join: vi.fn(),
     };
     await expect(
@@ -247,7 +278,7 @@ describe("EventsGateway room join/leave", () => {
   });
 
   it("leaves ticket room when payload is valid", async () => {
-    const gateway = buildAuthedGateway();
+    const { gateway } = buildAuthedGateway();
     const client = {
       data: { user: { id: "u1", role: "Agent" } },
       join: vi.fn(),
@@ -259,7 +290,7 @@ describe("EventsGateway room join/leave", () => {
   });
 
   it("rejects join without auth", async () => {
-    const gateway = buildAuthedGateway();
+    const { gateway } = buildAuthedGateway();
     const client = {
       data: {},
       join: vi.fn(),
@@ -270,7 +301,7 @@ describe("EventsGateway room join/leave", () => {
   });
 
   it("rejects join with invalid ticketId", async () => {
-    const gateway = buildAuthedGateway();
+    const { gateway } = buildAuthedGateway();
     const client = {
       data: { user: { id: "u1", role: "Admin" } },
       join: vi.fn(),

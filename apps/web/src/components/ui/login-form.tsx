@@ -1,4 +1,5 @@
-import { Lock, Mail, TicketIcon } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, TicketIcon } from "lucide-react";
+import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,8 @@ export default function LoginForm({
   className,
   children,
 }: LoginFormProps) {
+  const [showPassword, setShowPassword] = useState(false);
+
   return (
     <div
       className={cn(
@@ -83,7 +86,7 @@ export default function LoginForm({
           <div className="border-input bg-background focus-within:border-primary/50 focus-within:ring-primary/25 mt-4 flex w-full items-center gap-2 overflow-hidden rounded-xl border px-4 shadow-soft transition-all focus-within:ring-[3px]">
             <Lock className="text-muted-foreground size-4 shrink-0" aria-hidden />
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               placeholder="Password"
               autoComplete="current-password"
               value={password}
@@ -91,6 +94,19 @@ export default function LoginForm({
               className="text-foreground placeholder:text-muted-foreground h-11 w-full bg-transparent text-sm outline-none"
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="text-muted-foreground hover:text-foreground shrink-0 rounded-md p-1 transition-colors"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+            >
+              {showPassword ? (
+                <EyeOff className="size-4" aria-hidden />
+              ) : (
+                <Eye className="size-4" aria-hidden />
+              )}
+            </button>
           </div>
 
           <div className="text-muted-foreground mt-6 flex w-full items-center justify-between">
@@ -112,7 +128,7 @@ export default function LoginForm({
           <button
             type="submit"
             disabled={pending}
-            className="bg-primary text-primary-foreground shadow-soft hover:bg-primary/90 hover:shadow-lift mt-8 h-11 w-full rounded-xl text-sm font-medium transition-all duration-200 hover:-translate-y-px active:scale-[0.98] disabled:opacity-60"
+            className="btn-gradient mt-8 h-11 w-full rounded-xl text-sm font-medium text-white shadow-soft transition-all duration-200 hover:brightness-110 hover:shadow-lift hover:-translate-y-px active:scale-[0.98] disabled:opacity-60"
           >
             {pending ? "Signing in…" : "Sign in"}
           </button>

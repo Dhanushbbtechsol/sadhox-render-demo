@@ -21,10 +21,12 @@ export default function AppShell() {
         <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
         <div className="flex min-w-0 flex-1 flex-col">
           <TopNavbar />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-            <div className="mx-auto w-full max-w-6xl space-y-5">
-              <AppBreadcrumbs />
-              <Outlet />
+          <main className="bg-muted flex-1 overflow-y-auto">
+            <div className="flex min-h-full gap-4 p-4 md:gap-5 md:p-5 lg:gap-6 lg:p-6">
+              <div className="bg-card ring-border/60 min-w-0 flex-1 space-y-6 rounded-2xl p-5 shadow-soft ring-1 md:p-6 lg:p-7">
+                <AppBreadcrumbs />
+                <Outlet />
+              </div>
             </div>
           </main>
         </div>

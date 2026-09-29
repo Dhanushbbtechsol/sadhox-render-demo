@@ -55,4 +55,4 @@ SEED_PASSWORD=... DATABASE_URL=... REDIS_URL=... node scripts/checkpoint2-verify
 
 **Staging blueprint:** root `render.yaml` provisions `sadhox-redis-staging` (keyvalue) and wires `REDIS_URL` into `sadhox-api-staging`. Deploy via Render Blueprint to close cloud Checkpoint 2.
 
-**WS room ACL (interim):** Admin/Agent may `join` ticket rooms; EndUser denied until Phase 3 ownership.
+**WS room ACL:** Admin/Agent may `join` any ticket room; EndUser may join only rooms for incidents they reported or service requests they submitted.

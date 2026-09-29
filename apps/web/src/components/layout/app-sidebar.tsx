@@ -103,11 +103,11 @@ export function AppSidebar({
   return (
     <aside
       className={cn(
-        "bg-sidebar text-sidebar-foreground border-sidebar-border flex h-full flex-col border-r transition-[width] duration-300 ease-out",
+        "sidebar-gradient text-sidebar-foreground border-sidebar-border flex h-full flex-col border-r transition-[width] duration-300 ease-out",
         collapsed ? "w-16" : "w-60",
       )}
     >
-      <div className="flex h-14 items-center gap-2.5 px-3">
+      <div className="flex h-18 items-center gap-2.5 px-3">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -123,7 +123,7 @@ export function AppSidebar({
               <TicketIcon className="size-3.5" />
             </span>
             <div className="min-w-0 leading-tight">
-              <p className="truncate text-sm font-semibold tracking-tight">Sadhox</p>
+              <p className="truncate text-[25px] font-bold tracking-tight leading-none">Sadhox</p>
               <p className="text-sidebar-foreground/55 truncate text-[10px]">Service desk</p>
             </div>
           </div>
@@ -139,10 +139,9 @@ export function AppSidebar({
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm transition-all duration-200",
-                  "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  isActive &&
-                    "bg-sidebar-accent text-sidebar-accent-foreground font-medium shadow-soft",
+                  "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-normal transition-all duration-200",
+                  "text-sidebar-foreground/70 hover:bg-white hover:text-[#5041BC] hover:font-bold",
+                  isActive && "bg-white text-[#5041BC] font-bold shadow-soft",
                   collapsed && "justify-center px-0",
                 )
               }
@@ -151,12 +150,12 @@ export function AppSidebar({
               {({ isActive }) => (
                 <>
                   {isActive ? (
-                    <span className="bg-sidebar-primary absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-r-full" />
+                    <span className="absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-[#5041BC]" />
                   ) : null}
                   <Icon
                     className={cn(
-                      "size-4 shrink-0 transition-transform duration-200 group-hover:scale-110",
-                      isActive && "text-sidebar-primary",
+                      "size-4 shrink-0 transition-all duration-200 group-hover:scale-110 group-hover:text-[#5041BC]",
+                      isActive && "text-[#5041BC]",
                     )}
                   />
                   {!collapsed ? <span>{item.label}</span> : null}

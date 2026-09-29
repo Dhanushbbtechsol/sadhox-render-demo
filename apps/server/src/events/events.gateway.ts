@@ -12,12 +12,12 @@ import {
   WebSocketServer,
   WsException,
 } from "@nestjs/websockets";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Server, Socket } from "socket.io";
 import { ZodError } from "zod";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
-import { users } from "../database/schema";
+import { incidents, serviceRequests, users } from "../database/schema";
 import { EventsService } from "./events.service";
 import {
   extractHandshakeToken,
@@ -154,7 +154,7 @@ export class EventsGateway
   ) {
     const user = this.requireAuthed(client);
     const { ticketId } = this.parseRoomBody(body);
-    this.assertCanJoinTicketRoom(user);
+    await this.assertCanJoinTicketRoom(user, ticketId);
 
     const room = ticketRoomName(ticketId);
     await client.join(room);
@@ -174,18 +174,47 @@ export class EventsGateway
   }
 
   /**
-   * Interim room ACL until Phase 3 ticket ownership exists.
-   * Admin/Agent may join any ticket room. EndUser is denied — we cannot
-   * prove ownership while tickets are stubs (default-deny for EndUser).
-   * TODO(Phase 3): replace with ownership / visibility checks on real tickets.
+   * Room ACL: Admin/Agent may join any ticket room. EndUser may join only when
+   * the id is an incident they reported or a service request they submitted.
+   * Unknown tickets and other users' tickets are default-deny.
    */
-  assertCanJoinTicketRoom(user: SocketUser) {
+  async assertCanJoinTicketRoom(user: SocketUser, ticketId: string) {
     if (user.role === "Admin" || user.role === "Agent") {
       return;
     }
-    throw new WsException(
-      "Forbidden: ticket room join requires Admin/Agent until ownership checks land (Phase 3)",
-    );
+
+    if (user.role === "EndUser") {
+      const [ownedIncident] = await this.db
+        .select({ id: incidents.id })
+        .from(incidents)
+        .where(
+          and(eq(incidents.id, ticketId), eq(incidents.reporterId, user.id)),
+        )
+        .limit(1);
+      if (ownedIncident) {
+        return;
+      }
+
+      const [ownedRequest] = await this.db
+        .select({ id: serviceRequests.id })
+        .from(serviceRequests)
+        .where(
+          and(
+            eq(serviceRequests.id, ticketId),
+            eq(serviceRequests.requesterId, user.id),
+          ),
+        )
+        .limit(1);
+      if (ownedRequest) {
+        return;
+      }
+
+      throw new WsException(
+        "Forbidden: EndUser may only join rooms for their own tickets",
+      );
+    }
+
+    throw new WsException("Forbidden: ticket room join denied");
   }
 
   private requireAuthed(client: AuthedSocket): SocketUser {

@@ -1,4 +1,9 @@
-import { AlertCircleIcon, CheckCircle2Icon, Clock3Icon, TicketIcon } from "lucide-react";
+import {
+  AlertTriangleIcon,
+  CheckCircle2Icon,
+  LoaderCircleIcon,
+  TicketIcon,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 
@@ -32,15 +37,15 @@ function StatCard({
 }: {
   label: string;
   value: number;
-  icon: React.ComponentType<{ className?: string }>;
-  tone: "primary" | "warning" | "success" | "muted";
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  tone: "primary" | "warning" | "progress" | "success";
   className?: string;
 }) {
   const toneClass = {
-    primary: "bg-primary/10 text-primary",
-    warning: "bg-warning/15 text-amber-800 dark:text-amber-300",
-    success: "bg-success/12 text-success",
-    muted: "bg-muted text-muted-foreground",
+    primary: "bg-gradient-to-br from-[#3D29D0] to-[#C25FFF] text-white shadow-[0_6px_16px_-4px_rgba(61,41,208,0.45)]",
+    warning: "bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-[0_6px_16px_-4px_rgba(245,158,11,0.4)]",
+    progress: "bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-[0_6px_16px_-4px_rgba(14,165,233,0.4)]",
+    success: "bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-[0_6px_16px_-4px_rgba(16,185,129,0.4)]",
   }[tone];
 
   return (
@@ -59,11 +64,11 @@ function StatCard({
         </div>
         <span
           className={cn(
-            "flex size-9 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-110",
+            "flex size-10 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110",
             toneClass,
           )}
         >
-          <Icon className="size-4" />
+          <Icon className="size-5" strokeWidth={2.25} />
         </span>
       </div>
     </div>
@@ -114,15 +119,15 @@ export default function IncidentsPage() {
           <StatCard
             label="Critical P1"
             value={p1Count}
-            icon={AlertCircleIcon}
+            icon={AlertTriangleIcon}
             tone="warning"
             className="stagger-1"
           />
           <StatCard
             label="In progress"
             value={inProgress}
-            icon={Clock3Icon}
-            tone="muted"
+            icon={LoaderCircleIcon}
+            tone="progress"
             className="stagger-2"
           />
           <StatCard
