@@ -16,6 +16,7 @@ import {
 } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import {
+  AssignIncidentDto,
   CreateCommentDto,
   CreateIncidentDto,
   UpdateIncidentDto,
@@ -63,13 +64,30 @@ export class IncidentsController {
 
   @Patch(":id")
   @Roles("Admin", "Agent")
-  @ApiOperation({ summary: "Update incident fields (Admin/Agent)" })
+  @ApiOperation({
+    summary: "Update incident fields with ITIL status transition guards",
+  })
   update(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: UpdateIncidentDto,
   ) {
     return this.incidents.update(user, id, dto);
+  }
+
+  @Post(":id/assign")
+  @HttpCode(200)
+  @Roles("Admin", "Agent")
+  @ApiOperation({
+    summary:
+      "Assign incident (manual agentId or round-robin) and notify assignee",
+  })
+  assign(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: AssignIncidentDto,
+  ) {
+    return this.incidents.assign(user, id, dto);
   }
 
   @Get(":id/comments")

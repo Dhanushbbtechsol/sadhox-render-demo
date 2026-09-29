@@ -44,6 +44,14 @@
   --sidebar-accent-foreground: oklch(0.98 0.01 280);
   --sidebar-border: oklch(1 0 0 / 14%);
   --sidebar-ring: #a6e1fa;
+  /* Nav item surfaces — light: white pill on purple */
+  --sidebar-item: transparent;
+  --sidebar-item-hover: #ffffff;
+  --sidebar-item-active: #ffffff;
+  --sidebar-item-foreground: oklch(0.95 0.02 280 / 70%);
+  --sidebar-item-hover-foreground: #5041bc;
+  --sidebar-item-active-foreground: #5041bc;
+  --sidebar-item-indicator: #5041bc;
   --sidebar-gradient: linear-gradient(
     165deg,
     #4637a8 0%,
@@ -58,20 +66,20 @@
 }
 
 .dark {
-  /* Elevation: background < muted < card (darkest → lightest) */
-  --background: oklch(0.156 0.079 263);
+  /* Surfaces — black canvas; cards slightly lifted for depth */
+  --background: #000000;
   --foreground: oklch(0.92 0.03 226);
-  --card: oklch(0.24 0.09 261);
+  --card: #0a0a0a;
   --card-foreground: oklch(0.92 0.03 226);
-  --popover: oklch(0.26 0.09 261);
+  --popover: #111111;
   --popover-foreground: oklch(0.92 0.03 226);
   --primary: oklch(0.878 0.069 226);
   --primary-foreground: oklch(0.156 0.079 263);
-  --secondary: oklch(0.28 0.1 264);
+  --secondary: #141414;
   --secondary-foreground: oklch(0.92 0.03 226);
-  --muted: oklch(0.2 0.085 261);
+  --muted: #000000;
   --muted-foreground: oklch(0.72 0.04 226);
-  --accent: oklch(0.303 0.137 265);
+  --accent: #1a1a1a;
   --accent-foreground: oklch(0.92 0.04 226);
   --destructive: oklch(0.65 0.18 25);
   --border: oklch(1 0 0 / 12%);
@@ -82,19 +90,27 @@
   --chart-3: oklch(0.303 0.137 265);
   --chart-4: oklch(0.65 0.1 200);
   --chart-5: oklch(0.252 0.109 261);
-  --sidebar: #5041bc;
+  --sidebar: #3b2f8f;
   --sidebar-foreground: oklch(0.95 0.02 280);
   --sidebar-primary: #a6e1fa;
-  --sidebar-primary-foreground: #5041bc;
-  --sidebar-accent: #5e4fd0;
+  --sidebar-primary-foreground: #1e1a4a;
+  --sidebar-accent: #4a3db0;
   --sidebar-accent-foreground: oklch(0.98 0.01 280);
   --sidebar-border: oklch(1 0 0 / 12%);
   --sidebar-ring: #a6e1fa;
+  /* Nav item surfaces — dark: elevated purple pill (active = hover look) */
+  --sidebar-item: transparent;
+  --sidebar-item-hover: oklch(1 0 0 / 12%);
+  --sidebar-item-active: oklch(1 0 0 / 16%);
+  --sidebar-item-foreground: oklch(0.95 0.02 280 / 72%);
+  --sidebar-item-hover-foreground: oklch(0.99 0.01 280);
+  --sidebar-item-active-foreground: oklch(0.99 0.01 280);
+  --sidebar-item-indicator: #a6e1fa;
   --sidebar-gradient: linear-gradient(
     165deg,
-    #4637a8 0%,
-    #5041bc 45%,
-    #5e4fd0 100%
+    #2a2170 0%,
+    #3b2f8f 45%,
+    #4a3db0 100%
   );
   --success: oklch(0.7 0.14 155);
   --warning: oklch(0.78 0.12 85);
@@ -112,6 +128,13 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-sidebar-item: var(--sidebar-item);
+  --color-sidebar-item-hover: var(--sidebar-item-hover);
+  --color-sidebar-item-active: var(--sidebar-item-active);
+  --color-sidebar-item-foreground: var(--sidebar-item-foreground);
+  --color-sidebar-item-hover-foreground: var(--sidebar-item-hover-foreground);
+  --color-sidebar-item-active-foreground: var(--sidebar-item-active-foreground);
+  --color-sidebar-item-indicator: var(--sidebar-item-indicator);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -160,9 +183,8 @@
     background-attachment: fixed;
   }
   .dark body {
-    background-image:
-      radial-gradient(ellipse 80% 50% at 0% -10%, oklch(0.51 0.124 245 / 22%), transparent),
-      radial-gradient(ellipse 60% 40% at 100% 0%, oklch(0.303 0.137 265 / 20%), transparent);
+    background-image: none;
+    background-color: #000000;
   }
   html {
     @apply font-sans;

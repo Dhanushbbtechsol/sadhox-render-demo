@@ -5,6 +5,7 @@ import express from "express";
 import type { Express } from "express";
 import request from "supertest";
 import {
+  AssignIncidentDto,
   CreateCommentDto,
   CreateIncidentDto,
   UpdateIncidentDto,
@@ -54,6 +55,7 @@ function buildApp(incidents: {
   get: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
+  assign: ReturnType<typeof vi.fn>;
   listComments: ReturnType<typeof vi.fn>;
   addComment: ReturnType<typeof vi.fn>;
 }): Express {
@@ -86,6 +88,13 @@ function buildApp(incidents: {
     return res.json(result);
   });
 
+  app.post("/incidents/:id/assign", async (req, res) => {
+    const parsed = await parseDto(AssignIncidentDto, req.body ?? {});
+    if (!parsed.ok) return res.status(400).json({ message: parsed.messages });
+    const result = await incidents.assign(mockUser, req.params.id, parsed.value);
+    return res.json(result);
+  });
+
   app.get("/incidents/:id/comments", async (req, res) => {
     const result = await incidents.listComments(mockUser, req.params.id);
     return res.json(result);
@@ -111,6 +120,7 @@ describe("Incidents API (supertest)", () => {
     get: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    assign: vi.fn(),
     listComments: vi.fn(),
     addComment: vi.fn(),
   };
@@ -177,6 +187,25 @@ describe("Incidents API (supertest)", () => {
       mockUser,
       sampleIncident.id,
       expect.objectContaining({ status: "InProgress" }),
+    );
+  });
+
+  it("POST /incidents/:id/assign assigns agent", async () => {
+    incidents.assign.mockResolvedValue({
+      ...sampleIncident,
+      status: "Assigned",
+      assignedTo: mockUser.userId,
+    });
+
+    await request(app)
+      .post(`/incidents/${sampleIncident.id}/assign`)
+      .send({ agentId: mockUser.userId })
+      .expect(200);
+
+    expect(incidents.assign).toHaveBeenCalledWith(
+      mockUser,
+      sampleIncident.id,
+      expect.objectContaining({ agentId: mockUser.userId }),
     );
   });
 

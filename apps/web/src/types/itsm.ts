@@ -46,6 +46,8 @@ export interface Incident {
   reporterId: string;
   reporterName?: string | null;
   slaDueAt: string | null;
+  slaBreached?: boolean;
+  resolutionNotes?: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
   createdAt: string;
@@ -55,12 +57,37 @@ export interface Incident {
   slaTargetMinutes?: number | null;
 }
 
+export interface AgentSnippet {
+  id: string;
+  name: string;
+  email: string;
+  openTicketCount: number;
+}
+
 export interface CreateIncidentInput {
   title: string;
   description: string;
   category: string;
   impact: Impact;
   urgency: Urgency;
+}
+
+export interface UpdateIncidentInput {
+  title?: string;
+  description?: string;
+  category?: string;
+  impact?: Impact;
+  urgency?: Urgency;
+  status?: IncidentStatus;
+  assignedTo?: string | null;
+  resolutionNotes?: string;
+}
+
+export interface LinkedIncidentSnippet {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
 }
 
 export interface Problem {
@@ -73,6 +100,7 @@ export interface Problem {
   assignedTo: string | null;
   assigneeName?: string | null;
   linkedIncidentIds: string[];
+  linkedIncidents?: LinkedIncidentSnippet[];
   createdAt: string;
   updatedAt: string;
 }

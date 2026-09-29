@@ -20,6 +20,14 @@ const sampleProblem = {
   assignedTo: null,
   assigneeName: null,
   linkedIncidentIds: ["22222222-2222-4222-8222-222222222222"],
+  linkedIncidents: [
+    {
+      id: "22222222-2222-4222-8222-222222222222",
+      title: "VPN drop site A",
+      status: "InProgress",
+      priority: "P2",
+    },
+  ],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };

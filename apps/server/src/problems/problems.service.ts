@@ -20,6 +20,13 @@ import type {
   UpdateProblemDto,
 } from "./dto/problem.dto";
 
+export type LinkedIncidentSnippet = {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+};
+
 export type ProblemView = {
   id: string;
   title: string;
@@ -30,6 +37,7 @@ export type ProblemView = {
   assignedTo: string | null;
   assigneeName: string | null;
   linkedIncidentIds: string[];
+  linkedIncidents: LinkedIncidentSnippet[];
   createdAt: string;
   updatedAt: string;
 };
@@ -64,15 +72,22 @@ export class ProblemsService {
 
     const ids = rows.map((r) => r.problem.id);
     const links = await this.loadLinks(ids);
+    const snippets = await this.loadIncidentSnippets(
+      [...links.values()].flat(),
+    );
 
     return {
-      data: rows.map((row) =>
-        this.toView(
+      data: rows.map((row) => {
+        const linkedIds = links.get(row.problem.id) ?? [];
+        return this.toView(
           row.problem,
           row.assigneeName,
-          links.get(row.problem.id) ?? [],
-        ),
-      ),
+          linkedIds,
+          linkedIds
+            .map((id) => snippets.get(id))
+            .filter((s): s is LinkedIncidentSnippet => Boolean(s)),
+        );
+      }),
       meta: {
         page,
         pageSize,
@@ -96,10 +111,15 @@ export class ProblemsService {
     if (!row) throw new NotFoundException("Problem not found");
 
     const links = await this.loadLinks([id]);
+    const linkedIds = links.get(id) ?? [];
+    const snippets = await this.loadIncidentSnippets(linkedIds);
     return this.toView(
       row.problem,
       row.assigneeName,
-      links.get(id) ?? [],
+      linkedIds,
+      linkedIds
+        .map((lid) => snippets.get(lid))
+        .filter((s): s is LinkedIncidentSnippet => Boolean(s)),
     );
   }
 
@@ -204,6 +224,26 @@ export class ProblemsService {
     );
   }
 
+  private async loadIncidentSnippets(incidentIds: string[]) {
+    const map = new Map<string, LinkedIncidentSnippet>();
+    if (incidentIds.length === 0) return map;
+
+    const rows = await this.db
+      .select({
+        id: incidents.id,
+        title: incidents.title,
+        status: incidents.status,
+        priority: incidents.priority,
+      })
+      .from(incidents)
+      .where(inArray(incidents.id, incidentIds));
+
+    for (const row of rows) {
+      map.set(row.id, row);
+    }
+    return map;
+  }
+
   private async assertIncidentsExist(ids: string[]) {
     const rows = await this.db
       .select({ id: incidents.id })
@@ -228,6 +268,7 @@ export class ProblemsService {
     row: typeof problems.$inferSelect,
     assigneeName: string | null,
     linkedIncidentIds: string[],
+    linkedIncidents: LinkedIncidentSnippet[] = [],
   ): ProblemView {
     return {
       id: row.id,
@@ -239,6 +280,7 @@ export class ProblemsService {
       assignedTo: row.assignedTo,
       assigneeName,
       linkedIncidentIds,
+      linkedIncidents,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

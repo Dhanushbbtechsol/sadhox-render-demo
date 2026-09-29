@@ -140,8 +140,10 @@ export function AppSidebar({
               className={({ isActive }) =>
                 cn(
                   "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-normal transition-all duration-200",
-                  "text-sidebar-foreground/70 hover:bg-white hover:text-[#5041BC] hover:font-bold",
-                  isActive && "bg-white text-[#5041BC] font-bold shadow-soft",
+                  "text-sidebar-item-foreground",
+                  "hover:bg-sidebar-item-hover hover:text-sidebar-item-hover-foreground hover:font-bold",
+                  isActive &&
+                    "bg-sidebar-item-active! text-sidebar-item-active-foreground! font-bold shadow-soft",
                   collapsed && "justify-center px-0",
                 )
               }
@@ -150,12 +152,14 @@ export function AppSidebar({
               {({ isActive }) => (
                 <>
                   {isActive ? (
-                    <span className="absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-[#5041BC]" />
+                    <span className="bg-sidebar-item-indicator absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-r-full" />
                   ) : null}
                   <Icon
                     className={cn(
-                      "size-4 shrink-0 transition-all duration-200 group-hover:scale-110 group-hover:text-[#5041BC]",
-                      isActive && "text-[#5041BC]",
+                      "size-4 shrink-0 transition-all duration-200 group-hover:scale-110",
+                      isActive
+                        ? "text-sidebar-item-active-foreground"
+                        : "group-hover:text-sidebar-item-hover-foreground",
                     )}
                   />
                   {!collapsed ? <span>{item.label}</span> : null}

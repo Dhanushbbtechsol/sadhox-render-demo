@@ -1,8 +1,10 @@
-import { ArrowLeftIcon, CalendarClockIcon, UserIcon } from "lucide-react";
+import { ArrowLeftIcon, UserIcon } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
+import { IncidentActions } from "@/components/incidents/incident-actions";
 import { IncidentComments } from "@/components/incidents/incident-comments";
+import { SlaCountdown } from "@/components/incidents/sla-countdown";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,6 +63,12 @@ export default function IncidentDetailPage() {
             {data.description}
           </p>
 
+          <SlaCountdown
+            slaDueAt={data.slaDueAt}
+            slaTargetMinutes={data.slaTargetMinutes}
+            slaBreached={data.slaBreached}
+          />
+
           <dl className="grid gap-3 sm:grid-cols-2">
             {[
               { label: "Impact", value: data.impact },
@@ -74,11 +82,6 @@ export default function IncidentDetailPage() {
                 label: "Assignee",
                 value: data.assignee?.name ?? data.assigneeName ?? "Unassigned",
                 icon: UserIcon,
-              },
-              {
-                label: "SLA due",
-                value: data.slaDueAt ? new Date(data.slaDueAt).toLocaleString() : "—",
-                icon: CalendarClockIcon,
               },
               {
                 label: "SLA target",
@@ -101,6 +104,7 @@ export default function IncidentDetailPage() {
             ))}
           </dl>
 
+          <IncidentActions incident={data} />
           <IncidentComments incidentId={data.id} />
         </CardContent>
       </Card>
