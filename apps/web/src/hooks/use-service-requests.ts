@@ -1,1 +1,6 @@
-export { useServiceRequests, useCreateServiceRequest } from "./use-service-catalog";
+export {
+  useServiceRequests,
+  useCreateServiceRequest,
+  useApproveServiceRequest,
+  useRejectServiceRequest,
+} from "./use-service-catalog";

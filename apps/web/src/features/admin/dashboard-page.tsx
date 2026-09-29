@@ -26,9 +26,15 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-xl font-semibold">Executive dashboard</h1>
         <p className="text-sm text-muted-foreground">
-          Ticket volume by status, priority, and module. Figures are mock aggregates.
+          Ticket volume by status, priority, and module from live Nest aggregates.
         </p>
       </div>
+
+      {stats.isError ? (
+        <p className="text-destructive text-sm">
+          {stats.error instanceof Error ? stats.error.message : "Failed to load dashboard"}
+        </p>
+      ) : null}
 
       {stats.isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

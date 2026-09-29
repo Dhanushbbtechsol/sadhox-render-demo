@@ -1,7 +1,8 @@
 import { env } from "@sadhox/env/web";
 
-import type { AuthUser } from "@/types/api";
+import { setAccessToken } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
+import type { AuthUser } from "@/types/itsm";
 
 type ApiOptions = RequestInit & {
   skipAuth?: boolean;
@@ -15,7 +16,12 @@ async function refreshAccessToken(): Promise<string | null> {
     });
     if (!response.ok) return null;
     const data = (await response.json()) as { accessToken: string; user: AuthUser };
-    useAuthStore.getState().setSession(data.user, data.accessToken);
+    setAccessToken(data.accessToken);
+    useAuthStore.setState({
+      user: data.user,
+      accessToken: data.accessToken,
+      isAuthenticated: true,
+    });
     return data.accessToken;
   } catch {
     return null;
@@ -50,8 +56,21 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   }
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed (${response.status})`);
+    let message = `Request failed (${response.status})`;
+    try {
+      const data = (await response.json()) as {
+        message?: string | string[];
+        error?: string;
+      };
+      if (Array.isArray(data.message)) {
+        message = data.message.join(", ");
+      } else if (data.message || data.error) {
+        message = data.message ?? data.error ?? message;
+      }
+    } catch {
+      // ignore non-JSON
+    }
+    throw new Error(message);
   }
 
   if (response.status === 204) {

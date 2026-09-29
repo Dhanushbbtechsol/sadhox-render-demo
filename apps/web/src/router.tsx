@@ -5,7 +5,9 @@ import { GuestRoute, ProtectedRoute } from "@/components/auth/protected-route";
 import AuditLogsPage from "@/features/admin/audit-logs-page";
 import DashboardPage from "@/features/admin/dashboard-page";
 import AssetRegisterPage from "@/features/assets/asset-register-page";
+import ApprovalsPage from "@/routes/approvals";
 import CatalogPage from "@/routes/catalog";
+import ChangesPage from "@/routes/changes";
 import IncidentDetailPage from "@/routes/incident-detail";
 import IncidentsPage from "@/routes/incidents";
 import LoginPage from "@/routes/login";
@@ -99,6 +101,18 @@ export const router = createBrowserRouter([
             handle: { breadcrumb: "Requests" },
             element: <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />,
             children: [{ index: true, element: <RequestsPage /> }],
+          },
+          {
+            path: "changes",
+            handle: { breadcrumb: "Changes" },
+            element: <ProtectedRoute roles={["Admin", "Agent"]} />,
+            children: [{ index: true, element: <ChangesPage /> }],
+          },
+          {
+            path: "approvals",
+            handle: { breadcrumb: "Approvals" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <ApprovalsPage /> }],
           },
           { path: "*", element: <NotFound /> },
         ],

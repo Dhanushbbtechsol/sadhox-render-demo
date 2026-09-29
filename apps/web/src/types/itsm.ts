@@ -1,4 +1,4 @@
-/** Contract types mirroring Dev D OpenAPI until codegen is available. */
+/** Contract types aligned with Nest incident/problem API. */
 
 export type UserRole = "Admin" | "Agent" | "EndUser";
 
@@ -9,15 +9,16 @@ export type Priority = "P1" | "P2" | "P3" | "P4";
 export type IncidentStatus =
   | "New"
   | "Assigned"
-  | "In Progress"
+  | "InProgress"
   | "Resolved"
   | "Closed";
 
 export type ProblemStatus =
   | "Open"
-  | "Under Investigation"
-  | "Workaround Found"
-  | "Resolved";
+  | "Investigating"
+  | "KnownError"
+  | "Resolved"
+  | "Closed";
 
 export interface AuthUser {
   id: string;
@@ -41,12 +42,17 @@ export interface Incident {
   priority: Priority;
   status: IncidentStatus;
   assignedTo: string | null;
+  assigneeName?: string | null;
   reporterId: string;
+  reporterName?: string | null;
   slaDueAt: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  reporter?: { id: string; name: string; email: string } | null;
+  assignee?: { id: string; name: string; email: string } | null;
+  slaTargetMinutes?: number | null;
 }
 
 export interface CreateIncidentInput {
@@ -65,9 +71,27 @@ export interface Problem {
   knownError: boolean;
   status: ProblemStatus;
   assignedTo: string | null;
+  assigneeName?: string | null;
   linkedIncidentIds: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TicketComment {
+  id: string;
+  ticketId: string;
+  ticketType: "incident";
+  authorId: string;
+  authorName: string | null;
+  content: string;
+  createdAt: string;
+}
+
+export interface PageMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
 
 /**
@@ -76,14 +100,6 @@ export interface Problem {
  * Med×Med / Low×High / High×Low = P3; else = P4
  */
 export function calculatePriority(impact: Impact, urgency: Urgency): Priority {
-  const score: Record<Impact | Urgency, number> = {
-    Low: 1,
-    Medium: 2,
-    High: 3,
-  };
-
-  const product = score[impact] * score[urgency];
-
   if (impact === "High" && urgency === "High") return "P1";
   if (
     (impact === "High" && urgency === "Medium") ||
@@ -94,8 +110,7 @@ export function calculatePriority(impact: Impact, urgency: Urgency): Priority {
   if (
     (impact === "Medium" && urgency === "Medium") ||
     (impact === "Low" && urgency === "High") ||
-    (impact === "High" && urgency === "Low") ||
-    product >= 4
+    (impact === "High" && urgency === "Low")
   ) {
     return "P3";
   }
@@ -107,6 +122,22 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   P2: "High",
   P3: "Medium",
   P4: "Low",
+};
+
+export const INCIDENT_STATUS_LABELS: Record<IncidentStatus, string> = {
+  New: "New",
+  Assigned: "Assigned",
+  InProgress: "In Progress",
+  Resolved: "Resolved",
+  Closed: "Closed",
+};
+
+export const PROBLEM_STATUS_LABELS: Record<ProblemStatus, string> = {
+  Open: "Open",
+  Investigating: "Under Investigation",
+  KnownError: "Workaround Found",
+  Resolved: "Resolved",
+  Closed: "Closed",
 };
 
 export const INCIDENT_CATEGORIES = [

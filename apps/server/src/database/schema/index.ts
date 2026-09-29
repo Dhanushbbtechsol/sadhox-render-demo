@@ -9,6 +9,8 @@ import {
   integer,
   jsonb,
   index,
+  primaryKey,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -39,8 +41,14 @@ export const requestStatusEnum = pgEnum("request_status", [
   "PendingApproval",
   "Approved",
   "Rejected",
+  "InFulfillment",
   "Fulfilled",
   "Closed",
+]);
+export const requestUrgencyEnum = pgEnum("request_urgency", [
+  "Low",
+  "Medium",
+  "High",
 ]);
 export const changeTypeEnum = pgEnum("change_type", [
   "Standard",
@@ -50,11 +58,15 @@ export const changeTypeEnum = pgEnum("change_type", [
 export const changeStatusEnum = pgEnum("change_status", [
   "Draft",
   "PendingApproval",
+  "Submitted",
   "Approved",
   "Scheduled",
   "Implementing",
+  "Implemented",
   "Completed",
+  "Closed",
   "Failed",
+  "RolledBack",
   "Cancelled",
 ]);
 export const assetTypeEnum = pgEnum("asset_type", ["Hardware", "Software"]);
@@ -132,6 +144,7 @@ export const incidents = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description").notNull(),
+    category: varchar("category", { length: 64 }).notNull().default("Other"),
     priority: priorityEnum("priority").notNull().default("P3"),
     impact: impactUrgencyEnum("impact").notNull().default("Medium"),
     urgency: impactUrgencyEnum("urgency").notNull().default("Medium"),
@@ -155,6 +168,7 @@ export const incidents = pgTable(
   (t) => [
     index("incidents_status_idx").on(t.status),
     index("incidents_assigned_to_idx").on(t.assignedTo),
+    index("incidents_reporter_id_idx").on(t.reporterId),
   ],
 );
 
@@ -180,12 +194,64 @@ export const problems = pgTable(
   (t) => [index("problems_status_idx").on(t.status)],
 );
 
-/** GUESS: catalog_items not in Phase 1 table list; catalogId stored as UUID without FK until catalog module lands. */
+/** Links one Problem to many Incident records (root-cause grouping). */
+export const problemIncidents = pgTable(
+  "problem_incidents",
+  {
+    problemId: uuid("problem_id")
+      .notNull()
+      .references(() => problems.id, { onDelete: "cascade" }),
+    incidentId: uuid("incident_id")
+      .notNull()
+      .references(() => incidents.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.problemId, t.incidentId] }),
+    unique("problem_incidents_incident_unique").on(t.incidentId),
+    index("problem_incidents_problem_id_idx").on(t.problemId),
+  ],
+);
+
+export type CatalogFormField = {
+  name: string;
+  label: string;
+  type: "text" | "textarea" | "select";
+  required?: boolean;
+  options?: string[];
+};
+
+export const serviceCatalog = pgTable(
+  "service_catalog",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description").notNull(),
+    department: varchar("department", { length: 128 }).notNull(),
+    formFields: jsonb("form_fields")
+      .$type<CatalogFormField[]>()
+      .notNull()
+      .default([]),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("service_catalog_department_idx").on(t.department)],
+);
+
 export const serviceRequests = pgTable(
   "service_requests",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    catalogId: uuid("catalog_id").notNull(),
+    catalogId: uuid("catalog_id")
+      .notNull()
+      .references(() => serviceCatalog.id),
     requesterId: uuid("requester_id")
       .notNull()
       .references(() => users.id),
@@ -194,7 +260,15 @@ export const serviceRequests = pgTable(
     }),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
+    justification: text("justification").notNull().default(""),
+    urgency: requestUrgencyEnum("urgency").notNull().default("Medium"),
+    fields: jsonb("fields")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
     status: requestStatusEnum("status").notNull().default("Draft"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    rejectionReason: text("rejection_reason"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -202,7 +276,10 @@ export const serviceRequests = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("service_requests_status_idx").on(t.status)],
+  (t) => [
+    index("service_requests_status_idx").on(t.status),
+    index("service_requests_requester_id_idx").on(t.requesterId),
+  ],
 );
 
 export const changes = pgTable(
@@ -212,12 +289,17 @@ export const changes = pgTable(
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
     type: changeTypeEnum("type").notNull().default("Normal"),
-    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    scheduledStart: timestamp("scheduled_start", { withTimezone: true }),
+    scheduledEnd: timestamp("scheduled_end", { withTimezone: true }),
     rollbackPlan: text("rollback_plan"),
     status: changeStatusEnum("status").notNull().default("Draft"),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
     approvedBy: uuid("approved_by").references(() => users.id, {
       onDelete: "set null",
     }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -225,20 +307,24 @@ export const changes = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("changes_status_idx").on(t.status)],
+  (t) => [
+    index("changes_status_idx").on(t.status),
+    index("changes_type_idx").on(t.type),
+  ],
 );
 
 export const assets = pgTable(
   "assets",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    assetTag: varchar("asset_tag", { length: 64 }).notNull().unique(),
     name: varchar("name", { length: 255 }).notNull(),
     type: assetTypeEnum("type").notNull(),
     ownerId: uuid("owner_id").references(() => users.id, {
       onDelete: "set null",
     }),
     status: assetStatusEnum("status").notNull().default("Active"),
-    /** GUESS: linked_ticket_id is polymorphic; ticket_type not in FRD — store ticket UUID only for Phase 1. */
+    /** Polymorphic ticket UUID (incident or service_request); no FK. */
     linkedTicketId: uuid("linked_ticket_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -300,6 +386,8 @@ export const notifications = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   refreshTokens: many(refreshTokens),
+  reportedIncidents: many(incidents, { relationName: "incidentReporter" }),
+  assignedIncidents: many(incidents, { relationName: "incidentAssignee" }),
 }));
 
 export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
@@ -309,6 +397,49 @@ export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
   }),
 }));
 
+export const incidentsRelations = relations(incidents, ({ one, many }) => ({
+  reporter: one(users, {
+    fields: [incidents.reporterId],
+    references: [users.id],
+    relationName: "incidentReporter",
+  }),
+  assignee: one(users, {
+    fields: [incidents.assignedTo],
+    references: [users.id],
+    relationName: "incidentAssignee",
+  }),
+  problemLinks: many(problemIncidents),
+}));
+
+export const problemsRelations = relations(problems, ({ many }) => ({
+  incidentLinks: many(problemIncidents),
+}));
+
+export const problemIncidentsRelations = relations(
+  problemIncidents,
+  ({ one }) => ({
+    problem: one(problems, {
+      fields: [problemIncidents.problemId],
+      references: [problems.id],
+    }),
+    incident: one(incidents, {
+      fields: [problemIncidents.incidentId],
+      references: [incidents.id],
+    }),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type UserRole = (typeof userRoleEnum.enumValues)[number];
+export type Incident = typeof incidents.$inferSelect;
+export type Problem = typeof problems.$inferSelect;
+export type Comment = typeof comments.$inferSelect;
+export type Priority = (typeof priorityEnum.enumValues)[number];
+export type ImpactUrgency = (typeof impactUrgencyEnum.enumValues)[number];
+export type IncidentStatus = (typeof incidentStatusEnum.enumValues)[number];
+export type ProblemStatus = (typeof problemStatusEnum.enumValues)[number];
+export type Asset = typeof assets.$inferSelect;
+export type NewAsset = typeof assets.$inferInsert;
+export type AssetType = (typeof assetTypeEnum.enumValues)[number];
+export type AssetStatus = (typeof assetStatusEnum.enumValues)[number];

@@ -2,6 +2,8 @@ import {
   AlertTriangleIcon,
   ClipboardListIcon,
   LayoutDashboardIcon,
+  GitBranchIcon,
+  InboxIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
   ListTodoIcon,
@@ -73,6 +75,18 @@ const NAV_ITEMS: NavItem[] = [
     label: "Requests",
     icon: ListTodoIcon,
     roles: ["Admin", "Agent", "EndUser"],
+  },
+  {
+    to: "/changes",
+    label: "Changes",
+    icon: GitBranchIcon,
+    roles: ["Admin", "Agent"],
+  },
+  {
+    to: "/approvals",
+    label: "Approvals",
+    icon: InboxIcon,
+    roles: ["Admin"],
   },
 ];
 

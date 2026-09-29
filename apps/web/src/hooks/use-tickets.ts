@@ -1,45 +1,92 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { calculatePriority } from "@/types/itsm";
-import type { CreateIncidentInput, Incident, Problem } from "@/types/itsm";
-import { MOCK_INCIDENTS, MOCK_PROBLEMS } from "@/lib/mock-data";
+import { apiFetch } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth-store";
+import type {
+  CreateIncidentInput,
+  Incident,
+  PageMeta,
+  Problem,
+  TicketComment,
+} from "@/types/itsm";
 
 const incidentsKey = ["incidents"] as const;
 const problemsKey = ["problems"] as const;
 
-function delay<T>(value: T, ms = 450): Promise<T> {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(value), ms);
-  });
+export type IncidentListParams = {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  priority?: string;
+  sortBy?: "createdAt" | "priority" | "status" | "slaDueAt";
+  sortDir?: "asc" | "desc";
+};
+
+function toQuery(params: Record<string, string | number | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") search.set(key, String(value));
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : "";
 }
 
-/** In-memory stub store until Dev D OpenAPI + live CRUD lands. */
-let incidentStore: Incident[] = [...MOCK_INCIDENTS];
-let problemStore: Problem[] = [...MOCK_PROBLEMS];
+export function useIncidents(params: IncidentListParams = {}) {
+  const userId = useAuthStore((state) => state.user?.id);
+  const {
+    page = 1,
+    pageSize = 50,
+    status,
+    priority,
+    sortBy = "createdAt",
+    sortDir = "desc",
+  } = params;
 
-export function useIncidents() {
   return useQuery({
-    queryKey: incidentsKey,
-    queryFn: () => delay([...incidentStore]),
-  });
-}
-
-export function useIncident(id: string | undefined) {
-  return useQuery({
-    queryKey: [...incidentsKey, id],
-    enabled: Boolean(id),
+    queryKey: [...incidentsKey, userId, params],
+    enabled: Boolean(userId),
     queryFn: async () => {
-      const incident = incidentStore.find((item) => item.id === id);
-      if (!incident) throw new Error("Incident not found");
-      return delay(incident);
+      const result = await apiFetch<{ data: Incident[]; meta: PageMeta }>(
+        `/incidents${toQuery({ page, pageSize, status, priority, sortBy, sortDir })}`,
+      );
+      return result;
     },
   });
 }
 
-export function useProblems() {
+export function useIncident(id: string | undefined) {
+  const userId = useAuthStore((state) => state.user?.id);
+
   return useQuery({
-    queryKey: problemsKey,
-    queryFn: () => delay([...problemStore]),
+    queryKey: [...incidentsKey, id, userId],
+    enabled: Boolean(id) && Boolean(userId),
+    queryFn: () => apiFetch<Incident>(`/incidents/${id}`),
+  });
+}
+
+export function useIncidentComments(id: string | undefined) {
+  const userId = useAuthStore((state) => state.user?.id);
+
+  return useQuery({
+    queryKey: [...incidentsKey, id, "comments", userId],
+    enabled: Boolean(id) && Boolean(userId),
+    queryFn: () => apiFetch<TicketComment[]>(`/incidents/${id}/comments`),
+  });
+}
+
+export function useProblems(params: { page?: number; pageSize?: number } = {}) {
+  const userId = useAuthStore((state) => state.user?.id);
+  const { page = 1, pageSize = 50 } = params;
+
+  return useQuery({
+    queryKey: [...problemsKey, userId, params],
+    enabled: Boolean(userId),
+    queryFn: async () => {
+      const result = await apiFetch<{ data: Problem[]; meta: PageMeta }>(
+        `/problems${toQuery({ page, pageSize })}`,
+      );
+      return result;
+    },
   });
 }
 
@@ -47,36 +94,45 @@ export function useCreateIncident() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (input: CreateIncidentInput) => {
-      const now = new Date().toISOString();
-      const created: Incident = {
-        id: `inc-${String(incidentStore.length + 1).padStart(3, "0")}`,
-        title: input.title,
-        description: input.description,
-        category: input.category,
-        impact: input.impact,
-        urgency: input.urgency,
-        priority: calculatePriority(input.impact, input.urgency),
-        status: "New",
-        assignedTo: null,
-        reporterId: "current-user",
-        slaDueAt: null,
-        resolvedAt: null,
-        closedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      };
-      incidentStore = [created, ...incidentStore];
-      return delay(created, 300);
-    },
+    mutationFn: (input: CreateIncidentInput) =>
+      apiFetch<Incident>("/incidents", {
+        method: "POST",
+        body: input,
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: incidentsKey });
     },
   });
 }
 
-/** Test helper — not for production. */
-export function __resetMockStores() {
-  incidentStore = [...MOCK_INCIDENTS];
-  problemStore = [...MOCK_PROBLEMS];
+export function useCreateComment(incidentId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (content: string) =>
+      apiFetch<TicketComment>(`/incidents/${incidentId}/comments`, {
+        method: "POST",
+        body: { content },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...incidentsKey, incidentId, "comments"],
+      });
+    },
+  });
+}
+
+export function appendIncidentComment(
+  queryClient: ReturnType<typeof useQueryClient>,
+  incidentId: string,
+  comment: TicketComment,
+) {
+  queryClient.setQueryData<TicketComment[]>(
+    [...incidentsKey, incidentId, "comments", useAuthStore.getState().user?.id],
+    (prev) => {
+      if (!prev) return [comment];
+      if (prev.some((c) => c.id === comment.id)) return prev;
+      return [...prev, comment];
+    },
+  );
 }
