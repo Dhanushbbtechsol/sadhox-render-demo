@@ -10,6 +10,7 @@ import {
   assertAdminRole,
   canTransitionChange,
   CHANGE_API_TO_DB_STATUS,
+  requiresAdminForChangeStatus,
 } from "../common/approval-policy";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
@@ -249,8 +250,13 @@ export class ChangesService {
           `Invalid transition from ${currentApi} to ${dto.status}`,
         );
       }
-      if (dto.status === "Approved" && (user.role as UserRole) !== "Admin") {
-        throw new ForbiddenException("Admin role required to approve changes");
+      if (
+        requiresAdminForChangeStatus(dto.status) &&
+        (user.role as UserRole) !== "Admin"
+      ) {
+        throw new ForbiddenException(
+          `Admin role required to set change status to ${dto.status}`,
+        );
       }
       const dbStatus = API_TO_DB_STATUS[dto.status];
       if (!dbStatus) {

@@ -24,8 +24,9 @@ export const CHANGE_API_TO_DB_STATUS: Record<string, string> = {
 
 export const CHANGE_ALLOWED_TRANSITIONS: Record<string, string[]> = {
   Draft: ["Submitted", "Rolled Back"],
-  Submitted: ["Approved", "Scheduled", "Rolled Back"],
-  PendingApproval: ["Approved", "Scheduled", "Rolled Back"],
+  // Approval required before schedule — no Submitted → Scheduled skip.
+  Submitted: ["Approved", "Rolled Back"],
+  PendingApproval: ["Approved", "Rolled Back"],
   Approved: ["Scheduled", "Implemented", "Rolled Back"],
   Scheduled: ["Implemented", "Rolled Back"],
   Implemented: ["Closed", "Rolled Back"],
@@ -37,6 +38,13 @@ export const CHANGE_ALLOWED_TRANSITIONS: Record<string, string[]> = {
   Cancelled: [],
   RolledBack: [],
 };
+
+/** Statuses that may only be set by Admin (approval / CAB schedule gate). */
+export const CHANGE_ADMIN_GATED_STATUSES = new Set(["Approved", "Scheduled"]);
+
+export function requiresAdminForChangeStatus(nextApiStatus: string): boolean {
+  return CHANGE_ADMIN_GATED_STATUSES.has(nextApiStatus);
+}
 
 export function canTransitionChange(
   currentDbOrApiStatus: string,
