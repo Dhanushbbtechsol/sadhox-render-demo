@@ -35,13 +35,8 @@ type AuthedSocket = Socket & {
   };
 };
 
-@WebSocketGateway({
-  cors: {
-    // ConfigModule loads .env before gateway init; never use "*".
-    origin: process.env.CORS_ORIGIN,
-    credentials: true,
-  },
-})
+/** CORS is applied via CorsIoAdapter in main.ts (ConfigService), not here. */
+@WebSocketGateway()
 export class EventsGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
