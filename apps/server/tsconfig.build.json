@@ -6,6 +6,8 @@
     "src/**/*.spec.ts",
     "src/emails/**/*",
     "src/lib/**/*",
-    "scripts"
+    "scripts",
+    "src/index.ts",
+    "src/routes/**/*"
   ]
 }

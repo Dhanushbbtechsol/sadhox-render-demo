@@ -14,6 +14,7 @@ export type DrizzleDB = PostgresJsDatabase<typeof schema>;
       provide: DRIZZLE,
       inject: [ConfigService],
       useFactory: (config: ConfigService): DrizzleDB => {
+        // Connection string comes only from validated env / secrets — never hardcode.
         const url = config.getOrThrow<string>("DATABASE_URL");
         const client = postgres(url, {
           max: 10,

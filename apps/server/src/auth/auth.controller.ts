@@ -7,6 +7,7 @@ import {
   Res,
 } from "@nestjs/common";
 import { ApiCookieAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import { Public } from "../common/decorators/public.decorator";
 import { AuthService } from "./auth.service";
@@ -34,14 +35,16 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post("login")
   @HttpCode(200)
   @ApiOperation({ summary: "Login with email/password" })
   async login(
     @Body() dto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.auth.login(dto.email, dto.password);
+    const result = await this.auth.login(dto.email, dto.password, req.ip);
     this.setRefreshCookie(res, result.refreshToken);
     return {
       accessToken: result.accessToken,
@@ -50,6 +53,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post("refresh")
   @HttpCode(200)
   @ApiCookieAuth(REFRESH_COOKIE)

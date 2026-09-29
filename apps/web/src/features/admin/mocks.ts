@@ -1,0 +1,132 @@
+import type { AdminStats, Asset, AuditLog } from "./types";
+
+/** Used when Nest/DB is unreachable or the session is a DEV mock token. */
+export const mockAssets: Asset[] = [
+  {
+    id: "ast-001",
+    assetTag: "HW-1042",
+    name: "Dell Latitude 5540",
+    type: "Hardware",
+    status: "Active",
+    ownerId: null,
+    ownerName: "Alice Chen",
+    linkedTicketId: null,
+    linkedTicketCount: 2,
+    createdAt: "2026-09-20T10:00:00Z",
+    updatedAt: "2026-09-24T09:00:00Z",
+  },
+  {
+    id: "ast-002",
+    assetTag: "HW-1108",
+    name: "ThinkPad docking station",
+    type: "Hardware",
+    status: "Active",
+    ownerId: null,
+    ownerName: "Unassigned",
+    linkedTicketId: null,
+    linkedTicketCount: 0,
+    createdAt: "2026-09-21T10:00:00Z",
+    updatedAt: "2026-09-21T10:00:00Z",
+  },
+  {
+    id: "ast-003",
+    assetTag: "SW-2201",
+    name: "Microsoft 365 E3",
+    type: "Software",
+    status: "Active",
+    ownerId: null,
+    ownerName: "Finance",
+    linkedTicketId: null,
+    linkedTicketCount: 1,
+    createdAt: "2026-09-18T10:00:00Z",
+    updatedAt: "2026-09-22T10:00:00Z",
+  },
+  {
+    id: "ast-004",
+    assetTag: "SW-2314",
+    name: "Adobe Acrobat Pro",
+    type: "Software",
+    status: "InRepair",
+    ownerId: null,
+    ownerName: "Priya Nair",
+    linkedTicketId: null,
+    linkedTicketCount: 1,
+    createdAt: "2026-09-19T10:00:00Z",
+    updatedAt: "2026-09-25T08:00:00Z",
+  },
+  {
+    id: "ast-005",
+    assetTag: "HW-0988",
+    name: "HP LaserJet MFP",
+    type: "Hardware",
+    status: "Retired",
+    ownerId: null,
+    ownerName: "Reception",
+    linkedTicketId: null,
+    linkedTicketCount: 0,
+    createdAt: "2026-08-01T10:00:00Z",
+    updatedAt: "2026-09-10T10:00:00Z",
+  },
+];
+
+export const mockAdminStats: AdminStats = {
+  kpis: [
+    { id: "total", label: "Total tickets", value: "186", delta: "Offline mock", trend: "flat" },
+    { id: "open", label: "Open tickets", value: "47", delta: "Offline mock", trend: "down" },
+    { id: "p1", label: "P1 incidents", value: "3", delta: "Offline mock", trend: "flat" },
+    { id: "sla", label: "SLA compliance", value: "94%", delta: "Offline mock", trend: "up" },
+  ],
+  ticketsByStatus: [
+    { label: "New", count: 18 },
+    { label: "In Progress", count: 29 },
+    { label: "Resolved", count: 86 },
+    { label: "Closed", count: 53 },
+  ],
+  ticketsByPriority: [
+    { label: "P1", count: 3 },
+    { label: "P2", count: 21 },
+    { label: "P3", count: 74 },
+    { label: "P4", count: 88 },
+  ],
+  ticketsByModule: [
+    { label: "Incident", count: 92 },
+    { label: "Service Request", count: 61 },
+    { label: "Change", count: 33 },
+  ],
+};
+
+/** Audit log UI stays mocked until Phase 3 Nest audit endpoints land. */
+export const mockAuditLogs: AuditLog[] = [
+  {
+    id: "aud-001",
+    actor: "Ian Okonkwo",
+    action: "asset.status_changed",
+    entityType: "asset",
+    entityId: "HW-1042",
+    createdAt: "2026-09-24T09:12:00Z",
+  },
+  {
+    id: "aud-002",
+    actor: "Alice Chen",
+    action: "incident.assigned",
+    entityType: "incident",
+    entityId: "INC-441",
+    createdAt: "2026-09-24T11:40:00Z",
+  },
+  {
+    id: "aud-003",
+    actor: "System",
+    action: "sla.breached",
+    entityType: "incident",
+    entityId: "INC-438",
+    createdAt: "2026-09-25T02:05:00Z",
+  },
+  {
+    id: "aud-004",
+    actor: "Ian Okonkwo",
+    action: "asset.created",
+    entityType: "asset",
+    entityId: "NW-3012",
+    createdAt: "2026-09-25T08:18:00Z",
+  },
+];

@@ -14,7 +14,9 @@ export function useServiceCatalog() {
     queryKey: [...CATALOG_KEY, userId],
     enabled: Boolean(userId),
     queryFn: async () => {
-      const result = await apiFetch<{ data: ServiceCatalogItem[] }>("/service-catalog");
+      const result = await apiFetch<{ data: ServiceCatalogItem[] }>(
+        "/service-catalog",
+      );
       return result.data;
     },
   });
@@ -27,7 +29,9 @@ export function useServiceRequests() {
     queryKey: [...REQUESTS_KEY, userId],
     enabled: Boolean(userId),
     queryFn: async () => {
-      const result = await apiFetch<{ data: ServiceRequest[] }>("/service-requests");
+      const result = await apiFetch<{ data: ServiceRequest[] }>(
+        "/service-requests",
+      );
       return result.data;
     },
   });
@@ -57,6 +61,33 @@ export function useCreateServiceRequest() {
         },
       });
     },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: REQUESTS_KEY });
+    },
+  });
+}
+
+export function useApproveServiceRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) =>
+      apiFetch<ServiceRequest>(`/service-requests/${id}/approve`, {
+        method: "PATCH",
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: REQUESTS_KEY });
+    },
+  });
+}
+
+export function useRejectServiceRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; reason: string }) =>
+      apiFetch<ServiceRequest>(`/service-requests/${input.id}/reject`, {
+        method: "PATCH",
+        body: { reason: input.reason },
+      }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: REQUESTS_KEY });
     },

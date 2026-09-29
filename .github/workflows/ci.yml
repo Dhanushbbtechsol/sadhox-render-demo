@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master, Dev-D]
+
+jobs:
+  server:
+    name: Server lint, typecheck, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (server ESLint)
+        run: pnpm --filter server lint
+
+      - name: Typecheck (server)
+        run: pnpm --filter server check-types
+
+      - name: Unit tests (server)
+        run: pnpm --filter server test
+        env:
+          DATABASE_URL: postgresql://sadhox:sadhox@127.0.0.1:5432/sadhox
+          CORS_ORIGIN: http://localhost:5173
+          JWT_ACCESS_SECRET: ci-access-secret-min-16
+          JWT_REFRESH_SECRET: ci-refresh-secret-min-16
+          REDIS_URL: redis://127.0.0.1:6379
+          NODE_ENV: test
+          LOG_LEVEL: silent

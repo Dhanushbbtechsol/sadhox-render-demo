@@ -4,6 +4,8 @@ import {
   Get,
   HttpCode,
   Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
@@ -12,7 +14,10 @@ import {
   type AuthUser,
 } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
-import { CreateServiceRequestDto } from "./dto/create-service-request.dto";
+import {
+  CreateServiceRequestDto,
+  RejectServiceRequestDto,
+} from "./dto/service-request.dto";
 import { RejectRequesterOverridePipe } from "./pipes/reject-requester-override.pipe";
 import { ServiceRequestsService } from "./service-requests.service";
 
@@ -20,24 +25,15 @@ import { ServiceRequestsService } from "./service-requests.service";
 @ApiBearerAuth()
 @Controller("service-requests")
 export class ServiceRequestsController {
-  constructor(private readonly serviceRequests: ServiceRequestsService) {}
+  constructor(private readonly requests: ServiceRequestsService) {}
 
   @Get()
   @Roles("Admin", "Agent", "EndUser")
   @ApiOperation({
-    summary: "List service requests (EndUser sees own rows only)",
+    summary: "List service requests (EndUser: own only; Admin/Agent: all)",
   })
   list(@CurrentUser() user: AuthUser) {
-    return { data: this.serviceRequests.list(user) };
-  }
-
-  @Get(":id")
-  @Roles("Admin", "Agent", "EndUser")
-  @ApiOperation({
-    summary: "Get service request by id (EndUser scoped to own rows)",
-  })
-  get(@CurrentUser() user: AuthUser, @Param("id") id: string) {
-    return this.serviceRequests.get(user, id);
+    return this.requests.list(user);
   }
 
   @Post()
@@ -51,6 +47,39 @@ export class ServiceRequestsController {
     @CurrentUser() user: AuthUser,
     @Body(RejectRequesterOverridePipe) dto: CreateServiceRequestDto,
   ) {
-    return this.serviceRequests.create(user, dto);
+    return this.requests.create(user, dto);
+  }
+
+  @Get(":id")
+  @Roles("Admin", "Agent", "EndUser")
+  @ApiOperation({
+    summary: "Get service request by id (EndUser scoped to own rows)",
+  })
+  get(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.requests.get(user, id);
+  }
+
+  @Patch(":id/approve")
+  @Roles("Admin")
+  @ApiOperation({ summary: "Approve a submitted service request (Admin)" })
+  approve(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.requests.approve(user, id);
+  }
+
+  @Patch(":id/reject")
+  @Roles("Admin")
+  @ApiOperation({ summary: "Reject a submitted service request (Admin)" })
+  reject(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: RejectServiceRequestDto,
+  ) {
+    return this.requests.reject(user, id, dto);
   }
 }

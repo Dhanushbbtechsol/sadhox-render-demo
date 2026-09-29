@@ -1,8 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, UnauthorizedException, Inject } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
+import { eq } from "drizzle-orm";
 import type { AuthUser } from "../../common/decorators/current-user.decorator";
+import { DRIZZLE } from "../../database/database.constants";
+import type { DrizzleDB } from "../../database/database.module";
+import { users } from "../../database/schema";
 
 type JwtPayload = {
   sub: string;
@@ -12,7 +16,10 @@ type JwtPayload = {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
-  constructor(config: ConfigService) {
+  constructor(
+    config: ConfigService,
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -20,11 +27,21 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
     });
   }
 
-  validate(payload: JwtPayload): AuthUser {
+  async validate(payload: JwtPayload): Promise<AuthUser> {
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, payload.sub))
+      .limit(1);
+    if (!user) {
+      throw new UnauthorizedException("User not found or revoked");
+    }
+    // Prefer live DB role over JWT claim (role changes take effect within token TTL on next request)
     return {
-      userId: payload.sub,
-      email: payload.email,
-      role: payload.role,
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
     };
   }
 }

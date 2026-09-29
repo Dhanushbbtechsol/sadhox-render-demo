@@ -9,9 +9,20 @@ dist
 build
 *.tsbuildinfo
 
-# Environment variables
+# Environment variables — never commit secrets
 .env
+.env.*
+!.env.example
+!.env*.example
 .env*.local
+
+# Local credentials scratch notes
+cred.md
+**/cred.md
+apps/server/.seed-password
+
+# Cursor hook runtime (generation IDs, turn counters)
+.cursor/hooks/state/
 
 # IDEs and editors
 .vscode/*
@@ -51,3 +62,6 @@ tmp
 temp
 # Better Fullstack recovery snapshots
 .bts/recovery
+
+# Local one-time seed password
+apps/server/.seed-password

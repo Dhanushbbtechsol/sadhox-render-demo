@@ -8,6 +8,7 @@ export type ServiceRequestStatus =
   | "PendingApproval"
   | "Approved"
   | "Rejected"
+  | "In Fulfillment"
   | "Fulfilled"
   | "Closed";
 
@@ -53,6 +54,7 @@ export interface ServiceRequest {
   createdAt: string;
   approverId?: string;
   approvedAt?: string;
+  rejectionReason?: string;
 }
 
 export interface ChangeRecord {
