@@ -8,6 +8,7 @@ import { AssignmentModule } from "./assignment/assignment.module";
 import { AuthModule } from "./auth/auth.module";
 import { AssetsModule } from "./assets/assets.module";
 import { ChangesModule } from "./changes/changes.module";
+import { CommentsModule } from "./comments/comments.module";
 import { AuditLogInterceptor } from "./common/audit/audit-log.interceptor";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { RolesGuard } from "./common/guards/roles.guard";
@@ -59,6 +60,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     ServiceCatalogModule,
     ServiceRequestsModule,
     ChangesModule,
+    CommentsModule,
     AssetsModule,
     AdminModule,
   ],

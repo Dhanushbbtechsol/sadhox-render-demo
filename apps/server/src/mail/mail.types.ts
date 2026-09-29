@@ -1,5 +1,7 @@
 export const EMAIL_JOB_TICKET_ASSIGNED = "email.ticket-assigned" as const;
 export const EMAIL_JOB_SLA_BREACH = "email.sla-breach" as const;
+export const EMAIL_JOB_REQUEST_DECISION = "email.request-decision" as const;
+export const EMAIL_JOB_CHANGE_REVIEW = "email.change-review" as const;
 
 export type TicketAssignedMailData = {
   ticketId: string;
@@ -14,6 +16,20 @@ export type SlaBreachMailData = {
   breachType: "response" | "resolve";
 };
 
+export type RequestDecisionMailData = {
+  requestId: string;
+  requestTitle: string;
+  decision: "Approved" | "Rejected";
+  reason?: string;
+};
+
+export type ChangeReviewMailData = {
+  changeId: string;
+  changeTitle: string;
+  submitterName: string;
+  changeType: string;
+};
+
 export type EmailJobPayload =
   | {
       kind: typeof EMAIL_JOB_TICKET_ASSIGNED;
@@ -24,6 +40,16 @@ export type EmailJobPayload =
       kind: typeof EMAIL_JOB_SLA_BREACH;
       to: string;
       data: SlaBreachMailData;
+    }
+  | {
+      kind: typeof EMAIL_JOB_REQUEST_DECISION;
+      to: string;
+      data: RequestDecisionMailData;
+    }
+  | {
+      kind: typeof EMAIL_JOB_CHANGE_REVIEW;
+      to: string;
+      data: ChangeReviewMailData;
     };
 
 /** Mask email for logs: keep domain, hide local part. Never log full address. */

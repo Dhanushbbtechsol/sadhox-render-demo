@@ -5,6 +5,8 @@ import { MailService } from "./mail.service";
 import { EmailProcessor, throwFromResendError } from "./email.processor";
 import { escapeHtml } from "./html-escape";
 import {
+  EMAIL_JOB_CHANGE_REVIEW,
+  EMAIL_JOB_REQUEST_DECISION,
   EMAIL_JOB_SLA_BREACH,
   EMAIL_JOB_TICKET_ASSIGNED,
   maskEmail,
@@ -80,6 +82,40 @@ describe("MailService enqueue", () => {
     expect(add).toHaveBeenCalledWith(
       EMAIL_JOB_SLA_BREACH,
       expect.objectContaining({ kind: EMAIL_JOB_SLA_BREACH }),
+      expect.any(Object),
+    );
+  });
+
+  it("sendRequestDecision enqueues approval/rejection email", async () => {
+    const add = vi.fn().mockResolvedValue({ id: "3" });
+    const service = new MailService({ add } as never);
+    await service.sendRequestDecision("user@example.com", {
+      requestId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      requestTitle: "Laptop",
+      decision: "Approved",
+    });
+    expect(add).toHaveBeenCalledWith(
+      EMAIL_JOB_REQUEST_DECISION,
+      expect.objectContaining({
+        kind: EMAIL_JOB_REQUEST_DECISION,
+        to: "user@example.com",
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it("sendChangeReviewRequest enqueues admin review email", async () => {
+    const add = vi.fn().mockResolvedValue({ id: "4" });
+    const service = new MailService({ add } as never);
+    await service.sendChangeReviewRequest("admin@example.com", {
+      changeId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      changeTitle: "Firewall upgrade",
+      submitterName: "Alice Agent",
+      changeType: "Normal",
+    });
+    expect(add).toHaveBeenCalledWith(
+      EMAIL_JOB_CHANGE_REVIEW,
+      expect.objectContaining({ kind: EMAIL_JOB_CHANGE_REVIEW }),
       expect.any(Object),
     );
   });

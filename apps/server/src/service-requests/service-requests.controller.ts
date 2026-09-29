@@ -16,6 +16,7 @@ import {
 import { Roles } from "../common/decorators/roles.decorator";
 import {
   CreateServiceRequestDto,
+  FulfillServiceRequestDto,
   RejectServiceRequestDto,
 } from "./dto/service-request.dto";
 import { RejectRequesterOverridePipe } from "./pipes/reject-requester-override.pipe";
@@ -81,5 +82,32 @@ export class ServiceRequestsController {
     @Body() dto: RejectServiceRequestDto,
   ) {
     return this.requests.reject(user, id, dto);
+  }
+
+  @Patch(":id/start-fulfillment")
+  @Roles("Admin", "Agent")
+  @ApiOperation({
+    summary:
+      "Start fulfillment after Admin approval (Approved → In Fulfillment)",
+  })
+  startFulfillment(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.requests.startFulfillment(user, id);
+  }
+
+  @Patch(":id/fulfill")
+  @Roles("Admin", "Agent")
+  @ApiOperation({
+    summary:
+      "Complete fulfillment with notes (In Fulfillment → Fulfilled)",
+  })
+  fulfill(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: FulfillServiceRequestDto,
+  ) {
+    return this.requests.fulfill(user, id, dto);
   }
 }

@@ -269,8 +269,13 @@ export const serviceRequests = pgTable(
       .notNull()
       .default({}),
     status: requestStatusEnum("status").notNull().default("Draft"),
+    assigneeId: uuid("assignee_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     rejectionReason: text("rejection_reason"),
+    fulfillmentNotes: text("fulfillment_notes"),
+    fulfilledAt: timestamp("fulfilled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

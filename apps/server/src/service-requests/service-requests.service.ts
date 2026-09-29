@@ -3,11 +3,14 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { and, desc, eq } from "drizzle-orm";
 import {
   assertAdminRole,
+  assertAgentOrAdminRole,
+  canTransitionRequestFulfillment,
   isPendingServiceRequestStatus,
 } from "../common/approval-policy";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
@@ -18,8 +21,10 @@ import {
   serviceRequests,
   users,
 } from "../database/schema";
+import { MailService } from "../mail/mail.service";
 import type {
   CreateServiceRequestDto,
+  FulfillServiceRequestDto,
   RejectServiceRequestDto,
 } from "./dto/service-request.dto";
 
@@ -30,7 +35,12 @@ function toApiStatus(status: string) {
 
 @Injectable()
 export class ServiceRequestsService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  private readonly logger = new Logger(ServiceRequestsService.name);
+
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly mail: MailService,
+  ) {}
 
   private async mapRow(row: {
     id: string;
@@ -46,6 +56,9 @@ export class ServiceRequestsService {
     approverId: string | null;
     approvedAt: Date | null;
     rejectionReason: string | null;
+    assigneeId: string | null;
+    fulfillmentNotes: string | null;
+    fulfilledAt: Date | null;
   }) {
     return {
       id: row.id,
@@ -61,6 +74,30 @@ export class ServiceRequestsService {
       approverId: row.approverId ?? undefined,
       approvedAt: row.approvedAt?.toISOString(),
       rejectionReason: row.rejectionReason ?? undefined,
+      assigneeId: row.assigneeId ?? undefined,
+      fulfillmentNotes: row.fulfillmentNotes ?? undefined,
+      fulfilledAt: row.fulfilledAt?.toISOString(),
+    };
+  }
+
+  private selectListColumns() {
+    return {
+      id: serviceRequests.id,
+      catalogId: serviceRequests.catalogId,
+      catalogName: serviceCatalog.name,
+      requesterId: serviceRequests.requesterId,
+      requesterName: users.name,
+      status: serviceRequests.status,
+      justification: serviceRequests.justification,
+      urgency: serviceRequests.urgency,
+      fields: serviceRequests.fields,
+      createdAt: serviceRequests.createdAt,
+      approverId: serviceRequests.approverId,
+      approvedAt: serviceRequests.approvedAt,
+      rejectionReason: serviceRequests.rejectionReason,
+      assigneeId: serviceRequests.assigneeId,
+      fulfillmentNotes: serviceRequests.fulfillmentNotes,
+      fulfilledAt: serviceRequests.fulfilledAt,
     };
   }
 
@@ -114,26 +151,15 @@ export class ServiceRequestsService {
       approverId: created.approverId,
       approvedAt: created.approvedAt,
       rejectionReason: created.rejectionReason,
+      assigneeId: created.assigneeId,
+      fulfillmentNotes: created.fulfillmentNotes,
+      fulfilledAt: created.fulfilledAt,
     });
   }
 
   async list(user: AuthUser) {
     const base = this.db
-      .select({
-        id: serviceRequests.id,
-        catalogId: serviceRequests.catalogId,
-        catalogName: serviceCatalog.name,
-        requesterId: serviceRequests.requesterId,
-        requesterName: users.name,
-        status: serviceRequests.status,
-        justification: serviceRequests.justification,
-        urgency: serviceRequests.urgency,
-        fields: serviceRequests.fields,
-        createdAt: serviceRequests.createdAt,
-        approverId: serviceRequests.approverId,
-        approvedAt: serviceRequests.approvedAt,
-        rejectionReason: serviceRequests.rejectionReason,
-      })
+      .select(this.selectListColumns())
       .from(serviceRequests)
       .leftJoin(serviceCatalog, eq(serviceRequests.catalogId, serviceCatalog.id))
       .leftJoin(users, eq(serviceRequests.requesterId, users.id));
@@ -152,21 +178,7 @@ export class ServiceRequestsService {
 
   async get(user: AuthUser, id: string) {
     const [row] = await this.db
-      .select({
-        id: serviceRequests.id,
-        catalogId: serviceRequests.catalogId,
-        catalogName: serviceCatalog.name,
-        requesterId: serviceRequests.requesterId,
-        requesterName: users.name,
-        status: serviceRequests.status,
-        justification: serviceRequests.justification,
-        urgency: serviceRequests.urgency,
-        fields: serviceRequests.fields,
-        createdAt: serviceRequests.createdAt,
-        approverId: serviceRequests.approverId,
-        approvedAt: serviceRequests.approvedAt,
-        rejectionReason: serviceRequests.rejectionReason,
-      })
+      .select(this.selectListColumns())
       .from(serviceRequests)
       .leftJoin(serviceCatalog, eq(serviceRequests.catalogId, serviceCatalog.id))
       .leftJoin(users, eq(serviceRequests.requesterId, users.id))
@@ -200,6 +212,7 @@ export class ServiceRequestsService {
       .where(eq(serviceRequests.id, existing.id))
       .returning();
 
+    await this.notifyRequesterDecision(updated.id, "Approved");
     return this.get(user, updated.id);
   }
 
@@ -226,21 +239,121 @@ export class ServiceRequestsService {
       .where(eq(serviceRequests.id, existing.id))
       .returning();
 
+    await this.notifyRequesterDecision(
+      updated.id,
+      "Rejected",
+      dto.reason.trim(),
+    );
+    return this.get(user, updated.id);
+  }
+
+  async startFulfillment(user: AuthUser, id: string) {
+    try {
+      assertAgentOrAdminRole(user.role);
+    } catch {
+      throw new ForbiddenException("Agent or Admin role required");
+    }
+
+    const existing = await this.requireExisting(id);
+    if (!canTransitionRequestFulfillment(existing.status, "InFulfillment")) {
+      throw new BadRequestException(
+        `Cannot start fulfillment from status ${existing.status}. Admin approval is required first.`,
+      );
+    }
+
+    const [updated] = await this.db
+      .update(serviceRequests)
+      .set({
+        status: "InFulfillment",
+        assigneeId: user.userId,
+        updatedAt: new Date(),
+      })
+      .where(eq(serviceRequests.id, existing.id))
+      .returning();
+
+    return this.get(user, updated.id);
+  }
+
+  async fulfill(user: AuthUser, id: string, dto: FulfillServiceRequestDto) {
+    try {
+      assertAgentOrAdminRole(user.role);
+    } catch {
+      throw new ForbiddenException("Agent or Admin role required");
+    }
+    if (!dto.notes?.trim()) {
+      throw new BadRequestException("Completion notes are required");
+    }
+
+    const existing = await this.requireExisting(id);
+    if (!canTransitionRequestFulfillment(existing.status, "Fulfilled")) {
+      throw new BadRequestException(
+        `Cannot fulfill a request in status ${existing.status}. Start fulfillment after approval first.`,
+      );
+    }
+
+    const [updated] = await this.db
+      .update(serviceRequests)
+      .set({
+        status: "Fulfilled",
+        assigneeId: existing.assigneeId ?? user.userId,
+        fulfillmentNotes: dto.notes.trim(),
+        fulfilledAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(serviceRequests.id, existing.id))
+      .returning();
+
     return this.get(user, updated.id);
   }
 
   private async requirePending(id: string) {
-    const [existing] = await this.db
-      .select()
-      .from(serviceRequests)
-      .where(eq(serviceRequests.id, id))
-      .limit(1);
-    if (!existing) throw new NotFoundException("Service request not found");
+    const existing = await this.requireExisting(id);
     if (!isPendingServiceRequestStatus(existing.status)) {
       throw new BadRequestException(
         `Cannot approve/reject a request in status ${existing.status}`,
       );
     }
     return existing;
+  }
+
+  private async requireExisting(id: string) {
+    const [existing] = await this.db
+      .select()
+      .from(serviceRequests)
+      .where(eq(serviceRequests.id, id))
+      .limit(1);
+    if (!existing) throw new NotFoundException("Service request not found");
+    return existing;
+  }
+
+  private async notifyRequesterDecision(
+    requestId: string,
+    decision: "Approved" | "Rejected",
+    reason?: string,
+  ) {
+    try {
+      const [row] = await this.db
+        .select({
+          title: serviceRequests.title,
+          email: users.email,
+        })
+        .from(serviceRequests)
+        .innerJoin(users, eq(serviceRequests.requesterId, users.id))
+        .where(eq(serviceRequests.id, requestId))
+        .limit(1);
+      if (!row?.email) return;
+      await this.mail.sendRequestDecision(row.email, {
+        requestId,
+        requestTitle: row.title,
+        decision,
+        reason,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to enqueue request decision email for ${requestId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 }

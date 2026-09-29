@@ -12,6 +12,28 @@ export function isPendingServiceRequestStatus(status: string): boolean {
   return status === "Submitted" || status === "PendingApproval";
 }
 
+/** Agent/Admin fulfillment path after Admin approval. */
+export const REQUEST_FULFILLMENT_TRANSITIONS: Record<string, string[]> = {
+  Approved: ["InFulfillment"],
+  InFulfillment: ["Fulfilled"],
+};
+
+export function canTransitionRequestFulfillment(
+  currentStatus: string,
+  nextStatus: "InFulfillment" | "Fulfilled",
+): boolean {
+  const allowed = REQUEST_FULFILLMENT_TRANSITIONS[currentStatus] ?? [];
+  return allowed.includes(nextStatus);
+}
+
+export function assertAgentOrAdminRole(role: string): void {
+  if (role !== "Admin" && role !== "Agent") {
+    const error = new Error("Agent or Admin role required");
+    error.name = "ForbiddenException";
+    throw error;
+  }
+}
+
 export const CHANGE_API_TO_DB_STATUS: Record<string, string> = {
   Draft: "Draft",
   Submitted: "Submitted",

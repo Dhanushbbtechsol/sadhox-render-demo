@@ -36,3 +36,11 @@ export class RejectServiceRequestDto {
   @MinLength(1)
   reason!: string;
 }
+
+export class FulfillServiceRequestDto {
+  @ApiProperty({ description: "Completion notes when closing fulfillment" })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(4000)
+  notes!: string;
+}

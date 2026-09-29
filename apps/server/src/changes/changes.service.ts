@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { and, desc, eq } from "drizzle-orm";
@@ -16,6 +17,7 @@ import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import { changes, users, type UserRole } from "../database/schema";
+import { MailService } from "../mail/mail.service";
 import type { CreateChangeDto, UpdateChangeDto } from "./dto/change.dto";
 
 type DbChangeStatus =
@@ -51,7 +53,12 @@ const DB_TO_API_STATUS: Record<string, string> = {
 
 @Injectable()
 export class ChangesService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  private readonly logger = new Logger(ChangesService.name);
+
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly mail: MailService,
+  ) {}
 
   private mapRow(row: {
     id: string;
@@ -104,7 +111,44 @@ export class ChangesService {
       })
       .returning();
 
+    await this.notifyAdminsOfSubmission(created.id, user);
     return this.get(created.id);
+  }
+
+  private async notifyAdminsOfSubmission(changeId: string, submitter: AuthUser) {
+    try {
+      const [change] = await this.db
+        .select({
+          title: changes.title,
+          type: changes.type,
+        })
+        .from(changes)
+        .where(eq(changes.id, changeId))
+        .limit(1);
+      if (!change) return;
+
+      const admins = await this.db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.role, "Admin"));
+
+      await Promise.all(
+        admins.map((admin) =>
+          this.mail.sendChangeReviewRequest(admin.email, {
+            changeId,
+            changeTitle: change.title,
+            submitterName: submitter.name ?? submitter.email,
+            changeType: change.type,
+          }),
+        ),
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Failed to enqueue change review emails for ${changeId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
   }
 
   async list(filters: { type?: string; status?: string }) {
