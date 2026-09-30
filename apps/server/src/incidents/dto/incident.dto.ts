@@ -115,9 +115,9 @@ export class AssignIncidentDto {
 }
 
 export class CreateCommentDto {
-  @ApiProperty({ minLength: 1, maxLength: 5000 })
+  @ApiProperty({ minLength: 1, maxLength: 4000 })
   @IsString()
   @MinLength(1)
-  @MaxLength(5000)
+  @MaxLength(4000)
   content!: string;
 }

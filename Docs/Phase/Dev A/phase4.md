@@ -28,6 +28,10 @@
 
 ---
 
+## Checkpoint
+
+See [checkpoint4.md](./checkpoint4.md) for Day 16–20 evidence mapping and the production verification checklist.
+
 ## Interfaces & Dependencies
 
 | Dependency | Provider | Requirement |

@@ -202,10 +202,9 @@ export function useCreateComment(incidentId: string) {
         method: "POST",
         body: { content },
       }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: [...incidentsKey, incidentId, "comments"],
-      });
+    // Append optimistically by id — avoid invalidate flicker racing the socket.
+    onSuccess: (created) => {
+      appendIncidentComment(queryClient, incidentId, created);
     },
   });
 }

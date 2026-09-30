@@ -4,11 +4,12 @@ import {
   LoaderCircleIcon,
   TicketIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import { CreateIncidentDialog } from "@/components/incidents/create-incident-dialog";
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
+import { ListPagination } from "@/components/list-pagination";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,6 +22,8 @@ import {
 import { useIncidents } from "@/hooks/use-tickets";
 import { cn } from "@/lib/utils";
 import { INCIDENT_STATUS_LABELS, type IncidentStatus } from "@/types/itsm";
+
+const PAGE_SIZE = 20;
 
 function statusVariant(status: string) {
   if (status === "Resolved" || status === "Closed") return "success" as const;
@@ -78,18 +81,27 @@ function StatCard({
 type SortKey = "createdAt" | "priority" | "status" | "slaDueAt";
 
 export default function IncidentsPage() {
+  const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [focusIndex, setFocusIndex] = useState(0);
+
+  useEffect(() => {
+    setPage(1);
+  }, [sortBy, sortDir, statusFilter]);
 
   const { data, isLoading, isError, error } = useIncidents({
+    page,
+    pageSize: PAGE_SIZE,
     sortBy,
     sortDir,
     status: statusFilter === "all" ? undefined : statusFilter,
-    pageSize: 50,
   });
 
   const incidents = data?.data;
+  const meta = data?.meta;
+  const totalPages = meta?.totalPages ?? 1;
 
   const openCount =
     incidents?.filter((i) => i.status !== "Resolved" && i.status !== "Closed")
@@ -100,6 +112,43 @@ export default function IncidentsPage() {
   const resolved =
     incidents?.filter((i) => i.status === "Resolved" || i.status === "Closed")
       .length ?? 0;
+
+  useEffect(() => {
+    if (!incidents?.length) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      if (event.key === "j" || event.key === "ArrowDown") {
+        event.preventDefault();
+        setFocusIndex((i) => Math.min((incidents?.length ?? 1) - 1, i + 1));
+      } else if (event.key === "k" || event.key === "ArrowUp") {
+        event.preventDefault();
+        setFocusIndex((i) => Math.max(0, i - 1));
+      } else if (event.key === "Enter") {
+        const row = incidents?.[focusIndex];
+        if (row) {
+          event.preventDefault();
+          window.location.assign(`/incidents/${row.id}`);
+        }
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [incidents, focusIndex]);
+
+  useEffect(() => {
+    setFocusIndex(0);
+  }, [page, statusFilter, sortBy, sortDir]);
 
   return (
     <div className="space-y-6">
@@ -115,7 +164,7 @@ export default function IncidentsPage() {
 
       {!isLoading && incidents && incidents.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Open" value={openCount} icon={TicketIcon} tone="primary" />
+          <StatCard label="Open (page)" value={openCount} icon={TicketIcon} tone="primary" />
           <StatCard
             label="Critical P1"
             value={p1Count}
@@ -142,7 +191,7 @@ export default function IncidentsPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-full sm:w-[160px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -159,7 +208,7 @@ export default function IncidentsPage() {
           value={sortBy}
           onValueChange={(v) => v && setSortBy(v as SortKey)}
         >
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-full sm:w-[160px]">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
           <SelectContent>
@@ -174,7 +223,7 @@ export default function IncidentsPage() {
           value={sortDir}
           onValueChange={(v) => v && setSortDir(v as "asc" | "desc")}
         >
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-full sm:w-[140px]">
             <SelectValue placeholder="Direction" />
           </SelectTrigger>
           <SelectContent>
@@ -182,6 +231,10 @@ export default function IncidentsPage() {
             <SelectItem value="asc">Ascending</SelectItem>
           </SelectContent>
         </Select>
+
+        <p className="text-muted-foreground hidden text-[11px] md:block">
+          j/k or ↑↓ to move · Enter to open
+        </p>
       </div>
 
       {isLoading ? <TicketListSkeleton /> : null}
@@ -202,56 +255,101 @@ export default function IncidentsPage() {
       ) : null}
 
       {!isLoading && incidents && incidents.length > 0 ? (
-        <div className="border-border/80 bg-card overflow-hidden rounded-xl border shadow-soft">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/50 text-muted-foreground text-xs uppercase">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Ticket</th>
-                  <th className="px-4 py-3 font-medium">Priority</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Category</th>
-                  <th className="px-4 py-3 font-medium">Assignee</th>
-                  <th className="px-4 py-3 font-medium">Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {incidents.map((incident) => (
-                  <tr
-                    key={incident.id}
-                    className="border-border/60 hover:bg-muted/30 border-t transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`/incidents/${incident.id}`}
-                        className="hover:text-primary font-medium tracking-tight transition-colors"
-                      >
-                        {incident.title}
-                      </Link>
-                      <p className="text-muted-foreground mt-0.5 font-mono text-[11px]">
-                        {incident.id.slice(0, 8)}
-                      </p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <PriorityBadge priority={incident.priority} showLabel={false} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant={statusVariant(incident.status)}>
-                        {INCIDENT_STATUS_LABELS[incident.status]}
-                      </Badge>
-                    </td>
-                    <td className="text-muted-foreground px-4 py-3">{incident.category}</td>
-                    <td className="text-muted-foreground px-4 py-3">
-                      {incident.assigneeName ?? "Unassigned"}
-                    </td>
-                    <td className="text-muted-foreground px-4 py-3 whitespace-nowrap">
-                      {new Date(incident.createdAt).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="space-y-3">
+          {/* Mobile / tablet card list */}
+          <div className="space-y-2 md:hidden">
+            {incidents.map((incident, index) => (
+              <Link
+                key={incident.id}
+                to={`/incidents/${incident.id}`}
+                className={cn(
+                  "border-border/80 bg-card block space-y-2 rounded-xl border px-4 py-3.5 shadow-soft transition-colors",
+                  index === focusIndex && "ring-primary/40 ring-2",
+                )}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <PriorityBadge priority={incident.priority} showLabel={false} />
+                  <Badge variant={statusVariant(incident.status)}>
+                    {INCIDENT_STATUS_LABELS[incident.status]}
+                  </Badge>
+                  <span className="text-muted-foreground text-xs">{incident.category}</span>
+                </div>
+                <p className="text-sm font-semibold tracking-tight">{incident.title}</p>
+                <p className="text-muted-foreground text-xs">
+                  {incident.assigneeName ?? "Unassigned"} ·{" "}
+                  {new Date(incident.createdAt).toLocaleString()}
+                </p>
+              </Link>
+            ))}
           </div>
+
+          {/* Desktop table */}
+          <div className="border-border/80 bg-card hidden overflow-hidden rounded-xl border shadow-soft md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-muted/50 text-muted-foreground text-xs uppercase">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Ticket</th>
+                    <th className="px-4 py-3 font-medium">Priority</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="hidden px-4 py-3 font-medium lg:table-cell">Category</th>
+                    <th className="px-4 py-3 font-medium">Assignee</th>
+                    <th className="hidden px-4 py-3 font-medium xl:table-cell">Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {incidents.map((incident, index) => (
+                    <tr
+                      key={incident.id}
+                      tabIndex={0}
+                      onFocus={() => setFocusIndex(index)}
+                      className={cn(
+                        "border-border/60 hover:bg-muted/30 border-t transition-colors outline-none",
+                        index === focusIndex && "bg-muted/40",
+                      )}
+                    >
+                      <td className="px-4 py-3">
+                        <Link
+                          to={`/incidents/${incident.id}`}
+                          className="hover:text-primary font-medium tracking-tight transition-colors"
+                        >
+                          {incident.title}
+                        </Link>
+                        <p className="text-muted-foreground mt-0.5 font-mono text-[11px]">
+                          {incident.id.slice(0, 8)}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <PriorityBadge priority={incident.priority} showLabel={false} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={statusVariant(incident.status)}>
+                          {INCIDENT_STATUS_LABELS[incident.status]}
+                        </Badge>
+                      </td>
+                      <td className="text-muted-foreground hidden px-4 py-3 lg:table-cell">
+                        {incident.category}
+                      </td>
+                      <td className="text-muted-foreground px-4 py-3">
+                        {incident.assigneeName ?? "Unassigned"}
+                      </td>
+                      <td className="text-muted-foreground hidden px-4 py-3 whitespace-nowrap xl:table-cell">
+                        {new Date(incident.createdAt).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <ListPagination
+            page={page}
+            totalPages={totalPages}
+            total={meta?.total ?? incidents.length}
+            onPageChange={setPage}
+            label="incidents"
+          />
         </div>
       ) : null}
     </div>

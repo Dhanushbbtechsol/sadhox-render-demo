@@ -9,6 +9,7 @@ import { and, asc, count, desc, eq, isNull, SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { AssignmentService } from "../assignment/assignment.service";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
+import { sanitizePlainText } from "../common/sanitize-plain-text";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
@@ -422,13 +423,18 @@ export class IncidentsService {
   ): Promise<CommentView> {
     await this.get(user, incidentId);
 
+    const content = sanitizePlainText(dto.content);
+    if (!content) {
+      throw new BadRequestException("Comment content is required");
+    }
+
     const [created] = await this.db
       .insert(comments)
       .values({
         ticketId: incidentId,
         ticketType: "incident",
         authorId: user.userId,
-        content: dto.content,
+        content,
       })
       .returning();
 

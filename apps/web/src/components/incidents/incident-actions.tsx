@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -39,8 +39,6 @@ export function IncidentActions({ incident }: { incident: Incident }) {
   const [resolutionNotes, setResolutionNotes] = useState(
     incident.resolutionNotes ?? "",
   );
-
-  if (!canManage) return null;
 
   const next = NEXT_STATUS[incident.status];
   const busy = assign.isPending || update.isPending;
@@ -94,6 +92,33 @@ export function IncidentActions({ incident }: { incident: Incident }) {
     }
   }
 
+  // Keyboard: Ctrl/Cmd+Shift+] advances status when not typing in an input.
+  useEffect(() => {
+    if (!canManage || !next) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const typing =
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        target?.isContentEditable;
+      if (typing) return;
+      if (!(event.metaKey || event.ctrlKey) || !event.shiftKey) return;
+      if (event.key !== "]" && event.key !== "}") return;
+      event.preventDefault();
+      if (!busy) void handleAdvance();
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // handleAdvance closes over latest notes/status
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage, next, busy, resolutionNotes, incident.status]);
+
+  if (!canManage) return null;
+
   const canAssign =
     incident.status === "New" ||
     incident.status === "Assigned" ||
@@ -105,6 +130,16 @@ export function IncidentActions({ incident }: { incident: Incident }) {
         <h3 className="text-sm font-semibold tracking-tight">Workflow</h3>
         <p className="text-muted-foreground mt-0.5 text-xs">
           Assign agents and advance through the ITIL lifecycle.
+          {next ? (
+            <>
+              {" "}
+              Shortcut:{" "}
+              <kbd className="bg-muted rounded px-1 py-0.5 font-mono text-[10px]">
+                ⌘/Ctrl+Shift+]
+              </kbd>{" "}
+              → {INCIDENT_STATUS_LABELS[next]}
+            </>
+          ) : null}
         </p>
       </div>
 
