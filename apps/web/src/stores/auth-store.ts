@@ -39,7 +39,6 @@ interface AuthState {
   isAuthenticated: boolean;
   isHydrated: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
-  loginAsRole: (role: UserRole) => void;
   logout: () => Promise<void>;
   refresh: () => Promise<string | null>;
   setHydrated: () => void;
@@ -108,22 +107,13 @@ export const useAuthStore = create<AuthState>()(
         const allowedPasswords = new Set([mockUser?.password, "ChangeMe123!", "password"]);
         if (!mockUser || !allowedPasswords.has(password)) {
           throw new Error(
-            "Invalid email or password (API unreachable — use Quick role switch or password `password` / `ChangeMe123!`)",
+            "Invalid email or password (API unreachable — try password `password` or `ChangeMe123!` in local DEV)",
           );
         }
 
         applyMockSession(set, mockUser);
         const { password: _password, ...user } = mockUser;
         return user;
-      },
-
-      loginAsRole: (role) => {
-        if (!import.meta.env.DEV) return;
-        const mockUser = Object.values(MOCK_USERS).find(
-          (entry) => entry.role === role,
-        );
-        if (!mockUser) return;
-        applyMockSession(set, mockUser);
       },
 
       logout: async () => {

@@ -1,12 +1,37 @@
+import { InjectQueue } from "@nestjs/bullmq";
 import { Inject, Injectable } from "@nestjs/common";
-import { count, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
+import type { Queue } from "bullmq";
+import {
+  computeSlaComplianceRate,
+  resolveChartRange,
+  stackOpenClosed,
+  type ChartRangePreset,
+} from "./chart-range";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
-import { changes, incidents, serviceRequests } from "../database/schema";
+import {
+  auditLog,
+  changes,
+  incidents,
+  serviceRequests,
+  users,
+} from "../database/schema";
+import type { ListAuditLogsQueryDto } from "./dto/list-audit-logs-query.dto";
+import {
+  EMAIL_QUEUE,
+  SLA_QUEUE,
+  TICKET_LIFECYCLE_QUEUE,
+} from "../queues/queue.constants";
 
 @Injectable()
 export class AdminService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    @InjectQueue(SLA_QUEUE) private readonly slaQueue: Queue,
+    @InjectQueue(TICKET_LIFECYCLE_QUEUE) private readonly lifecycleQueue: Queue,
+    @InjectQueue(EMAIL_QUEUE) private readonly emailQueue: Queue,
+  ) {}
 
   async dashboardStats() {
     const [incidentAgg] = await this.db
@@ -189,5 +214,289 @@ export class AdminService {
         breached: Number(row.breached),
       })),
     };
+  }
+
+  async volumeByModule(rangePreset: ChartRangePreset = "30d") {
+    const { range, from, to } = resolveChartRange(rangePreset);
+
+    const [incidentAgg] = await this.db
+      .select({
+        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress'))`,
+        closed: sql<number>`count(*) filter (where ${incidents.status} in ('Resolved','Closed'))`,
+      })
+      .from(incidents)
+      .where(and(gte(incidents.createdAt, from), lte(incidents.createdAt, to)));
+
+    const [srAgg] = await this.db
+      .select({
+        open: sql<number>`count(*) filter (where ${serviceRequests.status} not in ('Fulfilled','Closed','Rejected'))`,
+        closed: sql<number>`count(*) filter (where ${serviceRequests.status} in ('Fulfilled','Closed','Rejected'))`,
+      })
+      .from(serviceRequests)
+      .where(
+        and(
+          gte(serviceRequests.createdAt, from),
+          lte(serviceRequests.createdAt, to),
+        ),
+      );
+
+    const [changeAgg] = await this.db
+      .select({
+        open: sql<number>`count(*) filter (where ${changes.status} not in ('Completed','Closed','Cancelled','Failed','RolledBack'))`,
+        closed: sql<number>`count(*) filter (where ${changes.status} in ('Completed','Closed','Cancelled','Failed','RolledBack'))`,
+      })
+      .from(changes)
+      .where(and(gte(changes.createdAt, from), lte(changes.createdAt, to)));
+
+    const data = [
+      {
+        module: "Incident",
+        ...stackOpenClosed(
+          Number(incidentAgg?.open ?? 0),
+          Number(incidentAgg?.closed ?? 0),
+        ),
+      },
+      {
+        module: "Service Request",
+        ...stackOpenClosed(Number(srAgg?.open ?? 0), Number(srAgg?.closed ?? 0)),
+      },
+      {
+        module: "Change",
+        ...stackOpenClosed(
+          Number(changeAgg?.open ?? 0),
+          Number(changeAgg?.closed ?? 0),
+        ),
+      },
+    ];
+
+    return {
+      range,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      data,
+    };
+  }
+
+  async statusDistribution(rangePreset: ChartRangePreset = "30d") {
+    const { range, from, to } = resolveChartRange(rangePreset);
+
+    const [incidentRows, requestRows, changeRows] = await Promise.all([
+      this.db
+        .select({ status: incidents.status, count: count() })
+        .from(incidents)
+        .where(and(gte(incidents.createdAt, from), lte(incidents.createdAt, to)))
+        .groupBy(incidents.status),
+      this.db
+        .select({ status: serviceRequests.status, count: count() })
+        .from(serviceRequests)
+        .where(
+          and(
+            gte(serviceRequests.createdAt, from),
+            lte(serviceRequests.createdAt, to),
+          ),
+        )
+        .groupBy(serviceRequests.status),
+      this.db
+        .select({ status: changes.status, count: count() })
+        .from(changes)
+        .where(and(gte(changes.createdAt, from), lte(changes.createdAt, to)))
+        .groupBy(changes.status),
+    ]);
+
+    const data = [
+      ...incidentRows.map((r) => ({
+        status: `Incident:${r.status}`,
+        module: "Incident",
+        label: r.status,
+        count: Number(r.count),
+      })),
+      ...requestRows.map((r) => ({
+        status: `ServiceRequest:${r.status}`,
+        module: "Service Request",
+        label: r.status,
+        count: Number(r.count),
+      })),
+      ...changeRows.map((r) => ({
+        status: `Change:${r.status}`,
+        module: "Change",
+        label: r.status,
+        count: Number(r.count),
+      })),
+    ].filter((row) => row.count > 0);
+
+    return {
+      range,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      data,
+    };
+  }
+
+  async slaCompliance(rangePreset: ChartRangePreset = "30d") {
+    const { range, from, to } = resolveChartRange(rangePreset);
+
+    const [agg] = await this.db
+      .select({
+        met: sql<number>`count(*) filter (
+          where ${incidents.slaDueAt} is not null
+            and ${incidents.resolvedAt} is not null
+            and ${incidents.resolvedAt} <= ${incidents.slaDueAt}
+        )`,
+        breached: sql<number>`count(*) filter (
+          where ${incidents.slaDueAt} is not null
+            and ${incidents.resolvedAt} is not null
+            and ${incidents.resolvedAt} > ${incidents.slaDueAt}
+        )`,
+      })
+      .from(incidents)
+      .where(
+        and(
+          sql`${incidents.resolvedAt} is not null`,
+          gte(incidents.resolvedAt, from),
+          lte(incidents.resolvedAt, to),
+        ),
+      );
+
+    const met = Number(agg?.met ?? 0);
+    const breached = Number(agg?.breached ?? 0);
+
+    return {
+      range,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      met,
+      breached,
+      rate: computeSlaComplianceRate(met, breached),
+    };
+  }
+
+  async listAuditLogs(query: ListAuditLogsQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
+    const offset = (page - 1) * limit;
+
+    const filters = [];
+    if (query.actorId) {
+      filters.push(eq(auditLog.actorId, query.actorId));
+    }
+    if (query.from) {
+      filters.push(gte(auditLog.createdAt, new Date(query.from)));
+    }
+    if (query.to) {
+      filters.push(lte(auditLog.createdAt, new Date(query.to)));
+    }
+    const where = filters.length > 0 ? and(...filters) : undefined;
+
+    const [rows, totalRow] = await Promise.all([
+      this.db
+        .select({
+          id: auditLog.id,
+          actorId: auditLog.actorId,
+          actorName: users.name,
+          actorEmail: users.email,
+          action: auditLog.action,
+          entityType: auditLog.entityType,
+          entityId: auditLog.entityId,
+          diff: auditLog.diff,
+          createdAt: auditLog.createdAt,
+        })
+        .from(auditLog)
+        .leftJoin(users, eq(auditLog.actorId, users.id))
+        .where(where)
+        .orderBy(desc(auditLog.createdAt))
+        .limit(limit)
+        .offset(offset),
+      this.db.select({ total: count() }).from(auditLog).where(where),
+    ]);
+
+    return {
+      data: rows.map((row) => ({
+        id: row.id,
+        actorId: row.actorId,
+        actor: row.actorName ?? row.actorEmail ?? "System",
+        action: row.action,
+        entityType: row.entityType,
+        entityId: row.entityId,
+        diff: row.diff,
+        createdAt: row.createdAt.toISOString(),
+      })),
+      page,
+      limit,
+      total: Number(totalRow[0]?.total ?? 0),
+    };
+  }
+
+  async queueHealth() {
+    const queues = [
+      { name: SLA_QUEUE, queue: this.slaQueue },
+      { name: TICKET_LIFECYCLE_QUEUE, queue: this.lifecycleQueue },
+      { name: EMAIL_QUEUE, queue: this.emailQueue },
+    ] as const;
+
+    const results = await Promise.all(
+      queues.map(async ({ name, queue }) => {
+        try {
+          const counts = await queue.getJobCounts(
+            "active",
+            "waiting",
+            "completed",
+            "failed",
+            "delayed",
+          );
+          const paused = await queue.isPaused();
+          const failed = counts.failed ?? 0;
+          const stalled = await this.countStalledFailures(queue);
+          const alert = failed > 0 || paused || stalled > 0;
+          return {
+            name,
+            counts: {
+              active: counts.active ?? 0,
+              waiting: counts.waiting ?? 0,
+              completed: counts.completed ?? 0,
+              failed,
+              delayed: counts.delayed ?? 0,
+              paused: 0,
+              stalled,
+            },
+            paused,
+            alert,
+            error: null as string | null,
+          };
+        } catch (err) {
+          return {
+            name,
+            counts: {
+              active: 0,
+              waiting: 0,
+              completed: 0,
+              failed: 0,
+              delayed: 0,
+              paused: 0,
+              stalled: 0,
+            },
+            paused: false,
+            alert: true,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      }),
+    );
+
+    return {
+      queues: results,
+      alert: results.some((q) => q.alert),
+    };
+  }
+
+  /** Count recent failed jobs whose reason indicates a stall (BullMQ has no stalled JobType). */
+  private async countStalledFailures(queue: Queue): Promise<number> {
+    try {
+      const failedJobs = await queue.getJobs(["failed"], 0, 100, true);
+      return failedJobs.filter((job) =>
+        /stalled/i.test(job.failedReason ?? ""),
+      ).length;
+    } catch {
+      return 0;
+    }
   }
 }

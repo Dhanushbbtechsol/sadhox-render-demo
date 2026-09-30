@@ -2,25 +2,32 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch, getAccessToken, isMockAccessToken } from "@/lib/api";
 
-import { mockAdminStats, mockAssets, mockAuditLogs } from "./mocks";
+import {
+  mockAdminStats,
+  mockAssets,
+  mockAuditLogs,
+  mockQueueHealth,
+  mockSlaCompliance,
+  mockStatusDistribution,
+  mockVolumeByModule,
+} from "./mocks";
 import type {
   AdminStats,
   Asset,
   AssetListResponse,
   AssetStatus,
   AssetType,
-  AuditLog,
+  AuditLogListResponse,
+  ChartRange,
   CountBucket,
   CreateAssetInput,
   KpiMetric,
+  QueueHealthResponse,
+  SlaComplianceResponse,
+  StatusDistributionResponse,
   UpdateAssetInput,
+  VolumeByModuleResponse,
 } from "./types";
-
-function loadMock<T>(data: T): Promise<T> {
-  return new Promise((resolve) => {
-    window.setTimeout(() => resolve(data), 250);
-  });
-}
 
 function useOfflineAdminData() {
   return import.meta.env.DEV && isMockAccessToken(getAccessToken());
@@ -189,10 +196,124 @@ function formatWeekLabel(weekStart: string) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export function useAuditLogs() {
-  return useQuery<AuditLog[]>({
-    queryKey: ["admin", "audit-logs"],
-    queryFn: () => loadMock(mockAuditLogs),
+export function useChartVolumeByModule(range: ChartRange) {
+  return useQuery({
+    queryKey: ["admin", "charts", "volume-by-module", range, useOfflineAdminData() ? "mock" : "live"],
+    queryFn: async (): Promise<VolumeByModuleResponse> => {
+      if (useOfflineAdminData()) {
+        return { ...mockVolumeByModule, range };
+      }
+      try {
+        return await apiFetch<VolumeByModuleResponse>(
+          `/admin/charts/volume-by-module?range=${range}`,
+        );
+      } catch (error) {
+        if (import.meta.env.DEV) return { ...mockVolumeByModule, range };
+        throw error;
+      }
+    },
+  });
+}
+
+export function useChartStatusDistribution(range: ChartRange) {
+  return useQuery({
+    queryKey: ["admin", "charts", "status-distribution", range, useOfflineAdminData() ? "mock" : "live"],
+    queryFn: async (): Promise<StatusDistributionResponse> => {
+      if (useOfflineAdminData()) {
+        return { ...mockStatusDistribution, range };
+      }
+      try {
+        return await apiFetch<StatusDistributionResponse>(
+          `/admin/charts/status-distribution?range=${range}`,
+        );
+      } catch (error) {
+        if (import.meta.env.DEV) return { ...mockStatusDistribution, range };
+        throw error;
+      }
+    },
+  });
+}
+
+export function useChartSlaCompliance(range: ChartRange) {
+  return useQuery({
+    queryKey: ["admin", "charts", "sla-compliance", range, useOfflineAdminData() ? "mock" : "live"],
+    queryFn: async (): Promise<SlaComplianceResponse> => {
+      if (useOfflineAdminData()) {
+        return { ...mockSlaCompliance, range };
+      }
+      try {
+        return await apiFetch<SlaComplianceResponse>(
+          `/admin/charts/sla-compliance?range=${range}`,
+        );
+      } catch (error) {
+        if (import.meta.env.DEV) return { ...mockSlaCompliance, range };
+        throw error;
+      }
+    },
+  });
+}
+
+export type AuditLogFilters = {
+  actorId?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+};
+
+export function useAuditLogs(filters: AuditLogFilters = {}) {
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 25;
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("limit", String(limit));
+  if (filters.actorId) params.set("actorId", filters.actorId);
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+
+  return useQuery({
+    queryKey: ["admin", "audit-logs", filters, useOfflineAdminData() ? "mock" : "live"],
+    queryFn: async (): Promise<AuditLogListResponse> => {
+      if (useOfflineAdminData()) {
+        return {
+          data: mockAuditLogs,
+          page,
+          limit,
+          total: mockAuditLogs.length,
+        };
+      }
+      try {
+        return await apiFetch<AuditLogListResponse>(`/admin/audit-logs?${params}`);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          return {
+            data: mockAuditLogs,
+            page,
+            limit,
+            total: mockAuditLogs.length,
+          };
+        }
+        throw error;
+      }
+    },
+  });
+}
+
+export function useQueueHealth() {
+  return useQuery({
+    queryKey: ["admin", "queues", useOfflineAdminData() ? "mock" : "live"],
+    refetchInterval: 15_000,
+    queryFn: async (): Promise<QueueHealthResponse> => {
+      if (useOfflineAdminData()) {
+        return mockQueueHealth;
+      }
+      try {
+        return await apiFetch<QueueHealthResponse>("/admin/queues");
+      } catch (error) {
+        if (import.meta.env.DEV) return mockQueueHealth;
+        throw error;
+      }
+    },
   });
 }
 

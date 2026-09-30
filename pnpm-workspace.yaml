@@ -2,11 +2,11 @@ packages:
   - apps/*
   - packages/*
 allowBuilds:
-  '@parcel/watcher': false
-  '@scarf/scarf': false
+  "@parcel/watcher": true
+  "@scarf/scarf": true
   esbuild: true
   msgpackr-extract: true
-  unrs-resolver: false
+  unrs-resolver: true
 catalog:
   dotenv: ^17.4.2
   zod: ^4.4.3

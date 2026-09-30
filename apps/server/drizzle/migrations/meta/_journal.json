@@ -20,7 +20,7 @@
       "idx": 2,
       "version": "7",
       "when": 1790580000000,
-      "tag": "0001_phase2_catalog_approvals",
+      "tag": "0002_phase2_catalog_approvals",
       "breakpoints": true
     },
     {
@@ -28,6 +28,20 @@
       "version": "7",
       "when": 1790666400000,
       "tag": "0003_phase3_incident_workflow",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790680000000,
+      "tag": "0004_incidents_sla_breached",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790900000000,
+      "tag": "0005_phase3_request_fulfillment",
       "breakpoints": true
     }
   ]

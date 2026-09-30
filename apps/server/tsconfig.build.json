@@ -4,7 +4,6 @@
     "node_modules",
     "dist",
     "src/**/*.spec.ts",
-    "src/emails/**/*",
     "src/lib/**/*",
     "scripts",
     "src/index.ts",

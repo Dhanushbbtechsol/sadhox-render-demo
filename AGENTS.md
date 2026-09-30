@@ -96,3 +96,17 @@ Keep AGENTS.md updated when:
 - Modifying build/dev workflows
 
 AI assistants should suggest updates to this file when they notice relevant changes.
+
+## Learned User Preferences
+
+- Use merge-to-audit for combining selected Dev branches into `audit`/`Audit`: if the user named matching origin candidates, merge those without re-asking; ask only when no branches were named; abort on a dirty tree or all-unknown names; resolve conflicts without inventing behavior; never push unless explicitly asked.
+- Persist audit findings and developer fix lists under `Docs/Audit` (shared phase files plus per-dev folders).
+- Prefer ponytail-style minimal fixes for audit remediation; commit only when asked (often after confirming everything is fixed).
+- When handing work back to developers, phase the fix list (e.g. phase 1 / phase 2) rather than dumping an unprioritized backlog.
+
+## Learned Workspace Facts
+
+- Parallel feature branches commonly used for merge-to-audit are `Dev-A-`, `Dev-B`, `Dev-C`, and `Dev-D` (note the trailing hyphen on `Dev-A-`).
+- The integration/review branch is `audit` (case variant `Audit` may also exist remotely).
+- `Docs/Audit` holds phased audit reports (`phase1.md`, `phase2.md`, `phase3.md`) and per-developer folders (`Dev A` … `Dev D`).
+- `Docs/Phase` holds per-developer implementation plans and phase notes; product docs live under `Docs/` (`PRD.md`, `FRD.md`, `Techstack.md`, `Architechture.md`).

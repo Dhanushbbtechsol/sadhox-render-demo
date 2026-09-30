@@ -1,3 +1,4 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import express from "express";

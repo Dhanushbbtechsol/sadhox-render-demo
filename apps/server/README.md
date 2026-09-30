@@ -46,7 +46,8 @@ SEED_PASSWORD=... DATABASE_URL=... REDIS_URL=... node scripts/checkpoint2-verify
 
 | Check | Result |
 | --- | --- |
-| `GET /health` | `database=up`, `redis=up`, queues `sla-queue=up`; echoes `x-request-id` |
+| `GET /health` / `/health/live` | Public liveness `{ status: "ok" }` only (no Redis/DB details) |
+| `GET /health/ready` | **Admin JWT required** (Terminus DB + Redis). Orchestrator probe strategy: machine Admin token or network policy — do not un-gate for anonymous probes (audit A05) |
 | WS bad JWT | Nest logs `ws rejected`; client disconnected (`io server disconnect`) |
 | WS good JWT | Stays connected; `ws connected userId=… role=Admin` |
 | BullMQ Redis | `bull:sla-queue:repeat:sla-breach-evaluator*` keys present |

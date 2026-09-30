@@ -1,11 +1,25 @@
 import { Processor, WorkerHost, OnWorkerEvent } from "@nestjs/bullmq";
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { render } from "@react-email/render";
 import { Job, UnrecoverableError } from "bullmq";
+import { createElement, type ReactElement } from "react";
 import { Resend } from "resend";
+import {
+  RequestDecisionEmail,
+  SlaBreachAlertEmail,
+  StatusChangedEmail,
+  TicketAssignedEmail,
+} from "../emails";
 import { EMAIL_QUEUE } from "../queues/queue.constants";
 import { escapeHtml } from "./html-escape";
 import {
+  EMAIL_JOB_APPROVAL_OUTCOME,
+  EMAIL_JOB_ASSET_NOTIFICATION,
+  EMAIL_JOB_CHANGE_REVIEW,
+  EMAIL_JOB_REQUEST_DECISION,
+  EMAIL_JOB_SLA_BREACH,
+  EMAIL_JOB_STATUS_CHANGED,
   EMAIL_JOB_TICKET_ASSIGNED,
   maskEmail,
   recipientDomain,
@@ -70,7 +84,7 @@ export class EmailProcessor extends WorkerHost {
 
     const toMasked = maskEmail(payload.to);
     const domain = recipientDomain(payload.to);
-    const { subject, html, text } = this.buildPlaceholderTemplate(payload);
+    const { subject, html, text } = await this.buildTemplate(payload);
 
     const apiKey = this.config.get<string>("RESEND_API_KEY");
     const mailFrom = this.config.get<string>("MAIL_FROM");
@@ -150,30 +164,139 @@ export class EmailProcessor extends WorkerHost {
     }
   }
 
+  async buildTemplate(payload: EmailJobPayload): Promise<{
+    subject: string;
+    html: string;
+    text: string;
+  }> {
+    const webOrigin =
+      this.config.get<string>("CORS_ORIGIN") ?? "http://localhost:5173";
+
+    if (payload.kind === EMAIL_JOB_CHANGE_REVIEW) {
+      const d = payload.data;
+      const title = escapeHtml(d.changeTitle);
+      const changeId = escapeHtml(d.changeId);
+      const submitter = escapeHtml(d.submitterName);
+      const changeType = escapeHtml(d.changeType);
+      const subject = `[Sadhox] Change review needed: ${d.changeTitle}`;
+      const text = `${d.submitterName} submitted ${d.changeType} change ${d.changeId} for review.`;
+      const html = `<p><strong>${submitter}</strong> submitted a <strong>${changeType}</strong> change for review:</p><p><strong>${title}</strong> (${changeId})</p>`;
+      return { subject, html, text };
+    }
+
+    if (payload.kind === EMAIL_JOB_APPROVAL_OUTCOME) {
+      const d = payload.data;
+      const title = escapeHtml(d.entityTitle);
+      const entityId = escapeHtml(d.entityId);
+      const entityType = escapeHtml(d.entityType);
+      const outcome = escapeHtml(d.outcome);
+      const reason = d.reason ? escapeHtml(d.reason) : null;
+      const subject = `[Sadhox] ${d.entityType} ${d.outcome}: ${d.entityTitle}`;
+      const text =
+        `${d.entityType} ${d.entityId} was ${d.outcome}.` +
+        (d.reason ? ` Reason: ${d.reason}` : "");
+      const html =
+        `<p>${entityType} ${entityId} was <strong>${outcome}</strong>: ${title}</p>` +
+        (reason ? `<p>Reason: ${reason}</p>` : "");
+      return { subject, html, text };
+    }
+
+    if (payload.kind === EMAIL_JOB_ASSET_NOTIFICATION) {
+      const d = payload.data;
+      const tag = escapeHtml(d.assetTag);
+      const name = escapeHtml(d.assetName);
+      const assetId = escapeHtml(d.assetId);
+      const event = escapeHtml(d.event);
+      const ticketId = d.ticketId ? escapeHtml(d.ticketId) : null;
+      const subject = `[Sadhox] Asset ${d.event}: ${d.assetTag}`;
+      const text =
+        `Asset ${d.assetTag} (${d.assetId}) event=${d.event}` +
+        (d.ticketId ? ` ticket=${d.ticketId}` : "");
+      const html =
+        `<p>Asset <strong>${tag}</strong> (${name}) — ${event}</p>` +
+        `<p>id=${assetId}</p>` +
+        (ticketId ? `<p>Linked ticket: ${ticketId}</p>` : "");
+      return { subject, html, text };
+    }
+
+    let subject: string;
+    let element: ReactElement;
+    let text: string;
+
+    if (payload.kind === EMAIL_JOB_TICKET_ASSIGNED) {
+      const d = payload.data;
+      const ticketUrl =
+        d.ticketUrl ?? `${webOrigin}/incidents/${d.ticketId}`;
+      subject = `[Sadhox] Ticket assigned: ${d.ticketTitle}`;
+      text = `Ticket ${d.ticketId} (${d.priority ?? "P3"}) assigned to ${d.assigneeName}: ${d.ticketTitle}. ${ticketUrl}`;
+      element = createElement(TicketAssignedEmail, {
+        ticketId: d.ticketId,
+        ticketTitle: d.ticketTitle,
+        assigneeName: d.assigneeName,
+        priority: d.priority ?? "P3",
+        ticketUrl,
+      });
+    } else if (payload.kind === EMAIL_JOB_SLA_BREACH) {
+      const d = payload.data;
+      const ticketUrl =
+        d.ticketUrl ?? `${webOrigin}/incidents/${d.ticketId}`;
+      subject = `[Sadhox] SLA ${d.breachType} breach: ${d.ticketTitle}`;
+      text = `SLA ${d.breachType} breach on ${d.ticketId} (${d.priority}): ${d.ticketTitle}. ${ticketUrl}`;
+      element = createElement(SlaBreachAlertEmail, {
+        ticketId: d.ticketId,
+        ticketTitle: d.ticketTitle,
+        priority: d.priority,
+        breachType: d.breachType,
+        escalationNotes: d.escalationNotes,
+        ticketUrl,
+      });
+    } else if (payload.kind === EMAIL_JOB_STATUS_CHANGED) {
+      const d = payload.data;
+      const ticketUrl =
+        d.ticketUrl ?? `${webOrigin}/incidents/${d.ticketId}`;
+      subject = `[Sadhox] Status ${d.previousStatus} → ${d.newStatus}: ${d.ticketTitle}`;
+      text = `Ticket ${d.ticketId} status changed from ${d.previousStatus} to ${d.newStatus} by ${d.actorName}. ${d.remarks ?? ""} ${ticketUrl}`;
+      element = createElement(StatusChangedEmail, {
+        ticketId: d.ticketId,
+        ticketTitle: d.ticketTitle,
+        previousStatus: d.previousStatus,
+        newStatus: d.newStatus,
+        actorName: d.actorName,
+        remarks: d.remarks,
+        ticketUrl,
+      });
+    } else if (payload.kind === EMAIL_JOB_REQUEST_DECISION) {
+      const d = payload.data;
+      const requestUrl = d.requestUrl ?? `${webOrigin}/requests`;
+      const comments = d.comments ?? d.reason;
+      subject = `[Sadhox] Request ${d.decision}: ${d.requestTitle}`;
+      text = `Request ${d.requestId} ${d.decision}${d.actorName ? ` by ${d.actorName}` : ""}. ${comments ?? ""} ${requestUrl}`;
+      element = createElement(RequestDecisionEmail, {
+        requestId: d.requestId,
+        requestTitle: d.requestTitle,
+        decision: d.decision,
+        comments,
+        actorName: d.actorName,
+        requestUrl,
+      });
+    } else {
+      const _exhaustive: never = payload;
+      throw new UnrecoverableError(
+        `unsupported email job kind: ${(_exhaustive as EmailJobPayload).kind}`,
+      );
+    }
+
+    const html = await render(element);
+    return { subject, html, text };
+  }
+
+  /** @deprecated use buildTemplate — kept for older unit tests that call sync placeholder */
   buildPlaceholderTemplate(payload: EmailJobPayload): {
     subject: string;
     html: string;
     text: string;
   } {
-    // Minimal placeholder — Dev C owns production HTML templates.
-    // HTML-escape all ticket-derived fields used in HTML.
-    if (payload.kind === EMAIL_JOB_TICKET_ASSIGNED) {
-      const title = escapeHtml(payload.data.ticketTitle);
-      const ticketId = escapeHtml(payload.data.ticketId);
-      const assignee = escapeHtml(payload.data.assigneeName);
-      const subject = `[Sadhox] Ticket assigned: ${payload.data.ticketTitle}`;
-      const text = `Ticket ${payload.data.ticketId} assigned to ${payload.data.assigneeName}.`;
-      const html = `<p>Ticket ${ticketId} assigned to ${assignee}: <strong>${title}</strong></p><p><em>Placeholder template (Dev C).</em></p>`;
-      return { subject, html, text };
-    }
-
-    const title = escapeHtml(payload.data.ticketTitle);
-    const ticketId = escapeHtml(payload.data.ticketId);
-    const priority = escapeHtml(payload.data.priority);
-    const breachType = escapeHtml(payload.data.breachType);
-    const subject = `[Sadhox] SLA ${payload.data.breachType} breach: ${payload.data.ticketTitle}`;
-    const text = `SLA ${payload.data.breachType} breach on ${payload.data.ticketId} (${payload.data.priority}).`;
-    const html = `<p>SLA ${breachType} breach on ${ticketId} (${priority}): <strong>${title}</strong></p><p><em>Placeholder template (Dev C).</em></p>`;
-    return { subject, html, text };
+    void payload;
+    throw new Error("Use buildTemplate (async React Email render)");
   }
 }

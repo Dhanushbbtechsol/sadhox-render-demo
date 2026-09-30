@@ -76,3 +76,11 @@ export function useUpdateChangeStatus() {
     },
   });
 }
+
+export function useChange(id: string | undefined) {
+  return useQuery({
+    queryKey: [...CHANGES_KEY, "detail", id],
+    enabled: Boolean(id),
+    queryFn: () => apiFetch<ChangeRecord>(`/changes/${id}`),
+  });
+}

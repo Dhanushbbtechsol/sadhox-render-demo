@@ -1,4 +1,4 @@
-import { ForbiddenException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, UnauthorizedException } from "@nestjs/common";
 import { of, throwError, lastValueFrom } from "rxjs";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { AuditLogInterceptor } from "./audit-log.interceptor";
@@ -197,6 +197,35 @@ describe("AuditLogInterceptor", () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
     await Promise.resolve();
     expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("records 400 failures as status-only audit rows (no body)", async () => {
+    const ctx = httpContext({
+      method: "POST",
+      url: "/changes",
+      user: {
+        userId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        email: "a@b.com",
+        name: "A",
+        role: "Agent",
+      },
+      body: { password: "should-not-appear", title: "x" },
+    });
+    await expect(
+      lastValueFrom(
+        interceptor.intercept(ctx as never, {
+          handle: () => throwError(() => new BadRequestException("bad")),
+        }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(insert).toHaveBeenCalled();
+    const row = values.mock.calls[0][0];
+    expect(row.action).toBe("POST /changes -> 400");
+    expect(row.diff).toEqual({ outcome: "failed", status: 400 });
+    expect(row.diff).not.toHaveProperty("request");
   });
 
   it("does not fail the request when audit DB insert fails", async () => {

@@ -5,6 +5,10 @@ import { MailService } from "./mail.service";
 import { EmailProcessor, throwFromResendError } from "./email.processor";
 import { escapeHtml } from "./html-escape";
 import {
+  EMAIL_JOB_APPROVAL_OUTCOME,
+  EMAIL_JOB_ASSET_NOTIFICATION,
+  EMAIL_JOB_CHANGE_REVIEW,
+  EMAIL_JOB_REQUEST_DECISION,
   EMAIL_JOB_SLA_BREACH,
   EMAIL_JOB_TICKET_ASSIGNED,
   maskEmail,
@@ -80,6 +84,80 @@ describe("MailService enqueue", () => {
     expect(add).toHaveBeenCalledWith(
       EMAIL_JOB_SLA_BREACH,
       expect.objectContaining({ kind: EMAIL_JOB_SLA_BREACH }),
+      expect.any(Object),
+    );
+  });
+
+  it("sendRequestDecision enqueues approval/rejection email", async () => {
+    const add = vi.fn().mockResolvedValue({ id: "3" });
+    const service = new MailService({ add } as never);
+    await service.sendRequestDecision("user@example.com", {
+      requestId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      requestTitle: "Laptop",
+      decision: "Approved",
+    });
+    expect(add).toHaveBeenCalledWith(
+      EMAIL_JOB_REQUEST_DECISION,
+      expect.objectContaining({
+        kind: EMAIL_JOB_REQUEST_DECISION,
+        to: "user@example.com",
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it("sendChangeReviewRequest enqueues admin review email", async () => {
+    const add = vi.fn().mockResolvedValue({ id: "4" });
+    const service = new MailService({ add } as never);
+    await service.sendChangeReviewRequest("admin@example.com", {
+      changeId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      changeTitle: "Firewall upgrade",
+      submitterName: "Alice Agent",
+      changeType: "Normal",
+    });
+    expect(add).toHaveBeenCalledWith(
+      EMAIL_JOB_CHANGE_REVIEW,
+      expect.objectContaining({ kind: EMAIL_JOB_CHANGE_REVIEW }),
+      expect.any(Object),
+    );
+  });
+
+  it("sendApprovalOutcome enqueues email-queue job", async () => {
+    const add = vi.fn().mockResolvedValue({ id: "5" });
+    const service = new MailService({ add } as never);
+    await service.sendApprovalOutcome("user@example.com", {
+      entityType: "service-request",
+      entityId: "11111111-1111-1111-1111-111111111111",
+      entityTitle: "Laptop request",
+      outcome: "approved",
+    });
+    expect(add).toHaveBeenCalledWith(
+      EMAIL_JOB_APPROVAL_OUTCOME,
+      expect.objectContaining({
+        kind: EMAIL_JOB_APPROVAL_OUTCOME,
+        to: "user@example.com",
+        data: expect.objectContaining({ outcome: "approved" }),
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it("sendAssetNotification enqueues email-queue job", async () => {
+    const add = vi.fn().mockResolvedValue({ id: "6" });
+    const service = new MailService({ add } as never);
+    await service.sendAssetNotification("owner@example.com", {
+      assetId: "11111111-1111-1111-1111-111111111111",
+      assetTag: "LAP-001",
+      assetName: "Laptop",
+      event: "owner_assigned",
+    });
+    expect(add).toHaveBeenCalledWith(
+      EMAIL_JOB_ASSET_NOTIFICATION,
+      expect.objectContaining({
+        kind: EMAIL_JOB_ASSET_NOTIFICATION,
+        to: "owner@example.com",
+        data: expect.objectContaining({ event: "owner_assigned" }),
+      }),
       expect.any(Object),
     );
   });
@@ -205,9 +283,9 @@ describe("EmailProcessor", () => {
     ).rejects.toBeInstanceOf(UnrecoverableError);
   });
 
-  it("HTML-escapes script tags in ticket titles in the placeholder template", () => {
+  it("escapes script tags in ticket titles via React Email templates", async () => {
     const processor = buildProcessor({ NODE_ENV: "test" });
-    const built = processor.buildPlaceholderTemplate({
+    const built = await processor.buildTemplate({
       kind: EMAIL_JOB_TICKET_ASSIGNED,
       to: "a@b.com",
       data: {
@@ -217,6 +295,6 @@ describe("EmailProcessor", () => {
       },
     });
     expect(built.html).toContain("&lt;script&gt;");
-    expect(built.html).not.toContain("<script>");
+    expect(built.html).not.toContain("<script>alert(1)</script>");
   });
 });

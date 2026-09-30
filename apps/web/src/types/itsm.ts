@@ -105,10 +105,12 @@ export interface Problem {
   updatedAt: string;
 }
 
+export type TicketType = "incident" | "problem" | "service_request" | "change";
+
 export interface TicketComment {
   id: string;
   ticketId: string;
-  ticketType: "incident";
+  ticketType: TicketType;
   authorId: string;
   authorName: string | null;
   content: string;

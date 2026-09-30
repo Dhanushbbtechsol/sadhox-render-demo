@@ -1,53 +1,59 @@
-import { Controller, Get, Inject } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { ApiTags, ApiOperation } from "@nestjs/swagger";
-import { sql } from "drizzle-orm";
-import Redis from "ioredis";
+import { Controller, Get } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  HealthCheck,
+  HealthCheckService,
+  type HealthCheckResult,
+} from "@nestjs/terminus";
 import { Public } from "../common/decorators/public.decorator";
-import { DRIZZLE } from "../database/database.constants";
-import type { DrizzleDB } from "../database/database.module";
-import { SLA_QUEUE } from "../queues/queue.constants";
+import { Roles } from "../common/decorators/roles.decorator";
+import { DrizzleHealthIndicator } from "./drizzle.health";
+import { RedisHealthIndicator } from "./redis.health";
 
 @ApiTags("health")
 @Controller("health")
 export class HealthController {
   constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly config: ConfigService,
+    private readonly health: HealthCheckService,
+    private readonly db: DrizzleHealthIndicator,
+    private readonly redis: RedisHealthIndicator,
   ) {}
 
+  /** Liveness — process up; no dependency probes. */
   @Public()
   @Get()
+  @ApiOperation({ summary: "Liveness probe (no dependency details)" })
+  live() {
+    return { status: "ok" };
+  }
+
+  /** Alias for orchestrators that expect /health/live (same as GET /health). */
+  @Public()
+  @Get("live")
+  @ApiOperation({ summary: "Liveness alias (same as GET /health)" })
+  liveAlias() {
+    return this.live();
+  }
+
+  /**
+   * Readiness — DB + Redis via Terminus (Admin only).
+   *
+   * Probe strategy (Phase 3 audit A05): keep Admin gate so Redis/DB details
+   * stay off public `/health` and `/health/live`. Orchestrators must call
+   * this with a machine Admin JWT (or network policy that injects one).
+   * Do not re-expose dependency details on anonymous liveness routes.
+   */
+  @Get("ready")
+  @Roles("Admin")
+  @ApiBearerAuth()
+  @HealthCheck()
   @ApiOperation({
-    summary: "Liveness, database, and Redis/queue connectivity check",
+    summary: "Readiness: database and Redis via Terminus (Admin only)",
   })
-  async check() {
-    await this.db.execute(sql`select 1`);
-
-    const url = this.config.getOrThrow<string>("REDIS_URL");
-    const client = new Redis(url, {
-      maxRetriesPerRequest: 1,
-      connectTimeout: 3000,
-      lazyConnect: true,
-    });
-    let redis: "up" | "down";
-    try {
-      await client.connect();
-      const pong = await client.ping();
-      redis = pong === "PONG" ? "up" : "down";
-    } catch {
-      redis = "down";
-    } finally {
-      client.disconnect();
-    }
-
-    return {
-      status: redis === "up" ? "ok" : "degraded",
-      database: "up",
-      redis,
-      queues: {
-        [SLA_QUEUE]: redis,
-      },
-    };
+  ready(): Promise<HealthCheckResult> {
+    return this.health.check([
+      () => this.db.pingCheck("database"),
+      () => this.redis.pingCheck("redis"),
+    ]);
   }
 }
