@@ -144,9 +144,7 @@ describe("AssignmentService.assignNextAgent concurrency", () => {
         return fn(tx);
       }),
     };
-    const service = new AssignmentService(db as never, {
-      sendTicketAssigned: vi.fn().mockResolvedValue(undefined),
-    } as never);
+    const service = new AssignmentService(db as never);
     await expect(service.assignNextAgent("ticket-1", "Email")).rejects.toThrow(
       /No agents available/,
     );

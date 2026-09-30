@@ -2,33 +2,23 @@
 
 Audit 2026-09-29. Combined: [phase3.md](../phase3.md).
 
-## Low — Open
+## Low — Closed
 
-### [A04] Duplicate ticket-assigned email on auto-assign
+### [A04] Duplicate ticket-assigned email on auto-assign — **Fixed**
 
 **Where:** `apps/server/src/assignment/assignment.service.ts` (`assignNextAgent`)
 
-**Bug:** You enqueue `sendTicketAssigned` after claim; Dev A `IncidentsService.assign` enqueues again. Two Resend jobs per auto-assign.
+**Fix applied:**
+1. Removed `sendTicketAssigned` from `AssignmentService.assignNextAgent` (selection + claim only).
+2. Enqueue remains in `IncidentsService.assign` after status write.
+3. Dropped unused `MailModule` / `MailService` from `AssignmentModule`.
+4. Specs updated (no mail mock on `AssignmentService`).
 
-**Do:**
-1. Remove mail send from `AssignmentService.assignNextAgent` (selection + claim only).
-2. Leave enqueue to `IncidentsService.assign` (after status write).
-3. Keep `MailModule` import only if something else in the module still needs it; otherwise drop the unused `MailService` inject.
-4. Adjust specs that expected mail from `AssignmentService`.
+### [A05] `/health/ready` is Admin-gated — **Documented**
 
-Coordinate with Dev A so one side still sends.
+**Where:** `apps/server/src/health/health.controller.ts`
 
-### [A05] `/health/ready` is Admin-gated
-
-**Where:** `apps/server/src/health/health.controller.ts:38`
-
-**Context:** Phase 2 closed anonymous dependency leak by gating ready behind Admin. That still holds for disclosure. Orchestrators need a probe strategy.
-
-**Do (pick one, document in comment or README):**
-1. Keep Admin `GET /health/ready`; use a machine JWT / network policy for probes, **or**
-2. Add a separate internal ready endpoint (e.g. bind only on private network / no public ingress) that returns Terminus checks without Admin role.
-
-Do **not** put Redis/DB details back on public `GET /health` / `GET /health/live`.
+**Decision (option 1):** Keep Admin `GET /health/ready`. Orchestrators probe with a machine Admin JWT (or network policy). Anonymous `/health` and `/health/live` stay liveness-only with no Redis/DB details. Documented in controller comment + `apps/server/README.md`.
 
 ## Not yours (except renumber assist)
 

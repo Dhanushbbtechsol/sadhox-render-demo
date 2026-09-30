@@ -35,7 +35,14 @@ export class HealthController {
     return this.live();
   }
 
-  /** Readiness — DB + Redis via Terminus (Admin only). */
+  /**
+   * Readiness — DB + Redis via Terminus (Admin only).
+   *
+   * Probe strategy (Phase 3 audit A05): keep Admin gate so Redis/DB details
+   * stay off public `/health` and `/health/live`. Orchestrators must call
+   * this with a machine Admin JWT (or network policy that injects one).
+   * Do not re-expose dependency details on anonymous liveness routes.
+   */
   @Get("ready")
   @Roles("Admin")
   @ApiBearerAuth()
