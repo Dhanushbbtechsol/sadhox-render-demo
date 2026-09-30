@@ -33,4 +33,4 @@ Do **not** put Redis/DB details back on public `GET /health` / `GET /health/live
 ## Not yours (except renumber assist)
 
 - PATCH assignee role check → Dev A
-- Migration `0003_*` renumber lead → Dev B (your file: `0003_incidents_sla_breached.sql` becomes `0004_…`)
+- Migration `0003_*` renumber → Dev B (**done**: your file is now `0004_incidents_sla_breached.sql`)

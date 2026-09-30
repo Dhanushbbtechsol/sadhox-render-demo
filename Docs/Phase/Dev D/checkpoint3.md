@@ -8,7 +8,7 @@
 | Day | Requirement | Evidence |
 | --- | --- | --- |
 | 11 | `AssignmentService.assignNextAgent(ticketId, category)` least-loaded + concurrency tests; exposed to IncidentsModule | `assignment/*`, `IncidentsModule` imports `AssignmentModule` |
-| 12 | SLA BullMQ every 5 min; flag `sla_breached`; audit; email-queue | `queues/sla.*`, migration `0003_incidents_sla_breached` |
+| 12 | SLA BullMQ every 5 min; flag `sla_breached`; audit; email-queue | `queues/sla.*`, migration `0004_incidents_sla_breached` |
 | 13 | Auto-close Resolved ≥ 3 days; audit; Socket.io | `queues/ticket-lifecycle.*`, `AUTO_CLOSE_*` env |
 | 14 | Login 5/min; global 100/min; `/health/live` + `/health/ready` (Terminus DB+Redis) | `throttle.constants`, `health/*` |
 | 15 | Email: incident assignment, service approvals, **asset notifications** | `MailService` + hooks in Assignment / ServiceRequests / Changes / Assets |
@@ -27,7 +27,7 @@ Templates remain placeholders until Dev C delivers production HTML (`Docs/Phase/
 ## Verification
 
 - `pnpm check-types` / `pnpm lint` / `pnpm test` green in `apps/server`
-- Local + remote migration journals aligned (`0000`…`0003`)
+- Local + remote migration journals aligned (`0000`…`0005`)
 
 ## Explicit non-goals / carry-forward (not blocking phase3.md code)
 

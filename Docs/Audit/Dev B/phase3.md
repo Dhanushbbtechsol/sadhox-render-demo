@@ -2,29 +2,19 @@
 
 Audit 2026-09-29. Combined: [phase3.md](../phase3.md).
 
-## Medium — Open
+**Result: CLEAN — assigned Medium closed in source.**
 
-### [A08] Three migrations share `0003_` filename prefix
+## Medium — Resolved
 
-**Where:** `apps/server/drizzle/migrations/` + `meta/_journal.json`
+### [A08] Three migrations share `0003_` filename prefix — **FIXED**
 
-**Bug:** Merge left three Phase 3 SQL files all prefixed `0003_`:
-- `0003_phase3_incident_workflow.sql` (Dev A)
-- `0003_incidents_sla_breached.sql` (Dev D)
-- `0003_phase3_request_fulfillment.sql` (Dev B)
+Renumbered Phase 3 SQL + journal tags:
 
-Journal `idx` order is correct today; fresh DBs and humans will mis-order or double-apply.
+1. `0003_phase3_incident_workflow` (unchanged)
+2. `0004_incidents_sla_breached` (was `0003_…`)
+3. `0005_phase3_request_fulfillment` (was `0003_…`)
 
-**Do:** (same pattern as Phase 2 `RENAME_0002_NOTE.md`)
-1. Renumber to sequential tags/files, e.g.:
-   - `0003_phase3_incident_workflow`
-   - `0004_incidents_sla_breached`
-   - `0005_phase3_request_fulfillment`
-2. Update `meta/_journal.json` tags + idxs to match.
-3. Add `drizzle/migrations/RENAME_0003_NOTE.md` for shared DBs that already applied the old names.
-4. Verify `drizzle` migrate on a clean DB.
-
-Coordinate with Dev A / Dev D so nobody reintroduces a second `0003_`.
+Shared-DB note: `drizzle/migrations/RENAME_0003_NOTE.md`.
 
 ## Not yours
 
