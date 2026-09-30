@@ -22,7 +22,7 @@ const ADMIN_ROUTES = [
   "/admin/queues",
 ] as const;
 
-function rolesGuardFor(role: Role) {
+function rolesGuardFor(_role: Role) {
   const reflector = {
     getAllAndOverride: (key: string) => {
       if (key === "isPublic") return false;

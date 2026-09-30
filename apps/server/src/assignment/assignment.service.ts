@@ -1,7 +1,6 @@
 import {
   Inject,
   Injectable,
-  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from "@nestjs/common";
@@ -9,7 +8,6 @@ import { and, asc, count, eq, inArray, ne, sql } from "drizzle-orm";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import { incidents, problems, users } from "../database/schema";
-import { MailService } from "../mail/mail.service";
 
 /** Incident statuses that count toward agent load. */
 export const OPEN_INCIDENT_STATUSES = [
@@ -65,15 +63,13 @@ export function pickRoundRobinCandidate<T>(
 /**
  * Round-robin / least-loaded agent picker for incident auto-assignment.
  * Contract used by Dev A `POST /incidents/:id/assign` (`AgentSnippet` return).
+ *
+ * Mail is NOT sent here — `IncidentsService.assign` enqueues
+ * `sendTicketAssigned` once after the status write (audit A04).
  */
 @Injectable()
 export class AssignmentService {
-  private readonly logger = new Logger(AssignmentService.name);
-
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly mail: MailService,
-  ) {}
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async listAgents(): Promise<AgentSnippet[]> {
     const agentRows = await this.db
@@ -112,12 +108,14 @@ export class AssignmentService {
    * Select the least-loaded Agent and claim the ticket (incident) under a
    * transaction + advisory lock so concurrent callers cannot both pick the
    * same agent at the same load.
+   *
+   * Selection + claim only — callers own notification (see IncidentsService).
    */
   async assignNextAgent(
     ticketId: string,
     _category?: string,
   ): Promise<AgentSnippet> {
-    const claimed = await this.db.transaction(async (tx) => {
+    return this.db.transaction(async (tx) => {
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtext('sadhox:assign-next-agent'))`,
       );
@@ -210,7 +208,6 @@ export class AssignmentService {
         .select({
           id: incidents.id,
           status: incidents.status,
-          title: incidents.title,
         })
         .from(incidents)
         .where(eq(incidents.id, ticketId))
@@ -235,34 +232,11 @@ export class AssignmentService {
       }
 
       return {
-        agent,
+        id: agent.id,
+        name: agent.name,
+        email: agent.email,
         openTicketCount,
-        ticketTitle: incident?.title ?? "Ticket",
       };
     });
-
-    if (claimed.agent.email) {
-      try {
-        await this.mail.sendTicketAssigned(claimed.agent.email, {
-          ticketId,
-          ticketTitle: claimed.ticketTitle,
-          assigneeName: claimed.agent.name,
-        });
-      } catch (err) {
-        // Assignment already committed — do not roll back on mail enqueue failure.
-        this.logger.warn(
-          `assignNextAgent mail enqueue failed ticket=${ticketId}: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-      }
-    }
-
-    return {
-      id: claimed.agent.id,
-      name: claimed.agent.name,
-      email: claimed.agent.email,
-      openTicketCount: claimed.openTicketCount,
-    };
   }
 }

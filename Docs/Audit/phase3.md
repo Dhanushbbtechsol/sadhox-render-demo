@@ -2,16 +2,16 @@
 
 Scope: `Audit` after Dev-A/B/C/D Phase 3 merges (baseline `15f1d25` → HEAD). Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT, Socket.IO, BullMQ/Redis, Resend.
 
-**Open findings: 2 Medium, 2 Low.** No Critical / High.
+**Open findings: 2 Medium** (Dev A / Dev B). Dev D Low items closed. No Critical / High.
 
 **Owners:** [Dev A](./Dev%20A/phase3.md) · [Dev B](./Dev%20B/phase3.md) · [Dev C](./Dev%20C/phase3.md) · [Dev D](./Dev%20D/phase3.md)
 
-| Finding | Owner |
-| --- | --- |
-| PATCH assignee role check | Dev A |
-| `0003_*` migration renumber | Dev B (coord A/D) |
-| Duplicate assign email | Dev D remove send; Dev A keep |
-| `/health/ready` probe strategy | Dev D |
+| Finding | Owner | Status |
+| --- | --- | --- |
+| PATCH assignee role check | Dev A | Open |
+| `0003_*` migration renumber | Dev B (coord A/D) | Open |
+| Duplicate assign email | Dev D remove send; Dev A keep | **Closed (Dev D)** |
+| `/health/ready` probe strategy | Dev D | **Closed (Dev D)** |
 
 ## Medium
 
@@ -29,17 +29,15 @@ Merge kept `incident_workflow`, `sla_breached`, and `request_fulfillment` all as
 
 ## Low / Hardening
 
-### [A04] Auto-assign can enqueue ticket-assigned email twice — `assignment.service.ts` + `incidents.service.ts` `assign()`
+### [A04] Auto-assign can enqueue ticket-assigned email twice — **Closed (Dev D)**
 
-Dev-D `AssignmentService` sends mail after claim; Dev-A `IncidentsService` sends again after assign(). Duplicate Resend jobs / noise.
+**Was:** Dev-D `AssignmentService` sent mail after claim; Dev-A `IncidentsService` sent again after `assign()`.
 
-**Fix:** Send from one place only (prefer `IncidentsService` after status write).
+**Verified fix:** `AssignmentService` is selection + claim only (no `MailService`). Single enqueue remains in `IncidentsService.assign` after status write. See [Dev D/phase3.md](./Dev%20D/phase3.md).
 
-### [A05] `/health/ready` is Admin-gated — `apps/server/src/health/health.controller.ts:38`
+### [A05] `/health/ready` is Admin-gated — **Closed (Dev D)**
 
-Good against anonymous Redis/DB disclosure, but orchestrator probes need unauthenticated readiness or a separate internal route.
-
-**Fix:** Keep public `/health/live`; add network-restricted ready, or probe with a machine credential.
+**Decision:** Keep Admin `GET /health/ready`; orchestrators use a machine Admin JWT (or network policy). Public `/health` / `/health/live` stay liveness-only with no Redis/DB details. Documented in `health.controller.ts` + `apps/server/README.md`.
 
 ## Still sound (spot-checked)
 
@@ -58,10 +56,10 @@ Good against anonymous Redis/DB disclosure, but orchestrator probes need unauthe
 
 ## Review checklist
 
-- [ ] PATCH assignee role parity with `POST /assign` before Checkpoint 3 sign-off
-- [ ] Renumber drizzle `0003_*` trio and verify migrate on a clean DB
-- [ ] Pick one mail sender for auto-assign; re-run `mail.service.spec`
-- [ ] Decide k8s readiness strategy for `/health/ready` vs Admin gate
+- [ ] PATCH assignee role parity with `POST /assign` before Checkpoint 3 sign-off *(Dev A)*
+- [ ] Renumber drizzle `0003_*` trio and verify migrate on a clean DB *(Dev B)*
+- [x] Pick one mail sender for auto-assign; re-run `mail.service.spec` *(Dev D — IncidentsService only)*
+- [x] Decide k8s readiness strategy for `/health/ready` vs Admin gate *(Dev D — keep Admin + machine JWT)*
 - [ ] Smoke: EndUser cannot approve SR, assign incident, or join foreign WS rooms
 - [ ] Smoke: Agent cannot approve SR; Admin can; fulfillment blocked until Approved
 
