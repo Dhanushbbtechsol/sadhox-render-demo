@@ -7,6 +7,7 @@ import {
   EMAIL_JOB_ASSET_NOTIFICATION,
   EMAIL_JOB_CHANGE_REVIEW,
   EMAIL_JOB_REQUEST_DECISION,
+  EMAIL_JOB_REQUEST_REVIEW,
   EMAIL_JOB_SLA_BREACH,
   EMAIL_JOB_STATUS_CHANGED,
   EMAIL_JOB_TICKET_ASSIGNED,
@@ -16,6 +17,7 @@ import {
   type ChangeReviewMailData,
   type EmailJobPayload,
   type RequestDecisionMailData,
+  type RequestReviewMailData,
   type SlaBreachMailData,
   type StatusChangedMailData,
   type TicketAssignedMailData,
@@ -113,6 +115,25 @@ export class MailService {
     });
     this.logger.log(
       `enqueued ${EMAIL_JOB_REQUEST_DECISION} to=${maskEmail(to)} request=${data.requestId}`,
+    );
+  }
+
+  async sendRequestReviewRequest(to: string, data: RequestReviewMailData) {
+    const payload: EmailJobPayload = {
+      kind: EMAIL_JOB_REQUEST_REVIEW,
+      to,
+      data: {
+        requestId: data.requestId,
+        requestTitle: data.requestTitle,
+        submitterName: data.submitterName,
+        urgency: data.urgency,
+      },
+    };
+    await this.emailQueue.add(EMAIL_JOB_REQUEST_REVIEW, payload, {
+      jobId: `${EMAIL_JOB_REQUEST_REVIEW}:${data.requestId}:${to}`,
+    });
+    this.logger.log(
+      `enqueued ${EMAIL_JOB_REQUEST_REVIEW} to=${maskEmail(to)} request=${data.requestId}`,
     );
   }
 

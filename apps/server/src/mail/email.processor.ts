@@ -18,6 +18,7 @@ import {
   EMAIL_JOB_ASSET_NOTIFICATION,
   EMAIL_JOB_CHANGE_REVIEW,
   EMAIL_JOB_REQUEST_DECISION,
+  EMAIL_JOB_REQUEST_REVIEW,
   EMAIL_JOB_SLA_BREACH,
   EMAIL_JOB_STATUS_CHANGED,
   EMAIL_JOB_TICKET_ASSIGNED,
@@ -181,6 +182,18 @@ export class EmailProcessor extends WorkerHost {
       const subject = `[Sadhox] Change review needed: ${d.changeTitle}`;
       const text = `${d.submitterName} submitted ${d.changeType} change ${d.changeId} for review.`;
       const html = `<p><strong>${submitter}</strong> submitted a <strong>${changeType}</strong> change for review:</p><p><strong>${title}</strong> (${changeId})</p>`;
+      return { subject, html, text };
+    }
+
+    if (payload.kind === EMAIL_JOB_REQUEST_REVIEW) {
+      const d = payload.data;
+      const title = escapeHtml(d.requestTitle);
+      const requestId = escapeHtml(d.requestId);
+      const submitter = escapeHtml(d.submitterName);
+      const urgency = escapeHtml(d.urgency);
+      const subject = `[Sadhox] Service request approval needed: ${d.requestTitle}`;
+      const text = `${d.submitterName} submitted service request ${d.requestId} (${d.urgency}) for approval.`;
+      const html = `<p><strong>${submitter}</strong> submitted a service request for approval:</p><p><strong>${title}</strong> (${requestId}) — urgency <strong>${urgency}</strong></p>`;
       return { subject, html, text };
     }
 

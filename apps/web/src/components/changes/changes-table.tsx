@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/components/auth/protected-route";
+import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,14 +55,29 @@ export function ChangesTable() {
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
+    const needsRollback = type === "Normal" || type === "Emergency";
+    if (needsRollback && !rollbackPlan.trim()) {
+      toast.error("Rollback plan is required for Normal and Emergency changes");
+      return;
+    }
+    if (!scheduledStart || !scheduledEnd) {
+      toast.error("Scheduled start and end are required");
+      return;
+    }
+    const start = new Date(scheduledStart);
+    const end = new Date(scheduledEnd);
+    if (!(start < end)) {
+      toast.error("Scheduled end must be after scheduled start");
+      return;
+    }
     try {
       await createChange.mutateAsync({
         title,
         description,
         type,
-        scheduledStart: new Date(scheduledStart).toISOString(),
-        scheduledEnd: new Date(scheduledEnd).toISOString(),
-        rollbackPlan,
+        scheduledStart: start.toISOString(),
+        scheduledEnd: end.toISOString(),
+        rollbackPlan: rollbackPlan.trim(),
       });
       toast.success("Change created");
       setOpen(false);
@@ -151,13 +167,16 @@ export function ChangesTable() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="chg-rollback">Rollback plan</Label>
+                <Label htmlFor="chg-rollback">
+                  Rollback plan
+                  {type === "Standard" ? " (optional)" : " (required)"}
+                </Label>
                 <textarea
                   id="chg-rollback"
                   className="border-input bg-background flex min-h-20 w-full rounded-none border px-3 py-2 text-sm"
                   value={rollbackPlan}
                   onChange={(e) => setRollbackPlan(e.target.value)}
-                  required
+                  required={type === "Normal" || type === "Emergency"}
                 />
               </div>
               <DialogFooter>
@@ -171,7 +190,10 @@ export function ChangesTable() {
       </div>
 
       {!data?.length ? (
-        <p className="text-muted-foreground text-sm">No change records yet.</p>
+        <EmptyState
+          title="No changes yet"
+          description="Create a Normal or Emergency change with a rollback plan and maintenance window to get started."
+        />
       ) : (
         <Table>
           <TableHeader>

@@ -36,6 +36,11 @@
   --chart-3: #a6e1fa;
   --chart-4: color-mix(in srgb, #0e6ba8 60%, white);
   --chart-5: color-mix(in srgb, #001c55 45%, white);
+  /* Volume / SLA series — light keeps prior mixes; dark overrides below */
+  --chart-open: color-mix(in srgb, #1A16F3 55%, white);
+  --chart-closed: color-mix(in srgb, #64748b 40%, white);
+  --chart-sla-met: color-mix(in srgb, #1A16F3 55%, white);
+  --chart-sla-breached: color-mix(in srgb, #ef4444 45%, white);
   --sidebar: #5041bc;
   --sidebar-foreground: oklch(0.95 0.02 280);
   --sidebar-primary: #a6e1fa;
@@ -90,6 +95,11 @@
   --chart-3: oklch(0.303 0.137 265);
   --chart-4: oklch(0.65 0.1 200);
   --chart-5: oklch(0.252 0.109 261);
+  /* Dark: closed matches KPI emerald→teal (from-emerald-500 to-teal-400) */
+  --chart-open: color-mix(in srgb, #818cf8 70%, #1A16F3);
+  --chart-closed: color-mix(in srgb, #10b981 55%, #2dd4bf);
+  --chart-sla-met: color-mix(in srgb, #7dd3fc 65%, #0ea5e9);
+  --chart-sla-breached: color-mix(in srgb, #f87171 70%, #ef4444);
   --sidebar: #3b2f8f;
   --sidebar-foreground: oklch(0.95 0.02 280);
   --sidebar-primary: #a6e1fa;

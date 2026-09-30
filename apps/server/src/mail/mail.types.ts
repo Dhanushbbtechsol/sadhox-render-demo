@@ -2,6 +2,7 @@ export const EMAIL_JOB_TICKET_ASSIGNED = "email.ticket-assigned" as const;
 export const EMAIL_JOB_SLA_BREACH = "email.sla-breach" as const;
 export const EMAIL_JOB_STATUS_CHANGED = "email.status-changed" as const;
 export const EMAIL_JOB_REQUEST_DECISION = "email.request-decision" as const;
+export const EMAIL_JOB_REQUEST_REVIEW = "email.request-review" as const;
 export const EMAIL_JOB_CHANGE_REVIEW = "email.change-review" as const;
 export const EMAIL_JOB_APPROVAL_OUTCOME = "email.approval-outcome" as const;
 /** Dev D Phase 3 Day 15 — asset notifications (Dev C). */
@@ -38,11 +39,18 @@ export type StatusChangedMailData = {
 export type RequestDecisionMailData = {
   requestId: string;
   requestTitle: string;
-  decision: "Approved" | "Rejected";
+  decision: "Approved" | "Rejected" | "Fulfilled";
   comments?: string;
   reason?: string;
   actorName?: string;
   requestUrl?: string;
+};
+
+export type RequestReviewMailData = {
+  requestId: string;
+  requestTitle: string;
+  submitterName: string;
+  urgency: string;
 };
 
 export type ChangeReviewMailData = {
@@ -90,6 +98,11 @@ export type EmailJobPayload =
       kind: typeof EMAIL_JOB_REQUEST_DECISION;
       to: string;
       data: RequestDecisionMailData;
+    }
+  | {
+      kind: typeof EMAIL_JOB_REQUEST_REVIEW;
+      to: string;
+      data: RequestReviewMailData;
     }
   | {
       kind: typeof EMAIL_JOB_CHANGE_REVIEW;
