@@ -33,6 +33,10 @@ const assetSchema = z.object({
   name: z.string().min(2).max(255),
   type: z.enum(TYPES),
   status: z.enum(STATUSES),
+  purchaseCost: z
+    .string()
+    .optional()
+    .refine((v) => !v || /^\d+(\.\d{1,2})?$/.test(v), "Use a decimal amount"),
 });
 
 type AssetFormValues = z.infer<typeof assetSchema>;
@@ -57,6 +61,7 @@ export function AssetFormDialog({
       name: "",
       type: "Hardware",
       status: "Active",
+      purchaseCost: "",
     },
   });
 
@@ -69,12 +74,14 @@ export function AssetFormDialog({
             name: asset.name,
             type: asset.type,
             status: asset.status,
+            purchaseCost: asset.purchaseCost ?? "",
           }
         : {
             assetTag: "",
             name: "",
             type: "Hardware",
             status: "Active",
+            purchaseCost: "",
           },
     );
   }, [asset, form, open]);
@@ -89,6 +96,7 @@ export function AssetFormDialog({
             name: values.name,
             type: values.type as AssetType,
             status: values.status as AssetStatus,
+            purchaseCost: values.purchaseCost?.trim() || null,
           },
         });
         toast.success(`Updated ${values.assetTag}`);
@@ -98,6 +106,7 @@ export function AssetFormDialog({
           name: values.name,
           type: values.type as AssetType,
           status: values.status as AssetStatus,
+          purchaseCost: values.purchaseCost?.trim() || undefined,
         });
         toast.success(`Created ${values.assetTag}`);
       }
@@ -180,6 +189,21 @@ export function AssetFormDialog({
                 )}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="purchaseCost">Purchase cost (Admin)</Label>
+            <Input
+              id="purchaseCost"
+              inputMode="decimal"
+              placeholder="1299.00"
+              {...form.register("purchaseCost")}
+            />
+            {form.formState.errors.purchaseCost ? (
+              <p className="text-destructive text-xs">
+                {form.formState.errors.purchaseCost.message}
+              </p>
+            ) : null}
           </div>
 
           <DialogFooter>

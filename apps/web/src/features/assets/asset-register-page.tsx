@@ -31,6 +31,7 @@ import { useAssets, useRetireAsset } from "@/features/admin/hooks";
 import type { Asset, AssetStatus, AssetType } from "@/features/admin/types";
 
 import { AssetFormDialog } from "./asset-form-dialog";
+import { AssetLinkTicketDialog } from "./asset-link-ticket-dialog";
 
 const types: Array<AssetType | "all"> = ["all", "Hardware", "Software"];
 const statuses: Array<AssetStatus | "all"> = ["all", "Active", "InRepair", "Retired"];
@@ -51,7 +52,9 @@ export default function AssetRegisterPage() {
   const [type, setType] = useState<AssetType | "all">("all");
   const [status, setStatus] = useState<AssetStatus | "all">("all");
   const [formOpen, setFormOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
+  const [linking, setLinking] = useState<Asset | null>(null);
 
   const assets = useAssets({ search: query, type, status });
   const retireAsset = useRetireAsset();
@@ -68,13 +71,14 @@ export default function AssetRegisterPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold">Asset register</h1>
           <p className="text-sm text-muted-foreground">
             Hardware and software inventory backed by the Nest assets API.
           </p>
         </div>
         <Button
+          className="shrink-0"
           onClick={() => {
             setEditing(null);
             setFormOpen(true);
@@ -85,15 +89,15 @@ export default function AssetRegisterPage() {
         </Button>
       </div>
 
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-col gap-2 md:flex-row md:flex-wrap">
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search tag or name"
-          className="sm:max-w-xs"
+          className="md:max-w-xs"
         />
         <Select value={type} onValueChange={(value) => setType(value as AssetType | "all")}>
-          <SelectTrigger className="w-full sm:w-44">
+          <SelectTrigger className="w-full md:w-44">
             <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent>
@@ -108,7 +112,7 @@ export default function AssetRegisterPage() {
           value={status}
           onValueChange={(value) => setStatus(value as AssetStatus | "all")}
         >
-          <SelectTrigger className="w-full sm:w-52">
+          <SelectTrigger className="w-full md:w-52">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -134,24 +138,25 @@ export default function AssetRegisterPage() {
       ) : null}
 
       {assets.data && assets.data.length > 0 ? (
-        <div className="ring-foreground/10 overflow-x-auto bg-card ring-1">
+        <div className="ring-foreground/10 -mx-1 overflow-x-auto bg-card ring-1 md:mx-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Asset Tag</TableHead>
                 <TableHead>Asset Name</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Assigned Owner</TableHead>
+                <TableHead>Owner</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Linked Tickets</TableHead>
+                <TableHead>Cost</TableHead>
+                <TableHead>Linked</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {assets.data.map((asset) => (
                 <TableRow key={asset.id}>
-                  <TableCell className="font-medium">{asset.assetTag}</TableCell>
-                  <TableCell>{asset.name}</TableCell>
+                  <TableCell className="font-medium whitespace-nowrap">{asset.assetTag}</TableCell>
+                  <TableCell className="max-w-[12rem] truncate md:max-w-none">{asset.name}</TableCell>
                   <TableCell>{asset.type}</TableCell>
                   <TableCell>{asset.ownerName ?? "Unassigned"}</TableCell>
                   <TableCell>
@@ -159,7 +164,14 @@ export default function AssetRegisterPage() {
                       {statusLabel(asset.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="tabular-nums">{asset.linkedTicketCount}</TableCell>
+                  <TableCell className="tabular-nums whitespace-nowrap">
+                    {asset.purchaseCost != null && asset.purchaseCost !== ""
+                      ? `$${asset.purchaseCost}`
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {asset.linkedTicketId ? asset.linkedTicketId.slice(0, 8) : "—"}
+                  </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger
@@ -177,6 +189,14 @@ export default function AssetRegisterPage() {
                           }}
                         >
                           Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setLinking(asset);
+                            setLinkOpen(true);
+                          }}
+                        >
+                          Link / unlink ticket
                         </DropdownMenuItem>
                         {asset.status !== "Retired" ? (
                           <DropdownMenuItem
@@ -197,6 +217,7 @@ export default function AssetRegisterPage() {
       ) : null}
 
       <AssetFormDialog open={formOpen} onOpenChange={setFormOpen} asset={editing} />
+      <AssetLinkTicketDialog open={linkOpen} onOpenChange={setLinkOpen} asset={linking} />
     </div>
   );
 }

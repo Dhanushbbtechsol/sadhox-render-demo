@@ -14,6 +14,8 @@ export type Asset = {
   ownerName: string | null;
   linkedTicketId: string | null;
   linkedTicketCount: number;
+  /** Admin-only financial field. */
+  purchaseCost?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -31,11 +33,24 @@ export type CreateAssetInput = {
   type: AssetType;
   status?: AssetStatus;
   ownerId?: string;
+  purchaseCost?: string;
 };
 
 export type UpdateAssetInput = Partial<CreateAssetInput> & {
   ownerId?: string | null;
+  purchaseCost?: string | null;
 };
+
+export type LinkedAssetPublic = {
+  id: string;
+  assetTag: string;
+  name: string;
+  type: AssetType;
+  status: AssetStatus;
+  ownerName: string | null;
+  linkedTicketId: string | null;
+};
+
 
 export type TrendDirection = "up" | "down" | "flat";
 

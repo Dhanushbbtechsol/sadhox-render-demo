@@ -1,6 +1,14 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from "class-validator";
 
 export class ListAssetsQueryDto {
   @ApiPropertyOptional()
@@ -17,6 +25,11 @@ export class ListAssetsQueryDto {
   @IsOptional()
   @IsIn(["Active", "InRepair", "Retired"])
   status?: "Active" | "InRepair" | "Retired";
+
+  @ApiPropertyOptional({ format: "uuid" })
+  @IsOptional()
+  @IsUUID()
+  linkedTicketId?: string;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()

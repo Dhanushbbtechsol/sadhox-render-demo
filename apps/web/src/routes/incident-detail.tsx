@@ -9,7 +9,10 @@ import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useIncidentLinkedAssets } from "@/features/admin/hooks";
 import { useIncident } from "@/hooks/use-tickets";
+import { useAuthStore } from "@/stores/auth-store";
 import { INCIDENT_STATUS_LABELS } from "@/types/itsm";
 
 function statusVariant(status: string) {
@@ -21,6 +24,9 @@ function statusVariant(status: string) {
 export default function IncidentDetailPage() {
   const { id } = useParams();
   const { data, isLoading, isError, error } = useIncident(id);
+  const role = useAuthStore((s) => s.user?.role);
+  const canSeeLinkedAssets = role === "Admin" || role === "Agent";
+  const linkedAssets = useIncidentLinkedAssets(canSeeLinkedAssets ? id : undefined);
 
   if (isLoading) return <TicketListSkeleton rows={3} />;
 
@@ -105,6 +111,51 @@ export default function IncidentDetailPage() {
           </dl>
 
           <IncidentActions incident={data} />
+
+          {canSeeLinkedAssets ? (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold tracking-tight">Linked assets</h2>
+              {linkedAssets.isLoading ? <Skeleton className="h-16" /> : null}
+              {linkedAssets.isError ? (
+                <p className="text-muted-foreground text-sm">
+                  Unable to load linked assets.
+                </p>
+              ) : null}
+              {linkedAssets.data && linkedAssets.data.length === 0 ? (
+                <p className="text-muted-foreground text-sm">
+                  No assets linked to this incident.
+                </p>
+              ) : null}
+              {linkedAssets.data && linkedAssets.data.length > 0 ? (
+                <ul className="space-y-2">
+                  {linkedAssets.data.map((asset) => (
+                    <li
+                      key={asset.id}
+                      className="border-border/80 bg-muted/40 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium">
+                          {asset.assetTag}{" "}
+                          <span className="text-muted-foreground font-normal">
+                            · {asset.name}
+                          </span>
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          {asset.type} · {asset.status}
+                          {asset.ownerName ? ` · ${asset.ownerName}` : ""}
+                        </p>
+                      </div>
+                      <Badge variant="outline">{asset.status}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <p className="text-muted-foreground text-[11px]">
+                Purchase cost is Admin-only and is never shown here.
+              </p>
+            </section>
+          ) : null}
+
           <IncidentComments incidentId={data.id} />
         </CardContent>
       </Card>
