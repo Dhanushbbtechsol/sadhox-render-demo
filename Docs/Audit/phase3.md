@@ -2,24 +2,22 @@
 
 Scope: `Audit` after Dev-A/B/C/D Phase 3 merges (baseline `15f1d25` → HEAD). Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT, Socket.IO, BullMQ/Redis, Resend.
 
-**Open findings: 2 Medium, 2 Low.** No Critical / High.
+**Open findings: 1 Medium, 2 Low.** No Critical / High. (PATCH assignee closed by Dev A.)
 
 **Owners:** [Dev A](./Dev%20A/phase3.md) · [Dev B](./Dev%20B/phase3.md) · [Dev C](./Dev%20C/phase3.md) · [Dev D](./Dev%20D/phase3.md)
 
 | Finding | Owner |
 | --- | --- |
-| PATCH assignee role check | Dev A |
+| PATCH assignee role check | Dev A — **FIXED** |
 | `0003_*` migration renumber | Dev B (coord A/D) |
-| Duplicate assign email | Dev D remove send; Dev A keep |
+| Duplicate assign email | Dev D remove send; Dev A keep (confirmed) |
 | `/health/ready` probe strategy | Dev D |
 
 ## Medium
 
-### [A01 / A04] PATCH assignee skips Agent/Admin role check — `apps/server/src/incidents/incidents.service.ts` (~343)
+### [A01 / A04] PATCH assignee skips Agent/Admin role check — **FIXED**
 
-`POST /assign` validates assignee role is Agent|Admin. `PATCH` update only calls `assertUserExists`, so an Agent can assign an incident to an EndUser (or any user id).
-
-**Fix:** Reuse the same role allowlist as `assign()` before writing `assignedTo`.
+Shared `assertAssigneeIsAgentOrAdmin` on `assign()` and `update()`; EndUser assignee → 400 (`incidents.service.spec.ts`).
 
 ### [A08] Three migrations share `0003_` filename prefix — `apps/server/drizzle/migrations/` + `meta/_journal.json`
 
@@ -58,7 +56,7 @@ Good against anonymous Redis/DB disclosure, but orchestrator probes need unauthe
 
 ## Review checklist
 
-- [ ] PATCH assignee role parity with `POST /assign` before Checkpoint 3 sign-off
+- [x] PATCH assignee role parity with `POST /assign` before Checkpoint 3 sign-off
 - [ ] Renumber drizzle `0003_*` trio and verify migrate on a clean DB
 - [ ] Pick one mail sender for auto-assign; re-run `mail.service.spec`
 - [ ] Decide k8s readiness strategy for `/health/ready` vs Admin gate

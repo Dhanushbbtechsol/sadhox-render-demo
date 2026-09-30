@@ -208,20 +208,7 @@ export class IncidentsService {
     let agentName: string;
 
     if (agentId) {
-      const [agent] = await this.db
-        .select({
-          id: users.id,
-          email: users.email,
-          name: users.name,
-          role: users.role,
-        })
-        .from(users)
-        .where(eq(users.id, agentId))
-        .limit(1);
-      if (!agent) throw new NotFoundException("Assignee not found");
-      if (agent.role !== "Agent" && agent.role !== "Admin") {
-        throw new BadRequestException("Assignee must be an Agent or Admin");
-      }
+      const agent = await this.assertAssigneeIsAgentOrAdmin(agentId);
       agentEmail = agent.email;
       agentName = agent.name;
     } else {
@@ -341,7 +328,7 @@ export class IncidentsService {
     }
 
     if (dto.assignedTo !== undefined && dto.assignedTo !== null) {
-      await this.assertUserExists(dto.assignedTo);
+      await this.assertAssigneeIsAgentOrAdmin(dto.assignedTo);
     }
 
     // Assigning via PATCH on New auto-moves to Assigned (same lifecycle rule).
@@ -572,12 +559,22 @@ export class IncidentsService {
     return rule?.resolveMinutes ?? null;
   }
 
-  private async assertUserExists(userId: string) {
-    const [row] = await this.db
-      .select({ id: users.id })
+  /** Same allowlist as POST /assign — only Agent or Admin may be assigned. */
+  private async assertAssigneeIsAgentOrAdmin(userId: string) {
+    const [agent] = await this.db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        role: users.role,
+      })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
-    if (!row) throw new NotFoundException("Assignee not found");
+    if (!agent) throw new NotFoundException("Assignee not found");
+    if (agent.role !== "Agent" && agent.role !== "Admin") {
+      throw new BadRequestException("Assignee must be an Agent or Admin");
+    }
+    return agent;
   }
 }

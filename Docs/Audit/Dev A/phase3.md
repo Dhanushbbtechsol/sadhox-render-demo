@@ -2,26 +2,26 @@
 
 Audit 2026-09-29. Combined: [phase3.md](../phase3.md).
 
-## Medium — Open
+## Medium — Resolved
 
-### [A01 / A04] PATCH assignee skips Agent/Admin role check
+### [A01 / A04] PATCH assignee skips Agent/Admin role check — **FIXED**
 
-**Where:** `apps/server/src/incidents/incidents.service.ts` (`update`, ~343)
+**Where:** `apps/server/src/incidents/incidents.service.ts` (`update`)
 
-**Bug:** `POST /assign` checks assignee is Agent|Admin. `PATCH` only calls `assertUserExists`, so an Agent can set `assignedTo` to an EndUser (or any user id).
+**Was:** `POST /assign` checked assignee is Agent|Admin. `PATCH` only called `assertUserExists`, so an Agent could set `assignedTo` to an EndUser.
 
-**Do:**
-1. When `dto.assignedTo` is set, load the user and require `role === "Agent" || role === "Admin"` (same as `assign()`).
-2. Reject others with `BadRequestException("Assignee must be an Agent or Admin")`.
-3. Add/extend a unit or controller spec: PATCH with EndUser id → 400.
+**Fix:**
+- Shared `assertAssigneeIsAgentOrAdmin` used by both `assign()` and `update()`.
+- Rejects non-Agent/Admin with `BadRequestException("Assignee must be an Agent or Admin")`.
+- Spec: `incidents.service.spec.ts` — PATCH with EndUser id → 400.
 
 ## Low — Coordinate with Dev D
 
-### [A04] Duplicate ticket-assigned email on auto-assign
+### [A04] Duplicate ticket-assigned email on auto-assign — **Dev A side done**
 
-**Where:** `incidents.service.ts` `assign()` (keep mail here)
+**Where:** `incidents.service.ts` `assign()` (mail enqueue kept after status write)
 
-**Do:** Keep the enqueue in `IncidentsService.assign` after the status write. Dev D removes the send from `AssignmentService` so only one job fires.
+Dev D still removes the send from `AssignmentService` so only one job fires.
 
 ## Not yours
 
