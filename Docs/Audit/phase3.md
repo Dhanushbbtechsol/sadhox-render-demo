@@ -2,14 +2,14 @@
 
 Scope: `Audit` after Dev-A/B/C/D Phase 3 merges (baseline `15f1d25` → HEAD). Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT, Socket.IO, BullMQ/Redis, Resend.
 
-**Open findings: 2 Medium, 2 Low.** No Critical / High.
+**Open findings: 1 Medium, 2 Low.** No Critical / High. (`0003_*` renumber closed by Dev B.)
 
 **Owners:** [Dev A](./Dev%20A/phase3.md) · [Dev B](./Dev%20B/phase3.md) · [Dev C](./Dev%20C/phase3.md) · [Dev D](./Dev%20D/phase3.md)
 
 | Finding | Owner |
 | --- | --- |
 | PATCH assignee role check | Dev A |
-| `0003_*` migration renumber | Dev B (coord A/D) |
+| `0003_*` migration renumber | **Dev B — FIXED** (`0003`/`0004`/`0005` + `RENAME_0003_NOTE.md`) |
 | Duplicate assign email | Dev D remove send; Dev A keep |
 | `/health/ready` probe strategy | Dev D |
 
@@ -21,11 +21,9 @@ Scope: `Audit` after Dev-A/B/C/D Phase 3 merges (baseline `15f1d25` → HEAD). S
 
 **Fix:** Reuse the same role allowlist as `assign()` before writing `assignedTo`.
 
-### [A08] Three migrations share `0003_` filename prefix — `apps/server/drizzle/migrations/` + `meta/_journal.json`
+### [A08] Three migrations share `0003_` filename prefix — **FIXED (Dev B)**
 
-Merge kept `incident_workflow`, `sla_breached`, and `request_fulfillment` all as `0003_*.sql`. Journal idx order is correct, but fresh envs and humans will mis-order or double-apply.
-
-**Fix:** Rename to `0003` / `0004` / `0005` with matching journal tags; document one-shot rename for existing DBs.
+Renumbered to `0003_phase3_incident_workflow` → `0004_incidents_sla_breached` → `0005_phase3_request_fulfillment`. See `RENAME_0003_NOTE.md`.
 
 ## Low / Hardening
 
@@ -59,7 +57,7 @@ Good against anonymous Redis/DB disclosure, but orchestrator probes need unauthe
 ## Review checklist
 
 - [ ] PATCH assignee role parity with `POST /assign` before Checkpoint 3 sign-off
-- [ ] Renumber drizzle `0003_*` trio and verify migrate on a clean DB
+- [x] Renumber drizzle `0003_*` trio and verify migrate on a clean DB
 - [ ] Pick one mail sender for auto-assign; re-run `mail.service.spec`
 - [ ] Decide k8s readiness strategy for `/health/ready` vs Admin gate
 - [ ] Smoke: EndUser cannot approve SR, assign incident, or join foreign WS rooms

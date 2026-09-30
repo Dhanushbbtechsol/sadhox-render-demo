@@ -9,7 +9,7 @@ if (!url) {
 
 const sql = postgres(url, { max: 1 });
 const ddl = readFileSync(
-  new URL("../drizzle/migrations/0003_incidents_sla_breached.sql", import.meta.url),
+  new URL("../drizzle/migrations/0004_incidents_sla_breached.sql", import.meta.url),
   "utf8",
 );
 await sql.unsafe(ddl);
