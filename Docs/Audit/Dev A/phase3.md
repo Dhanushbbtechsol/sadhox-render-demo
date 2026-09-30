@@ -1,29 +1,15 @@
 # Security Audit: Dev A (Phase 3)
 
-Audit 2026-09-29. Combined: [phase3.md](../phase3.md).
+Reaudit 2026-09-30. Combined: [phase3.md](../phase3.md). **CLEAN.**
 
 ## Medium — Resolved
 
-### [A01 / A04] PATCH assignee skips Agent/Admin role check — **FIXED**
+### [A01 / A04] PATCH assignee skips Agent/Admin role check — **FIXED (verified)**
 
-**Where:** `apps/server/src/incidents/incidents.service.ts` (`update`)
+Shared `assertAssigneeIsAgentOrAdmin` on `assign()` and `update()`; EndUser assignee → 400 (`incidents.service.spec.ts`).
 
-**Was:** `POST /assign` checked assignee is Agent|Admin. `PATCH` only called `assertUserExists`, so an Agent could set `assignedTo` to an EndUser.
+## Low — Resolved (coord)
 
-**Fix:**
-- Shared `assertAssigneeIsAgentOrAdmin` used by both `assign()` and `update()`.
-- Rejects non-Agent/Admin with `BadRequestException("Assignee must be an Agent or Admin")`.
-- Spec: `incidents.service.spec.ts` — PATCH with EndUser id → 400.
+### [A04] Duplicate ticket-assigned email — **FIXED (verified)**
 
-## Low — Coordinate with Dev D
-
-### [A04] Duplicate ticket-assigned email on auto-assign — **Dev A side done**
-
-**Where:** `incidents.service.ts` `assign()` (mail enqueue kept after status write)
-
-Dev D still removes the send from `AssignmentService` so only one job fires.
-
-## Not yours
-
-- Migration `0003_*` renumber → Dev B
-- `/health/ready` probe strategy → Dev D
+Mail enqueue kept in `IncidentsService.assign` after status write. Dev D removed send from `AssignmentService`.

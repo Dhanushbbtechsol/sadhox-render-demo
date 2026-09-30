@@ -1,26 +1,13 @@
 # Security Audit: Dev D (Phase 3)
 
-Audit 2026-09-29. Combined: [phase3.md](../phase3.md).
+Reaudit 2026-09-30. Combined: [phase3.md](../phase3.md). **CLEAN.**
 
-## Low — Closed
+## Low — Resolved
 
-### [A04] Duplicate ticket-assigned email on auto-assign — **Fixed**
+### [A04] Duplicate ticket-assigned email — **FIXED (verified)**
 
-**Where:** `apps/server/src/assignment/assignment.service.ts` (`assignNextAgent`)
+`AssignmentService` is selection + claim only (no `MailService` / `MailModule`). Single enqueue in `IncidentsService.assign`.
 
-**Fix applied:**
-1. Removed `sendTicketAssigned` from `AssignmentService.assignNextAgent` (selection + claim only).
-2. Enqueue remains in `IncidentsService.assign` after status write.
-3. Dropped unused `MailModule` / `MailService` from `AssignmentModule`.
-4. Specs updated (no mail mock on `AssignmentService`).
+### [A05] `/health/ready` Admin-gated — **FIXED (verified)**
 
-### [A05] `/health/ready` is Admin-gated — **Documented**
-
-**Where:** `apps/server/src/health/health.controller.ts`
-
-**Decision (option 1):** Keep Admin `GET /health/ready`. Orchestrators probe with a machine Admin JWT (or network policy). Anonymous `/health` and `/health/live` stay liveness-only with no Redis/DB details. Documented in controller comment + `apps/server/README.md`.
-
-## Not yours (except renumber assist)
-
-- PATCH assignee role check → Dev A
-- Migration `0003_*` renumber → Dev B (**done**: your file is now `0004_incidents_sla_breached.sql`)
+Admin gate kept; probe strategy documented (machine Admin JWT / network policy) in `health.controller.ts` + `apps/server/README.md`. Public liveness stays dependency-free.

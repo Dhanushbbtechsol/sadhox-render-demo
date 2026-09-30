@@ -1,61 +1,28 @@
-# Phase 3 audit — 2026-09-29
+# Phase 3 reaudit — 2026-09-30
 
-Scope: `Audit` after Dev-A/B/C/D Phase 3 merges (baseline `15f1d25` → HEAD). Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT, Socket.IO, BullMQ/Redis, Resend.
+Scope: current `Audit` tree after Dev-A/B/C/D Phase 3 audit fixes merged. Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT, Socket.IO, BullMQ/Redis, Resend.
 
-**Open findings: none.** Medium (Dev A / Dev B) and Low (Dev D) closed in source. No Critical / High.
+**Open findings: none.** Medium / Low from this phase are closed in source.
 
 **Owners:** [Dev A](./Dev%20A/phase3.md) · [Dev B](./Dev%20B/phase3.md) · [Dev C](./Dev%20C/phase3.md) · [Dev D](./Dev%20D/phase3.md)
 
-| Finding | Owner | Status |
-| --- | --- | --- |
-| PATCH assignee role check | Dev A | **FIXED** |
-| `0003_*` migration renumber | Dev B | **FIXED** (`0003`/`0004`/`0005` + `RENAME_0003_NOTE.md`) |
-| Duplicate assign email | Dev D remove send; Dev A keep | **Closed (Dev D)** |
-| `/health/ready` probe strategy | Dev D | **Closed (Dev D)** |
+## Verified remediations
 
-## Medium
-
-### [A01 / A04] PATCH assignee skips Agent/Admin role check — **FIXED**
-
-Shared `assertAssigneeIsAgentOrAdmin` on `assign()` and `update()`; EndUser assignee → 400 (`incidents.service.spec.ts`).
-
-### [A08] Three migrations share `0003_` filename prefix — **FIXED (Dev B)**
-
-Renumbered to `0003_phase3_incident_workflow` → `0004_incidents_sla_breached` → `0005_phase3_request_fulfillment`. See `RENAME_0003_NOTE.md`.
-
-## Low / Hardening
-
-### [A04] Auto-assign can enqueue ticket-assigned email twice — **Closed (Dev D)**
-
-**Was:** Dev-D `AssignmentService` sent mail after claim; Dev-A `IncidentsService` sent again after `assign()`.
-
-**Verified fix:** `AssignmentService` is selection + claim only (no `MailService`). Single enqueue remains in `IncidentsService.assign` after status write. See [Dev D/phase3.md](./Dev%20D/phase3.md).
-
-### [A05] `/health/ready` is Admin-gated — **Closed (Dev D)**
-
-**Decision:** Keep Admin `GET /health/ready`; orchestrators use a machine Admin JWT (or network policy). Public `/health` / `/health/live` stay liveness-only with no Redis/DB details. Documented in `health.controller.ts` + `apps/server/README.md`.
+| Item | Evidence |
+| --- | --- |
+| PATCH assignee role = Agent\|Admin | `assertAssigneeIsAgentOrAdmin` on `assign()` + `update()`; `incidents.service.spec.ts` |
+| Migration `0003_*` renumber | Journal tags `0003`→`0005`; tracked SQL only those three; `RENAME_0003_NOTE.md` |
+| Single ticket-assigned email on auto-assign | `AssignmentService` no `MailService`; enqueue only in `IncidentsService.assign` |
+| `/health/ready` probe strategy | Admin-gated + machine JWT documented in `health.controller.ts` + `apps/server/README.md` |
 
 ## Still sound (spot-checked)
 
-| Control | Status |
-| --- | --- |
-| A01 RBAC default-deny + matrix tests | Holds |
-| A01 EndUser incident / comment / WS room ACL | Holds |
-| A01 Admin routes `@Roles("Admin")` | Holds |
-| A02 Secrets via env; audit redaction | Holds |
-| A03 Drizzle parameterized queries | Holds |
-| A07 Login throttle 5/min + Postgres storage | Holds |
-| A05 Helmet CSP/HSTS + Swagger off in prod | Holds |
-| A05 CORS fail-closed (no `*`) | Holds |
-| A04 Resolution notes + fulfillment gates | Holds |
-| A10 No user-supplied URL fetch in Phase 3 | Holds |
+RBAC default-deny + matrix tests, EndUser incident/comment/WS room ACL, admin `@Roles("Admin")`, login 5/min + Postgres throttle storage, helmet + Swagger off in prod, CORS fail-closed, audit redaction, resolution notes + fulfillment gates, secrets via env.
 
-## Review checklist
+A03 / A06 / A10: nothing to file.
 
-- [x] PATCH assignee role parity with `POST /assign` before Checkpoint 3 sign-off
-- [x] Renumber drizzle `0003_*` trio and verify migrate on a clean DB
-- [x] Pick one mail sender for auto-assign; re-run `mail.service.spec` *(Dev D — IncidentsService only)*
-- [x] Decide k8s readiness strategy for `/health/ready` vs Admin gate *(Dev D — keep Admin + machine JWT)*
+## Optional follow-on (not findings)
+
 - [ ] Smoke: EndUser cannot approve SR, assign incident, or join foreign WS rooms
 - [ ] Smoke: Agent cannot approve SR; Admin can; fulfillment blocked until Approved
 
@@ -63,5 +30,5 @@ Renumbered to `0003_phase3_incident_workflow` → `0004_incidents_sla_breached` 
 
 - Staging TLS and secret stores
 - `pnpm-lock.yaml` CVE scan
+- Runtime migration apply on every shared DB (see `RENAME_0003_NOTE.md`)
 - Infra outside the repo (WAF, managed Postgres/Redis ACLs)
-- Runtime migration apply on every shared DB after renumber

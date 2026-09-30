@@ -99,7 +99,7 @@ AI assistants should suggest updates to this file when they notice relevant chan
 
 ## Learned User Preferences
 
-- Use merge-to-audit for combining selected Dev branches into `audit`/`Audit`: ask which branches when unspecified, abort on a dirty tree, resolve conflicts without inventing behavior, and never push unless explicitly asked.
+- Use merge-to-audit for combining selected Dev branches into `audit`/`Audit`: if the user named matching origin candidates, merge those without re-asking; ask only when no branches were named; abort on a dirty tree or all-unknown names; resolve conflicts without inventing behavior; never push unless explicitly asked.
 - Persist audit findings and developer fix lists under `Docs/Audit` (shared phase files plus per-dev folders).
 - Prefer ponytail-style minimal fixes for audit remediation; commit only when asked (often after confirming everything is fixed).
 - When handing work back to developers, phase the fix list (e.g. phase 1 / phase 2) rather than dumping an unprioritized backlog.
