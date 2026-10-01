@@ -1,19 +1,19 @@
 # Security Audit: Dev A (Phase 4)
 
-Combined: [phase4.md](../phase4.md). Owner: incidents, sanitize, link-to-problem, portal/list UX.
+Reaudit 2026-10-01. Combined: [phase4.md](../phase4.md). **CLEAN.**
 
-## Phase 1 — Resolved
+## Medium — Resolved
 
-### [A03] Medium — Comment sanitize bypass — **FIXED**
+### [A03] Comment sanitize bypass — **FIXED (verified)**
 
-`CommentsService.create` now calls `sanitizePlainText` (same helper as incident comments) and rejects empty post-sanitize content.
+`CommentsService.create` → `sanitizePlainText`; empty post-sanitize → reject.
 
-## Phase 2 — Resolved
+### [A04] Link-to-problem lost-update — **FIXED (verified)**
 
-### [A04] Medium — Link-to-problem lost-update — **FIXED**
+`POST /problems/:id/incidents/:incidentId`; UI no longer PATCHes full `linkedIncidentIds`.
 
-Additive `POST /problems/:id/incidents/:incidentId` inserts one link without replacing the set. `link-to-problem.tsx` uses that endpoint (no client-cached full-array PATCH).
+## Low — Resolved
 
-### [A03] Low — Other free-text writes — **FIXED**
+### [A03] Resolution notes sanitize — **FIXED (verified)**
 
-`IncidentsService.update` runs `sanitizePlainText` on resolution notes at write.
+`IncidentsService.update` sanitizes resolution notes at write.

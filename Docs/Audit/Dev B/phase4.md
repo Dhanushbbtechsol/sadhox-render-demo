@@ -1,22 +1,19 @@
 # Security Audit: Dev B (Phase 4)
 
-Reaudit after remediations. Combined: [phase4.md](../phase4.md). **CLEAN.**
-
-Owner: approvals, changes, mail, reject dialogs.
+Reaudit 2026-10-01. Combined: [phase4.md](../phase4.md). **CLEAN.**
 
 ## Medium — Resolved
 
-### [A04] Reject reason unbounded — **FIXED**
+### [A04] Reject reason unbounded — **FIXED (verified)**
 
-`RejectServiceRequestDto.reason` now `@MaxLength(4000)` (same as fulfill notes). Write path uses `sanitizePlainText`.
+`RejectServiceRequestDto.reason` `@MaxLength(4000)`; write path `sanitizePlainText`.
 
-### [A01 / A04] Agent can reject changes via `Rolled Back` — **FIXED**
+### [A01 / A04] Agent can reject via `Rolled Back` — **FIXED (verified)**
 
-`CHANGE_ADMIN_GATED_STATUSES` includes `Rolled Back`. Agent `PATCH` → `Rolled Back` → 403; Admin only (matches approval inbox). Specs: `approval-policy.spec.ts`, `changes.service.spec.ts`, `changes.controller.spec.ts`.
+`CHANGE_ADMIN_GATED_STATUSES` includes `Rolled Back`. Specs: `approval-policy.spec.ts`, `changes.service.spec.ts`, `changes.controller.spec.ts`.
 
 ## Low — Resolved
 
-### [A03] Sanitize reject / fulfill notes + email subjects — **FIXED**
+### [A03] Sanitize reject / fulfill + email subjects — **FIXED (verified)**
 
-- Reject reason / fulfill notes sanitized via `sanitizePlainText` at write.
-- Email subjects use `sanitizeEmailSubjectPart` (strip CR/LF) in `email.processor.ts`.
+Reject/fulfill sanitized; email subjects use `sanitizeEmailSubjectPart`.

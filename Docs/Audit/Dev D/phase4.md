@@ -1,29 +1,25 @@
 # Security Audit: Dev D (Phase 4)
 
-Combined: [phase4.md](../phase4.md). Owner: auth cookies, throttle, WS gateway, prod/ops scripts, schema lock.
+Reaudit 2026-10-01. Combined: [phase4.md](../phase4.md). Owner: auth cookies, throttle, WS, prod/ops scripts.
 
-**Merge status:** Dev-D not fully merged — `_journal.json` conflict vs Dev-C `purchase_cost`.
+**Merge status:** Merged. `purchase_cost` kept; asset_tag as `0007_assets_asset_tag`.
 
-## Phase 1 (do first)
+## Phase 1 (still open)
 
 ### [A02 / A05] High — Hardcoded LAN credentials in scripts
 
-`probe-remote-services.mjs`, `clean-sla-failed-jobs.mjs` default to `sadhox:sadhox@192.168.68.111` / Redis LAN when env unset. Same pattern already in `rebaseline-remote-journal.mjs` (Phase 3).
+`probe-remote-services.mjs`, `clean-sla-failed-jobs.mjs`, `rebaseline-remote-journal.mjs` still default to LAN URLs/creds when env unset.
 
-Fix: no defaults; exit if URL env missing. Rotate matching passwords.
+Fix: no defaults; exit if URL env missing; rotate matching passwords.
 
 ### [A07] Medium — `SameSite=None` without CSRF defense
 
-Prod refresh cookie flags are otherwise correct (`HttpOnly`, `Secure`, path `/auth`). Add CSRF (custom header or double-submit) on `/auth/refresh` + `/auth/logout`.
+Cookie flags OK for cross-site SPA. Add CSRF (custom header or double-submit) on `/auth/refresh` + `/auth/logout`.
 
-## Phase 2
+## Phase 2 (still open)
 
 ### Low — Throttle / logout / Sentry
 
 - Cap `THROTTLE_GLOBAL_LIMIT` in production.
 - Throttle `/auth/logout` like refresh.
-- Skip expected WS auth denials in Sentry filter.
-
-### Merge
-
-Coordinate with Dev C on keep vs drop `purchase_cost`; finish journal with all kept migrations, unique tags/idx.
+- Skip expected WS auth denials in Sentry (`sentry-exception.filter.ts` still `captureException` for all WS).

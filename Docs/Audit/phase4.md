@@ -1,77 +1,60 @@
-# Phase 4 audit — 2026-10-01
+# Phase 4 reaudit — 2026-10-01
 
-Scope: `Audit` after merging `Dev-A-`, `Dev-B`, `Dev-C` Phase 4; **Dev-D merge in progress** (blocked on `purchase_cost` add vs drop). Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT + refresh cookie, Socket.IO, BullMQ/Redis, Resend.
+Scope: current `Audit` tree after Dev-A/B/C/D Phase 4 merges + Dev-A/B remediations. Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT + refresh cookie, Socket.IO, BullMQ/Redis, Resend.
 
-**Open findings:** 1 High · 1 Medium · several Low (Dev A/B Medium/Low closed). No Critical.
+**Open findings: 1 High · 1 Medium · 3 Low** (all Dev D). Dev A/B Medium/Low closed. No Critical.
 
 **Owners:** [Dev A](./Dev%20A/phase4.md) · [Dev B](./Dev%20B/phase4.md) · [Dev C](./Dev%20C/phase4.md) · [Dev D](./Dev%20D/phase4.md)
 
-**Process hold:** resolve `_journal.json` / `purchase_cost` before treating Dev-D as merged. Prefer product call: keep column (Dev-C finance) **or** drop (Dev-D schema lock) — not both in opposing order.
+## Verified remediations
 
-No `.review.yml` in repo (Sonar skill defaults).
+| Item | Evidence |
+| --- | --- |
+| Comment sanitize choke point | `CommentsService.create` → `sanitizePlainText`; empty rejected |
+| Additive link-to-problem | `POST /problems/:id/incidents/:incidentId`; UI uses it |
+| Reject reason MaxLength + sanitize | `RejectServiceRequestDto` `@MaxLength(4000)`; service sanitizes |
+| Agent cannot `Rolled Back` | `CHANGE_ADMIN_GATED_STATUSES` includes `Rolled Back` |
+| Free-text + email subjects | Resolution / reject / fulfill sanitized; `sanitizeEmailSubjectPart` |
+| `purchase_cost` merge hold | Kept (Dev-C). Journal: `0006_phase4_assets_finance_indexes` + `0007_assets_asset_tag`. Drop migration not merged (`schema-lock-2026-09-30.md`) |
 
-## High
+## Still open — Dev D
 
-### [A02 / A05] Hardcoded LAN DB/Redis defaults in ops scripts — Dev D
+### High — [A02 / A05] Hardcoded LAN DB/Redis defaults
 
-`apps/server/scripts/probe-remote-services.mjs:3-7`, `clean-sla-failed-jobs.mjs:8` (and pre-existing `rebaseline-remote-journal.mjs:3-5`) fall back to `postgresql://sadhox:sadhox@192.168.68.111:…` / Redis LAN URL when env is unset.
+`probe-remote-services.mjs`, `clean-sla-failed-jobs.mjs`, `rebaseline-remote-journal.mjs` still fall back to `sadhox:sadhox@192.168.68.111` / Redis LAN when env unset.
 
-Fix: require `DATABASE_URL` / `REDIS_URL` / `REMOTE_DATABASE_URL`; fail if missing. Rotate any password that matched the default.
+Fix: require env URLs; fail fast; rotate matching passwords.
 
-## Medium
+### Medium — [A07] `SameSite=None` without CSRF defense
 
-### [A03] Comment sanitize bypass via polymorphic API — Dev A — **FIXED**
+Prod refresh cookie: `HttpOnly` + `Secure` + `SameSite=None` (correct for cross-site SPA). No CSRF token/custom header on `/auth/refresh` or `/auth/logout`.
 
-`CommentsService.create` calls `sanitizePlainText` and rejects empty post-sanitize content (same helper as incident comments).
+Fix: custom header or double-submit CSRF; optionally bind `Origin`/`Referer` to `CORS_ORIGIN`.
 
-### [A07] Prod refresh cookie `SameSite=None` without CSRF defense — Dev D
+### Low
 
-`refresh-cookie.ts` correctly uses `HttpOnly` + prod `Secure` + `SameSite=None` for cross-site SPA refresh. Cookie-auth POSTs to `/auth/logout` and `/auth/refresh` remain CSRF-able cross-site (CORS still blocks reading `accessToken` if origins stay locked).
-
-Fix: custom header or double-submit CSRF on cookie-auth routes; optionally bind to `Origin`/`Referer` allowlist = `CORS_ORIGIN`.
-
-### [A04] Link-to-problem full replace / lost-update — Dev A — **FIXED**
-
-Additive `POST /problems/:id/incidents/:incidentId`; `link-to-problem.tsx` no longer PATCHes a client-cached full `linkedIncidentIds` array.
-
-### [A04] Reject reason unbounded length — Dev B — **FIXED**
-
-`RejectServiceRequestDto.reason` now `@MaxLength(4000)`; write path uses `sanitizePlainText`.
-
-### [A01 / A04] Agent can `Rolled Back` without Admin — Dev B — **FIXED**
-
-`CHANGE_ADMIN_GATED_STATUSES` includes `Rolled Back`. Agent `PATCH` → `Rolled Back` → 403; Admin only.
-
-## Low / Hardening
-
-| Item | Owner | Fix |
-| --- | --- | --- |
-| Free-text sanitize gaps (reject / fulfill / resolution) | A/B | **FIXED** — resolution notes + reject/fulfill + email subjects sanitized |
-| `THROTTLE_GLOBAL_LIMIT` no prod ceiling | D | Cap or refuse oversized values when `NODE_ENV=production` |
-| `/auth/logout` unthrottled | D | Same band as refresh (e.g. 10/min) |
-| WS auth denials → Sentry volume | D | Skip expected `WsException` auth failures |
-| DEV mock passwords in `auth-store` | A | Already `import.meta.env.DEV`-gated — keep it that way |
+| Item | Fix |
+| --- | --- |
+| `THROTTLE_GLOBAL_LIMIT` no prod ceiling | Cap / refuse oversized values in production |
+| `/auth/logout` unthrottled | Same band as refresh (e.g. 10/min) |
+| WS auth denials → Sentry | Skip expected `WsException` auth failures (`sentry-exception.filter.ts` still captures all WS) |
 
 ## Still sound (spot-checked)
 
-- Assets: Admin register; `purchaseCost` Admin-only / redacted for Agents; audit redacts `purchaseCost`
-- Change approve `@Roles("Admin")`; SR approve/reject Admin
-- CORS fail-closed; helmet; login throttle; JWT WS middleware + room ACL
-- Drizzle parameterized queries; no user-driven `exec`
-- Seed/prod-seed: bcrypt 12, complexity assert, `ALLOW_PRODUCTION_SEED` gate
+Assets Admin + `purchaseCost` omitted from `listLinkedPublic` + audit redact; change/SR Admin approve; CORS fail-closed; helmet; login throttle; JWT WS + room ACL; Drizzle parameterized; seed/prod-seed gates.
 
-## Review checklist (Sonar)
+A03 SQL / A06 CVE scan / A10 SSRF: nothing new to file in Phase 4 deltas.
 
-1. Confirm `purchase_cost` product decision before finishing Dev-D merge.
-2. Smoke: Agent cannot Admin-approve changes/SRs; EndUser cannot link problems or see `purchaseCost`.
-3. Smoke: polymorphic `POST /comments` with HTML payload is stripped after fix.
-4. Smoke: cross-origin credentialed POST cannot logout/refresh without CSRF token/header.
-5. Smoke: concurrent link-to-problem does not drop existing links.
-6. Confirm probe scripts fail closed without env (no LAN default).
+## Optional follow-on (not findings)
+
+- [ ] Smoke: EndUser cannot link problems or see `purchaseCost`
+- [ ] Smoke: Agent `PATCH` change → `Rolled Back` → 403; Admin OK
+- [ ] Smoke: `POST /comments` with HTML is stripped
+- [ ] Smoke: probe scripts fail without env (after fix)
 
 ## Not checked / out of scope
 
-- Staging TLS / secret stores / managed DB ACLs
-- `pnpm-lock.yaml` / OSV CVE scan
+- Staging TLS and secret stores
+- `pnpm-lock.yaml` CVE scan
 - Live Render/Vercel runtime beyond `render.yaml`
-- Unresolved `_journal.json` correctness until merge completes
+- Infra outside the repo (WAF, managed Postgres/Redis ACLs)
