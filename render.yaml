@@ -1,23 +1,33 @@
-# Render Blueprint — Sadhox API staging (Phase 1–2)
-# Connect this repo in Render Dashboard → New → Blueprint
-# Docs: https://render.com/docs/blueprint-spec
+# Render Blueprint — Sadhox API (staging)
+# Spec verified against https://render.com/docs/blueprint-spec (fetched 2026-09-30).
+# Do not apply until TL / lead gives explicit go-ahead to create real services.
+#
+# Locked: region=oregon, postgresMajorVersion=16, staging plan=free.
+# Production Environment (separate Blueprint / Environment), mirror names:
+#   sadhox-api-prod / sadhox-pg-prod / sadhox-redis-prod
+# CORS_ORIGIN: set at apply to temporary placeholder
+#   https://placeholder-not-yet-deployed.invalid
+#   (exact Vercel origin later — never *).
 
 services:
   - type: web
     name: sadhox-api-staging
     runtime: node
     plan: free
+    region: oregon
     rootDir: .
+    # pnpm workspace: install from repo root, build Nest server package only.
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter server build
+    # Listen on Render-injected $PORT (do not hardcode PORT in envVars).
     startCommand: pnpm --filter server start:prod
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 3000
       - key: LOG_LEVEL
         value: info
+      # Temporary safe origin until real Vercel URL exists (never *).
+      # Apply value: https://placeholder-not-yet-deployed.invalid
       - key: CORS_ORIGIN
         sync: false
       - key: JWT_ACCESS_SECRET
@@ -30,6 +40,16 @@ services:
         sync: false
       - key: SENTRY_DSN
         sync: false
+      - key: AUTO_CLOSE_CRON
+        value: "0 2 * * *"
+      - key: AUTO_CLOSE_DAYS
+        value: "3"
+      - key: DB_POOL_MAX
+        value: "10"
+      - key: THROTTLE_GLOBAL_LIMIT
+        value: "100"
+      - key: THROTTLE_GLOBAL_TTL_MS
+        value: "60000"
       - key: DATABASE_URL
         fromDatabase:
           name: sadhox-pg-staging
@@ -40,14 +60,21 @@ services:
           name: sadhox-redis-staging
           property: connectionString
 
+  # Redis-compatible Key Value for BullMQ. noeviction recommended for queues.
+  # ipAllowList: [] = private network only (web service in same region).
   - type: keyvalue
     name: sadhox-redis-staging
     plan: free
+    region: oregon
     maxmemoryPolicy: noeviction
-    ipAllowList: [] # allow internal Render services only via private network; empty = default ACL
+    ipAllowList: []
 
 databases:
+  # Internal-only Postgres; Nest connects via private DATABASE_URL.
   - name: sadhox-pg-staging
     plan: free
+    region: oregon
     databaseName: sadhox
     user: sadhox
+    postgresMajorVersion: "16"
+    ipAllowList: []

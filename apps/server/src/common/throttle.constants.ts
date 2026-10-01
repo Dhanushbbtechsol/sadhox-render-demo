@@ -5,6 +5,18 @@ export const THROTTLE_GLOBAL = {
   limit: 100,
 };
 
+/** Override via env for load tests (e.g. THROTTLE_GLOBAL_LIMIT=10000). */
+export function resolveThrottleGlobal(opts?: {
+  limit?: number;
+  ttl?: number;
+}): typeof THROTTLE_GLOBAL {
+  return {
+    name: "default",
+    ttl: opts?.ttl && opts.ttl > 0 ? opts.ttl : THROTTLE_GLOBAL.ttl,
+    limit: opts?.limit && opts.limit > 0 ? opts.limit : THROTTLE_GLOBAL.limit,
+  };
+}
+
 export const THROTTLE_AUTH_LOGIN = {
   default: { limit: 5, ttl: 60_000 },
 };

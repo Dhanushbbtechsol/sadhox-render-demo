@@ -14,6 +14,11 @@ export class JwtAuthGuard extends AuthGuard("jwt") {
   }
 
   canActivate(context: ExecutionContext) {
+    // Socket.IO auth is handled in EventsGateway.handleConnection — passport-jwt
+    // expects Express req.headers and crashes on WS contexts.
+    if (context.getType() !== "http") {
+      return true;
+    }
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),

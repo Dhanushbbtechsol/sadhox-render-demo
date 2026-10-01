@@ -125,6 +125,9 @@ describe("EventsGateway auth handshake", () => {
   it("accepts a valid access token from auth.token and attaches user", async () => {
     const { gateway } = buildGateway({});
     const client = mockClient({ auth: { token: "valid.jwt.token" } });
+    const { user, exp } = await gateway.authenticateSocket(client as never);
+    client.data.user = user;
+    client.data.tokenExp = exp;
     await gateway.handleConnection(client as never);
     expect(client.data.user).toEqual({ id: userRow.id, role: "Admin" });
     expect(client.disconnect).not.toHaveBeenCalled();
@@ -133,13 +136,15 @@ describe("EventsGateway auth handshake", () => {
   it("rejects query.token outside development", async () => {
     const { gateway } = buildGateway({ nodeEnv: "production" });
     const client = mockClient({ auth: {}, query: { token: "only-query" } });
-    await gateway.handleConnection(client as never);
-    expect(client.disconnect).toHaveBeenCalledWith(true);
+    await expect(gateway.authenticateSocket(client as never)).rejects.toThrow();
   });
 
   it("allows query.token in development", async () => {
     const { gateway } = buildGateway({ nodeEnv: "development" });
     const client = mockClient({ auth: {}, query: { token: "dev-query" } });
+    const { user, exp } = await gateway.authenticateSocket(client as never);
+    client.data.user = user;
+    client.data.tokenExp = exp;
     await gateway.handleConnection(client as never);
     expect(client.data.user).toEqual({ id: userRow.id, role: "Admin" });
   });
@@ -147,9 +152,7 @@ describe("EventsGateway auth handshake", () => {
   it("rejects missing token", async () => {
     const { gateway } = buildGateway({});
     const client = mockClient({ auth: {}, query: {} });
-    await gateway.handleConnection(client as never);
-    expect(client.disconnect).toHaveBeenCalledWith(true);
-    expect(client.data.user).toBeUndefined();
+    await expect(gateway.authenticateSocket(client as never)).rejects.toThrow();
   });
 
   it("rejects invalid or expired token", async () => {
@@ -157,8 +160,17 @@ describe("EventsGateway auth handshake", () => {
       verify: vi.fn().mockRejectedValue(new Error("jwt expired")),
     });
     const client = mockClient({ auth: { token: "bad.token" } });
+    await expect(gateway.authenticateSocket(client as never)).rejects.toThrow();
+  });
+
+  it("disconnects when connection arrives without middleware-attached user", async () => {
+    const { gateway } = buildGateway({});
+    const client = mockClient({ auth: { token: "valid.jwt.token" } });
     await gateway.handleConnection(client as never);
     expect(client.disconnect).toHaveBeenCalledWith(true);
+    expect(client.emit).toHaveBeenCalledWith("error", {
+      message: "Unauthorized",
+    });
   });
 
   it("schedules disconnect at JWT exp and clears timer on disconnect", async () => {
@@ -174,6 +186,9 @@ describe("EventsGateway auth handshake", () => {
         }),
       });
       const client = mockClient({ auth: { token: "valid.jwt.token" } });
+      const auth = await gateway.authenticateSocket(client as never);
+      client.data.user = auth.user;
+      client.data.tokenExp = auth.exp;
       await gateway.handleConnection(client as never);
       expect(client.data.tokenExpiryTimer).toBeDefined();
       expect(client.disconnect).not.toHaveBeenCalled();
@@ -192,6 +207,9 @@ describe("EventsGateway auth handshake", () => {
         }),
       });
       const client2 = mockClient({ auth: { token: "valid.jwt.token" } });
+      const auth2 = await gateway2.authenticateSocket(client2 as never);
+      client2.data.user = auth2.user;
+      client2.data.tokenExp = auth2.exp;
       await gateway2.handleConnection(client2 as never);
       expect(client2.data.tokenExpiryTimer).toBeDefined();
       gateway2.handleDisconnect(client2 as never);

@@ -1,0 +1,10 @@
+{
+  "at": "2026-09-30T11:32:00.663Z",
+  "base": "http://127.0.0.1:3000",
+  "ticketId": "059f7587-fd77-4337-8478-b396043cbeb6",
+  "clientsN": 55,
+  "connected": 55,
+  "joined": 55,
+  "stillConnectedAfter2s": 55,
+  "errors": 0
+}

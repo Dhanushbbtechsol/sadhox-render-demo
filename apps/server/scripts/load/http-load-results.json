@@ -1,0 +1,32 @@
+{
+  "at": "2026-09-30T11:07:20.537Z",
+  "base": "http://127.0.0.1:3000",
+  "list": {
+    "name": "GET /incidents",
+    "requestsCompleted": 1500,
+    "avgReqPerSec": 100,
+    "p99LatencyMs": 412,
+    "non2xx": 0,
+    "errors": 0,
+    "timeouts": 0,
+    "statusCodeStats": {
+      "200": {
+        "count": 1500
+      }
+    }
+  },
+  "create": {
+    "name": "POST /incidents",
+    "requestsCompleted": 496,
+    "avgReqPerSec": 49.6,
+    "p99LatencyMs": 374,
+    "non2xx": 0,
+    "errors": 0,
+    "timeouts": 0,
+    "statusCodeStats": {
+      "201": {
+        "count": 496
+      }
+    }
+  }
+}

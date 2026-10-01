@@ -20,8 +20,13 @@ import { TicketLifecycleProcessor } from "./ticket-lifecycle.processor";
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const url = config.getOrThrow<string>("REDIS_URL");
+        // BullMQ requires maxRetriesPerRequest=null on its ioredis connection.
         return {
-          connection: { url },
+          connection: {
+            url,
+            maxRetriesPerRequest: null,
+            enableReadyCheck: true,
+          },
           defaultJobOptions: DEFAULT_JOB_OPTIONS,
         };
       },

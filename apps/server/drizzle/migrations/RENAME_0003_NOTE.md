@@ -26,3 +26,19 @@ Do **not** re-run the SQL if the objects already exist:
 
 `0004_incidents_sla_breached.sql` uses `IF NOT EXISTS` and is safe to re-apply
 if needed; `0003` / `0005` are not idempotent — prefer journal tag updates only.
+
+## 2026-09-30 remote reconcile (Dev D)
+
+Remote journal had been rebaselined with **0004's hash in the 4th slot**, skipping
+`0003_phase3_incident_workflow`. That left `incidents.resolution_notes` (defined
+only in 0003) absent even though `sla_breached` existed via 0004.
+
+Reconcile (via `scripts/reconcile-remote-schema.mjs`):
+
+1. Ensured `resolution_notes` present (`ADD COLUMN IF NOT EXISTS` — same DDL as 0003 stmt 2).
+2. Inserted missing journal hashes for **0003** and **0005** (objects already on DB).
+3. Added **`0006_assets_asset_tag`** for `assets.asset_tag` (in TypeScript schema, never migrated).
+
+Later the same day: purged orphan journal hash `486f350a…` (no matching SQL in repo).
+`assets.purchase_cost` drop tracked as **`0007_assets_drop_purchase_cost`**
+(decision 2026-09-30 — unused in app/frontend).

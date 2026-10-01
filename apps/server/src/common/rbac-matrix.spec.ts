@@ -263,6 +263,46 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
     await request(app.getHttpServer()).get("/health/live").expect(200);
   });
 
+  it.each([
+    { method: "get" as const, path: "/incidents" },
+    { method: "get" as const, path: "/admin/dashboard/stats" },
+    { method: "get" as const, path: "/assets" },
+    { method: "get" as const, path: "/problems" },
+    { method: "get" as const, path: "/health/ready" },
+  ])("unauthenticated $method $path → 401", async ({ method, path }) => {
+    await request(app.getHttpServer())[method](path).expect(401);
+  });
+
+  it("EndUser is 403 on Admin-only and Agent-only routes", async () => {
+    await request(app.getHttpServer())
+      .get("/admin/dashboard/stats")
+      .set("x-test-role", "EndUser")
+      .expect(403);
+    await request(app.getHttpServer())
+      .get("/assets")
+      .set("x-test-role", "EndUser")
+      .expect(403);
+    await request(app.getHttpServer())
+      .get("/problems")
+      .set("x-test-role", "EndUser")
+      .expect(403);
+  });
+
+  it("Agent is 403 on Admin-only routes", async () => {
+    await request(app.getHttpServer())
+      .get("/admin/dashboard/stats")
+      .set("x-test-role", "Agent")
+      .expect(403);
+    await request(app.getHttpServer())
+      .get("/assets")
+      .set("x-test-role", "Agent")
+      .expect(403);
+    await request(app.getHttpServer())
+      .get("/health/ready")
+      .set("x-test-role", "Agent")
+      .expect(403);
+  });
+
   it.each(
     MATRIX.flatMap((row) =>
       ALL_ROLES.map((role) => ({
