@@ -9,7 +9,7 @@ if (!url) {
   process.exit(1);
 }
 
-const pwd = `Sx-${randomBytes(18).toString("base64url")}!9A`;
+const pwd = process.env.SEED_PASSWORD ?? `Sx-${randomBytes(18).toString("base64url")}!9A`;
 const hash = await bcrypt.hash(pwd, 12);
 const sql = postgres(url, { max: 1 });
 await sql`
@@ -18,9 +18,11 @@ await sql`
   where email in (
     'admin@sadhox.local',
     'agent@sadhox.local',
+    'enduser@sadhox.local',
     'user@sadhox.local'
   )
 `;
 await sql.end();
 writeFileSync(".seed-password", pwd, { mode: 0o600 });
 console.log("PASSWORD_RESET_OK");
+console.log("Wrote apps/server/.seed-password (gitignored)");

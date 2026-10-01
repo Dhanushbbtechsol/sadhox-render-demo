@@ -76,13 +76,17 @@ async function seed() {
   }
 
   if (createdAny) {
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(".seed-password", seedPassword, { mode: 0o600 });
     console.log("");
     console.log("=== ONE-TIME SEED PASSWORD (store securely; not logged elsewhere) ===");
     console.log(seedPassword);
     console.log("======================================================================");
+    console.log("Also wrote apps/server/.seed-password (gitignored).");
     console.log("Override with SEED_PASSWORD=... on future seeds if needed.");
   } else {
     console.log("No new users created — password not printed.");
+    console.log("Reset with: SEED_PASSWORD=ChangeMe123! node scripts/reset-seed-password.mjs");
   }
 
   const defaults = [

@@ -15,6 +15,14 @@ const MOCK_USERS: Record<string, AuthUser & { password: string }> = import.meta
         role: "EndUser",
         password: "password",
       },
+      // Alias used by seed / login presets — same EndUser persona as enduser@.
+      "user@sadhox.local": {
+        id: "user-enduser",
+        email: "user@sadhox.local",
+        name: "End User",
+        role: "EndUser",
+        password: "password",
+      },
       "agent@sadhox.local": {
         id: "user-agent",
         email: "agent@sadhox.local",
@@ -97,7 +105,16 @@ export const useAuthStore = create<AuthState>()(
           });
           return data.user;
         } catch (error) {
-          if (!import.meta.env.DEV) {
+          // Only mock-fallback when the API is unreachable — never on 401 invalid credentials.
+          const message = error instanceof Error ? error.message : "";
+          const isCredentialReject =
+            /invalid credentials|unauthorized|401/i.test(message);
+          const isOffline =
+            error instanceof TypeError ||
+            (error instanceof DOMException && error.name === "TimeoutError") ||
+            /failed to fetch|network|timeout|aborted/i.test(message);
+
+          if (!import.meta.env.DEV || isCredentialReject || !isOffline) {
             throw error instanceof Error ? error : new Error("Login failed");
           }
         }
