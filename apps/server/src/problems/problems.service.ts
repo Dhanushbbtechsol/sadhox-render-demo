@@ -184,6 +184,42 @@ export class ProblemsService {
     return this.get(id);
   }
 
+  /**
+   * Additive link: insert one incident without replacing the full link set.
+   * Idempotent when already linked to this problem; rejects if linked elsewhere.
+   */
+  async linkIncident(
+    problemId: string,
+    incidentId: string,
+  ): Promise<ProblemView> {
+    await this.get(problemId);
+    await this.assertIncidentsExist([incidentId]);
+
+    const [existingLink] = await this.db
+      .select({
+        problemId: problemIncidents.problemId,
+      })
+      .from(problemIncidents)
+      .where(eq(problemIncidents.incidentId, incidentId))
+      .limit(1);
+
+    if (existingLink) {
+      if (existingLink.problemId === problemId) {
+        return this.get(problemId);
+      }
+      throw new BadRequestException(
+        "Incident is already linked to another problem",
+      );
+    }
+
+    await this.db.insert(problemIncidents).values({
+      problemId,
+      incidentId,
+    });
+
+    return this.get(problemId);
+  }
+
   private buildFilters(query: ListProblemsQueryDto): SQL | undefined {
     if (!query.status) return undefined;
     return eq(problems.status, query.status);

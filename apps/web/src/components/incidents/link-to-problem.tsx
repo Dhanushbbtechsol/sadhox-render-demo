@@ -46,12 +46,11 @@ export function LinkToProblem({ incidentId }: { incidentId: string }) {
     }
     setPending(true);
     try {
-      await apiFetch<Problem>(`/problems/${selected.id}`, {
-        method: "PATCH",
-        body: {
-          linkedIncidentIds: [...selected.linkedIncidentIds, incidentId],
-        },
-      });
+      // Additive endpoint — does not replace the full link set from a stale cache.
+      await apiFetch<Problem>(
+        `/problems/${selected.id}/incidents/${incidentId}`,
+        { method: "POST" },
+      );
       void queryClient.invalidateQueries({ queryKey: ["problems"] });
       toast.success("Incident linked to problem");
       setOpen(false);

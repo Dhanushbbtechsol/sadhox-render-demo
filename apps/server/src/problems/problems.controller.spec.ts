@@ -51,6 +51,7 @@ function buildApp(problems: {
   get: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
   update: ReturnType<typeof vi.fn>;
+  linkIncident: ReturnType<typeof vi.fn>;
 }): Express {
   const app = express();
   app.use(express.json());
@@ -71,6 +72,12 @@ function buildApp(problems: {
     return res.json(await problems.get(req.params.id));
   });
 
+  app.post("/problems/:id/incidents/:incidentId", async (req, res) => {
+    return res.json(
+      await problems.linkIncident(req.params.id, req.params.incidentId),
+    );
+  });
+
   app.patch("/problems/:id", async (req, res) => {
     const parsed = await parseDto(UpdateProblemDto, req.body);
     if (!parsed.ok) return res.status(400).json({ message: parsed.messages });
@@ -86,6 +93,7 @@ describe("Problems API (supertest)", () => {
     get: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    linkIncident: vi.fn(),
   };
   const app = buildApp(problems);
 
@@ -117,6 +125,23 @@ describe("Problems API (supertest)", () => {
 
     expect(res.body.status).toBe("Open");
     expect(problems.create).toHaveBeenCalled();
+  });
+
+  it("POST /problems/:id/incidents/:incidentId links additively", async () => {
+    const incidentId = "33333333-3333-4333-8333-333333333333";
+    problems.linkIncident.mockResolvedValue({
+      ...sampleProblem,
+      linkedIncidentIds: [...sampleProblem.linkedIncidentIds, incidentId],
+    });
+
+    await request(app)
+      .post(`/problems/${sampleProblem.id}/incidents/${incidentId}`)
+      .expect(200);
+
+    expect(problems.linkIncident).toHaveBeenCalledWith(
+      sampleProblem.id,
+      incidentId,
+    );
   });
 
   it("PATCH /problems/:id updates status and links", async () => {
