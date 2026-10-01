@@ -54,7 +54,7 @@ export function ChangeScheduleCalendar() {
   }, [data, selected]);
 
   return (
-    <Card className="h-fit w-full max-w-sm">
+    <Card className="h-fit w-full shrink-0">
       <CardHeader>
         <CardTitle className="text-base">Maintenance calendar</CardTitle>
         <p className="text-muted-foreground text-xs">
@@ -69,6 +69,10 @@ export function ChangeScheduleCalendar() {
             mode="single"
             selected={selected}
             onSelect={setSelected}
+            className="w-full [--cell-size:--spacing(8)]"
+            classNames={{
+              root: "w-full",
+            }}
             modifiers={{
               scheduled: (date) => scheduledByDay.has(dayKey(date)),
             }}
@@ -96,13 +100,15 @@ export function ChangeScheduleCalendar() {
                       "border-border/80 hover:bg-accent/50 block rounded-lg border px-3 py-2 transition-colors",
                     )}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium">{change.title}</span>
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="line-clamp-2 text-sm font-medium leading-snug">
+                        {change.title}
+                      </span>
                       <Badge variant="outline" className="shrink-0 text-[10px]">
                         {change.type}
                       </Badge>
                     </div>
-                    <p className="text-muted-foreground mt-1 text-[11px]">
+                    <p className="text-muted-foreground mt-1 text-[11px] tabular-nums">
                       {new Date(change.scheduledStart).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
