@@ -13,6 +13,7 @@ import {
 } from "../emails";
 import { EMAIL_QUEUE } from "../queues/queue.constants";
 import { escapeHtml } from "./html-escape";
+import { sanitizeEmailSubjectPart } from "../common/sanitize-plain-text";
 import {
   EMAIL_JOB_APPROVAL_OUTCOME,
   EMAIL_JOB_ASSET_NOTIFICATION,
@@ -179,7 +180,7 @@ export class EmailProcessor extends WorkerHost {
       const changeId = escapeHtml(d.changeId);
       const submitter = escapeHtml(d.submitterName);
       const changeType = escapeHtml(d.changeType);
-      const subject = `[Sadhox] Change review needed: ${d.changeTitle}`;
+      const subject = `[Sadhox] Change review needed: ${sanitizeEmailSubjectPart(d.changeTitle)}`;
       const text = `${d.submitterName} submitted ${d.changeType} change ${d.changeId} for review.`;
       const html = `<p><strong>${submitter}</strong> submitted a <strong>${changeType}</strong> change for review:</p><p><strong>${title}</strong> (${changeId})</p>`;
       return { subject, html, text };
@@ -191,7 +192,7 @@ export class EmailProcessor extends WorkerHost {
       const requestId = escapeHtml(d.requestId);
       const submitter = escapeHtml(d.submitterName);
       const urgency = escapeHtml(d.urgency);
-      const subject = `[Sadhox] Service request approval needed: ${d.requestTitle}`;
+      const subject = `[Sadhox] Service request approval needed: ${sanitizeEmailSubjectPart(d.requestTitle)}`;
       const text = `${d.submitterName} submitted service request ${d.requestId} (${d.urgency}) for approval.`;
       const html = `<p><strong>${submitter}</strong> submitted a service request for approval:</p><p><strong>${title}</strong> (${requestId}) — urgency <strong>${urgency}</strong></p>`;
       return { subject, html, text };
@@ -204,7 +205,7 @@ export class EmailProcessor extends WorkerHost {
       const entityType = escapeHtml(d.entityType);
       const outcome = escapeHtml(d.outcome);
       const reason = d.reason ? escapeHtml(d.reason) : null;
-      const subject = `[Sadhox] ${d.entityType} ${d.outcome}: ${d.entityTitle}`;
+      const subject = `[Sadhox] ${sanitizeEmailSubjectPart(d.entityType)} ${sanitizeEmailSubjectPart(d.outcome)}: ${sanitizeEmailSubjectPart(d.entityTitle)}`;
       const text =
         `${d.entityType} ${d.entityId} was ${d.outcome}.` +
         (d.reason ? ` Reason: ${d.reason}` : "");
@@ -221,7 +222,7 @@ export class EmailProcessor extends WorkerHost {
       const assetId = escapeHtml(d.assetId);
       const event = escapeHtml(d.event);
       const ticketId = d.ticketId ? escapeHtml(d.ticketId) : null;
-      const subject = `[Sadhox] Asset ${d.event}: ${d.assetTag}`;
+      const subject = `[Sadhox] Asset ${sanitizeEmailSubjectPart(d.event)}: ${sanitizeEmailSubjectPart(d.assetTag)}`;
       const text =
         `Asset ${d.assetTag} (${d.assetId}) event=${d.event}` +
         (d.ticketId ? ` ticket=${d.ticketId}` : "");
@@ -240,7 +241,7 @@ export class EmailProcessor extends WorkerHost {
       const d = payload.data;
       const ticketUrl =
         d.ticketUrl ?? `${webOrigin}/incidents/${d.ticketId}`;
-      subject = `[Sadhox] Ticket assigned: ${d.ticketTitle}`;
+      subject = `[Sadhox] Ticket assigned: ${sanitizeEmailSubjectPart(d.ticketTitle)}`;
       text = `Ticket ${d.ticketId} (${d.priority ?? "P3"}) assigned to ${d.assigneeName}: ${d.ticketTitle}. ${ticketUrl}`;
       element = createElement(TicketAssignedEmail, {
         ticketId: d.ticketId,
@@ -253,7 +254,7 @@ export class EmailProcessor extends WorkerHost {
       const d = payload.data;
       const ticketUrl =
         d.ticketUrl ?? `${webOrigin}/incidents/${d.ticketId}`;
-      subject = `[Sadhox] SLA ${d.breachType} breach: ${d.ticketTitle}`;
+      subject = `[Sadhox] SLA ${sanitizeEmailSubjectPart(d.breachType)} breach: ${sanitizeEmailSubjectPart(d.ticketTitle)}`;
       text = `SLA ${d.breachType} breach on ${d.ticketId} (${d.priority}): ${d.ticketTitle}. ${ticketUrl}`;
       element = createElement(SlaBreachAlertEmail, {
         ticketId: d.ticketId,
@@ -267,7 +268,7 @@ export class EmailProcessor extends WorkerHost {
       const d = payload.data;
       const ticketUrl =
         d.ticketUrl ?? `${webOrigin}/incidents/${d.ticketId}`;
-      subject = `[Sadhox] Status ${d.previousStatus} → ${d.newStatus}: ${d.ticketTitle}`;
+      subject = `[Sadhox] Status ${sanitizeEmailSubjectPart(d.previousStatus)} → ${sanitizeEmailSubjectPart(d.newStatus)}: ${sanitizeEmailSubjectPart(d.ticketTitle)}`;
       text = `Ticket ${d.ticketId} status changed from ${d.previousStatus} to ${d.newStatus} by ${d.actorName}. ${d.remarks ?? ""} ${ticketUrl}`;
       element = createElement(StatusChangedEmail, {
         ticketId: d.ticketId,
@@ -282,7 +283,7 @@ export class EmailProcessor extends WorkerHost {
       const d = payload.data;
       const requestUrl = d.requestUrl ?? `${webOrigin}/requests`;
       const comments = d.comments ?? d.reason;
-      subject = `[Sadhox] Request ${d.decision}: ${d.requestTitle}`;
+      subject = `[Sadhox] Request ${sanitizeEmailSubjectPart(d.decision)}: ${sanitizeEmailSubjectPart(d.requestTitle)}`;
       text = `Request ${d.requestId} ${d.decision}${d.actorName ? ` by ${d.actorName}` : ""}. ${comments ?? ""} ${requestUrl}`;
       element = createElement(RequestDecisionEmail, {
         requestId: d.requestId,

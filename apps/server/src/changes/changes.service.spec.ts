@@ -110,6 +110,16 @@ describe("ChangesService.update Admin gates", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it("rejects Agent Rolled Back from Submitted (Admin rejection gate)", async () => {
+    const db = createDbMock(submitted);
+    const service = new ChangesService(db as never, {
+      sendApprovalOutcome: vi.fn().mockResolvedValue(undefined),
+    } as never);
+    await expect(
+      service.update(agent, submitted.id as string, { status: "Rolled Back" }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it("allows Admin to schedule after Approved", async () => {
     const db = createDbMock(approved);
     // First select for existing, then get() after update

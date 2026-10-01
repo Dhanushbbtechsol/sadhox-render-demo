@@ -22,6 +22,7 @@ import {
   users,
 } from "../database/schema";
 import { MailService } from "../mail/mail.service";
+import { sanitizePlainText } from "../common/sanitize-plain-text";
 import type {
   CreateServiceRequestDto,
   FulfillServiceRequestDto,
@@ -224,7 +225,8 @@ export class ServiceRequestsService {
     } catch {
       throw new ForbiddenException("Admin role required");
     }
-    if (!dto.reason?.trim()) {
+    const reason = sanitizePlainText(dto.reason ?? "");
+    if (!reason) {
       throw new BadRequestException("Rejection reason is required");
     }
     const existing = await this.requirePending(id);
@@ -235,17 +237,13 @@ export class ServiceRequestsService {
         status: "Rejected",
         approverId: user.userId,
         approvedAt: new Date(),
-        rejectionReason: dto.reason.trim(),
+        rejectionReason: reason,
         updatedAt: new Date(),
       })
       .where(eq(serviceRequests.id, existing.id))
       .returning();
 
-    await this.notifyRequesterDecision(
-      updated.id,
-      "Rejected",
-      dto.reason.trim(),
-    );
+    await this.notifyRequesterDecision(updated.id, "Rejected", reason);
     return this.get(user, updated.id);
   }
 
@@ -282,7 +280,8 @@ export class ServiceRequestsService {
     } catch {
       throw new ForbiddenException("Agent or Admin role required");
     }
-    if (!dto.notes?.trim()) {
+    const notes = sanitizePlainText(dto.notes ?? "");
+    if (!notes) {
       throw new BadRequestException("Completion notes are required");
     }
 
@@ -298,18 +297,14 @@ export class ServiceRequestsService {
       .set({
         status: "Fulfilled",
         assigneeId: existing.assigneeId ?? user.userId,
-        fulfillmentNotes: dto.notes.trim(),
+        fulfillmentNotes: notes,
         fulfilledAt: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(serviceRequests.id, existing.id))
       .returning();
 
-    await this.notifyRequesterDecision(
-      updated.id,
-      "Fulfilled",
-      dto.notes.trim(),
-    );
+    await this.notifyRequesterDecision(updated.id, "Fulfilled", notes);
     return this.get(user, updated.id);
   }
 

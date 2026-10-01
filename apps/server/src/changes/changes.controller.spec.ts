@@ -86,6 +86,20 @@ describe("Changes API (supertest) — approval / schedule gating", () => {
     expect(res.status).toBe(403);
   });
 
+  it("Agent cannot PATCH status to Rolled Back (reject gate)", async () => {
+    svc.update.mockRejectedValue(
+      Object.assign(
+        new Error("Admin role required to set change status to Rolled Back"),
+        { name: "ForbiddenException" },
+      ),
+    );
+    const res = await request(app)
+      .patch(`/changes/${id}`)
+      .set("x-role", "Agent")
+      .send({ status: "Rolled Back" });
+    expect(res.status).toBe(403);
+  });
+
   it("Admin can PATCH status to Scheduled after approval path", async () => {
     svc.update.mockResolvedValue({ status: "Scheduled" });
     const res = await request(app)

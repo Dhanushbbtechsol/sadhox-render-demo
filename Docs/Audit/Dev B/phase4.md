@@ -1,23 +1,22 @@
 # Security Audit: Dev B (Phase 4)
 
-Combined: [phase4.md](../phase4.md). Owner: approvals, changes, mail, reject dialogs.
+Reaudit after remediations. Combined: [phase4.md](../phase4.md). **CLEAN.**
 
-## Phase 1 (do first)
+Owner: approvals, changes, mail, reject dialogs.
 
-### [A04] Medium — Reject reason unbounded
+## Medium — Resolved
 
-`RejectServiceRequestDto.reason` — `@MinLength(1)` only; fulfill notes already capped at 4000.
+### [A04] Reject reason unbounded — **FIXED**
 
-Fix: `@MaxLength(4000)` (+ optional `sanitizePlainText`).
+`RejectServiceRequestDto.reason` now `@MaxLength(4000)` (same as fulfill notes). Write path uses `sanitizePlainText`.
 
-### [A01 / A04] Medium — Agent can reject changes via `Rolled Back`
+### [A01 / A04] Agent can reject changes via `Rolled Back` — **FIXED**
 
-`CHANGE_ADMIN_GATED_STATUSES` = `Approved`/`Scheduled` only. Agent `PATCH` → `Rolled Back` from `Submitted` notifies creator as rejected.
+`CHANGE_ADMIN_GATED_STATUSES` includes `Rolled Back`. Agent `PATCH` → `Rolled Back` → 403; Admin only (matches approval inbox). Specs: `approval-policy.spec.ts`, `changes.service.spec.ts`, `changes.controller.spec.ts`.
 
-Fix: Admin-gate rejection path (status set or dedicated `/reject`).
+## Low — Resolved
 
-## Phase 2
+### [A03] Sanitize reject / fulfill notes + email subjects — **FIXED**
 
-### [A03] Low — Sanitize reject / fulfill notes
-
-Reuse `sanitizePlainText` at write; strip CR/LF from email subjects that interpolate titles.
+- Reject reason / fulfill notes sanitized via `sanitizePlainText` at write.
+- Email subjects use `sanitizeEmailSubjectPart` (strip CR/LF) in `email.processor.ts`.

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { sanitizePlainText } from "./sanitize-plain-text";
+import {
+  sanitizeEmailSubjectPart,
+  sanitizePlainText,
+} from "./sanitize-plain-text";
 
 describe("sanitizePlainText (comment XSS hardening)", () => {
   it("strips script tags and leaves readable text", () => {
@@ -28,5 +31,17 @@ describe("sanitizePlainText (comment XSS hardening)", () => {
 
   it("drops null bytes and other controls", () => {
     expect(sanitizePlainText("ok\u0000bad\u0007")).toBe("okbad");
+  });
+});
+
+describe("sanitizeEmailSubjectPart", () => {
+  it("strips CR/LF header-injection attempts", () => {
+    expect(
+      sanitizeEmailSubjectPart("Laptop\r\nBcc: evil@example.com"),
+    ).toBe("Laptop Bcc: evil@example.com");
+  });
+
+  it("collapses whitespace and enforces max length", () => {
+    expect(sanitizeEmailSubjectPart("  hi\nthere  ", 5)).toBe("hi th");
   });
 });

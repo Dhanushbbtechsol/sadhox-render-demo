@@ -31,9 +31,10 @@ export class CreateServiceRequestDto {
 }
 
 export class RejectServiceRequestDto {
-  @ApiProperty({ description: "Rejection reason (required)" })
+  @ApiProperty({ description: "Rejection reason (required)", maxLength: 4000 })
   @IsString()
   @MinLength(1)
+  @MaxLength(4000)
   reason!: string;
 }
 

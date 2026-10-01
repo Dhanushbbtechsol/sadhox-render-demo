@@ -33,9 +33,10 @@ describe("Phase 2 approval policy", () => {
     expect(canTransitionChange("Approved", "Scheduled")).toBe(true);
   });
 
-  it("gates Approved and Scheduled as Admin-only statuses", () => {
+  it("gates Approved, Scheduled, and Rolled Back as Admin-only statuses", () => {
     expect(requiresAdminForChangeStatus("Approved")).toBe(true);
     expect(requiresAdminForChangeStatus("Scheduled")).toBe(true);
+    expect(requiresAdminForChangeStatus("Rolled Back")).toBe(true);
     expect(requiresAdminForChangeStatus("Implemented")).toBe(false);
     expect(requiresAdminForChangeStatus("Closed")).toBe(false);
     expect(requiresAdminForChangeStatus("Submitted")).toBe(false);

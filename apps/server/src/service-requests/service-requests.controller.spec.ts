@@ -175,6 +175,13 @@ describe("Service requests API (supertest) — submit + approval gating", () => 
       .send({});
     expect(noReason.status).toBe(400);
 
+    const tooLong = await request(app)
+      .patch("/service-requests/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/reject")
+      .set("x-role", "Admin")
+      .send({ reason: "x".repeat(4001) });
+    expect(tooLong.status).toBe(400);
+    expect(svc.reject).not.toHaveBeenCalled();
+
     svc.reject.mockResolvedValue({ status: "Rejected" });
     const ok = await request(app)
       .patch("/service-requests/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/reject")

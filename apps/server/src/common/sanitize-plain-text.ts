@@ -20,3 +20,14 @@ export function sanitizePlainText(input: string, maxLength = 4000): string {
   }
   return value;
 }
+
+/** Strip CR/LF and other controls from values interpolated into email subjects. */
+export function sanitizeEmailSubjectPart(input: string, maxLength = 200): string {
+  let value = input.normalize("NFKC");
+  value = value.replace(/[\r\n\u0000-\u001F\u007F-\u009F]/g, " ");
+  value = value.replace(/\s+/g, " ").trim();
+  if (value.length > maxLength) {
+    value = value.slice(0, maxLength).trimEnd();
+  }
+  return value;
+}

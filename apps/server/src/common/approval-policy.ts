@@ -61,8 +61,12 @@ export const CHANGE_ALLOWED_TRANSITIONS: Record<string, string[]> = {
   RolledBack: [],
 };
 
-/** Statuses that may only be set by Admin (approval / CAB schedule gate). */
-export const CHANGE_ADMIN_GATED_STATUSES = new Set(["Approved", "Scheduled"]);
+/** Statuses that may only be set by Admin (approval / CAB schedule / reject). */
+export const CHANGE_ADMIN_GATED_STATUSES = new Set([
+  "Approved",
+  "Scheduled",
+  "Rolled Back",
+]);
 
 export function requiresAdminForChangeStatus(nextApiStatus: string): boolean {
   return CHANGE_ADMIN_GATED_STATUSES.has(nextApiStatus);
