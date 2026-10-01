@@ -46,6 +46,20 @@ export class ProblemsController {
     return this.problems.get(id);
   }
 
+  @Post(":id/incidents/:incidentId")
+  @HttpCode(200)
+  @Roles("Admin", "Agent")
+  @ApiOperation({
+    summary:
+      "Add one incident link without replacing existing links (lost-update safe)",
+  })
+  linkIncident(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("incidentId", ParseUUIDPipe) incidentId: string,
+  ) {
+    return this.problems.linkIncident(id, incidentId);
+  }
+
   @Patch(":id")
   @Roles("Admin", "Agent")
   @ApiOperation({ summary: "Update problem fields and linked incidents" })

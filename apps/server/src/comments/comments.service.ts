@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -6,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
+import { sanitizePlainText } from "../common/sanitize-plain-text";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
@@ -79,13 +81,18 @@ export class CommentsService {
   ): Promise<CommentView> {
     await this.assertCanAccess(user, dto.ticketType, dto.ticketId);
 
+    const content = sanitizePlainText(dto.content);
+    if (!content) {
+      throw new BadRequestException("Comment content is required");
+    }
+
     const [created] = await this.db
       .insert(comments)
       .values({
         ticketId: dto.ticketId,
         ticketType: dto.ticketType,
         authorId: user.userId,
-        content: dto.content.trim(),
+        content,
       })
       .returning();
 

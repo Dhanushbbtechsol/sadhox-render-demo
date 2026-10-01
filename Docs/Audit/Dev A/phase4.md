@@ -2,22 +2,18 @@
 
 Combined: [phase4.md](../phase4.md). Owner: incidents, sanitize, link-to-problem, portal/list UX.
 
-## Phase 1 (do first)
+## Phase 1 — Resolved
 
-### [A03] Medium — Comment sanitize bypass
+### [A03] Medium — Comment sanitize bypass — **FIXED**
 
-`sanitizePlainText` only on `POST /incidents/:id/comments`. `CommentsService.create` stores raw `trim()`.
+`CommentsService.create` now calls `sanitizePlainText` (same helper as incident comments) and rejects empty post-sanitize content.
 
-Fix: call `sanitizePlainText` in `CommentsService.create` (single choke point).
+## Phase 2 — Resolved
 
-## Phase 2
+### [A04] Medium — Link-to-problem lost-update — **FIXED**
 
-### [A04] Medium — Link-to-problem lost-update
+Additive `POST /problems/:id/incidents/:incidentId` inserts one link without replacing the set. `link-to-problem.tsx` uses that endpoint (no client-cached full-array PATCH).
 
-`link-to-problem.tsx` PATCHes full `linkedIncidentIds` from a stale client list; server replaces all links.
+### [A03] Low — Other free-text writes — **FIXED**
 
-Fix: additive server endpoint; stop full-array replace from UI cache.
-
-### [A03] Low — Other free-text writes
-
-Reuse `sanitizePlainText` on resolution notes (and any other Dev-A free-text writes) for defense-in-depth.
+`IncidentsService.update` runs `sanitizePlainText` on resolution notes at write.

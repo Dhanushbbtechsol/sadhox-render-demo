@@ -2,7 +2,7 @@
 
 Scope: `Audit` after merging `Dev-A-`, `Dev-B`, `Dev-C` Phase 4; **Dev-D merge in progress** (blocked on `purchase_cost` add vs drop). Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT + refresh cookie, Socket.IO, BullMQ/Redis, Resend.
 
-**Open findings:** 1 High · 5 Medium · several Low. No Critical.
+**Open findings:** 1 High · 1 Medium · several Low (Dev A/B Medium/Low closed). No Critical.
 
 **Owners:** [Dev A](./Dev%20A/phase4.md) · [Dev B](./Dev%20B/phase4.md) · [Dev C](./Dev%20C/phase4.md) · [Dev D](./Dev%20D/phase4.md)
 
@@ -20,11 +20,9 @@ Fix: require `DATABASE_URL` / `REDIS_URL` / `REMOTE_DATABASE_URL`; fail if missi
 
 ## Medium
 
-### [A03] Comment sanitize bypass via polymorphic API — Dev A
+### [A03] Comment sanitize bypass via polymorphic API — Dev A — **FIXED**
 
-Phase 4 sanitizes `POST /incidents/:id/comments` (`incidents.service.ts` → `sanitizePlainText`). `CommentsService.create` still stores `dto.content.trim()` (`comments.service.ts:88`).
-
-Fix: sanitize once in `CommentsService.create`; keep incident path on the same helper.
+`CommentsService.create` calls `sanitizePlainText` and rejects empty post-sanitize content (same helper as incident comments).
 
 ### [A07] Prod refresh cookie `SameSite=None` without CSRF defense — Dev D
 
@@ -32,29 +30,23 @@ Fix: sanitize once in `CommentsService.create`; keep incident path on the same h
 
 Fix: custom header or double-submit CSRF on cookie-auth routes; optionally bind to `Origin`/`Referer` allowlist = `CORS_ORIGIN`.
 
-### [A04] Link-to-problem full replace / lost-update — Dev A
+### [A04] Link-to-problem full replace / lost-update — Dev A — **FIXED**
 
-UI PATCHes `linkedIncidentIds: [...staleList, id]` (`link-to-problem.tsx:49-54`); server replaces the full link set. Concurrent/stale clients can drop links.
+Additive `POST /problems/:id/incidents/:incidentId`; `link-to-problem.tsx` no longer PATCHes a client-cached full `linkedIncidentIds` array.
 
-Fix: additive server endpoint (`POST …/incidents/:incidentId`) with insert-on-conflict; do not replace from a client-cached array.
+### [A04] Reject reason unbounded length — Dev B — **FIXED**
 
-### [A04] Reject reason unbounded length — Dev B
+`RejectServiceRequestDto.reason` now `@MaxLength(4000)`; write path uses `sanitizePlainText`.
 
-`RejectServiceRequestDto.reason` has `@MinLength(1)` only (`service-request.dto.ts:33-37`); fulfill notes already `@MaxLength(4000)`.
+### [A01 / A04] Agent can `Rolled Back` without Admin — Dev B — **FIXED**
 
-Fix: `@MaxLength(4000)` (+ optional `sanitizePlainText`).
-
-### [A01 / A04] Agent can `Rolled Back` without Admin — Dev B
-
-`CHANGE_ADMIN_GATED_STATUSES` is only `Approved`/`Scheduled`. Agents on `PATCH /changes/:id` can set `Rolled Back` from `Submitted` (allowed transition), which emails the creator as rejected — bypassing Admin-only `/approve`.
-
-Fix: gate rejection (`Rolled Back` from Submitted/PendingApproval) to Admin, or add `PATCH …/reject` `@Roles("Admin")`.
+`CHANGE_ADMIN_GATED_STATUSES` includes `Rolled Back`. Agent `PATCH` → `Rolled Back` → 403; Admin only.
 
 ## Low / Hardening
 
 | Item | Owner | Fix |
 | --- | --- | --- |
-| Free-text sanitize gaps (reject / fulfill / resolution) | A/B | Reuse `sanitizePlainText` at write boundary |
+| Free-text sanitize gaps (reject / fulfill / resolution) | A/B | **FIXED** — resolution notes + reject/fulfill + email subjects sanitized |
 | `THROTTLE_GLOBAL_LIMIT` no prod ceiling | D | Cap or refuse oversized values when `NODE_ENV=production` |
 | `/auth/logout` unthrottled | D | Same band as refresh (e.g. 10/min) |
 | WS auth denials → Sentry volume | D | Skip expected `WsException` auth failures |

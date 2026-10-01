@@ -317,9 +317,14 @@ export class IncidentsService {
     }
 
     let resolutionNotes =
-      dto.resolutionNotes ?? existing.incident.resolutionNotes;
+      dto.resolutionNotes !== undefined
+        ? sanitizePlainText(dto.resolutionNotes)
+        : existing.incident.resolutionNotes;
     if (requiresResolutionNotes(fromStatus, toStatus)) {
-      const notes = dto.resolutionNotes?.trim();
+      const notes =
+        dto.resolutionNotes !== undefined
+          ? sanitizePlainText(dto.resolutionNotes)
+          : "";
       if (!notes) {
         throw new BadRequestException(
           "Resolution notes are required when resolving an incident",
