@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsIn,
+  IsNumberString,
   IsOptional,
   IsString,
   IsUUID,
@@ -34,4 +35,10 @@ export class CreateAssetDto {
   @IsOptional()
   @IsUUID()
   ownerId?: string;
+
+  /** Admin-only financial field (string decimal for numeric column). */
+  @ApiPropertyOptional({ example: "1299.00" })
+  @IsOptional()
+  @IsNumberString()
+  purchaseCost?: string;
 }

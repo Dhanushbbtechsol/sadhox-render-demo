@@ -1,6 +1,6 @@
 /** Deep-redact sensitive keys before any audit_log persistence. */
 const SENSITIVE_KEY =
-  /^(password|token|refreshToken|authorization|cookie|.*secret.*)$/i;
+  /^(password|token|refreshToken|authorization|cookie|purchaseCost|purchase_cost|.*secret.*)$/i;
 
 /** Max JSON size for audit_log.diff (bytes, UTF-8). */
 export const AUDIT_DIFF_MAX_BYTES = 8_192;

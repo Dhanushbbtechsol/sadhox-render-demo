@@ -36,8 +36,21 @@ export type AssetListItem = {
   ownerName: string | null;
   linkedTicketId: string | null;
   linkedTicketCount: number;
+  /** Present on Admin asset APIs only. */
+  purchaseCost: string | null;
   createdAt: Date;
   updatedAt: Date;
+};
+
+/** Agent-safe projection — never includes purchaseCost. */
+export type LinkedAssetPublic = {
+  id: string;
+  assetTag: string;
+  name: string;
+  type: AssetType;
+  status: AssetStatus;
+  ownerName: string | null;
+  linkedTicketId: string | null;
 };
 
 @Injectable()
@@ -53,6 +66,7 @@ export class AssetsService {
     search?: string;
     type?: AssetType;
     status?: AssetStatus;
+    linkedTicketId?: string;
     page?: number;
     pageSize?: number;
   }) {
@@ -63,6 +77,9 @@ export class AssetsService {
     const filters = [];
     if (query.type) filters.push(eq(assets.type, query.type));
     if (query.status) filters.push(eq(assets.status, query.status));
+    if (query.linkedTicketId) {
+      filters.push(eq(assets.linkedTicketId, query.linkedTicketId));
+    }
     if (query.search?.trim()) {
       const needle = `%${query.search.trim()}%`;
       filters.push(
@@ -83,6 +100,7 @@ export class AssetsService {
           ownerId: assets.ownerId,
           ownerName: users.name,
           linkedTicketId: assets.linkedTicketId,
+          purchaseCost: assets.purchaseCost,
           createdAt: assets.createdAt,
           updatedAt: assets.updatedAt,
         })
@@ -97,6 +115,7 @@ export class AssetsService {
 
     const data: AssetListItem[] = rows.map((row) => ({
       ...row,
+      purchaseCost: row.purchaseCost ?? null,
       linkedTicketCount: row.linkedTicketId ? 1 : 0,
     }));
 
@@ -106,6 +125,34 @@ export class AssetsService {
       pageSize,
       total: Number(totalRow[0]?.value ?? 0),
     };
+  }
+
+  /** Public (non-financial) assets linked to a ticket — for incident detail. */
+  async listLinkedPublic(ticketId: string): Promise<LinkedAssetPublic[]> {
+    const rows = await this.db
+      .select({
+        id: assets.id,
+        assetTag: assets.assetTag,
+        name: assets.name,
+        type: assets.type,
+        status: assets.status,
+        ownerName: users.name,
+        linkedTicketId: assets.linkedTicketId,
+      })
+      .from(assets)
+      .leftJoin(users, eq(assets.ownerId, users.id))
+      .where(eq(assets.linkedTicketId, ticketId))
+      .orderBy(desc(assets.updatedAt));
+
+    return rows.map((row) => ({
+      id: row.id,
+      assetTag: row.assetTag,
+      name: row.name,
+      type: row.type,
+      status: row.status,
+      ownerName: row.ownerName,
+      linkedTicketId: row.linkedTicketId,
+    }));
   }
 
   async getById(id: string) {
@@ -119,6 +166,7 @@ export class AssetsService {
         ownerId: assets.ownerId,
         ownerName: users.name,
         linkedTicketId: assets.linkedTicketId,
+        purchaseCost: assets.purchaseCost,
         createdAt: assets.createdAt,
         updatedAt: assets.updatedAt,
       })
@@ -128,7 +176,11 @@ export class AssetsService {
       .limit(1);
 
     if (!row) throw new NotFoundException("Asset not found");
-    return { ...row, linkedTicketCount: row.linkedTicketId ? 1 : 0 };
+    return {
+      ...row,
+      purchaseCost: row.purchaseCost ?? null,
+      linkedTicketCount: row.linkedTicketId ? 1 : 0,
+    };
   }
 
   async create(dto: CreateAssetDto) {
@@ -143,6 +195,7 @@ export class AssetsService {
         type: dto.type,
         status: dto.status ?? "Active",
         ownerId: dto.ownerId ?? null,
+        purchaseCost: dto.purchaseCost ?? null,
       })
       .returning();
 
@@ -171,6 +224,9 @@ export class AssetsService {
         ...(dto.type !== undefined ? { type: dto.type } : {}),
         ...(dto.status !== undefined ? { status: dto.status } : {}),
         ...(dto.ownerId !== undefined ? { ownerId: dto.ownerId } : {}),
+        ...(dto.purchaseCost !== undefined
+          ? { purchaseCost: dto.purchaseCost }
+          : {}),
         updatedAt: new Date(),
       })
       .where(eq(assets.id, id))

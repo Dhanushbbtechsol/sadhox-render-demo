@@ -57,6 +57,11 @@ const MATRIX: MatrixRow[] = [
     allowed: ["Admin", "Agent", "EndUser"],
   },
   {
+    method: "get",
+    path: `/incidents/${ID}/linked-assets`,
+    allowed: ["Admin", "Agent"],
+  },
+  {
     method: "post",
     path: `/incidents/${ID}/comments`,
     allowed: ["Admin", "Agent", "EndUser"],
@@ -197,6 +202,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "update",
             "listComments",
             "addComment",
+            "listLinkedAssets",
           ]),
         },
         {

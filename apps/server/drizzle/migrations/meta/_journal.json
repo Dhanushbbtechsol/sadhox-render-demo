@@ -43,6 +43,13 @@
       "when": 1790900000000,
       "tag": "0005_phase3_request_fulfillment",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791000000000,
+      "tag": "0006_phase4_assets_finance_indexes",
+      "breakpoints": true
     }
   ]
 }

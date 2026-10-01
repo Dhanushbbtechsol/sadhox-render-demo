@@ -1,5 +1,14 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
-import { IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from "class-validator";
+import {
+  IsIn,
+  IsNumberString,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+  ValidateIf,
+} from "class-validator";
 
 export class UpdateAssetDto {
   @ApiPropertyOptional({ example: "HW-1042" })
@@ -30,4 +39,10 @@ export class UpdateAssetDto {
   @IsOptional()
   @IsUUID()
   ownerId?: string | null;
+
+  @ApiPropertyOptional({ example: "1299.00", nullable: true })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsNumberString()
+  purchaseCost?: string | null;
 }

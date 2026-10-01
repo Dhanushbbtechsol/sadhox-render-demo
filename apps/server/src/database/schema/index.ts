@@ -8,6 +8,7 @@ import {
   boolean,
   integer,
   jsonb,
+  numeric,
   index,
   primaryKey,
   unique,
@@ -331,6 +332,8 @@ export const assets = pgTable(
       onDelete: "set null",
     }),
     status: assetStatusEnum("status").notNull().default("Active"),
+    /** Admin-only financial value; never expose on Agent-facing linked-asset reads. */
+    purchaseCost: numeric("purchase_cost", { precision: 12, scale: 2 }),
     /** Polymorphic ticket UUID (incident or service_request); no FK. */
     linkedTicketId: uuid("linked_ticket_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -340,7 +343,11 @@ export const assets = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("assets_owner_id_idx").on(t.ownerId)],
+  (t) => [
+    index("assets_owner_id_idx").on(t.ownerId),
+    index("assets_status_idx").on(t.status),
+    index("assets_linked_ticket_id_idx").on(t.linkedTicketId),
+  ],
 );
 
 export const comments = pgTable(

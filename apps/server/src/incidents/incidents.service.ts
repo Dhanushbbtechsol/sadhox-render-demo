@@ -8,6 +8,7 @@ import {
 import { and, asc, count, desc, eq, isNull, SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { AssignmentService } from "../assignment/assignment.service";
+import { AssetsService } from "../assets/assets.service";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
 import { DRIZZLE } from "../database/database.constants";
@@ -88,6 +89,7 @@ export class IncidentsService {
     private readonly events: EventsService,
     private readonly assignment: AssignmentService,
     private readonly mail: MailService,
+    private readonly assets: AssetsService,
   ) {}
 
   async list(user: AuthUser, query: ListIncidentsQueryDto) {
@@ -156,6 +158,17 @@ export class IncidentsService {
       assignee: row.assignee,
       slaTargetMinutes: sla?.resolveMinutes ?? null,
     };
+  }
+
+  /**
+   * Linked assets for an incident — never includes purchaseCost (financial).
+   * Callers must be Admin/Agent (controller Roles); still enforces incident ACL.
+   */
+  async listLinkedAssets(user: AuthUser, incidentId: string) {
+    const row = await this.loadIncidentRow(incidentId);
+    if (!row) throw new NotFoundException("Incident not found");
+    this.assertCanRead(user, row.incident.reporterId);
+    return this.assets.listLinkedPublic(incidentId);
   }
 
   async create(user: AuthUser, dto: CreateIncidentDto) {

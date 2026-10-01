@@ -14,6 +14,7 @@ import {
   incidents,
   serviceRequests,
   changes,
+  assets,
 } from "../src/database/schema";
 import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
 
@@ -130,6 +131,7 @@ async function seed() {
   }
 
   await seedShowcaseData(db);
+  await seedPhase4Assets(db);
 
   await client.end();
   console.log("Seed complete");
@@ -398,6 +400,79 @@ async function seedShowcaseData(db: SeedDb) {
   if ((changeCount?.count ?? 0) < 1) {
     throw new Error("Seed validation failed: expected historical changes");
   }
+}
+
+const ASSET_SEED_PREFIX = "P4-";
+
+async function seedPhase4Assets(db: SeedDb) {
+  const [existing] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(assets)
+    .where(like(assets.assetTag, `${ASSET_SEED_PREFIX}%`));
+
+  if (Number(existing?.n ?? 0) >= 100) {
+    console.log(`skip phase4 assets (already have ${existing?.n})`);
+    return;
+  }
+
+  const [admin] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "admin@sadhox.local"))
+    .limit(1);
+  const [agent] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "agent@sadhox.local"))
+    .limit(1);
+
+  const openIncidents = await db
+    .select({ id: incidents.id })
+    .from(incidents)
+    .where(like(incidents.title, `${SHOWCASE_PREFIX}%`))
+    .limit(20);
+
+  const statuses = ["Active", "InRepair", "Retired"] as const;
+  const types = ["Hardware", "Software"] as const;
+  const names = [
+    "Latitude laptop",
+    "Docking station",
+    "M365 license",
+    "Monitor 27in",
+    "Headset",
+    "VPN token",
+    "Phone handset",
+    "Asset tag printer",
+  ];
+
+  const rows = [];
+  for (let i = 1; i <= 120; i++) {
+    const type = types[i % types.length];
+    const status = statuses[i % statuses.length];
+    const tag = `${ASSET_SEED_PREFIX}${type === "Hardware" ? "HW" : "SW"}-${String(i).padStart(4, "0")}`;
+    const linked =
+      openIncidents.length > 0 && i % 7 === 0
+        ? openIncidents[i % openIncidents.length]!.id
+        : null;
+    const ownerId = i % 5 === 0 ? admin?.id ?? null : i % 3 === 0 ? agent?.id ?? null : null;
+    const cost = (150 + (i % 40) * 37.5).toFixed(2);
+    rows.push({
+      assetTag: tag,
+      name: `${SHOWCASE_PREFIX} ${names[i % names.length]} #${i}`,
+      type,
+      status,
+      ownerId,
+      purchaseCost: cost,
+      linkedTicketId: linked,
+    });
+  }
+
+  // Insert in chunks
+  for (let i = 0; i < rows.length; i += 40) {
+    await db.insert(assets).values(rows.slice(i, i + 40)).onConflictDoNothing();
+  }
+
+  console.log(`phase4 assets seeded: ${rows.length} (prefix ${ASSET_SEED_PREFIX})`);
 }
 
 seed().catch((err) => {

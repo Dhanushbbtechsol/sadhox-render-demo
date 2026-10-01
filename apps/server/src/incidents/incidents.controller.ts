@@ -62,6 +62,19 @@ export class IncidentsController {
     return this.incidents.get(user, id);
   }
 
+  @Get(":id/linked-assets")
+  @Roles("Admin", "Agent")
+  @ApiOperation({
+    summary:
+      "Assets linked to this incident (no purchaseCost — financial Admin-only)",
+  })
+  listLinkedAssets(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.incidents.listLinkedAssets(user, id);
+  }
+
   @Patch(":id")
   @Roles("Admin", "Agent")
   @ApiOperation({

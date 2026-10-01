@@ -22,6 +22,7 @@ import type {
   CountBucket,
   CreateAssetInput,
   KpiMetric,
+  LinkedAssetPublic,
   QueueHealthResponse,
   SlaComplianceResponse,
   StatusDistributionResponse,
@@ -94,6 +95,7 @@ export function useCreateAsset() {
           ownerName: null,
           linkedTicketId: null,
           linkedTicketCount: 0,
+          purchaseCost: input.purchaseCost ?? null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -148,6 +150,101 @@ export function useRetireAsset() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["assets"] });
+    },
+  });
+}
+
+export function useLinkAssetTicket() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      assetId,
+      ticketId,
+      ticketType,
+    }: {
+      assetId: string;
+      ticketId: string;
+      ticketType: "incident" | "service_request";
+    }) => {
+      if (useOfflineAdminData()) {
+        const index = mockAssets.findIndex((asset) => asset.id === assetId);
+        if (index < 0) throw new Error("Asset not found");
+        mockAssets[index] = {
+          ...mockAssets[index],
+          linkedTicketId: ticketId,
+          linkedTicketCount: 1,
+          updatedAt: new Date().toISOString(),
+        };
+        return mockAssets[index];
+      }
+      return apiFetch<Asset>(`/assets/${assetId}/link-ticket`, {
+        method: "POST",
+        body: { ticketId, ticketType },
+      });
+    },
+    onSuccess: async (_data, vars) => {
+      await queryClient.invalidateQueries({ queryKey: ["assets"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["incidents", vars.ticketId, "linked-assets"],
+      });
+    },
+  });
+}
+
+export function useUnlinkAssetTicket() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (assetId: string) => {
+      if (useOfflineAdminData()) {
+        const index = mockAssets.findIndex((asset) => asset.id === assetId);
+        if (index < 0) throw new Error("Asset not found");
+        const previousTicket = mockAssets[index].linkedTicketId;
+        mockAssets[index] = {
+          ...mockAssets[index],
+          linkedTicketId: null,
+          linkedTicketCount: 0,
+          updatedAt: new Date().toISOString(),
+        };
+        return { asset: mockAssets[index], previousTicket };
+      }
+      const asset = await apiFetch<Asset>(`/assets/${assetId}/unlink-ticket`, {
+        method: "DELETE",
+      });
+      return { asset, previousTicket: null as string | null };
+    },
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ["assets"] });
+      if (result.previousTicket) {
+        await queryClient.invalidateQueries({
+          queryKey: ["incidents", result.previousTicket, "linked-assets"],
+        });
+      } else {
+        await queryClient.invalidateQueries({ queryKey: ["incidents"] });
+      }
+    },
+  });
+}
+
+export function useIncidentLinkedAssets(incidentId: string | undefined) {
+  return useQuery({
+    queryKey: ["incidents", incidentId, "linked-assets"],
+    enabled: Boolean(incidentId),
+    queryFn: async (): Promise<LinkedAssetPublic[]> => {
+      if (!incidentId) return [];
+      if (useOfflineAdminData()) {
+        return mockAssets
+          .filter((a) => a.linkedTicketId === incidentId)
+          .map((a) => ({
+            id: a.id,
+            assetTag: a.assetTag,
+            name: a.name,
+            type: a.type,
+            status: a.status,
+            ownerName: a.ownerName,
+            linkedTicketId: a.linkedTicketId,
+          }));
+      }
+      return apiFetch<LinkedAssetPublic[]>(`/incidents/${incidentId}/linked-assets`);
     },
   });
 }
