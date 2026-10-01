@@ -5,6 +5,11 @@ import {
   IsOptional,
   IsString,
   MinLength,
+  Validate,
+  ValidateIf,
+  ValidatorConstraint,
+  type ValidatorConstraintInterface,
+  type ValidationArguments,
 } from "class-validator";
 
 const CHANGE_TYPES = ["Standard", "Normal", "Emergency"] as const;
@@ -17,6 +22,22 @@ const CHANGE_STATUSES = [
   "Closed",
   "Rolled Back",
 ] as const;
+
+@ValidatorConstraint({ name: "isAfterScheduledStart", async: false })
+class IsAfterScheduledStartConstraint implements ValidatorConstraintInterface {
+  validate(scheduledEnd: string, args: ValidationArguments) {
+    const obj = args.object as { scheduledStart?: string };
+    if (!obj.scheduledStart || !scheduledEnd) return true;
+    const start = new Date(obj.scheduledStart).getTime();
+    const end = new Date(scheduledEnd).getTime();
+    if (Number.isNaN(start) || Number.isNaN(end)) return true;
+    return end > start;
+  }
+
+  defaultMessage() {
+    return "scheduledEnd must be after scheduledStart";
+  }
+}
 
 export class CreateChangeDto {
   @ApiProperty()
@@ -39,11 +60,20 @@ export class CreateChangeDto {
 
   @ApiProperty({ description: "ISO scheduled end time" })
   @IsDateString()
+  @Validate(IsAfterScheduledStartConstraint)
   scheduledEnd!: string;
 
-  @ApiProperty({ description: "Rollback plan (required)" })
+  @ApiProperty({
+    description:
+      "Rollback plan (required for Normal and Emergency; optional for Standard)",
+  })
+  @ValidateIf(
+    (o: CreateChangeDto) => o.type === "Normal" || o.type === "Emergency",
+  )
   @IsString()
-  @MinLength(1)
+  @MinLength(1, {
+    message: "Rollback plan is required for Normal and Emergency changes",
+  })
   rollbackPlan!: string;
 }
 

@@ -15,7 +15,7 @@ import { emailStyles } from "./styles";
 export type RequestDecisionEmailProps = {
   requestId: string;
   requestTitle: string;
-  decision: "Approved" | "Rejected";
+  decision: "Approved" | "Rejected" | "Fulfilled";
   comments?: string;
   actorName?: string;
   requestUrl?: string;
@@ -29,7 +29,7 @@ export function RequestDecisionEmail({
   actorName,
   requestUrl = "http://localhost:5173",
 }: RequestDecisionEmailProps) {
-  const approved = decision === "Approved";
+  const positive = decision === "Approved" || decision === "Fulfilled";
   return (
     <Html>
       <Head />
@@ -45,9 +45,9 @@ export function RequestDecisionEmail({
           <Text
             style={{
               ...emailStyles.banner,
-              backgroundColor: approved ? "#dcfce7" : "#fee2e2",
-              border: approved ? "1px solid #bbf7d0" : "1px solid #fecaca",
-              color: approved ? "#166534" : "#991b1b",
+              backgroundColor: positive ? "#dcfce7" : "#fee2e2",
+              border: positive ? "1px solid #bbf7d0" : "1px solid #fecaca",
+              color: positive ? "#166534" : "#991b1b",
             }}
           >
             Decision: {decision}

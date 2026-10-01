@@ -226,4 +226,19 @@ describe("Service requests API (supertest) — submit + approval gating", () => 
     expect(ok.status).toBe(200);
     expect(svc.fulfill).toHaveBeenCalled();
   });
+
+  it("POST rejects EndUser status/approval field tampering (forbidNonWhitelisted)", async () => {
+    const res = await request(app)
+      .post("/service-requests")
+      .set("x-role", "EndUser")
+      .send({
+        catalogId: "11111111-1111-4111-8111-111111111111",
+        justification: "Need laptop",
+        urgency: "Medium",
+        status: "Approved",
+        approverId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      });
+    expect(res.status).toBe(400);
+    expect(svc.create).not.toHaveBeenCalled();
+  });
 });

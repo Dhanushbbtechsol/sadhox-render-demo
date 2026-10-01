@@ -43,22 +43,22 @@ const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
 const slaChartConfig = {
   met: {
     label: "SLA met",
-    color: "color-mix(in srgb, #1A16F3 55%, white)",
+    color: "var(--chart-sla-met)",
   },
   breached: {
     label: "Breached",
-    color: "color-mix(in srgb, #ef4444 45%, white)",
+    color: "var(--chart-sla-breached)",
   },
 } satisfies ChartConfig;
 
 const volumeChartConfig = {
   open: {
     label: "Open",
-    color: "color-mix(in srgb, #1A16F3 55%, white)",
+    color: "var(--chart-open)",
   },
   closed: {
     label: "Closed",
-    color: "color-mix(in srgb, #64748b 40%, white)",
+    color: "var(--chart-closed)",
   },
 } satisfies ChartConfig;
 

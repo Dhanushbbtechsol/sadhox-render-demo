@@ -2,11 +2,14 @@
 
 **Goal:** End-to-end workflow verification, RBAC penetration checks, and production deployment.
 
+**Checkpoint:** [checkpoint4.md](./checkpoint4.md)
+
 ---
 
 - **Day 16: Cross-Module QA Walkthrough**
   - Walkthrough 1: EndUser requests new laptop → Admin receives approval notification → Admin approves → Agent fulfills → Requester receives confirmation email.
   - Walkthrough 2: Agent creates Normal Change with scheduled downtime and rollback plan → Admin approves change → Status advances to Implemented.
+  - Script: `apps/server/scripts/checkpoint4-walkthrough.mjs`
 
 - **Day 17: Security Audit & State Validation**
   - Confirm EndUser cannot tamper with approval status payloads.
@@ -38,4 +41,4 @@
 
 ---
 
-**← Previous:** [Phase 3](file:///d:/Projects/Sadhox/Docs/Phase/Dev%20B/phase3.md)
+**← Previous:** [Phase 3](./phase3.md)

@@ -379,6 +379,25 @@ async function seedShowcaseData(db: SeedDb) {
   console.log(
     `showcase seeded: ${resolvedShowcase.length} resolved + ${openShowcase.length} open + ${lifecycleMatrix.length} lifecycle incidents, SRs, changes`,
   );
+
+  const [catalogCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(serviceCatalog);
+  const [changeCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(changes);
+  const [srCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(serviceRequests);
+  console.log(
+    `Phase 4 seed validation — catalog=${catalogCount?.count ?? 0} changes=${changeCount?.count ?? 0} service_requests=${srCount?.count ?? 0}`,
+  );
+  if ((catalogCount?.count ?? 0) < 1) {
+    throw new Error("Seed validation failed: expected at least 1 catalog item");
+  }
+  if ((changeCount?.count ?? 0) < 1) {
+    throw new Error("Seed validation failed: expected historical changes");
+  }
 }
 
 seed().catch((err) => {

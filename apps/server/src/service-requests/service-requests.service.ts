@@ -137,6 +137,8 @@ export class ServiceRequestsService {
       .where(eq(users.id, user.userId))
       .limit(1);
 
+    await this.notifyAdminsOfSubmission(created.id, catalog.name, user, dto.urgency);
+
     return this.mapRow({
       id: created.id,
       catalogId: created.catalogId,
@@ -303,6 +305,11 @@ export class ServiceRequestsService {
       .where(eq(serviceRequests.id, existing.id))
       .returning();
 
+    await this.notifyRequesterDecision(
+      updated.id,
+      "Fulfilled",
+      dto.notes.trim(),
+    );
     return this.get(user, updated.id);
   }
 
@@ -326,9 +333,40 @@ export class ServiceRequestsService {
     return existing;
   }
 
+  private async notifyAdminsOfSubmission(
+    requestId: string,
+    requestTitle: string,
+    submitter: AuthUser,
+    urgency: string,
+  ) {
+    try {
+      const admins = await this.db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.role, "Admin"));
+
+      await Promise.all(
+        admins.map((admin) =>
+          this.mail.sendRequestReviewRequest(admin.email, {
+            requestId,
+            requestTitle,
+            submitterName: submitter.name ?? submitter.email,
+            urgency,
+          }),
+        ),
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Failed to enqueue request review emails for ${requestId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
   private async notifyRequesterDecision(
     requestId: string,
-    decision: "Approved" | "Rejected",
+    decision: "Approved" | "Rejected" | "Fulfilled",
     reason?: string,
   ) {
     try {

@@ -99,40 +99,64 @@ export default function ChangeDetailPage() {
                 </div>
               </dl>
 
-              <Can roles={["Admin"]}>
+              <Can roles={["Admin", "Agent"]}>
                 <div className="flex flex-wrap gap-2 border-t pt-4">
-                  {data.status === "Submitted" || data.status === "Draft" ? (
+                  <Can roles={["Admin"]}>
+                    {data.status === "Submitted" || data.status === "Draft" ? (
+                      <Button
+                        disabled={approveChange.isPending}
+                        onClick={async () => {
+                          try {
+                            await approveChange.mutateAsync(data.id);
+                            toast.success("Change approved");
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : "Approve failed");
+                          }
+                        }}
+                      >
+                        Approve
+                      </Button>
+                    ) : null}
+                  </Can>
+                  <Can roles={["Admin"]}>
+                    {data.status === "Approved" ? (
+                      <Button
+                        variant="outline"
+                        disabled={updateStatus.isPending}
+                        onClick={async () => {
+                          try {
+                            await updateStatus.mutateAsync({
+                              id: data.id,
+                              status: "Scheduled",
+                            });
+                            toast.success("Change scheduled");
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : "Schedule failed");
+                          }
+                        }}
+                      >
+                        Mark scheduled
+                      </Button>
+                    ) : null}
+                  </Can>
+                  {data.status === "Scheduled" ? (
                     <Button
-                      disabled={approveChange.isPending}
-                      onClick={async () => {
-                        try {
-                          await approveChange.mutateAsync(data.id);
-                          toast.success("Change approved");
-                        } catch (err) {
-                          toast.error(err instanceof Error ? err.message : "Approve failed");
-                        }
-                      }}
-                    >
-                      Approve
-                    </Button>
-                  ) : null}
-                  {data.status === "Approved" ? (
-                    <Button
-                      variant="outline"
                       disabled={updateStatus.isPending}
                       onClick={async () => {
                         try {
                           await updateStatus.mutateAsync({
                             id: data.id,
-                            status: "Scheduled",
+                            status: "Implemented",
                           });
-                          toast.success("Change scheduled");
+                          toast.success("Change marked implemented");
                         } catch (err) {
-                          toast.error(err instanceof Error ? err.message : "Schedule failed");
+                          toast.error(
+                            err instanceof Error ? err.message : "Update failed",
+                          );
                         }
                       }}
                     >
-                      Mark scheduled
+                      Mark implemented
                     </Button>
                   ) : null}
                 </div>

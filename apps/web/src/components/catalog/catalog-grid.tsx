@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/empty-state";
 import { RequestFormDialog } from "@/components/catalog/request-form-dialog";
 import { useServiceCatalog } from "@/hooks/use-service-catalog";
 import type { ServiceCatalogItem } from "@/types/api";
@@ -38,14 +39,17 @@ export function CatalogGrid() {
   }
 
   if (isError) {
-    return <p className="text-destructive text-sm">Failed to load service catalog.</p>;
+    return (
+      <p className="text-destructive text-sm">Failed to load service catalog.</p>
+    );
   }
 
   if (!data?.length) {
     return (
-      <p className="text-muted-foreground text-sm">
-        No catalog items available yet. Check back soon.
-      </p>
+      <EmptyState
+        title="Catalog is empty"
+        description="No service catalog categories or items are available yet. Check back after seeding."
+      />
     );
   }
 
@@ -55,7 +59,9 @@ export function CatalogGrid() {
         {Object.entries(grouped).map(([department, items]) => (
           <section key={department} className="space-y-3 animate-in-up">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold tracking-tight">{department}</h2>
+              <h2 className="text-base font-semibold tracking-tight">
+                {department}
+              </h2>
               <Badge variant="secondary">{items.length}</Badge>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

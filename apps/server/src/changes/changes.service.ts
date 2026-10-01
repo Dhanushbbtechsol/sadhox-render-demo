@@ -97,6 +97,14 @@ export class ChangesService {
       throw new BadRequestException("scheduledEnd must be after scheduledStart");
     }
 
+    const needsRollback = dto.type === "Normal" || dto.type === "Emergency";
+    const rollbackPlan = (dto.rollbackPlan ?? "").trim();
+    if (needsRollback && !rollbackPlan) {
+      throw new BadRequestException(
+        "Rollback plan is required for Normal and Emergency changes",
+      );
+    }
+
     const [created] = await this.db
       .insert(changes)
       .values({
@@ -105,7 +113,7 @@ export class ChangesService {
         type: dto.type,
         scheduledStart: start,
         scheduledEnd: end,
-        rollbackPlan: dto.rollbackPlan,
+        rollbackPlan,
         status: "Submitted",
         createdBy: user.userId,
       })

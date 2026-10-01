@@ -9,6 +9,7 @@ import {
   EMAIL_JOB_ASSET_NOTIFICATION,
   EMAIL_JOB_CHANGE_REVIEW,
   EMAIL_JOB_REQUEST_DECISION,
+  EMAIL_JOB_REQUEST_REVIEW,
   EMAIL_JOB_SLA_BREACH,
   EMAIL_JOB_TICKET_ASSIGNED,
   maskEmail,
@@ -102,6 +103,40 @@ describe("MailService enqueue", () => {
         kind: EMAIL_JOB_REQUEST_DECISION,
         to: "user@example.com",
       }),
+      expect.any(Object),
+    );
+  });
+
+  it("sendRequestDecision enqueues Fulfilled confirmation", async () => {
+    const add = vi.fn().mockResolvedValue({ id: "3b" });
+    const service = new MailService({ add } as never);
+    await service.sendRequestDecision("user@example.com", {
+      requestId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      requestTitle: "Laptop",
+      decision: "Fulfilled",
+      reason: "Delivered",
+    });
+    expect(add).toHaveBeenCalledWith(
+      EMAIL_JOB_REQUEST_DECISION,
+      expect.objectContaining({
+        data: expect.objectContaining({ decision: "Fulfilled" }),
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it("sendRequestReviewRequest enqueues admin approval notification", async () => {
+    const add = vi.fn().mockResolvedValue({ id: "3c" });
+    const service = new MailService({ add } as never);
+    await service.sendRequestReviewRequest("admin@example.com", {
+      requestId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      requestTitle: "Request Laptop",
+      submitterName: "End User",
+      urgency: "High",
+    });
+    expect(add).toHaveBeenCalledWith(
+      EMAIL_JOB_REQUEST_REVIEW,
+      expect.objectContaining({ kind: EMAIL_JOB_REQUEST_REVIEW }),
       expect.any(Object),
     );
   });
