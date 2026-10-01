@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { SendIcon } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,21 +18,29 @@ export function IncidentComments({ incidentId }: { incidentId: string }) {
   const { data: comments, isLoading } = useIncidentComments(incidentId);
   const createComment = useCreateComment(incidentId);
   const [draft, setDraft] = useState("");
+  const listRef = useRef<HTMLDivElement>(null);
 
   useTicketSocket(incidentId, (payload) => {
     const comment = payload as TicketComment;
     if (!comment?.id) return;
     appendIncidentComment(queryClient, incidentId, comment);
+    // Keep newest comment visible without fighting concurrent posts.
+    requestAnimationFrame(() => {
+      listRef.current?.lastElementChild?.scrollIntoView({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    });
   });
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     const content = draft.trim();
-    if (!content) return;
+    if (!content || createComment.isPending) return;
 
     try {
-      const created = await createComment.mutateAsync(content);
-      appendIncidentComment(queryClient, incidentId, created);
+      // Mutation onSuccess appends by id; socket may also append — id-deduped.
+      await createComment.mutateAsync(content);
       setDraft("");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to post comment");
@@ -43,7 +51,7 @@ export function IncidentComments({ incidentId }: { incidentId: string }) {
     <div className="space-y-4">
       <h2 className="text-sm font-semibold tracking-tight">Discussion</h2>
 
-      <div className="space-y-3">
+      <div ref={listRef} className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
         {isLoading ? (
           <p className="text-muted-foreground text-sm">Loading comments…</p>
         ) : null}
@@ -63,6 +71,7 @@ export function IncidentComments({ incidentId }: { incidentId: string }) {
               </span>
               <span>{new Date(comment.createdAt).toLocaleString()}</span>
             </div>
+            {/* Plain text only — never dangerouslySetInnerHTML */}
             <p className="text-sm leading-relaxed whitespace-pre-wrap">{comment.content}</p>
           </div>
         ))}
@@ -74,8 +83,18 @@ export function IncidentComments({ incidentId }: { incidentId: string }) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Add a comment…"
+          maxLength={4000}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault();
+              void onSubmit(e as unknown as React.FormEvent);
+            }
+          }}
         />
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-muted-foreground text-[11px]">
+            ⌘/Ctrl+Enter to post
+          </p>
           <Button type="submit" disabled={createComment.isPending || !draft.trim()}>
             <SendIcon />
             {createComment.isPending ? "Posting…" : "Post comment"}

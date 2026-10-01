@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router";
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
 import { IncidentActions } from "@/components/incidents/incident-actions";
 import { IncidentComments } from "@/components/incidents/incident-comments";
+import { LinkToProblem } from "@/components/incidents/link-to-problem";
 import { SlaCountdown } from "@/components/incidents/sla-countdown";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +38,7 @@ export default function IncidentDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 animate-in-up">
+    <div className="mx-auto max-w-3xl space-y-6 px-1 sm:px-0 animate-in-up">
       <Button variant="ghost" size="sm" render={<Link to="/incidents" />} className="-ml-2">
         <ArrowLeftIcon />
         Back to queue
@@ -103,6 +104,10 @@ export default function IncidentDetailPage() {
               </div>
             ))}
           </dl>
+
+          <div className="flex flex-wrap gap-2">
+            <LinkToProblem incidentId={data.id} />
+          </div>
 
           <IncidentActions incident={data} />
           <IncidentComments incidentId={data.id} />

@@ -76,13 +76,17 @@ async function seed() {
   }
 
   if (createdAny) {
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(".seed-password", seedPassword, { mode: 0o600 });
     console.log("");
     console.log("=== ONE-TIME SEED PASSWORD (store securely; not logged elsewhere) ===");
     console.log(seedPassword);
     console.log("======================================================================");
+    console.log("Also wrote apps/server/.seed-password (gitignored).");
     console.log("Override with SEED_PASSWORD=... on future seeds if needed.");
   } else {
     console.log("No new users created — password not printed.");
+    console.log("Reset with: SEED_PASSWORD=ChangeMe123! node scripts/reset-seed-password.mjs");
   }
 
   const defaults = [
@@ -226,6 +230,27 @@ async function seedShowcaseData(db: SeedDb) {
     })),
   );
 
+  /** Phase 4 Day 19: one ticket per status × priority for staging walkthroughs. */
+  const lifecycleMatrix: {
+    title: string;
+    priority: (typeof priorities)[number];
+    status: "New" | "Assigned" | "InProgress" | "Resolved" | "Closed";
+    impact: "High" | "Medium" | "Low";
+    urgency: "High" | "Medium" | "Low";
+  }[] = [];
+  const allStatuses = ["New", "Assigned", "InProgress", "Resolved", "Closed"] as const;
+  for (const status of allStatuses) {
+    for (const priority of priorities) {
+      lifecycleMatrix.push({
+        title: `${SHOWCASE_PREFIX} Lifecycle ${status} ${priority}`,
+        priority,
+        status,
+        impact: priority === "P1" || priority === "P2" ? "High" : "Medium",
+        urgency: priority === "P1" ? "High" : priority === "P2" ? "Medium" : "Low",
+      });
+    }
+  }
+
   for (const row of resolvedShowcase) {
     const weekStart = now - row.weekOffset * week - 2 * day;
     const createdAt = new Date(weekStart);
@@ -265,6 +290,33 @@ async function seedShowcaseData(db: SeedDb) {
       assignedTo: row.status === "New" ? null : agent.id,
       reporterId: endUser.id,
       slaDueAt: new Date(now + 2 * day),
+    });
+  }
+
+  for (const row of lifecycleMatrix) {
+    const resolvedAt =
+      row.status === "Resolved" || row.status === "Closed"
+        ? new Date(now - day)
+        : null;
+    const closedAt = row.status === "Closed" ? new Date(now - day / 2) : null;
+    await db.insert(incidents).values({
+      title: row.title,
+      description:
+        "Phase 4 staging seed — P1–P4 across New/Assigned/InProgress/Resolved/Closed.",
+      category: "Other",
+      priority: row.priority,
+      impact: row.impact,
+      urgency: row.urgency,
+      status: row.status,
+      assignedTo: row.status === "New" ? null : agent.id,
+      reporterId: endUser.id,
+      slaDueAt: new Date(now + 2 * day),
+      resolutionNotes:
+        row.status === "Resolved" || row.status === "Closed"
+          ? "Seed resolution notes for lifecycle matrix."
+          : null,
+      resolvedAt,
+      closedAt,
     });
   }
 
@@ -325,7 +377,7 @@ async function seedShowcaseData(db: SeedDb) {
   }
 
   console.log(
-    `showcase seeded: ${resolvedShowcase.length} resolved + ${openShowcase.length} open incidents, SRs, changes`,
+    `showcase seeded: ${resolvedShowcase.length} resolved + ${openShowcase.length} open + ${lifecycleMatrix.length} lifecycle incidents, SRs, changes`,
   );
 }
 
