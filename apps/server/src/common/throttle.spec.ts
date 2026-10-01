@@ -1,5 +1,9 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { THROTTLE_AUTH_LOGIN } from "../common/throttle.constants";
+import {
+  resolveThrottleGlobal,
+  THROTTLE_AUTH_LOGIN,
+  THROTTLE_GLOBAL,
+} from "./throttle.constants";
 
 /**
  * Lightweight 429 simulation for login throttle limits.
@@ -22,6 +26,20 @@ function createFixedWindowLimiter(limit: number, ttlMs: number) {
     },
   };
 }
+
+describe("resolveThrottleGlobal", () => {
+  it("keeps defaults when overrides omitted", () => {
+    expect(resolveThrottleGlobal()).toEqual(THROTTLE_GLOBAL);
+  });
+
+  it("applies load-test overrides", () => {
+    expect(resolveThrottleGlobal({ limit: 20000, ttl: 60_000 })).toEqual({
+      name: "default",
+      ttl: 60_000,
+      limit: 20000,
+    });
+  });
+});
 
 describe("login throttle 429 behavior", () => {
   beforeEach(() => {

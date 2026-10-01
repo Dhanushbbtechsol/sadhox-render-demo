@@ -16,8 +16,9 @@ export type DrizzleDB = PostgresJsDatabase<typeof schema>;
       useFactory: (config: ConfigService): DrizzleDB => {
         // Connection string comes only from validated env / secrets — never hardcode.
         const url = config.getOrThrow<string>("DATABASE_URL");
+        const max = config.get<number>("DB_POOL_MAX") ?? 10;
         const client = postgres(url, {
-          max: 10,
+          max,
           idle_timeout: 20,
           connect_timeout: 10,
         });

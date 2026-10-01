@@ -31,6 +31,7 @@ import {
 type AuthedSocket = Socket & {
   data: {
     user?: SocketUser;
+    tokenExp?: number;
     tokenExpiryTimer?: ReturnType<typeof setTimeout>;
   };
 };
@@ -54,21 +55,35 @@ export class EventsGateway
 
   afterInit(server: Server) {
     this.events.setServer(server);
+    // Authenticate in middleware so the client "connect" event only fires after
+    // user is attached — avoids race where join runs before handleConnection.
+    server.use(async (socket, next) => {
+      try {
+        const { user, exp } = await this.authenticateSocket(
+          socket as AuthedSocket,
+        );
+        const client = socket as AuthedSocket;
+        client.data.user = user;
+        client.data.tokenExp = exp;
+        next();
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : "unauthorized";
+        this.logger.warn(`ws handshake rejected: ${reason}`);
+        next(new Error(reason));
+      }
+    });
     this.logger.log("EventsGateway initialized");
   }
 
   async handleConnection(client: AuthedSocket) {
-    try {
-      const { user, exp } = await this.authenticateSocket(client);
-      client.data.user = user;
-      this.scheduleTokenExpiryDisconnect(client, exp);
-      this.logger.log(`ws connected userId=${user.id} role=${user.role}`);
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : "unauthorized";
-      this.logger.warn(`ws rejected: ${reason}`);
+    const user = client.data.user;
+    if (!user) {
       client.emit("error", { message: "Unauthorized" });
       client.disconnect(true);
+      return;
     }
+    this.scheduleTokenExpiryDisconnect(client, client.data.tokenExp);
+    this.logger.log(`ws connected userId=${user.id} role=${user.role}`);
   }
 
   handleDisconnect(client: AuthedSocket) {

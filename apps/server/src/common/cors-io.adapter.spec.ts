@@ -9,6 +9,14 @@ describe("sharedCorsOptions", () => {
     });
   });
 
+  it("whitelists a concrete production frontend origin (not *)", () => {
+    const prod = "https://sadhox.vercel.app";
+    expect(sharedCorsOptions(prod)).toEqual({
+      origin: prod,
+      credentials: true,
+    });
+  });
+
   it("fails closed on missing or wildcard origin", () => {
     expect(() => sharedCorsOptions("")).toThrow(/required/i);
     expect(() => sharedCorsOptions("   ")).toThrow(/required/i);

@@ -17,9 +17,9 @@
 
 ### 3. Infrastructure & Deployment
 * **Frontend Hosting:** Vercel
-* **Backend + DB + Redis Hosting:** Railway (or Render)
+* **Backend + DB + Redis Hosting:** Render (staging and production)
 * **CI/CD:** GitHub Actions (lint, test, build, deploy on merge to main)
-* **Secrets Management:** Platform env vars (Railway/Render secrets)
+* **Secrets Management:** Platform env vars (Render / Vercel secrets)
 
 ### 4. Third-Party Services
 * **Transactional Email:** Resend (called from Nest service, not Edge Functions)

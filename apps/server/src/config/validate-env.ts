@@ -27,6 +27,11 @@ const envSchema = z
     ),
     /** Days a ticket stays Resolved before system auto-close. */
     AUTO_CLOSE_DAYS: z.coerce.number().int().positive().default(3),
+    /** postgres.js pool size (Day 17 load tuning). */
+    DB_POOL_MAX: z.coerce.number().int().positive().default(10),
+    /** Raise for load tests only — default remains 100/min. */
+    THROTTLE_GLOBAL_LIMIT: z.coerce.number().int().positive().default(100),
+    THROTTLE_GLOBAL_TTL_MS: z.coerce.number().int().positive().default(60_000),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV === "production" && !data.RESEND_API_KEY) {

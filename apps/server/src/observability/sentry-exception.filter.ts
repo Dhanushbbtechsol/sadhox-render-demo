@@ -7,19 +7,36 @@ import {
   Injectable,
   Logger,
 } from "@nestjs/common";
+import { BaseWsExceptionFilter } from "@nestjs/websockets";
 import type { Request, Response } from "express";
 import * as Sentry from "@sentry/node";
 
 /**
  * Reports unhandled exceptions to Sentry when initialized.
  * Skips expected 4xx (401/403/404/validation); reports 5xx only.
+ *
+ * HTTP-only response shaping. WS must not go through Express `res.status()`
+ * (that mangled gateway errors into opaque "Internal server error").
  */
 @Catch()
 @Injectable()
 export class SentryExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(SentryExceptionFilter.name);
+  private readonly wsFilter = new BaseWsExceptionFilter();
 
   catch(exception: unknown, host: ArgumentsHost) {
+    if (host.getType() === "ws") {
+      if (process.env.SENTRY_DSN) {
+        Sentry.captureException(exception);
+      }
+      this.wsFilter.catch(exception, host);
+      return;
+    }
+
+    if (host.getType() !== "http") {
+      return;
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();

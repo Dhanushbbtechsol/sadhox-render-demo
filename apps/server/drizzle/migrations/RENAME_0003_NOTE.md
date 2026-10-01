@@ -26,3 +26,40 @@ Do **not** re-run the SQL if the objects already exist:
 
 `0004_incidents_sla_breached.sql` uses `IF NOT EXISTS` and is safe to re-apply
 if needed; `0003` / `0005` are not idempotent — prefer journal tag updates only.
+
+## 2026-09-30 remote reconcile (Dev D)
+
+Remote journal had been rebaselined with **0004's hash in the 4th slot**, skipping
+`0003_phase3_incident_workflow`. That left `incidents.resolution_notes` (defined
+only in 0003) absent even though `sla_breached` existed via 0004.
+
+Reconcile (via `scripts/reconcile-remote-schema.mjs`):
+
+1. Ensured `resolution_notes` present (`ADD COLUMN IF NOT EXISTS` — same DDL as 0003 stmt 2).
+2. Inserted missing journal hashes for **0003** and **0005** (objects already on DB).
+3. Added **`0006_assets_asset_tag`** for `assets.asset_tag` (in TypeScript schema, never migrated).
+
+Later the same day: purged orphan journal hash `486f350a…` (no matching SQL in repo).
+
+## 2026-10-01 Audit merge (Dev-C + Dev-D)
+
+Dev-C and Dev-D both claimed `0006_*`. Audit keeps Dev-C finance indexes + `purchase_cost`
+(schema/API use it). Dev-D asset_tag migration was renumbered; the Dev-D drop of
+`purchase_cost` was **not** taken.
+
+Final order:
+
+1. `0006_phase4_assets_finance_indexes` (Dev-C — adds `purchase_cost` + indexes)
+2. `0007_assets_asset_tag` (was Dev-D `0006_assets_asset_tag`)
+
+### Shared DBs that already applied old Dev-D tags
+
+If `__drizzle_migrations` has `0006_assets_asset_tag` and/or
+`0007_assets_drop_purchase_cost`:
+
+1. Retag the asset_tag row hash to match `0007_assets_asset_tag.sql` (same SQL body;
+   only the filename/tag changed), **or** insert the new tag hash and leave the old
+   hash as a no-op orphan to purge later.
+2. If `purchase_cost` was dropped: re-apply `0006_phase4_assets_finance_indexes`
+   (`ADD COLUMN IF NOT EXISTS` + indexes) and insert that journal hash.
+3. Do **not** re-run a drop of `purchase_cost`.
