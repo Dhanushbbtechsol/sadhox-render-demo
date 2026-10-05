@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { TrendingUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ListFilterIcon, TrendingUp } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -22,6 +22,16 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -32,13 +42,16 @@ import {
   useChartVolumeByModule,
 } from "./hooks";
 import { KpiCard } from "./kpi-card";
-import type { ChartRange } from "./types";
+import type { ChartRange, StatusDistributionRow } from "./types";
 
 const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
   { value: "7d", label: "Last 7 Days" },
   { value: "30d", label: "Last 30 Days" },
   { value: "ytd", label: "Year-to-Date" },
 ];
+
+/** How many statuses are selected by default (highest counts first). */
+const DEFAULT_STATUS_SERIES_COUNT = 6;
 
 const slaChartConfig = {
   met: {
@@ -126,15 +139,15 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <section className="bg-card ring-foreground/10 flex flex-col gap-4 rounded-xl p-5 ring-1 xl:col-span-2">
+      <div className="grid gap-4 xl:grid-cols-3 xl:items-start">
+        <section className="bg-card ring-foreground/10 flex min-w-0 flex-col gap-4 overflow-hidden rounded-xl p-5 ring-1 xl:col-span-2">
           <div>
             <h2 className="text-base font-semibold tracking-tight">Ticket volume by module</h2>
             <p className="text-muted-foreground text-sm">Stacked open vs closed for {rangeLabel(range)}</p>
           </div>
           {volume.isLoading ? <Skeleton className="h-72" /> : null}
           {volume.data ? (
-            <ChartContainer config={volumeChartConfig} className="aspect-auto h-72 w-full">
+            <ChartContainer config={volumeChartConfig} className="aspect-auto h-64 w-full min-w-0 sm:h-72">
               <BarChart data={volume.data.data} accessibilityLayer>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis dataKey="module" tickLine={false} axisLine={false} tickMargin={10} />
@@ -148,7 +161,7 @@ export default function DashboardPage() {
           ) : null}
         </section>
 
-        <section className="bg-card ring-foreground/10 flex flex-col gap-4 rounded-xl p-5 ring-1">
+        <section className="bg-card ring-foreground/10 flex min-w-0 flex-col gap-4 overflow-hidden rounded-xl p-5 ring-1">
           <div>
             <h2 className="text-base font-semibold tracking-tight">SLA compliance</h2>
             <p className="text-muted-foreground text-sm">Resolved incidents in range</p>
@@ -158,53 +171,22 @@ export default function DashboardPage() {
         </section>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="bg-card ring-foreground/10 flex flex-col gap-4 rounded-xl p-5 ring-1">
-          <div>
-            <h2 className="text-base font-semibold tracking-tight">Status distribution</h2>
-            <p className="text-muted-foreground text-sm">Donut of ticket statuses in {rangeLabel(range)}</p>
-          </div>
-          {statusDist.isLoading ? <Skeleton className="h-72" /> : null}
-          {statusDist.data && statusDist.data.data.length > 0 ? (
-            <ChartContainer
-              config={Object.fromEntries(
-                statusDist.data.data.map((row, index) => [
-                  row.status,
-                  { label: `${row.module} · ${row.label}`, color: DONUT_COLORS[index % DONUT_COLORS.length] },
-                ]),
-              )}
-              className="aspect-auto mx-auto h-72 w-full max-w-md"
-            >
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent nameKey="status" hideLabel />} />
-                <Pie
-                  data={statusDist.data.data}
-                  dataKey="count"
-                  nameKey="status"
-                  innerRadius={58}
-                  outerRadius={92}
-                  strokeWidth={2}
-                >
-                  {statusDist.data.data.map((row, index) => (
-                    <Cell key={row.status} fill={DONUT_COLORS[index % DONUT_COLORS.length]} />
-                  ))}
-                </Pie>
-                <ChartLegend content={<ChartLegendContent nameKey="status" />} />
-              </PieChart>
-            </ChartContainer>
-          ) : statusDist.data ? (
-            <p className="text-muted-foreground text-sm">No tickets in this range.</p>
-          ) : null}
-        </section>
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        <StatusDistributionCard
+          range={range}
+          isLoading={statusDist.isLoading}
+          rows={statusDist.data?.data}
+          hasData={Boolean(statusDist.data)}
+        />
 
-        <section className="bg-card ring-foreground/10 flex flex-col gap-4 rounded-xl p-5 ring-1">
+        <section className="bg-card ring-foreground/10 flex min-w-0 flex-col gap-4 overflow-hidden rounded-xl p-5 ring-1">
           <div>
             <h2 className="text-base font-semibold tracking-tight">SLA performance</h2>
             <p className="text-muted-foreground text-sm">Weekly met vs breached (all time sample)</p>
           </div>
           {stats.isLoading ? <Skeleton className="h-72" /> : null}
           {stats.data && stats.data.slaPerformance.length > 0 ? (
-            <ChartContainer config={slaChartConfig} className="aspect-auto h-72 w-full">
+            <ChartContainer config={slaChartConfig} className="aspect-auto h-56 w-full min-w-0 sm:h-72">
               <AreaChart
                 data={stats.data.slaPerformance}
                 accessibilityLayer
@@ -265,6 +247,200 @@ export default function DashboardPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function defaultStatusKeys(rows: StatusDistributionRow[]) {
+  return [...rows]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, DEFAULT_STATUS_SERIES_COUNT)
+    .map((row) => row.status);
+}
+
+function StatusDistributionCard({
+  range,
+  isLoading,
+  rows,
+  hasData,
+}: {
+  range: ChartRange;
+  isLoading: boolean;
+  rows?: StatusDistributionRow[];
+  hasData: boolean;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [initializedFor, setInitializedFor] = useState<string | null>(null);
+
+  const dataKey = useMemo(
+    () => (rows?.length ? `${range}:${rows.map((r) => r.status).join("|")}` : null),
+    [range, rows],
+  );
+
+  useEffect(() => {
+    if (!rows?.length || !dataKey || initializedFor === dataKey) return;
+    setSelected(new Set(defaultStatusKeys(rows)));
+    setInitializedFor(dataKey);
+  }, [rows, dataKey, initializedFor]);
+
+  const colorByStatus = useMemo(() => {
+    const map = new Map<string, string>();
+    (rows ?? []).forEach((row, index) => {
+      map.set(row.status, DONUT_COLORS[index % DONUT_COLORS.length]);
+    });
+    return map;
+  }, [rows]);
+
+  const visibleRows = useMemo(
+    () => (rows ?? []).filter((row) => selected.has(row.status)),
+    [rows, selected],
+  );
+
+  function toggleStatus(status: string, next: boolean) {
+    setSelected((prev) => {
+      const copy = new Set(prev);
+      if (next) copy.add(status);
+      else copy.delete(status);
+      return copy;
+    });
+  }
+
+  function selectAll() {
+    setSelected(new Set((rows ?? []).map((row) => row.status)));
+  }
+
+  function resetDefaults() {
+    if (!rows?.length) return;
+    setSelected(new Set(defaultStatusKeys(rows)));
+  }
+
+  return (
+    <section className="bg-card ring-foreground/10 flex min-w-0 flex-col gap-4 overflow-hidden rounded-xl p-5 ring-1">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold tracking-tight">Status distribution</h2>
+          <p className="text-muted-foreground text-sm">
+            Donut of ticket statuses in {rangeLabel(range)}
+          </p>
+        </div>
+        {rows && rows.length > 0 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0"
+                />
+              }
+            >
+              <ListFilterIcon className="size-3.5" />
+              Customize
+              <span className="text-muted-foreground tabular-nums">
+                {selected.size}/{rows.length}
+              </span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72" sideOffset={6}>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Show in chart</DropdownMenuLabel>
+                <div className="max-h-56 overflow-y-auto">
+                  {rows.map((row) => (
+                    <DropdownMenuCheckboxItem
+                      key={row.status}
+                      checked={selected.has(row.status)}
+                      onCheckedChange={(checked) =>
+                        toggleStatus(row.status, Boolean(checked))
+                      }
+                    >
+                      <span
+                        className="size-2.5 shrink-0 rounded-[2px]"
+                        style={{ backgroundColor: colorByStatus.get(row.status) }}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1 truncate">
+                        {row.module} · {row.label}
+                      </span>
+                      <span className="text-muted-foreground tabular-nums">
+                        {row.count}
+                      </span>
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </div>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={selectAll}>Select all</DropdownMenuItem>
+              <DropdownMenuItem onClick={resetDefaults}>
+                Reset to top {DEFAULT_STATUS_SERIES_COUNT}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
+
+      {isLoading ? <Skeleton className="h-56" /> : null}
+
+      {rows && rows.length > 0 ? (
+        visibleRows.length > 0 ? (
+          <div className="flex min-w-0 flex-col gap-4">
+            <ChartContainer
+              config={Object.fromEntries(
+                visibleRows.map((row) => [
+                  row.status,
+                  {
+                    label: `${row.module} · ${row.label}`,
+                    color: colorByStatus.get(row.status),
+                  },
+                ]),
+              )}
+              className="aspect-auto mx-auto h-52 w-full max-w-xs sm:h-56 sm:max-w-sm"
+            >
+              <PieChart>
+                <ChartTooltip content={<ChartTooltipContent nameKey="status" hideLabel />} />
+                <Pie
+                  data={visibleRows}
+                  dataKey="count"
+                  nameKey="status"
+                  innerRadius={52}
+                  outerRadius={84}
+                  strokeWidth={2}
+                >
+                  {visibleRows.map((row) => (
+                    <Cell
+                      key={row.status}
+                      fill={colorByStatus.get(row.status)}
+                    />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ChartContainer>
+            <ul className="flex max-h-28 min-w-0 flex-wrap justify-center gap-x-3 gap-y-2 overflow-y-auto px-1 text-xs sm:max-h-32">
+              {visibleRows.map((row) => (
+                <li
+                  key={row.status}
+                  className="text-muted-foreground flex max-w-full items-center gap-1.5"
+                >
+                  <span
+                    className="size-2.5 shrink-0 rounded-[2px]"
+                    style={{ backgroundColor: colorByStatus.get(row.status) }}
+                    aria-hidden
+                  />
+                  <span className="truncate">
+                    {row.module} · {row.label}
+                  </span>
+                  <span className="text-foreground/70 tabular-nums">({row.count})</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            No statuses selected. Use Customize to pick series for the chart.
+          </p>
+        )
+      ) : hasData ? (
+        <p className="text-muted-foreground text-sm">No tickets in this range.</p>
+      ) : null}
+    </section>
   );
 }
 
