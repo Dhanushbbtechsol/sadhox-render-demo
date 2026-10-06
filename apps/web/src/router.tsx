@@ -5,7 +5,10 @@ import { GuestRoute, ProtectedRoute } from "@/components/auth/protected-route";
 import AuditLogsPage from "@/features/admin/audit-logs-page";
 import DashboardPage from "@/features/admin/dashboard-page";
 import QueueMonitorPage from "@/features/admin/queue-monitor-page";
+import SlaRulesPage from "@/features/admin/sla-rules-page";
 import AssetRegisterPage from "@/features/assets/asset-register-page";
+import KnowledgeArticlePage from "@/features/knowledge/knowledge-article-page";
+import KnowledgeListPage from "@/features/knowledge/knowledge-list-page";
 import ApprovalsPage from "@/routes/approvals";
 import CatalogPage from "@/routes/catalog";
 import ChangesPage from "@/routes/changes";
@@ -73,6 +76,30 @@ export const router = createBrowserRouter([
             handle: { breadcrumb: "Queues" },
             element: <ProtectedRoute roles={["Admin"]} />,
             children: [{ index: true, element: <QueueMonitorPage /> }],
+          },
+          {
+            path: "admin/knowledge",
+            handle: { breadcrumb: "Knowledge" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [
+              { index: true, element: <KnowledgeListPage /> },
+              {
+                path: "new",
+                element: <KnowledgeArticlePage />,
+                handle: { breadcrumb: "New" },
+              },
+              {
+                path: ":id",
+                element: <KnowledgeArticlePage />,
+                handle: { breadcrumb: "Edit" },
+              },
+            ],
+          },
+          {
+            path: "admin/sla-rules",
+            handle: { breadcrumb: "SLA rules" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <SlaRulesPage /> }],
           },
           {
             path: "incidents",

@@ -1,4 +1,11 @@
-import type { AdminStats, Asset, AuditLog } from "./types";
+import type {
+  AdminStats,
+  Asset,
+  AuditLog,
+  KnowledgeArticle,
+  KnowledgeCategory,
+  SlaRule,
+} from "./types";
 
 /** Used when Nest/DB is unreachable or the session is a DEV mock token. */
 export const mockAssets: Asset[] = [
@@ -240,3 +247,99 @@ export const mockQueueHealth = {
     },
   ],
 };
+
+/** Mutable DEV stores — Admin authoring mutates until Dev D APIs land. */
+export const mockKnowledgeCategories: KnowledgeCategory[] = [
+  {
+    id: "kc-001",
+    name: "Getting started",
+    slug: "getting-started",
+    description: "Onboarding and first-day tips",
+    createdAt: "2026-09-01T10:00:00Z",
+    updatedAt: "2026-09-01T10:00:00Z",
+  },
+  {
+    id: "kc-002",
+    name: "Network",
+    slug: "network",
+    description: "VPN, Wi-Fi, and connectivity",
+    createdAt: "2026-09-01T10:00:00Z",
+    updatedAt: "2026-09-01T10:00:00Z",
+  },
+  {
+    id: "kc-003",
+    name: "Hardware",
+    slug: "hardware",
+    description: "Laptops, peripherals, printers",
+    createdAt: "2026-09-01T10:00:00Z",
+    updatedAt: "2026-09-01T10:00:00Z",
+  },
+];
+
+export const mockKnowledgeArticles: KnowledgeArticle[] = [
+  {
+    id: "ka-001",
+    title: "How to reset your password",
+    slug: "how-to-reset-your-password",
+    body: "## Reset password\n\n1. Go to the login page\n2. Click **Forgot password**\n3. Check your email for a reset link\n\nIf you do not receive mail within 10 minutes, contact the service desk.",
+    status: "Published",
+    categoryId: "kc-001",
+    authorId: "admin-1",
+    createdAt: "2026-09-10T10:00:00Z",
+    updatedAt: "2026-09-20T10:00:00Z",
+  },
+  {
+    id: "ka-002",
+    title: "Connect to corporate VPN",
+    slug: "connect-to-corporate-vpn",
+    body: "## VPN setup\n\nInstall the company VPN client, then sign in with your work account.\n\n**Tips**\n- Use the office profile when on-site\n- Split tunneling is enabled for SaaS apps",
+    status: "Published",
+    categoryId: "kc-002",
+    authorId: "admin-1",
+    createdAt: "2026-09-12T10:00:00Z",
+    updatedAt: "2026-09-22T10:00:00Z",
+  },
+  {
+    id: "ka-003",
+    title: "Request a replacement laptop (draft)",
+    slug: "request-a-replacement-laptop",
+    body: "Draft notes for hardware refresh policy.\n\n- Eligibility after 36 months\n- Backup checklist before swap",
+    status: "Draft",
+    categoryId: "kc-003",
+    authorId: "admin-1",
+    createdAt: "2026-09-25T10:00:00Z",
+    updatedAt: "2026-09-25T10:00:00Z",
+  },
+];
+
+/** Matches apps/server seed defaults for sla_rules. */
+export const mockSlaRules: SlaRule[] = [
+  {
+    id: "sla-p1",
+    priority: "P1",
+    responseMinutes: 15,
+    resolveMinutes: 240,
+    createdAt: "2026-01-01T00:00:00Z",
+  },
+  {
+    id: "sla-p2",
+    priority: "P2",
+    responseMinutes: 60,
+    resolveMinutes: 480,
+    createdAt: "2026-01-01T00:00:00Z",
+  },
+  {
+    id: "sla-p3",
+    priority: "P3",
+    responseMinutes: 240,
+    resolveMinutes: 1440,
+    createdAt: "2026-01-01T00:00:00Z",
+  },
+  {
+    id: "sla-p4",
+    priority: "P4",
+    responseMinutes: 480,
+    resolveMinutes: 4320,
+    createdAt: "2026-01-01T00:00:00Z",
+  },
+];
