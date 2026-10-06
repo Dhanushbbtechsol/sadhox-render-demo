@@ -48,36 +48,17 @@ describe("HealthController liveness", () => {
   });
 });
 
+/** Matches @nestjs/terminus HealthIndicatorService.check(key) → { up, down }. */
 function mockIndicatorService() {
   return {
     check: (key: string) => ({
-      attempt: (fn: () => Promise<unknown>) => {
-        const run = async () => {
-          try {
-            await fn();
-            return { [key]: { status: "up" as const } };
-          } catch (err) {
-            return {
-              [key]: {
-                status: "down" as const,
-                message: err instanceof Error ? err.message : String(err),
-              },
-            };
-          }
-        };
-        const attempt = {
-          withTimeout() {
-            return attempt;
-          },
-          then(
-            onFulfilled?: (v: unknown) => unknown,
-            onRejected?: (e: unknown) => unknown,
-          ) {
-            return run().then(onFulfilled, onRejected);
-          },
-        };
-        return attempt;
-      },
+      up: () => ({ [key]: { status: "up" as const } }),
+      down: (error?: { message?: string }) => ({
+        [key]: {
+          status: "down" as const,
+          ...(error?.message ? { message: error.message } : {}),
+        },
+      }),
     }),
   };
 }

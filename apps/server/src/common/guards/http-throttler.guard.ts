@@ -8,7 +8,10 @@ import { ThrottlerGuard } from "@nestjs/throttler";
 @Injectable()
 export class HttpThrottlerGuard extends ThrottlerGuard {
   canActivate(context: ExecutionContext) {
-    if (context.getType() !== "http") {
+    if (
+      typeof context.getType === "function" &&
+      context.getType() !== "http"
+    ) {
       return Promise.resolve(true);
     }
     return super.canActivate(context);

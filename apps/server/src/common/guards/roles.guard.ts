@@ -16,7 +16,11 @@ export class RolesGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     // Room ACL lives in EventsGateway; HTTP-only role metadata does not apply to WS.
-    if (context.getType() !== "http") {
+    // Default to HTTP when getType is missing (unit-test ExecutionContext stubs).
+    if (
+      typeof context.getType === "function" &&
+      context.getType() !== "http"
+    ) {
       return true;
     }
 
