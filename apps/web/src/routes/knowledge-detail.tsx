@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useKnowledgeArticle } from "@/hooks/use-knowledge";
+import { useAuthStore } from "@/stores/auth-store";
 
 function renderBody(body: string) {
   return body.split("\n").map((line, index) => {
@@ -33,6 +34,8 @@ function renderBody(body: string) {
 export default function KnowledgeDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const article = useKnowledgeArticle(slug);
+  const role = useAuthStore((s) => s.user?.role);
+  const knowledgeHome = role === "Admin" ? "/admin/knowledge" : "/knowledge";
 
   if (article.isLoading) {
     return (
@@ -50,7 +53,7 @@ export default function KnowledgeDetailPage() {
         <Button
           variant="ghost"
           size="sm"
-          render={<Link to="/knowledge" />}
+          render={<Link to={knowledgeHome} />}
           className="-ml-2"
         >
           <ArrowLeftIcon />
@@ -60,7 +63,7 @@ export default function KnowledgeDetailPage() {
           title="Article not found"
           description="This article may be unpublished or the link is incorrect."
           action={
-            <Button render={<Link to="/knowledge" />}>Browse articles</Button>
+            <Button render={<Link to={knowledgeHome} />}>Browse articles</Button>
           }
         />
       </div>
@@ -71,15 +74,26 @@ export default function KnowledgeDetailPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 animate-in-up">
-      <Button
-        variant="ghost"
-        size="sm"
-        render={<Link to="/knowledge" />}
-        className="-ml-2"
-      >
-        <ArrowLeftIcon />
-        Back to knowledge
-      </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          render={<Link to={knowledgeHome} />}
+          className="-ml-2"
+        >
+          <ArrowLeftIcon />
+          Back to knowledge
+        </Button>
+        {role === "Admin" ? (
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link to={`/admin/knowledge/${data.id}`} />}
+          >
+            Edit article
+          </Button>
+        ) : null}
+      </div>
 
       <header className="space-y-3">
         <div className="flex flex-wrap gap-2">
