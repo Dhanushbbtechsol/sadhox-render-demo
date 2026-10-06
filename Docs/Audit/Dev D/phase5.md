@@ -10,15 +10,15 @@ Phase 5 Day 23: Admin `GET` / `PATCH` for `sla_rules` (`responseMinutes` / `reso
 
 **Fix:** Admin-only controller (likely under `AdminModule`), DTO MaxLength/Min validation, sanitize if needed, extend `rbac-matrix.spec.ts`.
 
-## Low — Open (Phase 5)
+## Low — Resolved (Phase 5 catalog; landed with Dev B remediation)
 
-### [A03] Catalog create/update not sanitized
+### [A03] Catalog create/update not sanitized — **FIXED**
 
-`ServiceCatalogService.create` / `update` only `.trim()`. Knowledge module already uses `sanitizePlainText` — reuse it for catalog name/description/department and form field strings.
+`ServiceCatalogService.create` / `update` use `sanitizePlainText` on name/description/department and form field strings. Spec: `service-catalog.service.spec.ts`.
 
-### [A04] `formFields.options` unbounded
+### [A04] `formFields.options` unbounded — **FIXED**
 
-`CatalogFormFieldDto.options`: add `@MaxLength` per string and `@ArrayMaxSize`.
+`CatalogFormFieldDto.options`: `@ArrayMaxSize(50)` + `@MaxLength(128, { each: true })`.
 
 ## Phase 4 carryovers (still open)
 

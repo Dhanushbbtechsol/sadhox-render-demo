@@ -2,7 +2,7 @@
 
 Scope: current `Audit` tree after Dev-A/B/C/D Phase 5 merges. Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT + refresh cookie, Socket.IO, BullMQ/Redis, Resend.
 
-**Open findings: 0 Critical · 0 High (new) · 3 Medium · 2 Low** (+ Phase 4 Dev D carryovers still open).
+**Open findings: 0 Critical · 0 High (new) · 3 Medium · 0 Low (Phase 5 catalog sanitize/options closed)** (+ Phase 4 Dev D carryovers still open).
 
 **Owners:** [Dev A](./Dev%20A/phase5.md) · [Dev B](./Dev%20B/phase5.md) · [Dev C](./Dev%20C/phase5.md) · [Dev D](./Dev%20D/phase5.md)
 
@@ -39,19 +39,15 @@ On `catch`, `import.meta.env.DEV` returns/updates in-memory `mockKnowledge*` / `
 
 Fix: fail loudly on API errors in authoring/SLA hooks; keep mocks only for explicit offline-token mode.
 
-## Low / Hardening
+## Low / Hardening — Resolved (Phase 5 catalog)
 
-### [A03] Catalog writes trim only — Dev D / Dev B
+### [A03] Catalog writes trim only — Dev D / Dev B — **FIXED**
 
-`ServiceCatalogService.create` / `update` use `.trim()`; Knowledge paths use `sanitizePlainText`. Admin-controlled `description` / field labels are React-text today (no `dangerouslySetInnerHTML` found), but free-text should match the Knowledge choke point.
+`ServiceCatalogService.create` / `update` use `sanitizePlainText` on name/description/department and form field label/name/options. Spec: `service-catalog.service.spec.ts`.
 
-Fix: `sanitizePlainText` on name/description/department + form field label/name/options at write.
+### [A04] Catalog `formFields.options` unbounded — Dev D — **FIXED**
 
-### [A04] Catalog `formFields.options` unbounded — Dev D
-
-`CatalogFormFieldDto.options` is `@IsString({ each: true })` with no `@MaxLength` / `@ArrayMaxSize`.
-
-Fix: cap option string length and array size.
+`CatalogFormFieldDto.options`: `@ArrayMaxSize(50)` + `@MaxLength(128, { each: true })`.
 
 ## Still open from Phase 4 — Dev D (carryover)
 

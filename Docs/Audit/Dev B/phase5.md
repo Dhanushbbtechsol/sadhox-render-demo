@@ -1,12 +1,14 @@
 # Security Audit: Dev B (Phase 5)
 
-Reaudit 2026-10-06. Combined: [phase5.md](../phase5.md).
+Reaudit 2026-10-06. Combined: [phase5.md](../phase5.md). **CLEAN** (Dev B Phase 5 open items).
 
-## Open findings assigned to Dev B
+## Low — Resolved
 
-### Low — [A03] Catalog free-text trim-only (coord with Dev D)
+### [A03] Catalog free-text trim-only — **FIXED**
 
-Admin catalog CRUD UI writes through Nest `ServiceCatalogService` which only `.trim()`s strings. Prefer shared sanitize at the service (Dev D) so the UI cannot bypass it.
+`ServiceCatalogService.create` / `update` now run `sanitizePlainText` on name, description, department, and form field `name` / `label` / `options` (shared choke point; Admin UI cannot bypass). Empty post-sanitize required fields → `400`. Spec: `service-catalog.service.spec.ts`.
+
+Also capped `CatalogFormFieldDto.options` with `@ArrayMaxSize(50)` + `@MaxLength(128, { each: true })` (paired with Dev D [A04] unbounded options).
 
 ## Spot-checked (clean)
 
