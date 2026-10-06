@@ -15,6 +15,7 @@
   - Association of assets to incidents and service requests.
   - Efficient aggregate SQL queries for ticket distributions, module volumes, and SLA performance.
   - Strict Admin-only route gating for executive dashboard and system logs.
+  - **Phase 5:** Admin Knowledge Base authoring; SLA rules table editor; dashboard CSV export.
 
 ---
 
@@ -22,7 +23,10 @@
 
 | Phase | Focus | Days | File |
 |---|---|---|---|
-| **Phase 1** | Foundation, Admin Shell & Stubs | Days 1–5 (Week 1) | [phase1.md](file:///d:/Projects/Sadhox/Docs/Phase/Dev%20C/phase1.md) |
-| **Phase 2** | Asset Register CRUD & Dashboard Aggregates | Days 6–10 (Week 2) | [phase2.md](file:///d:/Projects/Sadhox/Docs/Phase/Dev%20C/phase2.md) |
-| **Phase 3** | Charts, Resend Email Templates & Audit Viewer | Days 11–15 (Week 3) | [phase3.md](file:///d:/Projects/Sadhox/Docs/Phase/Dev%20C/phase3.md) |
-| **Phase 4** | QA, Security Pass & Deploy | Days 16–20 (Week 4) | [phase4.md](file:///d:/Projects/Sadhox/Docs/Phase/Dev%20C/phase4.md) |
+| **Phase 1** | Foundation, Admin Shell & Stubs | Days 1–5 (Week 1) | [phase1.md](./phase1.md) |
+| **Phase 2** | Asset Register CRUD & Dashboard Aggregates | Days 6–10 (Week 2) | [phase2.md](./phase2.md) |
+| **Phase 3** | Charts, Resend Email Templates & Audit Viewer | Days 11–15 (Week 3) | [phase3.md](./phase3.md) |
+| **Phase 4** | QA, Security Pass & Deploy | Days 16–20 (Week 4) | [phase4.md](./phase4.md) |
+| **Phase 5** | Admin Knowledge Authoring, SLA Table & CSV Export | Days 21–25 (Week 5) | [phase5.md](./phase5.md) |
+
+Coverage of the six confirmed requirements: [coverage-matrix.md](../coverage-matrix.md).

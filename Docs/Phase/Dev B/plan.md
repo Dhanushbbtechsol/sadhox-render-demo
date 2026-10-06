@@ -15,6 +15,7 @@
   - Role-gated single-level approval execution by Admins.
   - Polymorphic comment integration on requests and changes.
   - Transactional email dispatch for approvals/rejections via Dev D's email queue.
+  - **Phase 5:** End User Knowledge Base browse/search; Admin Service Catalog CRUD UI.
 
 ---
 
@@ -22,7 +23,10 @@
 
 | Phase | Focus | Days | File |
 |---|---|---|---|
-| **Phase 1** | Foundation, Catalog Layout & Stubs | Days 1–5 (Week 1) | [phase1.md](file:///d:/Projects/Sadhox/Docs/Phase/Dev%20B/phase1.md) |
-| **Phase 2** | Core CRUD & Approvals Backend | Days 6–10 (Week 2) | [phase2.md](file:///d:/Projects/Sadhox/Docs/Phase/Dev%20B/phase2.md) |
-| **Phase 3** | Workflow State Machines, Comments & Emails | Days 11–15 (Week 3) | [phase3.md](file:///d:/Projects/Sadhox/Docs/Phase/Dev%20B/phase3.md) |
-| **Phase 4** | QA, Security Pass & Deploy | Days 16–20 (Week 4) | [phase4.md](file:///d:/Projects/Sadhox/Docs/Phase/Dev%20B/phase4.md) |
+| **Phase 1** | Foundation, Catalog Layout & Stubs | Days 1–5 (Week 1) | [phase1.md](./phase1.md) |
+| **Phase 2** | Core CRUD & Approvals Backend | Days 6–10 (Week 2) | [phase2.md](./phase2.md) |
+| **Phase 3** | Workflow State Machines, Comments & Emails | Days 11–15 (Week 3) | [phase3.md](./phase3.md) |
+| **Phase 4** | QA, Security Pass & Deploy | Days 16–20 (Week 4) | [phase4.md](./phase4.md) |
+| **Phase 5** | End User Knowledge Portal & Catalog Admin CRUD | Days 21–25 (Week 5) | [phase5.md](./phase5.md) |
+
+Coverage of the six confirmed requirements: [coverage-matrix.md](../coverage-matrix.md).

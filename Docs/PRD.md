@@ -37,6 +37,13 @@ A 4-week production-grade IT Service Management (ITSM) platform designed to deli
   * As the system, background BullMQ jobs run on Redis schedules (every 5 minutes) to detect SLA breaches and automatically close tickets that have remained in `Resolved` for N days.
   * As the system, transactional email notifications are dispatched via Resend upon ticket assignment and status transitions.
 
+* *Knowledge Base (Phase 5 / Week 5):*
+  * As an Admin, I can author Knowledge Base categories and articles (Draft / Published).
+  * As an End User or Agent, I can browse and search Published articles.
+  * As an Agent, I can link Published articles to Incidents or Problems for self-service context.
+  * As an Admin, I can edit table-driven SLA rule minutes per priority (not a drag-and-drop builder).
+  * As an Admin, I can create/edit Service Catalog items beyond seed data.
+
 **Nice-to-Have (Secondary Polish):**
 
 * Dark mode toggle (supported natively via Tailwind + shadcn/ui).
