@@ -14,6 +14,7 @@ import {
   ServerIcon,
   Settings2Icon,
   TicketIcon,
+  TimerIcon,
 } from "lucide-react";
 import { NavLink } from "react-router";
 
@@ -41,6 +42,18 @@ const NAV_ITEMS: NavItem[] = [
     to: "/assets",
     label: "Assets",
     icon: PackageIcon,
+    roles: ["Admin"],
+  },
+  {
+    to: "/admin/knowledge",
+    label: "Knowledge",
+    icon: BookOpenIcon,
+    roles: ["Admin"],
+  },
+  {
+    to: "/admin/sla-rules",
+    label: "SLA rules",
+    icon: TimerIcon,
     roles: ["Admin"],
   },
   {

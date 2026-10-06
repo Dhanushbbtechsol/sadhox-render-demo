@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ListFilterIcon, TrendingUp } from "lucide-react";
+import { DownloadIcon, ListFilterIcon, TrendingUp } from "lucide-react";
+import { toast } from "sonner";
 import {
   Area,
   AreaChart,
@@ -35,6 +36,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+import { buildDashboardCsv, downloadDashboardCsv } from "./export-dashboard-csv";
 import {
   useAdminStats,
   useChartSlaCompliance,
@@ -93,6 +95,21 @@ export default function DashboardPage() {
   const statusDist = useChartStatusDistribution(range);
   const slaRate = useChartSlaCompliance(range);
 
+  function handleExportCsv() {
+    if (!stats.data || !slaRate.data) {
+      toast.error("Dashboard data is still loading");
+      return;
+    }
+    const csv = buildDashboardCsv({
+      range,
+      stats: stats.data,
+      slaCompliance: slaRate.data,
+    });
+    const date = new Date().toISOString().slice(0, 10);
+    downloadDashboardCsv(`sadhox-dashboard-${range}-${date}.csv`, csv);
+    toast.success("CSV downloaded");
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -102,18 +119,30 @@ export default function DashboardPage() {
             Interactive charts from Nest admin aggregates with date-range filters.
           </p>
         </div>
-        <div className="flex flex-wrap gap-1">
-          {RANGE_OPTIONS.map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              size="sm"
-              variant={range === option.value ? "default" : "outline"}
-              onClick={() => setRange(option.value)}
-            >
-              {option.label}
-            </Button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-1">
+            {RANGE_OPTIONS.map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                size="sm"
+                variant={range === option.value ? "default" : "outline"}
+                onClick={() => setRange(option.value)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleExportCsv}
+            disabled={!stats.data || !slaRate.data}
+          >
+            <DownloadIcon />
+            Export CSV
+          </Button>
         </div>
       </div>
 
