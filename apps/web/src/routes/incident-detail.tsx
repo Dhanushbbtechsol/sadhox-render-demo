@@ -6,6 +6,7 @@ import { IncidentActions } from "@/components/incidents/incident-actions";
 import { IncidentComments } from "@/components/incidents/incident-comments";
 import { LinkToProblem } from "@/components/incidents/link-to-problem";
 import { SlaCountdown } from "@/components/incidents/sla-countdown";
+import { RelatedArticles } from "@/components/knowledge/related-articles";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -116,6 +117,8 @@ export default function IncidentDetailPage() {
           </div>
 
           <IncidentActions incident={data} />
+
+          <RelatedArticles ticketType="incident" ticketId={data.id} />
 
           {canSeeLinkedAssets ? (
             <section className="space-y-3">

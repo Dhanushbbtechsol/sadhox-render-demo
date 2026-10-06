@@ -82,6 +82,10 @@ export const ticketTypeEnum = pgEnum("ticket_type", [
   "service_request",
   "change",
 ]);
+export const knowledgeArticleStatusEnum = pgEnum("knowledge_article_status", [
+  "Draft",
+  "Published",
+]);
 
 export const users = pgTable(
   "users",
@@ -368,6 +372,76 @@ export const comments = pgTable(
   (t) => [index("comments_ticket_idx").on(t.ticketType, t.ticketId)],
 );
 
+export const knowledgeCategories = pgTable(
+  "knowledge_categories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    slug: varchar("slug", { length: 255 }).notNull().unique(),
+    description: text("description"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("knowledge_categories_slug_idx").on(t.slug)],
+);
+
+export const knowledgeArticles = pgTable(
+  "knowledge_articles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    title: varchar("title", { length: 255 }).notNull(),
+    slug: varchar("slug", { length: 255 }).notNull().unique(),
+    body: text("body").notNull(),
+    status: knowledgeArticleStatusEnum("status").notNull().default("Draft"),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => knowledgeCategories.id, { onDelete: "restrict" }),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("knowledge_articles_category_id_idx").on(t.categoryId),
+    index("knowledge_articles_status_idx").on(t.status),
+    index("knowledge_articles_slug_idx").on(t.slug),
+  ],
+);
+
+/** Polymorphic ticket ↔ Published KB article links (incident | problem | service_request). */
+export const ticketKnowledgeLinks = pgTable(
+  "ticket_knowledge_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ticketId: uuid("ticket_id").notNull(),
+    ticketType: ticketTypeEnum("ticket_type").notNull(),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => knowledgeArticles.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("ticket_knowledge_links_unique").on(
+      t.ticketId,
+      t.ticketType,
+      t.articleId,
+    ),
+    index("ticket_knowledge_links_ticket_idx").on(t.ticketType, t.ticketId),
+    index("ticket_knowledge_links_article_id_idx").on(t.articleId),
+  ],
+);
+
 /** GUESS: response/resolve minute thresholds per priority — FRD only says "SLA threshold definitions per priority level". */
 export const slaRules = pgTable("sla_rules", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -457,3 +531,8 @@ export type Asset = typeof assets.$inferSelect;
 export type NewAsset = typeof assets.$inferInsert;
 export type AssetType = (typeof assetTypeEnum.enumValues)[number];
 export type AssetStatus = (typeof assetStatusEnum.enumValues)[number];
+export type KnowledgeCategory = typeof knowledgeCategories.$inferSelect;
+export type KnowledgeArticle = typeof knowledgeArticles.$inferSelect;
+export type KnowledgeArticleStatus =
+  (typeof knowledgeArticleStatusEnum.enumValues)[number];
+export type TicketKnowledgeLink = typeof ticketKnowledgeLinks.$inferSelect;
