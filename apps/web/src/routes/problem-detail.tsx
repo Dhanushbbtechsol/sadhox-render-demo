@@ -2,6 +2,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
+import { RelatedArticles } from "@/components/knowledge/related-articles";
 import { PriorityBadge } from "@/components/priority-badge";
 import { LinkIncidentsModal } from "@/components/problems/link-incidents-modal";
 import { Badge } from "@/components/ui/badge";
@@ -124,6 +125,8 @@ export default function ProblemDetailPage() {
               ))}
             </ul>
           )}
+
+          <RelatedArticles ticketType="problem" ticketId={data.id} />
         </CardContent>
       </Card>
     </div>

@@ -1,5 +1,6 @@
 import {
   AlertTriangleIcon,
+  BookOpenIcon,
   ClipboardListIcon,
   LayoutDashboardIcon,
   GitBranchIcon,
@@ -70,6 +71,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "My Portal",
     icon: LifeBuoyIcon,
     roles: ["EndUser", "Admin"],
+  },
+  {
+    to: "/knowledge",
+    label: "Knowledge",
+    icon: BookOpenIcon,
+    roles: ["Admin", "Agent", "EndUser"],
   },
   {
     to: "/catalog",

@@ -15,7 +15,13 @@ import {
   serviceRequests,
   changes,
   assets,
+  knowledgeCategories,
+  knowledgeArticles,
 } from "../src/database/schema";
+import {
+  KNOWLEDGE_ARTICLE_SEED,
+  KNOWLEDGE_CATEGORY_SEED,
+} from "../src/knowledge/knowledge.seed";
 import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
 
 const SHOWCASE_PREFIX = "[Showcase]";
@@ -132,9 +138,63 @@ async function seed() {
 
   await seedShowcaseData(db);
   await seedPhase4Assets(db);
+  await seedKnowledgeBase(db);
 
   await client.end();
   console.log("Seed complete");
+}
+
+async function seedKnowledgeBase(db: SeedDb) {
+  const [admin] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "admin@sadhox.local"))
+    .limit(1);
+  if (!admin) {
+    console.log("skip knowledge seed — admin user missing");
+    return;
+  }
+
+  for (const category of KNOWLEDGE_CATEGORY_SEED) {
+    const [existing] = await db
+      .select()
+      .from(knowledgeCategories)
+      .where(eq(knowledgeCategories.id, category.id))
+      .limit(1);
+    if (existing) {
+      console.log(`skip existing knowledge category ${category.slug}`);
+      continue;
+    }
+    await db.insert(knowledgeCategories).values({
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      description: category.description,
+    });
+    console.log(`created knowledge category ${category.slug}`);
+  }
+
+  for (const article of KNOWLEDGE_ARTICLE_SEED) {
+    const [existing] = await db
+      .select()
+      .from(knowledgeArticles)
+      .where(eq(knowledgeArticles.id, article.id))
+      .limit(1);
+    if (existing) {
+      console.log(`skip existing knowledge article ${article.slug}`);
+      continue;
+    }
+    await db.insert(knowledgeArticles).values({
+      id: article.id,
+      title: article.title,
+      slug: article.slug,
+      body: article.body,
+      status: article.status,
+      categoryId: article.categoryId,
+      authorId: admin.id,
+    });
+    console.log(`created knowledge article ${article.slug}`);
+  }
 }
 
 type SeedDb = ReturnType<typeof drizzle>;

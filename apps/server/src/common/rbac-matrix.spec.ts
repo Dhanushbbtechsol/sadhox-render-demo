@@ -26,6 +26,8 @@ import { HealthController } from "../health/health.controller";
 import { RedisHealthIndicator } from "../health/redis.health";
 import { IncidentsController } from "../incidents/incidents.controller";
 import { IncidentsService } from "../incidents/incidents.service";
+import { KnowledgeController } from "../knowledge/knowledge.controller";
+import { KnowledgeService } from "../knowledge/knowledge.service";
 import { ProblemsController } from "../problems/problems.controller";
 import { ProblemsService } from "../problems/problems.service";
 import { ServiceCatalogController } from "../service-catalog/service-catalog.controller";
@@ -112,6 +114,66 @@ const MATRIX: MatrixRow[] = [
     path: "/service-catalog",
     allowed: ["Admin", "Agent", "EndUser"],
   },
+  {
+    method: "get",
+    path: "/knowledge/categories",
+    allowed: ["Admin", "Agent", "EndUser"],
+  },
+  {
+    method: "post",
+    path: "/knowledge/categories",
+    allowed: ["Admin"],
+  },
+  {
+    method: "patch",
+    path: `/knowledge/categories/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "delete",
+    path: `/knowledge/categories/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "get",
+    path: "/knowledge/articles",
+    allowed: ["Admin", "Agent", "EndUser"],
+  },
+  {
+    method: "post",
+    path: "/knowledge/articles",
+    allowed: ["Admin"],
+  },
+  {
+    method: "get",
+    path: `/knowledge/articles/${ID}`,
+    allowed: ["Admin", "Agent", "EndUser"],
+  },
+  {
+    method: "patch",
+    path: `/knowledge/articles/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "delete",
+    path: `/knowledge/articles/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "get",
+    path: `/knowledge/tickets/incident/${ID}/links`,
+    allowed: ["Admin", "Agent", "EndUser"],
+  },
+  {
+    method: "post",
+    path: `/knowledge/tickets/incident/${ID}/links`,
+    allowed: ["Admin", "Agent"],
+  },
+  {
+    method: "delete",
+    path: `/knowledge/tickets/incident/${ID}/links/${ID}`,
+    allowed: ["Admin", "Agent"],
+  },
   { method: "get", path: "/admin/dashboard/stats", allowed: ["Admin"] },
   { method: "get", path: "/health/ready", allowed: ["Admin"] },
 ];
@@ -166,6 +228,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         ChangesController,
         AssetsController,
         ServiceCatalogController,
+        KnowledgeController,
         AdminController,
       ],
       providers: [
@@ -246,6 +309,23 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
           useValue: stubService(["list"]),
         },
         {
+          provide: KnowledgeService,
+          useValue: stubService([
+            "listCategories",
+            "createCategory",
+            "updateCategory",
+            "deleteCategory",
+            "listArticles",
+            "createArticle",
+            "getArticle",
+            "updateArticle",
+            "deleteArticle",
+            "listLinks",
+            "linkArticle",
+            "unlinkArticle",
+          ]),
+        },
+        {
           provide: AdminService,
           useValue: stubService([
             "dashboardStats",
@@ -275,8 +355,18 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
     { method: "get" as const, path: "/assets" },
     { method: "get" as const, path: "/problems" },
     { method: "get" as const, path: "/health/ready" },
+    { method: "get" as const, path: "/knowledge/articles" },
+    {
+      method: "post" as const,
+      path: `/knowledge/tickets/incident/${ID}/links`,
+    },
   ])("unauthenticated $method $path → 401", async ({ method, path }) => {
-    await request(app.getHttpServer())[method](path).expect(401);
+    const req = request(app.getHttpServer())[method](path);
+    if (method === "post") {
+      await req.send({ articleId: ID }).expect(401);
+      return;
+    }
+    await req.expect(401);
   });
 
   it("EndUser is 403 on Admin-only and Agent-only routes", async () => {

@@ -21,6 +21,7 @@ import { DatabaseModule, type DrizzleDB } from "./database/database.module";
 import { EventsModule } from "./events/events.module";
 import { HealthModule } from "./health/health.module";
 import { IncidentsModule } from "./incidents/incidents.module";
+import { KnowledgeModule } from "./knowledge/knowledge.module";
 import { MailModule } from "./mail/mail.module";
 import { ObservabilityModule } from "./observability/observability.module";
 import { ProblemsModule } from "./problems/problems.module";
@@ -59,6 +60,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     HealthModule,
     IncidentsModule,
     ProblemsModule,
+    KnowledgeModule,
     ServiceCatalogModule,
     ServiceRequestsModule,
     ChangesModule,

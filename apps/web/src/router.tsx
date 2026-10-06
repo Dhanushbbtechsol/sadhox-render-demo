@@ -11,8 +11,11 @@ import CatalogPage from "@/routes/catalog";
 import ChangesPage from "@/routes/changes";
 import IncidentDetailPage from "@/routes/incident-detail";
 import IncidentsPage from "@/routes/incidents";
+import KnowledgePage from "@/routes/knowledge";
+import KnowledgeArticlePage from "@/routes/knowledge-article";
 import LoginPage from "@/routes/login";
 import PortalPage from "@/routes/portal";
+import PortalIncidentDetailPage from "@/routes/portal-incident-detail";
 import ProblemsPage from "@/routes/problems";
 import ProblemDetailPage from "@/routes/problem-detail";
 import RequestsPage from "@/routes/requests";
@@ -104,7 +107,29 @@ export const router = createBrowserRouter([
             path: "portal",
             handle: { breadcrumb: "Portal" },
             element: <ProtectedRoute roles={["EndUser", "Admin"]} />,
-            children: [{ index: true, element: <PortalPage /> }],
+            children: [
+              { index: true, element: <PortalPage /> },
+              {
+                path: "incidents/:id",
+                element: <PortalIncidentDetailPage />,
+                handle: { breadcrumb: "Incident" },
+              },
+            ],
+          },
+          {
+            path: "knowledge",
+            handle: { breadcrumb: "Knowledge" },
+            element: (
+              <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />
+            ),
+            children: [
+              { index: true, element: <KnowledgePage /> },
+              {
+                path: ":slug",
+                element: <KnowledgeArticlePage />,
+                handle: { breadcrumb: "Article" },
+              },
+            ],
           },
           {
             path: "catalog",

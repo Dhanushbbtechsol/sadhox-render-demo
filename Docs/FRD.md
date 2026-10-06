@@ -10,6 +10,7 @@
 
 ## 1. Scope (Production Build)
 - **In-Scope:** Core ITIL workflows (Incident, Problem, Service Request, Change, Asset), JWT authentication with rotating refresh tokens, granular RBAC route guards, real-time comment streams via WebSockets, time & event-driven automations (BullMQ + Redis), transactional emails (Resend), audit logging, and automated CI/CD with full e2e test verification.
+- **Phase 5 (Week 5) in-scope add-on:** Knowledge Base (categories, articles, search, ticket links), Admin Service Catalog CRUD, Admin SLA rules table editor, portal incident detail, dashboard CSV export. See [Docs/Phase/coverage-matrix.md](./Phase/coverage-matrix.md).
 - **Out-of-Scope:** Multi-tenant billing architectures, SSO / Active Directory / SAML integrations, advanced BI / drag-and-drop report builders, native mobile applications, and visual CMDB dependency node graphs.
 
 ## 2. Modules & Developer Split
@@ -43,6 +44,12 @@
 - Admin dashboard UI with aggregate metric visualisations (ticket volumes by status, module, and SLA state).
 - Resend email HTML templates for ticket assignments and status transitions.
 - Unit and e2e integration tests for asset and admin analytics modules.
+- **Phase 5:** Admin Knowledge Base authoring UI, SLA rules table editor, dashboard CSV export.
+
+### Phase 5 additions (all tracks)
+- **Dev D:** `KnowledgeModule` schema/API, ticket–article links, Admin SLA rules PATCH, Admin catalog POST/PATCH.
+- **Dev A:** Link articles on incident/problem detail; End User portal incident detail.
+- **Dev B:** End User `/knowledge` browse/search; Admin catalog CRUD UI.
 
 ## 3. Data Model (PostgreSQL via Drizzle ORM)
 - `users`: Core identity, role (`Admin`, `Agent`, `EndUser`), password hash, timestamps.
@@ -56,6 +63,7 @@
 - `comments`: Polymorphic comments (`id`, `ticket_id`, `ticket_type`, `author_id`, `content`, `created_at`) with Nest service-layer referential validation and cascading soft-delete.
 - `sla_rules`: SLA threshold definitions per priority level.
 - `notifications`: User notification delivery records.
+- **Phase 5:** `knowledge_categories`, `knowledge_articles` (Draft/Published), `ticket_knowledge_links` (polymorphic ticket ↔ article).
 
 ## 4. Non-Functional Requirements
 - **Security & Authorization:** Passport JWT strategy with httpOnly secure cookies; NestJS RBAC guards enforced across all controllers; 100% test assertion for 401/403 authorization boundaries.
@@ -73,10 +81,11 @@
 | **Week 2** | Core CRUD & Realtime | Socket.io gateway and BullMQ/Redis wired. Incident, Problem, Service Request, Change, and Asset modules CRUD complete with real DB access and RBAC guards active. **Checkpoint (Day 10):** All modules functional; e2e role tests passing. |
 | **Week 3** | Workflows, Automation & Hardening | Round-robin assignment, BullMQ SLA breach/auto-close jobs, Resend email triggers, approval state machines, and Admin charts live. **Checkpoint (Day 15):** Automation active; test coverage baseline achieved across all modules. |
 | **Week 4** | QA, Security Pass & Deploy | Cross-module QA walkthrough, full 401/403 security matrix audit, endpoint load testing, seed data loaded, production deployment to Railway/Render and Vercel. **Checkpoint (Day 20):** Production go-live with active monitoring. |
+| **Week 5** | Knowledge Base & residual gaps | KB schema/API + Admin authoring + End User search; ticket–article links; portal incident detail; catalog Admin CRUD; SLA rules table editor; dashboard CSV. **Checkpoint (Day 25):** Phase 5 acceptance per [coverage-matrix.md](./Phase/coverage-matrix.md). |
 
 ## 6. Out-of-Scope Follow-ups
 - Multi-tenant tenant isolation and billing management.
 - Enterprise SSO (SAML 2.0 / Okta / Azure AD).
 - Interactive visual CMDB dependency graph.
 - Multi-tier conditional approval hierarchies.
-- Dynamic drag-and-drop SLA policy configuration UI.
+- Dynamic drag-and-drop SLA policy configuration UI.
