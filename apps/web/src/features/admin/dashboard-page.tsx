@@ -6,13 +6,13 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   XAxis,
   YAxis,
 } from "recharts";
 
+import { PieCenter } from "@/components/charts/pie-center";
+import { PieChart } from "@/components/charts/pie-chart";
+import { PieSlice } from "@/components/charts/pie-slice";
 import { Button } from "@/components/ui/button";
 import {
   ChartContainer,
@@ -295,6 +295,16 @@ function StatusDistributionCard({
     [rows, selected],
   );
 
+  const pieData = useMemo(
+    () =>
+      visibleRows.map((row) => ({
+        label: `${row.module} · ${row.label}`,
+        value: row.count,
+        color: colorByStatus.get(row.status),
+      })),
+    [visibleRows, colorByStatus],
+  );
+
   function toggleStatus(status: string, next: boolean) {
     setSelected((prev) => {
       const copy = new Set(prev);
@@ -382,37 +392,25 @@ function StatusDistributionCard({
       {rows && rows.length > 0 ? (
         visibleRows.length > 0 ? (
           <div className="flex min-w-0 flex-col gap-4">
-            <ChartContainer
-              config={Object.fromEntries(
-                visibleRows.map((row) => [
-                  row.status,
-                  {
-                    label: `${row.module} · ${row.label}`,
-                    color: colorByStatus.get(row.status),
-                  },
-                ]),
-              )}
-              className="aspect-auto mx-auto h-52 w-full max-w-xs sm:h-56 sm:max-w-sm"
-            >
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent nameKey="status" hideLabel />} />
-                <Pie
-                  data={visibleRows}
-                  dataKey="count"
-                  nameKey="status"
-                  innerRadius={52}
-                  outerRadius={84}
-                  strokeWidth={2}
-                >
-                  {visibleRows.map((row) => (
-                    <Cell
-                      key={row.status}
-                      fill={colorByStatus.get(row.status)}
-                    />
-                  ))}
-                </Pie>
+            <div className="mx-auto aspect-square h-52 w-full max-w-[13rem] sm:h-56 sm:max-w-[14rem]">
+              <PieChart
+                data={pieData}
+                innerRadius={56}
+                padAngle={0.02}
+                cornerRadius={4}
+                className="mx-auto"
+              >
+                {pieData.map((slice, index) => (
+                  <PieSlice
+                    key={slice.label}
+                    index={index}
+                    hoverEffect="grow"
+                    showGlow={false}
+                  />
+                ))}
+                <PieCenter defaultLabel="Tickets" />
               </PieChart>
-            </ChartContainer>
+            </div>
             <ul className="flex max-h-28 min-w-0 flex-wrap justify-center gap-x-3 gap-y-2 overflow-y-auto px-1 text-xs sm:max-h-32">
               {visibleRows.map((row) => (
                 <li

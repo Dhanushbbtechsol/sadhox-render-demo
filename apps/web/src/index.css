@@ -30,6 +30,11 @@
   --border: oklch(0.88 0.03 240);
   --input: oklch(0.88 0.03 240);
   --ring: oklch(0.51 0.124 245);
+  /* Chart chrome — Bklit pie/center labels */
+  --chart-background: transparent;
+  --chart-foreground: var(--foreground);
+  --chart-foreground-muted: var(--muted-foreground);
+  --chart-label: var(--muted-foreground);
   /* Chart series — soft brand blue (#1A16F3 faded); Bklit-aligned */
   --chart-1: color-mix(in srgb, #1A16F3 50%, white);
   --chart-2: color-mix(in srgb, #5041BC 55%, white);
@@ -150,6 +155,10 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-chart-label: var(--chart-label);
+  --color-chart-foreground: var(--chart-foreground);
+  --color-chart-foreground-muted: var(--chart-foreground-muted);
+  --color-chart-background: var(--chart-background);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);

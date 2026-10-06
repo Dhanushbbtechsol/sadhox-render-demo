@@ -10,6 +10,7 @@ For any analytics, KPIs, or chart UI in the web app, **refer to [bklit.com](http
 
 - https://bklit.com/charts/bar-chart
 - https://bklit.com/docs/components/bar-chart
+- https://bklit.com/docs/components/pie-chart
 - https://bklit.com/docs/theming
 
 ## Visual language (match even when staying on Recharts / shadcn Chart)
@@ -24,5 +25,5 @@ For any analytics, KPIs, or chart UI in the web app, **refer to [bklit.com](http
 ## When adding new charts
 
 1. Open the matching Bklit gallery example first and mirror layout density, grid, and footer treatment.
-2. Reuse `@/components/ui/chart` (`ChartContainer` + config) unless product explicitly adopts Bklit components.
+2. Prefer installed `@bklit` charts under `@/components/charts` (e.g. pie) when available; otherwise reuse `@/components/ui/chart` (`ChartContainer` + config).
 3. Do not invent a second analytics aesthetic (glow bars, heavy gradients, pill legends in the plot area).
