@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { RelatedHelpArticles } from "@/components/catalog/related-help-articles";
 import { useCreateServiceRequest } from "@/hooks/use-service-requests";
 import type { ServiceCatalogItem, Urgency } from "@/types/api";
 
@@ -158,7 +159,12 @@ export function RequestFormDialog({
             {item?.description ?? "Complete the form to submit a service request."}
           </DialogDescription>
         </DialogHeader>
-        {item ? <RequestFormBody key={item.id} item={item} onOpenChange={onOpenChange} /> : null}
+        {item ? (
+          <div className="space-y-4">
+            <RelatedHelpArticles department={item.department} />
+            <RequestFormBody key={item.id} item={item} onOpenChange={onOpenChange} />
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

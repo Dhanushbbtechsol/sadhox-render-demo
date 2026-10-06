@@ -64,6 +64,13 @@
       "when": 1791400000000,
       "tag": "0008_assets_restore_purchase_cost",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792000000000,
+      "tag": "0009_phase5_knowledge",
+      "breakpoints": true
     }
   ]
 }

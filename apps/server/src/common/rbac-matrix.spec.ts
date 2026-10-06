@@ -32,6 +32,8 @@ import { ServiceCatalogController } from "../service-catalog/service-catalog.con
 import { ServiceCatalogService } from "../service-catalog/service-catalog.service";
 import { ServiceRequestsController } from "../service-requests/service-requests.controller";
 import { ServiceRequestsService } from "../service-requests/service-requests.service";
+import { KnowledgeController } from "../knowledge/knowledge.controller";
+import { KnowledgeService } from "../knowledge/knowledge.service";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const ALL_ROLES: UserRole[] = ["Admin", "Agent", "EndUser"];
@@ -112,6 +114,27 @@ const MATRIX: MatrixRow[] = [
     path: "/service-catalog",
     allowed: ["Admin", "Agent", "EndUser"],
   },
+  { method: "post", path: "/service-catalog", allowed: ["Admin"] },
+  {
+    method: "patch",
+    path: `/service-catalog/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "get",
+    path: "/knowledge/categories",
+    allowed: ["Admin", "Agent", "EndUser"],
+  },
+  {
+    method: "get",
+    path: "/knowledge/articles",
+    allowed: ["Admin", "Agent", "EndUser"],
+  },
+  {
+    method: "get",
+    path: "/knowledge/articles/requesting-a-laptop",
+    allowed: ["Admin", "Agent", "EndUser"],
+  },
   { method: "get", path: "/admin/dashboard/stats", allowed: ["Admin"] },
   { method: "get", path: "/health/ready", allowed: ["Admin"] },
 ];
@@ -166,6 +189,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         ChangesController,
         AssetsController,
         ServiceCatalogController,
+        KnowledgeController,
         AdminController,
       ],
       providers: [
@@ -243,7 +267,15 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         },
         {
           provide: ServiceCatalogService,
-          useValue: stubService(["list"]),
+          useValue: stubService(["list", "create", "update"]),
+        },
+        {
+          provide: KnowledgeService,
+          useValue: stubService([
+            "listCategories",
+            "listArticles",
+            "getBySlug",
+          ]),
         },
         {
           provide: AdminService,

@@ -1,5 +1,6 @@
 import {
   AlertTriangleIcon,
+  BookOpenIcon,
   ClipboardListIcon,
   LayoutDashboardIcon,
   GitBranchIcon,
@@ -11,6 +12,7 @@ import {
   PanelLeftIcon,
   ScrollTextIcon,
   ServerIcon,
+  Settings2Icon,
   TicketIcon,
 } from "lucide-react";
 import { NavLink } from "react-router";
@@ -54,6 +56,12 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["Admin"],
   },
   {
+    to: "/admin/catalog",
+    label: "Catalog admin",
+    icon: Settings2Icon,
+    roles: ["Admin"],
+  },
+  {
     to: "/incidents",
     label: "Incidents",
     icon: AlertTriangleIcon,
@@ -70,6 +78,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "My Portal",
     icon: LifeBuoyIcon,
     roles: ["EndUser", "Admin"],
+  },
+  {
+    to: "/knowledge",
+    label: "Knowledge",
+    icon: BookOpenIcon,
+    roles: ["Admin", "Agent", "EndUser"],
   },
   {
     to: "/catalog",

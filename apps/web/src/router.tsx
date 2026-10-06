@@ -5,12 +5,15 @@ import { GuestRoute, ProtectedRoute } from "@/components/auth/protected-route";
 import AuditLogsPage from "@/features/admin/audit-logs-page";
 import DashboardPage from "@/features/admin/dashboard-page";
 import QueueMonitorPage from "@/features/admin/queue-monitor-page";
+import AdminCatalogPage from "@/features/admin/admin-catalog-page";
 import AssetRegisterPage from "@/features/assets/asset-register-page";
 import ApprovalsPage from "@/routes/approvals";
 import CatalogPage from "@/routes/catalog";
 import ChangesPage from "@/routes/changes";
 import IncidentDetailPage from "@/routes/incident-detail";
 import IncidentsPage from "@/routes/incidents";
+import KnowledgePage from "@/routes/knowledge";
+import KnowledgeDetailPage from "@/routes/knowledge-detail";
 import LoginPage from "@/routes/login";
 import PortalPage from "@/routes/portal";
 import ProblemsPage from "@/routes/problems";
@@ -75,6 +78,12 @@ export const router = createBrowserRouter([
             children: [{ index: true, element: <QueueMonitorPage /> }],
           },
           {
+            path: "admin/catalog",
+            handle: { breadcrumb: "Catalog admin" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <AdminCatalogPage /> }],
+          },
+          {
             path: "incidents",
             handle: { breadcrumb: "Incidents" },
             element: <ProtectedRoute roles={["Admin", "Agent"]} />,
@@ -105,6 +114,21 @@ export const router = createBrowserRouter([
             handle: { breadcrumb: "Portal" },
             element: <ProtectedRoute roles={["EndUser", "Admin"]} />,
             children: [{ index: true, element: <PortalPage /> }],
+          },
+          {
+            path: "knowledge",
+            handle: { breadcrumb: "Knowledge" },
+            element: (
+              <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />
+            ),
+            children: [
+              { index: true, element: <KnowledgePage /> },
+              {
+                path: ":slug",
+                element: <KnowledgeDetailPage />,
+                handle: { breadcrumb: "Article" },
+              },
+            ],
           },
           {
             path: "catalog",

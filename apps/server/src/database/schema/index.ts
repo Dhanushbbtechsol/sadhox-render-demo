@@ -82,6 +82,15 @@ export const ticketTypeEnum = pgEnum("ticket_type", [
   "service_request",
   "change",
 ]);
+export const knowledgeArticleStatusEnum = pgEnum("knowledge_article_status", [
+  "Draft",
+  "Published",
+]);
+export const knowledgeTicketTypeEnum = pgEnum("knowledge_ticket_type", [
+  "incident",
+  "service_request",
+  "problem",
+]);
 
 export const users = pgTable(
   "users",
@@ -379,6 +388,72 @@ export const slaRules = pgTable("sla_rules", {
     .defaultNow(),
 });
 
+export const knowledgeCategories = pgTable(
+  "knowledge_categories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    slug: varchar("slug", { length: 255 }).notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("knowledge_categories_slug_unique").on(t.slug),
+    index("knowledge_categories_name_idx").on(t.name),
+  ],
+);
+
+export const knowledgeArticles = pgTable(
+  "knowledge_articles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    title: varchar("title", { length: 255 }).notNull(),
+    slug: varchar("slug", { length: 255 }).notNull(),
+    body: text("body").notNull(),
+    status: knowledgeArticleStatusEnum("status").notNull().default("Draft"),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => knowledgeCategories.id),
+    authorId: uuid("author_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("knowledge_articles_slug_unique").on(t.slug),
+    index("knowledge_articles_category_id_idx").on(t.categoryId),
+    index("knowledge_articles_status_idx").on(t.status),
+  ],
+);
+
+export const ticketKnowledgeLinks = pgTable(
+  "ticket_knowledge_links",
+  {
+    ticketId: uuid("ticket_id").notNull(),
+    ticketType: knowledgeTicketTypeEnum("ticket_type").notNull(),
+    articleId: uuid("article_id")
+      .notNull()
+      .references(() => knowledgeArticles.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.ticketId, t.ticketType, t.articleId] }),
+    index("ticket_knowledge_links_article_id_idx").on(t.articleId),
+  ],
+);
+
 /** GUESS: notification payload shape — FRD only says "User notification delivery records". */
 export const notifications = pgTable(
   "notifications",
@@ -443,6 +518,38 @@ export const problemIncidentsRelations = relations(
   }),
 );
 
+export const knowledgeCategoriesRelations = relations(
+  knowledgeCategories,
+  ({ many }) => ({
+    articles: many(knowledgeArticles),
+  }),
+);
+
+export const knowledgeArticlesRelations = relations(
+  knowledgeArticles,
+  ({ one, many }) => ({
+    category: one(knowledgeCategories, {
+      fields: [knowledgeArticles.categoryId],
+      references: [knowledgeCategories.id],
+    }),
+    author: one(users, {
+      fields: [knowledgeArticles.authorId],
+      references: [users.id],
+    }),
+    ticketLinks: many(ticketKnowledgeLinks),
+  }),
+);
+
+export const ticketKnowledgeLinksRelations = relations(
+  ticketKnowledgeLinks,
+  ({ one }) => ({
+    article: one(knowledgeArticles, {
+      fields: [ticketKnowledgeLinks.articleId],
+      references: [knowledgeArticles.id],
+    }),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type UserRole = (typeof userRoleEnum.enumValues)[number];
@@ -457,3 +564,7 @@ export type Asset = typeof assets.$inferSelect;
 export type NewAsset = typeof assets.$inferInsert;
 export type AssetType = (typeof assetTypeEnum.enumValues)[number];
 export type AssetStatus = (typeof assetStatusEnum.enumValues)[number];
+export type KnowledgeArticleStatus =
+  (typeof knowledgeArticleStatusEnum.enumValues)[number];
+export type KnowledgeCategory = typeof knowledgeCategories.$inferSelect;
+export type KnowledgeArticle = typeof knowledgeArticles.$inferSelect;

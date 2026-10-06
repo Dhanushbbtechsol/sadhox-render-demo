@@ -27,6 +27,7 @@ import { ProblemsModule } from "./problems/problems.module";
 import { QueuesModule } from "./queues/queues.module";
 import { ServiceCatalogModule } from "./service-catalog/service-catalog.module";
 import { ServiceRequestsModule } from "./service-requests/service-requests.module";
+import { KnowledgeModule } from "./knowledge/knowledge.module";
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     ProblemsModule,
     ServiceCatalogModule,
     ServiceRequestsModule,
+    KnowledgeModule,
     ChangesModule,
     CommentsModule,
     AssetsModule,
