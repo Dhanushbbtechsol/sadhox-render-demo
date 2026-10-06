@@ -31,12 +31,12 @@ describe("CreateChangeDto — Phase 4 Day 17", () => {
   });
 
   it("requires rollback plan for Emergency changes", async () => {
-    const errors = await errorsFor({
+    // whitespace still has length — MinLength(1) passes; service trims.
+    await errorsFor({
       ...base,
       type: "Emergency",
       rollbackPlan: "   ",
     });
-    // whitespace still has length — MinLength(1) passes; service trims.
     // Empty string must fail:
     const empty = await errorsFor({
       ...base,
