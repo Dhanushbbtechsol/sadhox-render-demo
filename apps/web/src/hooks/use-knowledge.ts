@@ -40,13 +40,16 @@ export function useKnowledgeArticles(params: {
   q?: string;
   categoryId?: string;
   enabled?: boolean;
+  /** When true, skip fetch until categoryId is set (catalog related-help). */
+  requireCategory?: boolean;
 } = {}) {
   const userId = useAuthStore((s) => s.user?.id);
-  const { q, categoryId, enabled = true } = params;
+  const { q, categoryId, enabled = true, requireCategory = false } = params;
+  const waitingOnCategory = requireCategory && !categoryId;
 
   return useQuery({
     queryKey: [...articlesKey, userId, { q, categoryId }],
-    enabled: Boolean(userId) && enabled,
+    enabled: Boolean(userId) && enabled && !waitingOnCategory,
     queryFn: async () => {
       const result = await apiFetch<{ data: KnowledgeArticle[] }>(
         `/knowledge/articles${toQuery({ q, categoryId })}`,

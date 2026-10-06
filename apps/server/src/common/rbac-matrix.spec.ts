@@ -114,6 +114,12 @@ const MATRIX: MatrixRow[] = [
     path: "/service-catalog",
     allowed: ["Admin", "Agent", "EndUser"],
   },
+  { method: "post", path: "/service-catalog", allowed: ["Admin"] },
+  {
+    method: "patch",
+    path: `/service-catalog/${ID}`,
+    allowed: ["Admin"],
+  },
   {
     method: "get",
     path: "/knowledge/categories",
@@ -306,7 +312,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         },
         {
           provide: ServiceCatalogService,
-          useValue: stubService(["list"]),
+          useValue: stubService(["list", "create", "update"]),
         },
         {
           provide: KnowledgeService,

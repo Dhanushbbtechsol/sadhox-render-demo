@@ -39,6 +39,29 @@ export interface ServiceCatalogItem {
   description: string;
   department: string;
   formFields: CatalogFormField[];
+  isActive?: boolean;
+}
+
+export type KnowledgeArticleStatus = "Draft" | "Published";
+
+export interface KnowledgeCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+}
+
+export interface KnowledgeArticle {
+  id: string;
+  title: string;
+  slug: string;
+  body: string;
+  status: KnowledgeArticleStatus;
+  categoryId: string;
+  categoryName: string;
+  categorySlug: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ServiceRequest {

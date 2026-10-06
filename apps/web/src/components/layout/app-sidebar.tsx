@@ -12,6 +12,7 @@ import {
   PanelLeftIcon,
   ScrollTextIcon,
   ServerIcon,
+  Settings2Icon,
   TicketIcon,
 } from "lucide-react";
 import { NavLink } from "react-router";
@@ -52,6 +53,12 @@ const NAV_ITEMS: NavItem[] = [
     to: "/admin/queues",
     label: "Queues",
     icon: ServerIcon,
+    roles: ["Admin"],
+  },
+  {
+    to: "/admin/catalog",
+    label: "Catalog admin",
+    icon: Settings2Icon,
     roles: ["Admin"],
   },
   {
