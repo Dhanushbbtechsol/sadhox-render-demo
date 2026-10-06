@@ -96,7 +96,8 @@ const NAV_ITEMS: NavItem[] = [
     to: "/knowledge",
     label: "Knowledge",
     icon: BookOpenIcon,
-    roles: ["Admin", "Agent", "EndUser"],
+    // Admin uses the merged /admin/knowledge browse + authoring page
+    roles: ["Agent", "EndUser"],
   },
   {
     to: "/catalog",

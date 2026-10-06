@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, Navigate } from "react-router";
 import { BookOpenIcon, SearchIcon } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
@@ -30,22 +30,23 @@ export default function KnowledgePage() {
     categoryId: categoryId === "all" ? undefined : categoryId,
   });
 
-  const publishedOnly = role !== "Admin";
   const visible = useMemo(() => {
     const rows = articles.data ?? [];
-    if (!publishedOnly) return rows;
     return rows.filter((a) => a.status === "Published");
-  }, [articles.data, publishedOnly]);
+  }, [articles.data]);
+
+  // Admin uses the merged browse + authoring page
+  if (role === "Admin") {
+    return <Navigate to="/admin/knowledge" replace />;
+  }
 
   return (
     <div className="space-y-6">
       <div className="space-y-1 animate-in-up">
         <h1 className="text-2xl font-semibold tracking-tight">Knowledge base</h1>
         <p className="text-muted-foreground text-sm">
-          Browse how-to articles by category or search by keyword.
-          {publishedOnly
-            ? " Showing published articles."
-            : " Admins also see draft articles."}
+          Browse how-to articles by category or search by keyword. Showing
+          published articles.
         </p>
       </div>
 
@@ -117,12 +118,7 @@ export default function KnowledgePage() {
                   <span className="bg-muted text-muted-foreground flex size-9 items-center justify-center rounded-lg">
                     <BookOpenIcon className="size-4" />
                   </span>
-                  <div className="flex flex-wrap justify-end gap-1.5">
-                    <Badge variant="outline">{article.categoryName}</Badge>
-                    {article.status === "Draft" ? (
-                      <Badge variant="warning">Draft</Badge>
-                    ) : null}
-                  </div>
+                  <Badge variant="outline">{article.categoryName}</Badge>
                 </div>
                 <p className="group-hover:text-primary text-sm font-semibold tracking-tight transition-colors">
                   {article.title}
