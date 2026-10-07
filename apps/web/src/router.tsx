@@ -5,14 +5,21 @@ import { GuestRoute, ProtectedRoute } from "@/components/auth/protected-route";
 import AuditLogsPage from "@/features/admin/audit-logs-page";
 import DashboardPage from "@/features/admin/dashboard-page";
 import QueueMonitorPage from "@/features/admin/queue-monitor-page";
+import AdminCatalogPage from "@/features/admin/admin-catalog-page";
+import SlaRulesPage from "@/features/admin/sla-rules-page";
 import AssetRegisterPage from "@/features/assets/asset-register-page";
+import KnowledgeArticlePage from "@/features/knowledge/knowledge-article-page";
+import KnowledgeListPage from "@/features/knowledge/knowledge-list-page";
 import ApprovalsPage from "@/routes/approvals";
 import CatalogPage from "@/routes/catalog";
 import ChangesPage from "@/routes/changes";
 import IncidentDetailPage from "@/routes/incident-detail";
 import IncidentsPage from "@/routes/incidents";
+import KnowledgePage from "@/routes/knowledge";
+import KnowledgeDetailPage from "@/routes/knowledge-detail";
 import LoginPage from "@/routes/login";
 import PortalPage from "@/routes/portal";
+import PortalIncidentDetailPage from "@/routes/portal-incident-detail";
 import ProblemsPage from "@/routes/problems";
 import ProblemDetailPage from "@/routes/problem-detail";
 import RequestsPage from "@/routes/requests";
@@ -75,9 +82,39 @@ export const router = createBrowserRouter([
             children: [{ index: true, element: <QueueMonitorPage /> }],
           },
           {
+            path: "admin/catalog",
+            handle: { breadcrumb: "Catalog admin" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <AdminCatalogPage /> }],
+          },
+          {
+            path: "admin/knowledge",
+            handle: { breadcrumb: "Knowledge" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [
+              { index: true, element: <KnowledgeListPage /> },
+              {
+                path: "new",
+                element: <KnowledgeArticlePage />,
+                handle: { breadcrumb: "New" },
+              },
+              {
+                path: ":id",
+                element: <KnowledgeArticlePage />,
+                handle: { breadcrumb: "Edit" },
+              },
+            ],
+          },
+          {
+            path: "admin/sla-rules",
+            handle: { breadcrumb: "SLA rules" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <SlaRulesPage /> }],
+          },
+          {
             path: "incidents",
             handle: { breadcrumb: "Incidents" },
-            element: <ProtectedRoute roles={["Admin", "Agent"]} />,
+            element: <ProtectedRoute roles={["Admin", "Agent", "Manager"]} />,
             children: [
               { index: true, element: <IncidentsPage /> },
               {
@@ -90,7 +127,7 @@ export const router = createBrowserRouter([
           {
             path: "problems",
             handle: { breadcrumb: "Problems" },
-            element: <ProtectedRoute roles={["Admin", "Agent"]} />,
+            element: <ProtectedRoute roles={["Admin", "Agent", "Manager"]} />,
             children: [
               { index: true, element: <ProblemsPage /> },
               {
@@ -104,7 +141,29 @@ export const router = createBrowserRouter([
             path: "portal",
             handle: { breadcrumb: "Portal" },
             element: <ProtectedRoute roles={["EndUser", "Admin"]} />,
-            children: [{ index: true, element: <PortalPage /> }],
+            children: [
+              { index: true, element: <PortalPage /> },
+              {
+                path: "incidents/:id",
+                element: <PortalIncidentDetailPage />,
+                handle: { breadcrumb: "Incident" },
+              },
+            ],
+          },
+          {
+            path: "knowledge",
+            handle: { breadcrumb: "Knowledge" },
+            element: (
+              <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />
+            ),
+            children: [
+              { index: true, element: <KnowledgePage /> },
+              {
+                path: ":slug",
+                element: <KnowledgeDetailPage />,
+                handle: { breadcrumb: "Article" },
+              },
+            ],
           },
           {
             path: "catalog",
@@ -115,7 +174,9 @@ export const router = createBrowserRouter([
           {
             path: "requests",
             handle: { breadcrumb: "Requests" },
-            element: <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />,
+            element: (
+              <ProtectedRoute roles={["Admin", "Agent", "EndUser", "Manager"]} />
+            ),
             children: [
               { index: true, element: <RequestsPage /> },
               {
@@ -128,7 +189,7 @@ export const router = createBrowserRouter([
           {
             path: "changes",
             handle: { breadcrumb: "Changes" },
-            element: <ProtectedRoute roles={["Admin", "Agent"]} />,
+            element: <ProtectedRoute roles={["Admin", "Agent", "Manager"]} />,
             children: [
               { index: true, element: <ChangesPage /> },
               {
@@ -141,7 +202,7 @@ export const router = createBrowserRouter([
           {
             path: "approvals",
             handle: { breadcrumb: "Approvals" },
-            element: <ProtectedRoute roles={["Admin"]} />,
+            element: <ProtectedRoute roles={["Admin", "Manager"]} />,
             children: [{ index: true, element: <ApprovalsPage /> }],
           },
           { path: "*", element: <NotFound /> },

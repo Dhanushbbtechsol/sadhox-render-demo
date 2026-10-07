@@ -32,6 +32,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ProjectModuleFields } from "@/components/projects/project-module-fields";
 import {
   useApproveChange,
   useChanges,
@@ -52,6 +53,8 @@ export function ChangesTable() {
   const [scheduledStart, setScheduledStart] = useState("");
   const [scheduledEnd, setScheduledEnd] = useState("");
   const [rollbackPlan, setRollbackPlan] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [moduleId, setModuleId] = useState("");
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
@@ -78,12 +81,16 @@ export function ChangesTable() {
         scheduledStart: start.toISOString(),
         scheduledEnd: end.toISOString(),
         rollbackPlan: rollbackPlan.trim(),
+        projectId: projectId || null,
+        moduleId: moduleId || null,
       });
       toast.success("Change created");
       setOpen(false);
       setTitle("");
       setDescription("");
       setRollbackPlan("");
+      setProjectId("");
+      setModuleId("");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Create failed");
     }
@@ -128,6 +135,12 @@ export function ChangesTable() {
                   required
                 />
               </div>
+              <ProjectModuleFields
+                projectId={projectId}
+                moduleId={moduleId}
+                onProjectChange={setProjectId}
+                onModuleChange={setModuleId}
+              />
               <div className="space-y-1.5">
                 <Label>Type</Label>
                 <Select
@@ -199,6 +212,7 @@ export function ChangesTable() {
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
+              <TableHead>Project</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Schedule</TableHead>
@@ -222,6 +236,10 @@ export function ChangesTable() {
                     </p>
                   </div>
                 </TableCell>
+                <TableCell className="text-xs">
+                  {change.projectName ?? "—"}
+                  {change.moduleName ? ` / ${change.moduleName}` : ""}
+                </TableCell>
                 <TableCell>
                   <Badge variant="outline">{change.type}</Badge>
                 </TableCell>
@@ -239,7 +257,7 @@ export function ChangesTable() {
                 </TableCell>
                 <TableCell>{change.createdByName}</TableCell>
                 <TableCell className="space-x-2 text-right">
-                  <Can roles={["Admin"]}>
+                  <Can roles={["Admin", "Manager"]}>
                     <Button
                       size="sm"
                       variant="outline"

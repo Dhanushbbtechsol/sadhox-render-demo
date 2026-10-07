@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 
 import { CreateIncidentDialog } from "@/components/incidents/create-incident-dialog";
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
@@ -53,8 +54,9 @@ export default function PortalPage() {
         <div className="space-y-3">
           <div className="space-y-2">
             {mine.map((incident, index) => (
-              <div
+              <Link
                 key={incident.id}
+                to={`/portal/incidents/${incident.id}`}
                 className={cn(
                   "border-border/80 bg-card flex flex-col gap-3 rounded-xl border px-4 py-3.5 shadow-soft transition-all duration-200 hover:border-primary/20 hover:shadow-lift sm:flex-row sm:items-center sm:justify-between animate-in-up",
                   index === 1 && "stagger-1",
@@ -76,7 +78,7 @@ export default function PortalPage() {
                 <span className="text-muted-foreground text-xs">
                   {new Date(incident.createdAt).toLocaleString()}
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
 

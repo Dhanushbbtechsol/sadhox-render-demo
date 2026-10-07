@@ -92,15 +92,6 @@ export const knowledgeArticleStatusEnum = pgEnum("knowledge_article_status", [
   "Draft",
   "Published",
 ]);
-/**
- * Ticket types that may link to KB articles.
- * Deliberately excludes `change` (comments' ticket_type allows change).
- */
-export const knowledgeTicketTypeEnum = pgEnum("knowledge_ticket_type", [
-  "incident",
-  "service_request",
-  "problem",
-]);
 
 export const users = pgTable(
   "users",
@@ -499,21 +490,23 @@ export const notifications = pgTable(
   (t) => [index("notifications_user_id_idx").on(t.userId)],
 );
 
-/** Phase 5 — Knowledge Base categories. */
-export const knowledgeCategories = pgTable("knowledge_categories", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  slug: varchar("slug", { length: 255 }).notNull().unique(),
-  description: text("description"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const knowledgeCategories = pgTable(
+  "knowledge_categories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    slug: varchar("slug", { length: 255 }).notNull().unique(),
+    description: text("description"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("knowledge_categories_slug_idx").on(t.slug)],
+);
 
-/** Phase 5 — Knowledge Base articles. */
 export const knowledgeArticles = pgTable(
   "knowledge_articles",
   {
@@ -524,10 +517,10 @@ export const knowledgeArticles = pgTable(
     status: knowledgeArticleStatusEnum("status").notNull().default("Draft"),
     categoryId: uuid("category_id")
       .notNull()
-      .references(() => knowledgeCategories.id),
-    authorId: uuid("author_id").references(() => users.id, {
-      onDelete: "set null",
-    }),
+      .references(() => knowledgeCategories.id, { onDelete: "restrict" }),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -538,18 +531,17 @@ export const knowledgeArticles = pgTable(
   (t) => [
     index("knowledge_articles_category_id_idx").on(t.categoryId),
     index("knowledge_articles_status_idx").on(t.status),
+    index("knowledge_articles_slug_idx").on(t.slug),
   ],
 );
 
-/**
- * Phase 5 — polymorphic ticket ↔ article links.
- * ticketType: incident | service_request | problem (not change).
- */
+/** Polymorphic ticket ↔ Published KB article links (incident | problem | service_request). */
 export const ticketKnowledgeLinks = pgTable(
   "ticket_knowledge_links",
   {
+    id: uuid("id").defaultRandom().primaryKey(),
     ticketId: uuid("ticket_id").notNull(),
-    ticketType: knowledgeTicketTypeEnum("ticket_type").notNull(),
+    ticketType: ticketTypeEnum("ticket_type").notNull(),
     articleId: uuid("article_id")
       .notNull()
       .references(() => knowledgeArticles.id, { onDelete: "cascade" }),
@@ -558,10 +550,12 @@ export const ticketKnowledgeLinks = pgTable(
       .defaultNow(),
   },
   (t) => [
-    primaryKey({
-      columns: [t.ticketId, t.ticketType, t.articleId],
-      name: "ticket_knowledge_links_ticket_id_ticket_type_article_id_pk",
-    }),
+    unique("ticket_knowledge_links_unique").on(
+      t.ticketId,
+      t.ticketType,
+      t.articleId,
+    ),
+    index("ticket_knowledge_links_ticket_idx").on(t.ticketType, t.ticketId),
     index("ticket_knowledge_links_article_id_idx").on(t.articleId),
   ],
 );
@@ -629,8 +623,6 @@ export type KnowledgeCategory = typeof knowledgeCategories.$inferSelect;
 export type KnowledgeArticle = typeof knowledgeArticles.$inferSelect;
 export type KnowledgeArticleStatus =
   (typeof knowledgeArticleStatusEnum.enumValues)[number];
-export type KnowledgeTicketType =
-  (typeof knowledgeTicketTypeEnum.enumValues)[number];
 export type TicketKnowledgeLink = typeof ticketKnowledgeLinks.$inferSelect;
 export type Project = typeof projects.$inferSelect;
 export type ProjectMember = typeof projectMembers.$inferSelect;

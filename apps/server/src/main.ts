@@ -49,7 +49,7 @@ async function bootstrap() {
 
   if (!isProd) {
     const swagger = new DocumentBuilder()
-      .setTitle("Sadhox API")
+      .setTitle("Yukti API")
       .setDescription("ITSM platform API — Phase 1–2 foundation contract")
       .setVersion("0.2.0")
       .addBearerAuth()

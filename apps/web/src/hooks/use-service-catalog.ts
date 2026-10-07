@@ -2,22 +2,73 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
-import type { ServiceCatalogItem, ServiceRequest, Urgency } from "@/types/api";
+import type {
+  CatalogFormField,
+  ServiceCatalogItem,
+  ServiceRequest,
+  Urgency,
+} from "@/types/api";
 
 const CATALOG_KEY = ["service-catalog"] as const;
 const REQUESTS_KEY = ["service-requests"] as const;
 
-export function useServiceCatalog() {
+export type CreateCatalogItemInput = {
+  name: string;
+  description: string;
+  department: string;
+  formFields: CatalogFormField[];
+  isActive?: boolean;
+};
+
+export type UpdateCatalogItemInput = Partial<CreateCatalogItemInput>;
+
+export function useServiceCatalog(options?: { includeInactive?: boolean }) {
   const userId = useAuthStore((state) => state.user?.id);
+  const includeInactive = Boolean(options?.includeInactive);
 
   return useQuery({
-    queryKey: [...CATALOG_KEY, userId],
+    queryKey: [...CATALOG_KEY, userId, includeInactive ? "all" : "active"],
     enabled: Boolean(userId),
     queryFn: async () => {
+      const query = includeInactive ? "?includeInactive=true" : "";
       const result = await apiFetch<{ data: ServiceCatalogItem[] }>(
-        "/service-catalog",
+        `/service-catalog${query}`,
       );
       return result.data;
+    },
+  });
+}
+
+export function useCreateCatalogItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateCatalogItemInput) =>
+      apiFetch<ServiceCatalogItem>("/service-catalog", {
+        method: "POST",
+        body: input,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: CATALOG_KEY });
+    },
+  });
+}
+
+export function useUpdateCatalogItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: UpdateCatalogItemInput;
+    }) =>
+      apiFetch<ServiceCatalogItem>(`/service-catalog/${id}`, {
+        method: "PATCH",
+        body: input,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: CATALOG_KEY });
     },
   });
 }
@@ -48,6 +99,8 @@ export function useCreateServiceRequest() {
       justification: string;
       urgency: Urgency;
       fields: Record<string, string>;
+      projectId?: string | null;
+      moduleId?: string | null;
     }) => {
       if (!userId) throw new Error("Not authenticated");
 
@@ -58,6 +111,8 @@ export function useCreateServiceRequest() {
           justification: input.justification,
           urgency: input.urgency,
           fields: input.fields,
+          ...(input.projectId ? { projectId: input.projectId } : {}),
+          ...(input.moduleId ? { moduleId: input.moduleId } : {}),
         },
       });
     },

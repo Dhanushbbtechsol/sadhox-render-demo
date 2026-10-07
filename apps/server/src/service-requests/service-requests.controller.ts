@@ -40,7 +40,7 @@ export class ServiceRequestsController {
 
   @Post()
   @HttpCode(201)
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "EndUser", "Manager")
   @ApiOperation({
     summary:
       "Submit a service request (requester taken from JWT; client requesterId rejected)",
@@ -53,9 +53,9 @@ export class ServiceRequestsController {
   }
 
   @Get(":id")
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "EndUser", "Manager")
   @ApiOperation({
-    summary: "Get service request by id (EndUser scoped to own rows)",
+    summary: "Get service request by id (project-scoped for Manager/Agent)",
   })
   get(
     @CurrentUser() user: AuthUser,
@@ -68,7 +68,7 @@ export class ServiceRequestsController {
   @Roles("Admin", "Manager")
   @ApiOperation({
     summary:
-      "Approve a submitted service request (Admin; Manager owns ticket project)",
+      "Approve a submitted service request (Admin any; Manager own project only; null project Admin-only)",
   })
   approve(
     @CurrentUser() user: AuthUser,
@@ -81,7 +81,7 @@ export class ServiceRequestsController {
   @Roles("Admin", "Manager")
   @ApiOperation({
     summary:
-      "Reject a submitted service request (Admin; Manager owns ticket project)",
+      "Reject a submitted service request (Admin any; Manager own project only)",
   })
   reject(
     @CurrentUser() user: AuthUser,

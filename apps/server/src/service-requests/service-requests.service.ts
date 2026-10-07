@@ -208,7 +208,10 @@ export class ServiceRequestsService {
 
   async get(user: AuthUser, id: string) {
     const [row] = await this.db
-      .select(this.selectListColumns())
+      .select({
+        ...this.selectListColumns(),
+        projectId: serviceRequests.projectId,
+      })
       .from(serviceRequests)
       .leftJoin(serviceCatalog, eq(serviceRequests.catalogId, serviceCatalog.id))
       .leftJoin(users, eq(serviceRequests.requesterId, users.id))
@@ -219,7 +222,9 @@ export class ServiceRequestsService {
     if (user.role === "EndUser" && row.requesterId !== user.userId) {
       throw new ForbiddenException("Cannot view this service request");
     }
-    return this.mapRow(row);
+    await this.assertCanAccessTicket(user, row.projectId);
+    const { projectId: _projectId, ...listRow } = row;
+    return this.mapRow(listRow);
   }
 
   async approve(user: AuthUser, id: string) {
@@ -274,6 +279,7 @@ export class ServiceRequestsService {
     }
 
     const existing = await this.requireExisting(id);
+    await this.assertCanAccessTicket(user, existing.projectId);
     if (!canTransitionRequestFulfillment(existing.status, "InFulfillment")) {
       throw new BadRequestException(
         `Cannot start fulfillment from status ${existing.status}. Admin approval is required first.`,
@@ -305,6 +311,7 @@ export class ServiceRequestsService {
     }
 
     const existing = await this.requireExisting(id);
+    await this.assertCanAccessTicket(user, existing.projectId);
     if (!canTransitionRequestFulfillment(existing.status, "Fulfilled")) {
       throw new BadRequestException(
         `Cannot fulfill a request in status ${existing.status}. Start fulfillment after approval first.`,
@@ -345,6 +352,19 @@ export class ServiceRequestsService {
       .limit(1);
     if (!existing) throw new NotFoundException("Service request not found");
     return existing;
+  }
+
+  private async assertCanAccessTicket(
+    user: AuthUser,
+    projectId: string | null,
+  ) {
+    if (user.role === "Admin" || user.role === "EndUser") return;
+    if (user.role === "Agent" && (projectId == null || projectId === "")) {
+      return;
+    }
+    if (!(await this.projectAccess.canAccess(user, projectId))) {
+      throw new ForbiddenException("Cannot view this service request");
+    }
   }
 
   private async notifyAdminsOfSubmission(

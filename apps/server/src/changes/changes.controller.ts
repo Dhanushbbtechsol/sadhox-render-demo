@@ -44,16 +44,20 @@ export class ChangesController {
   }
 
   @Get(":id")
-  @Roles("Admin", "Agent")
-  @ApiOperation({ summary: "Get change by id" })
-  get(@Param("id", ParseUUIDPipe) id: string) {
-    return this.changes.get(id);
+  @Roles("Admin", "Agent", "Manager")
+  @ApiOperation({ summary: "Get change by id (project-scoped for Manager/Agent)" })
+  get(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.changes.get(user, id);
   }
 
   @Patch(":id/approve")
   @Roles("Admin", "Manager")
   @ApiOperation({
-    summary: "Approve a change (Admin; Manager owns ticket project)",
+    summary:
+      "Approve a change (Admin any; Manager own project; null project Admin-only)",
   })
   approve(
     @CurrentUser() user: AuthUser,
@@ -63,7 +67,7 @@ export class ChangesController {
   }
 
   @Patch(":id")
-  @Roles("Admin", "Agent")
+  @Roles("Admin", "Agent", "Manager")
   @ApiOperation({ summary: "Update change fields / status transition" })
   update(
     @CurrentUser() user: AuthUser,

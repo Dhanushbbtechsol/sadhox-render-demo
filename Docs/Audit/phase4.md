@@ -2,7 +2,7 @@
 
 Scope: current `Audit` tree after Dev-A/B/C/D Phase 4 merges + Dev-A/B remediations. Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT + refresh cookie, Socket.IO, BullMQ/Redis, Resend.
 
-**Open findings: 1 High · 1 Medium · 3 Low** (all Dev D). Dev A/B Medium/Low closed. No Critical.
+**Open findings (as of Phase 5 reaudit 2026-10-07): 0 High · 1 Medium · 3 Low** (all Dev D). LAN script High closed. Dev A/B Medium/Low closed. No Critical.
 
 **Owners:** [Dev A](./Dev%20A/phase4.md) · [Dev B](./Dev%20B/phase4.md) · [Dev C](./Dev%20C/phase4.md) · [Dev D](./Dev%20D/phase4.md)
 
@@ -19,11 +19,9 @@ Scope: current `Audit` tree after Dev-A/B/C/D Phase 4 merges + Dev-A/B remediati
 
 ## Still open — Dev D
 
-### High — [A02 / A05] Hardcoded LAN DB/Redis defaults
+### High — [A02 / A05] Hardcoded LAN DB/Redis defaults — **FIXED (2026-10-07)**
 
-`probe-remote-services.mjs`, `clean-sla-failed-jobs.mjs`, `rebaseline-remote-journal.mjs` still fall back to `sadhox:sadhox@192.168.68.111` / Redis LAN when env unset.
-
-Fix: require env URLs; fail fast; rotate matching passwords.
+Verified closed on reaudit: scripts use `requireEnv` (no LAN fallbacks). See [phase5.md](./phase5.md).
 
 ### Medium — [A07] `SameSite=None` without CSRF defense
 

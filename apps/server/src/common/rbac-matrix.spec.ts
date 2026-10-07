@@ -47,33 +47,53 @@ type MatrixRow = {
 };
 
 const MATRIX: MatrixRow[] = [
-  { method: "get", path: "/incidents", allowed: ["Admin", "Agent", "EndUser", "Manager"] },
-  { method: "post", path: "/incidents", allowed: ["Admin", "Agent", "EndUser"] },
+  {
+    method: "get",
+    path: "/incidents",
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
+  },
+  {
+    method: "post",
+    path: "/incidents",
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
+  },
   {
     method: "get",
     path: `/incidents/${ID}`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
   },
-  { method: "patch", path: `/incidents/${ID}`, allowed: ["Admin", "Agent"] },
+  {
+    method: "patch",
+    path: `/incidents/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
   {
     method: "get",
     path: `/incidents/${ID}/comments`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
   },
   {
     method: "get",
     path: `/incidents/${ID}/linked-assets`,
-    allowed: ["Admin", "Agent"],
+    allowed: ["Admin", "Agent", "Manager"],
   },
   {
     method: "post",
     path: `/incidents/${ID}/comments`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
   },
   { method: "get", path: "/problems", allowed: ["Admin", "Agent", "Manager"] },
-  { method: "post", path: "/problems", allowed: ["Admin", "Agent"] },
-  { method: "get", path: `/problems/${ID}`, allowed: ["Admin", "Agent"] },
-  { method: "patch", path: `/problems/${ID}`, allowed: ["Admin", "Agent"] },
+  { method: "post", path: "/problems", allowed: ["Admin", "Agent", "Manager"] },
+  {
+    method: "get",
+    path: `/problems/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  {
+    method: "patch",
+    path: `/problems/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
   {
     method: "get",
     path: "/service-requests",
@@ -82,12 +102,12 @@ const MATRIX: MatrixRow[] = [
   {
     method: "post",
     path: "/service-requests",
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     method: "get",
     path: `/service-requests/${ID}`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     method: "patch",
@@ -101,9 +121,21 @@ const MATRIX: MatrixRow[] = [
   },
   { method: "get", path: "/changes", allowed: ["Admin", "Agent", "Manager"] },
   { method: "post", path: "/changes", allowed: ["Admin", "Agent"] },
-  { method: "get", path: `/changes/${ID}`, allowed: ["Admin", "Agent"] },
-  { method: "patch", path: `/changes/${ID}/approve`, allowed: ["Admin", "Manager"] },
-  { method: "patch", path: `/changes/${ID}`, allowed: ["Admin", "Agent"] },
+  {
+    method: "get",
+    path: `/changes/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  {
+    method: "patch",
+    path: `/changes/${ID}/approve`,
+    allowed: ["Admin", "Manager"],
+  },
+  {
+    method: "patch",
+    path: `/changes/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
   { method: "get", path: "/assets", allowed: ["Admin"] },
   { method: "post", path: "/assets", allowed: ["Admin"] },
   { method: "get", path: `/assets/${ID}`, allowed: ["Admin"] },

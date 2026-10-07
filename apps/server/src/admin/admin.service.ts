@@ -1,4 +1,4 @@
-﻿import { InjectQueue } from "@nestjs/bullmq";
+import { InjectQueue } from "@nestjs/bullmq";
 import {
   BadRequestException,
   Inject,
@@ -441,7 +441,7 @@ export class AdminService {
   }
 
   /**
-   * Admin SLA table editor ΓÇö matches web `SlaRule` contract
+   * Admin SLA table editor — matches web `SlaRule` contract
    * (`id`, `priority`, `responseMinutes`, `resolveMinutes`, `createdAt` ISO).
    */
   async listSlaRules() {

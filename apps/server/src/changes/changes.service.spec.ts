@@ -91,6 +91,7 @@ describe("ChangesService.update Admin gates", () => {
       projectScope as never,
       {
         listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
+        canAccess: vi.fn().mockResolvedValue(true),
         assertCanApprove: vi.fn().mockResolvedValue(undefined),
       } as never,
     );
@@ -107,6 +108,7 @@ describe("ChangesService.update Admin gates", () => {
       { resolveTicketProjectScope: vi.fn() } as never,
       {
         listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
+        canAccess: vi.fn().mockResolvedValue(true),
         assertCanApprove: vi.fn().mockResolvedValue(undefined),
       } as never,
     );
@@ -123,7 +125,10 @@ describe("ChangesService.update Admin gates", () => {
       { resolveTicketProjectScope: vi.fn() } as never,
       {
         listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
-        assertCanApprove: vi.fn().mockResolvedValue(undefined),
+        canAccess: vi.fn().mockResolvedValue(true),
+        assertCanApprove: vi.fn().mockRejectedValue(
+          new ForbiddenException("Not allowed to approve for this project"),
+        ),
       } as never,
     );
     await expect(
@@ -139,7 +144,10 @@ describe("ChangesService.update Admin gates", () => {
       { resolveTicketProjectScope: vi.fn() } as never,
       {
         listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
-        assertCanApprove: vi.fn().mockResolvedValue(undefined),
+        canAccess: vi.fn().mockResolvedValue(true),
+        assertCanApprove: vi.fn().mockRejectedValue(
+          new ForbiddenException("Not allowed to approve for this project"),
+        ),
       } as never,
     );
     await expect(
@@ -190,6 +198,7 @@ describe("ChangesService.update Admin gates", () => {
       { resolveTicketProjectScope: vi.fn() } as never,
       {
         listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
+        canAccess: vi.fn().mockResolvedValue(true),
         assertCanApprove: vi.fn().mockResolvedValue(undefined),
       } as never,
     );

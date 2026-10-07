@@ -82,6 +82,14 @@ export default function ChangeDetailPage() {
                   <dt className="text-muted-foreground text-xs">Created</dt>
                   <dd className="text-sm">{new Date(data.createdAt).toLocaleString()}</dd>
                 </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs">Project</dt>
+                  <dd className="text-sm">{data.projectName ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs">Module</dt>
+                  <dd className="text-sm">{data.moduleName ?? "—"}</dd>
+                </div>
                 <div className="sm:col-span-2">
                   <dt className="text-muted-foreground mb-1 flex items-center gap-1.5 text-xs">
                     <CalendarClockIcon className="size-3.5" />
@@ -99,9 +107,9 @@ export default function ChangeDetailPage() {
                 </div>
               </dl>
 
-              <Can roles={["Admin", "Agent"]}>
+              <Can roles={["Admin", "Agent", "Manager"]}>
                 <div className="flex flex-wrap gap-2 border-t pt-4">
-                  <Can roles={["Admin"]}>
+                  <Can roles={["Admin", "Manager"]}>
                     {data.status === "Submitted" || data.status === "Draft" ? (
                       <Button
                         disabled={approveChange.isPending}

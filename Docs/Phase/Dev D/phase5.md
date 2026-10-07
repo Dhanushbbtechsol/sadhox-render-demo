@@ -32,7 +32,7 @@
   - Unit/e2e API tests for Knowledge, SLA rules PATCH, catalog POST/PATCH.
 
 - **Day 25: Checkpoint**
-  - Staging / remote migrate: **deferred to future** (not required to close Phase 5).
+  - Staging / remote migrate: **deferred / on hold** pending Phase 4 Render decision — not required to close Phase 5. See [phase5-handoff.md](./phase5-handoff.md).
   - `/health` + RBAC matrix green including Knowledge routes.
   - Hand off Swagger/contract to Devs A–C → [phase5-handoff.md](./phase5-handoff.md).
 
@@ -58,6 +58,6 @@
 - Drag-and-drop SLA builder  
 - Advanced BI / custom report builders  
 - Render prod cutover (Phase 4 Day 18–20)  
-- Staging / cloud migrate (pushed to future)
+- Staging / cloud migrate (deferred / on hold pending Phase 4 deploy decision)
 
 **← Previous:** [Phase 4](./phase4.md)

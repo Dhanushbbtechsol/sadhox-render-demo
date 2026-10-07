@@ -149,7 +149,11 @@ export class IncidentsService {
   async get(user: AuthUser, id: string): Promise<IncidentDetail> {
     const row = await this.loadIncidentRow(id);
     if (!row) throw new NotFoundException("Incident not found");
-    this.assertCanRead(user, row.incident.reporterId);
+    await this.assertCanRead(
+      user,
+      row.incident.reporterId,
+      row.incident.projectId,
+    );
 
     const [sla] = await this.db
       .select({ resolveMinutes: slaRules.resolveMinutes })
@@ -176,7 +180,11 @@ export class IncidentsService {
   async listLinkedAssets(user: AuthUser, incidentId: string) {
     const row = await this.loadIncidentRow(incidentId);
     if (!row) throw new NotFoundException("Incident not found");
-    this.assertCanRead(user, row.incident.reporterId);
+    await this.assertCanRead(
+      user,
+      row.incident.reporterId,
+      row.incident.projectId,
+    );
     return this.assets.listLinkedPublic(incidentId);
   }
 
@@ -224,6 +232,11 @@ export class IncidentsService {
 
     const existing = await this.loadIncidentRow(id);
     if (!existing) throw new NotFoundException("Incident not found");
+    await this.assertCanRead(
+      user,
+      existing.incident.reporterId,
+      existing.incident.projectId,
+    );
 
     const current = existing.incident.status;
     if (current === "Resolved" || current === "Closed") {
@@ -237,7 +250,10 @@ export class IncidentsService {
     let agentName: string;
 
     if (agentId) {
-      const agent = await this.assertAssigneeIsAgentOrAdmin(agentId);
+      const agent = await this.assertAssigneeInPool(
+        agentId,
+        existing.incident.projectId,
+      );
       agentEmail = agent.email;
       agentName = agent.name;
     } else {
@@ -298,6 +314,11 @@ export class IncidentsService {
 
     const existing = await this.loadIncidentRow(id);
     if (!existing) throw new NotFoundException("Incident not found");
+    await this.assertCanRead(
+      user,
+      existing.incident.reporterId,
+      existing.incident.projectId,
+    );
 
     const impact = dto.impact ?? existing.incident.impact;
     const urgency = dto.urgency ?? existing.incident.urgency;
@@ -361,16 +382,16 @@ export class IncidentsService {
       closedAt = null;
     }
 
-    if (dto.assignedTo !== undefined && dto.assignedTo !== null) {
-      await this.assertAssigneeIsAgentOrAdmin(dto.assignedTo);
-    }
-
     const scope = await this.projectScope.resolveTicketProjectScope({
       projectId: dto.projectId,
       moduleId: dto.moduleId,
       existingProjectId: existing.incident.projectId,
       existingModuleId: existing.incident.moduleId,
     });
+
+    if (dto.assignedTo !== undefined && dto.assignedTo !== null) {
+      await this.assertAssigneeInPool(dto.assignedTo, scope.projectId);
+    }
 
     // Assigning via PATCH on New auto-moves to Assigned (same lifecycle rule).
     let status = toStatus;
@@ -604,8 +625,23 @@ export class IncidentsService {
     };
   }
 
-  private assertCanRead(user: AuthUser, reporterId: string) {
-    if (user.role === "EndUser" && reporterId !== user.userId) {
+  private async assertCanRead(
+    user: AuthUser,
+    reporterId: string,
+    projectId: string | null,
+  ) {
+    if (user.role === "EndUser") {
+      if (reporterId !== user.userId) {
+        throw new ForbiddenException("Cannot access this incident");
+      }
+      return;
+    }
+    if (user.role === "Admin") return;
+    // Agent may access null-project (global) tickets — matches list filter.
+    if (user.role === "Agent" && (projectId == null || projectId === "")) {
+      return;
+    }
+    if (!(await this.projectAccess.canAccess(user, projectId))) {
       throw new ForbiddenException("Cannot access this incident");
     }
   }
@@ -619,8 +655,14 @@ export class IncidentsService {
     return rule?.resolveMinutes ?? null;
   }
 
-  /** Same allowlist as POST /assign — only Agent or Admin may be assigned. */
-  private async assertAssigneeIsAgentOrAdmin(userId: string) {
+  /**
+   * Project tickets: assignee must be a project member Agent.
+   * Unscoped tickets: Agent or Admin (legacy global pool).
+   */
+  private async assertAssigneeInPool(
+    userId: string,
+    projectId: string | null,
+  ) {
     const [agent] = await this.db
       .select({
         id: users.id,
@@ -632,8 +674,14 @@ export class IncidentsService {
       .where(eq(users.id, userId))
       .limit(1);
     if (!agent) throw new NotFoundException("Assignee not found");
-    if (agent.role !== "Agent" && agent.role !== "Admin") {
-      throw new BadRequestException("Assignee must be an Agent or Admin");
+
+    const inPool = await this.assignment.isInPool(userId, projectId);
+    if (!inPool) {
+      throw new BadRequestException(
+        projectId
+          ? "Assignee must be a member of this project"
+          : "Assignee must be an Agent or Admin",
+      );
     }
     return agent;
   }

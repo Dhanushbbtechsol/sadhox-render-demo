@@ -1,4 +1,4 @@
-﻿import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
   IsIn,
@@ -15,7 +15,7 @@ import {
 export const SLA_PRIORITIES = ["P1", "P2", "P3", "P4"] as const;
 export type SlaPriority = (typeof SLA_PRIORITIES)[number];
 
-/** Cap: 1 year in minutes ΓÇö UI edits table cells, not multi-year targets. */
+/** Cap: 1 year in minutes — UI edits table cells, not multi-year targets. */
 export const SLA_MINUTES_MAX = 525_600;
 
 @ValidatorConstraint({ name: "resolveGteResponse", async: false })

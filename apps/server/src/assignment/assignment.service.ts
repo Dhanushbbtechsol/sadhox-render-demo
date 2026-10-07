@@ -67,7 +67,7 @@ export function pickRoundRobinCandidate<T>(
 
 /**
  * Round-robin / least-loaded agent picker for incident auto-assignment.
- * Contract used by Dev A `POST /incidents/:id/assign` (`AgentSnippet` return).
+ * Pool = project_members when projectId set; else all Agents (global).
  *
  * Phase 6: when the ticket has project_id, the eligible pool is that
  * project's project_members (Agents only). Null project_id → global Agents.
@@ -79,6 +79,10 @@ export function pickRoundRobinCandidate<T>(
 export class AssignmentService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
+  /**
+   * List agents eligible for assignment.
+   * When `projectId` is set, pool is that project's members only.
+   */
   async listAgents(projectId?: string | null): Promise<AgentSnippet[]> {
     const agentRows = projectId
       ? await this.db
@@ -128,12 +132,41 @@ export class AssignmentService {
     }));
   }
 
+  /** True when agentId is in the assignment pool for the given project (or global). */
+  async isInPool(
+    agentId: string,
+    projectId: string | null,
+  ): Promise<boolean> {
+    if (projectId) {
+      const [row] = await this.db
+        .select({ userId: projectMembers.userId })
+        .from(projectMembers)
+        .innerJoin(users, eq(projectMembers.userId, users.id))
+        .where(
+          and(
+            eq(projectMembers.projectId, projectId),
+            eq(projectMembers.userId, agentId),
+            eq(users.role, "Agent"),
+          ),
+        )
+        .limit(1);
+      return Boolean(row);
+    }
+
+    const [row] = await this.db
+      .select({ id: users.id, role: users.role })
+      .from(users)
+      .where(eq(users.id, agentId))
+      .limit(1);
+    return row?.role === "Agent" || row?.role === "Admin";
+  }
+
   /**
    * Select the least-loaded Agent and claim the ticket (incident) under a
    * transaction + advisory lock so concurrent callers cannot both pick the
    * same agent at the same load.
    *
-   * Selection + claim only — callers own notification (see IncidentsService).
+   * When the incident has a project_id, pool = project_members.
    */
   async assignNextAgent(
     ticketId: string,
@@ -144,47 +177,44 @@ export class AssignmentService {
         sql`select pg_advisory_xact_lock(hashtext('sadhox:assign-next-agent'))`,
       );
 
-      const [ticketMeta] = await tx
+      const [ticket] = await tx
         .select({
           id: incidents.id,
+          status: incidents.status,
           projectId: incidents.projectId,
         })
         .from(incidents)
         .where(eq(incidents.id, ticketId))
-        .limit(1);
+        .limit(1)
+        .for("update");
 
-      const projectId = ticketMeta?.projectId ?? null;
-
-      let agentRows: { id: string }[];
-      if (projectId) {
-        const members = await tx
-          .select({ userId: projectMembers.userId })
-          .from(projectMembers)
-          .where(eq(projectMembers.projectId, projectId));
-        const memberIds = members.map((m) => m.userId);
-        agentRows =
-          memberIds.length === 0
-            ? []
-            : await tx
-                .select({ id: users.id })
-                .from(users)
-                .where(
-                  and(inArray(users.id, memberIds), eq(users.role, "Agent")),
-                )
-                .orderBy(users.id)
-                .for("update");
-      } else {
-        agentRows = await tx
-          .select({ id: users.id })
-          .from(users)
-          .where(eq(users.role, "Agent"))
-          .orderBy(users.id)
-          .for("update");
+      if (!ticket) {
+        throw new NotFoundException("Incident not found");
       }
+
+      const agentRows = ticket.projectId
+        ? await tx
+            .select({ id: users.id })
+            .from(projectMembers)
+            .innerJoin(users, eq(projectMembers.userId, users.id))
+            .where(
+              and(
+                eq(projectMembers.projectId, ticket.projectId),
+                eq(users.role, "Agent"),
+              ),
+            )
+            .orderBy(users.id)
+            .for("update")
+        : await tx
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.role, "Agent"))
+            .orderBy(users.id)
+            .for("update");
 
       if (agentRows.length === 0) {
         throw new ServiceUnavailableException(
-          projectId
+          ticket.projectId
             ? "No project members available for assignment"
             : "No agents available for assignment",
         );
@@ -261,32 +291,20 @@ export class AssignmentService {
         throw new NotFoundException("No active agents available for assignment");
       }
 
-      const [incident] = await tx
-        .select({
-          id: incidents.id,
-          status: incidents.status,
+      const nextStatus =
+        ticket.status === "New" || ticket.status === "Assigned"
+          ? "Assigned"
+          : ticket.status;
+      await tx
+        .update(incidents)
+        .set({
+          assignedTo: agentId,
+          status: nextStatus,
+          updatedAt: new Date(),
         })
-        .from(incidents)
-        .where(eq(incidents.id, ticketId))
-        .limit(1)
-        .for("update");
-
-      if (incident) {
-        const nextStatus =
-          incident.status === "New" || incident.status === "Assigned"
-            ? "Assigned"
-            : incident.status;
-        await tx
-          .update(incidents)
-          .set({
-            assignedTo: agentId,
-            status: nextStatus,
-            updatedAt: new Date(),
-          })
-          .where(
-            and(eq(incidents.id, ticketId), ne(incidents.status, "Closed")),
-          );
-      }
+        .where(
+          and(eq(incidents.id, ticketId), ne(incidents.status, "Closed")),
+        );
 
       return {
         id: agent.id,

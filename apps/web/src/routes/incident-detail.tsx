@@ -6,12 +6,14 @@ import { IncidentActions } from "@/components/incidents/incident-actions";
 import { IncidentComments } from "@/components/incidents/incident-comments";
 import { LinkToProblem } from "@/components/incidents/link-to-problem";
 import { SlaCountdown } from "@/components/incidents/sla-countdown";
+import { RelatedArticles } from "@/components/knowledge/related-articles";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIncidentLinkedAssets } from "@/features/admin/hooks";
+import { useProjectModules, useProjects } from "@/hooks/use-projects";
 import { useIncident } from "@/hooks/use-tickets";
 import { useAuthStore } from "@/stores/auth-store";
 import { INCIDENT_STATUS_LABELS } from "@/types/itsm";
@@ -26,8 +28,11 @@ export default function IncidentDetailPage() {
   const { id } = useParams();
   const { data, isLoading, isError, error } = useIncident(id);
   const role = useAuthStore((s) => s.user?.role);
-  const canSeeLinkedAssets = role === "Admin" || role === "Agent";
+  const canSeeLinkedAssets =
+    role === "Admin" || role === "Agent" || role === "Manager";
   const linkedAssets = useIncidentLinkedAssets(canSeeLinkedAssets ? id : undefined);
+  const { data: projects = [] } = useProjects();
+  const { data: modules = [] } = useProjectModules(data?.projectId);
 
   if (isLoading) return <TicketListSkeleton rows={3} />;
 
@@ -81,6 +86,20 @@ export default function IncidentDetailPage() {
               { label: "Impact", value: data.impact },
               { label: "Urgency", value: data.urgency },
               {
+                label: "Project",
+                value: data.projectId
+                  ? (projects.find((p) => p.id === data.projectId)?.name ??
+                    data.projectId.slice(0, 8))
+                  : "Unscoped",
+              },
+              {
+                label: "Module",
+                value: data.moduleId
+                  ? (modules.find((m) => m.id === data.moduleId)?.name ??
+                    data.moduleId.slice(0, 8))
+                  : "—",
+              },
+              {
                 label: "Reporter",
                 value: data.reporter?.name ?? data.reporterName ?? "—",
                 icon: UserIcon,
@@ -116,6 +135,8 @@ export default function IncidentDetailPage() {
           </div>
 
           <IncidentActions incident={data} />
+
+          <RelatedArticles ticketType="incident" ticketId={data.id} />
 
           {canSeeLinkedAssets ? (
             <section className="space-y-3">

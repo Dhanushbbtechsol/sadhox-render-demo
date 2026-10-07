@@ -131,7 +131,7 @@ export class ChangesService {
       .returning();
 
     await this.notifyAdminsOfSubmission(created.id, user);
-    return this.get(created.id);
+    return this.get(user, created.id);
   }
 
   private async notifyAdminsOfSubmission(changeId: string, submitter: AuthUser) {
@@ -236,7 +236,7 @@ export class ChangesService {
     return { data: rows.map((row) => this.mapRow(row)) };
   }
 
-  async get(id: string) {
+  async get(user: AuthUser, id: string) {
     const [row] = await this.db
       .select({
         id: changes.id,
@@ -251,6 +251,7 @@ export class ChangesService {
         createdByName: users.name,
         approvedBy: changes.approvedBy,
         createdAt: changes.createdAt,
+        projectId: changes.projectId,
       })
       .from(changes)
       .leftJoin(users, eq(changes.createdBy, users.id))
@@ -258,6 +259,7 @@ export class ChangesService {
       .limit(1);
 
     if (!row) throw new NotFoundException("Change not found");
+    await this.assertCanAccessTicket(user, row.projectId);
     return this.mapRow(row);
   }
 
@@ -293,7 +295,7 @@ export class ChangesService {
       outcome: "approved",
     });
 
-    return this.get(id);
+    return this.get(user, id);
   }
 
   private async notifyCreator(
@@ -336,6 +338,7 @@ export class ChangesService {
       .where(eq(changes.id, id))
       .limit(1);
     if (!existing) throw new NotFoundException("Change not found");
+    await this.assertCanAccessTicket(user, existing.projectId);
 
     const patch: Partial<typeof changes.$inferInsert> = {
       updatedAt: new Date(),
@@ -362,13 +365,15 @@ export class ChangesService {
           `Invalid transition from ${currentApi} to ${dto.status}`,
         );
       }
-      if (
-        requiresAdminForChangeStatus(dto.status) &&
-        (user.role as UserRole) !== "Admin"
-      ) {
-        throw new ForbiddenException(
-          `Admin role required to set change status to ${dto.status}`,
-        );
+      if (requiresAdminForChangeStatus(dto.status)) {
+        // Approve + reject (Rolled Back) — Admin any; Manager own-project only.
+        if (dto.status === "Approved" || dto.status === "Rolled Back") {
+          await this.projectAccess.assertCanApprove(user, existing.projectId);
+        } else if ((user.role as UserRole) !== "Admin") {
+          throw new ForbiddenException(
+            `Admin role required to set change status to ${dto.status}`,
+          );
+        }
       }
       const dbStatus = API_TO_DB_STATUS[dto.status];
       if (!dbStatus) {
@@ -415,6 +420,19 @@ export class ChangesService {
       });
     }
 
-    return this.get(id);
+    return this.get(user, id);
+  }
+
+  private async assertCanAccessTicket(
+    user: AuthUser,
+    projectId: string | null,
+  ) {
+    if (user.role === "Admin") return;
+    if (user.role === "Agent" && (projectId == null || projectId === "")) {
+      return;
+    }
+    if (!(await this.projectAccess.canAccess(user, projectId))) {
+      throw new ForbiddenException("Cannot access this change");
+    }
   }
 }

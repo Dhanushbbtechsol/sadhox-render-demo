@@ -1,86 +1,53 @@
 # sadhox
 
-This file provides context about the project for AI assistants.
+Context for AI assistants (Claude). **Canonical product status:** [`Docs/STATUS.md`](./Docs/STATUS.md). **Memory bank:** [`memory-bank/`](./memory-bank/).
 
 ## Project Overview
 
-- **Ecosystem**: Typescript
+- **Product:** ITSM platform (Incidents, Problems, Service Catalog/Requests, Changes, Assets, Knowledge Base, Admin dashboards)
+- **Ecosystem:** TypeScript monorepo (pnpm)
+- **Integration branch:** `Audit` (feature tracks: `Dev-A-`, `Dev-B`, `Dev-C`, `Dev-D`)
 
-## Tech Stack
+## Tech Stack (runtime — use this, not the old scaffold labels)
 
-- **Runtime**: node
-- **Package Manager**: pnpm
-
-### Frontend
-
-- Framework: react-vite
-- CSS: tailwind
-- UI Library: shadcn-ui
-- State: zustand
-
-### Backend
-
-- Framework: hono
-
-### Database
-
-- Database: postgres
-
-### Authentication
-
-- Provider: supabase-auth
-
-### Additional Features
-
-- Email: resend
+- **Runtime:** Node.js
+- **Frontend:** React + Vite, Tailwind, shadcn/ui, React Query, Zustand — `apps/web`
+- **Backend:** NestJS — `apps/server`
+- **Database:** PostgreSQL + Drizzle ORM (schema in `apps/server/src/database/schema/`)
+- **Auth:** Passport JWT + httpOnly refresh cookies (not Supabase Auth)
+- **Realtime:** Socket.io
+- **Jobs:** BullMQ + Redis
+- **Email:** Resend
+- **Hosting intent:** Vercel (web), Render (API/DB/Redis)
 
 ## Project Structure
 
 ```
 sadhox/
 ├── apps/
-│   ├── web/         # Frontend application
-│   └── server/      # Backend API
-├── packages/
-│   ├── auth/        # Authentication
-│   └── db/          # Database schema
+│   ├── web/         # React SPA
+│   └── server/      # NestJS API + Drizzle schema/migrations
+├── packages/        # shared config/env (scaffold auth/db packages unused)
+├── Docs/            # PRD, FRD, Workflow, Phase plans, Audits, STATUS.md
+└── memory-bank/     # Persistent agent context
 ```
 
 ## Common Commands
 
-- `pnpm install` - Install dependencies
-- `pnpm dev` - Start development server
-- `pnpm build` - Build for production
-- `pnpm db:push` - Push database schema
-- `pnpm db:studio` - Open database UI
+- `pnpm install` — Install dependencies
+- `pnpm dev` — Start development servers
+- `pnpm build` — Production build
+- DB push/studio: prefer scripts defined on `apps/server` when changing schema
 
-## Better Fullstack project context
+## Features delivered (summary)
 
-`bts.jsonc` is the authority for the current Stack Graph. Its `stackParts` array owns role selection and `ownerPartId` bindings. Top-level option fields are a compatibility projection and must not become a second mutation path.
+Phases **1–5** merged on `Audit`: JWT/RBAC, full ITIL CRUD modules, Socket.io comments, SLA jobs, Resend, Admin KPIs/audit/queues, Knowledge Base + portal incident detail + Admin catalog CRUD + dashboard CSV. Open gaps (SLA rules API missing, Admin Knowledge hook/mocks, Phase 4 Dev D security carryovers, go-live) are listed in `Docs/STATUS.md` and `Docs/Audit/phase5.md`.
 
-### Stack Parts, ownership, and evidence
+**Phase 6 (designed):** Projects / modules / `Manager` + resource-level project ACL — [Docs/Phase/phase6.md](./Docs/Phase/phase6.md). Close Phase 5 gaps before coding. Do not rebuild KB.
 
-- `backend.auth:typescript:supabase-auth`. It belongs to `backend:typescript:hono`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
-- `backend.email:typescript:resend`. It belongs to `backend:typescript:hono`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
-- `backend.runtime:typescript:node`. It belongs to `backend:typescript:hono`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
-- `backend:typescript:hono`. Its generated target is `apps/server`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
-- `database.dbSetup:universal:supabase`. It belongs to `database:universal:postgres`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
-- `database:universal:postgres`. Its generated target is `packages/db`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
-- `frontend.css:typescript:tailwind`. It belongs to `frontend:typescript:react-vite`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
-- `frontend.deploy:typescript:vercel`. It belongs to `frontend:typescript:react-vite`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
-- `frontend.stateManagement:typescript:zustand`. It belongs to `frontend:typescript:react-vite`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
-- `frontend.ui:typescript:shadcn-ui`. It belongs to `frontend:typescript:react-vite`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
-- `frontend:typescript:react-vite`. Its generated target is `apps/web`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
+## Better Fullstack note
 
-### Installed-version authority
-
-Use `bts.jsonc` for the generator and schema version. Use local package manifests and lockfiles for installed dependency versions. Do not assume that documentation for a newer Better Fullstack release matches this project.
-
-### Compatibility and lifecycle safety
-
-Run `create-better-fullstack context --json` for bounded roles, capabilities, evidence, compatibility issues, and safe next actions. Run `create-better-fullstack doctor --json` before repairing graph drift. Existing-project writes must start with a plan and use the exact review token. Use `create-better-fullstack recipes check --json` before editing recipe-owned paths or managed regions, and use recipe history plus project recovery commands to undo a reviewed operation.
-
-User code outside an explicit Better Fullstack managed region is not generator-owned. Missing or changed managed-region hashes stop recipe planning for manual review.
+`bts.jsonc` records the **original** generator graph (Hono / Supabase Auth labels). The **shipped application** diverged to NestJS + Passport JWT. Do not reintroduce Hono or Supabase Auth unless explicitly requested. Treat Better Fullstack recipe tooling carefully on existing-project writes.
 
 <!-- <better-fullstack:recipes sha256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855> -->
 
@@ -88,11 +55,4 @@ User code outside an explicit Better Fullstack managed region is not generator-o
 
 ## Maintenance
 
-Keep CLAUDE.md updated when:
-
-- Adding/removing dependencies
-- Changing project structure
-- Adding new features or services
-- Modifying build/dev workflows
-
-AI assistants should suggest updates to this file when they notice relevant changes.
+Keep this file and `Docs/STATUS.md` aligned when major features, stack, or go-live status change.

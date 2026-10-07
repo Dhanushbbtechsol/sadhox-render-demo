@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { and, eq, inArray } from "drizzle-orm";
+import { sanitizePlainText } from "../common/sanitize-plain-text";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
@@ -31,9 +32,11 @@ export class ProjectsService {
 
   async create(dto: CreateProjectDto) {
     await this.assertManagerUser(dto.managerId);
+    const name = sanitizePlainText(dto.name, 255);
+    if (!name) throw new BadRequestException("Project name is required");
     const [row] = await this.db
       .insert(projects)
-      .values({ name: dto.name, managerId: dto.managerId })
+      .values({ name, managerId: dto.managerId })
       .returning();
     return row;
   }
@@ -70,10 +73,15 @@ export class ProjectsService {
     if (dto.name === undefined && dto.managerId === undefined) {
       throw new BadRequestException("No fields to update");
     }
+    const name =
+      dto.name !== undefined ? sanitizePlainText(dto.name, 255) : undefined;
+    if (dto.name !== undefined && !name) {
+      throw new BadRequestException("Project name is required");
+    }
     const [row] = await this.db
       .update(projects)
       .set({
-        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(name !== undefined ? { name } : {}),
         ...(dto.managerId !== undefined ? { managerId: dto.managerId } : {}),
       })
       .where(eq(projects.id, projectId))
@@ -137,9 +145,11 @@ export class ProjectsService {
 
   async createModule(projectId: string, dto: CreateModuleDto) {
     await this.scope.assertProjectExists(projectId);
+    const name = sanitizePlainText(dto.name, 255);
+    if (!name) throw new BadRequestException("Module name is required");
     const [row] = await this.db
       .insert(modules)
-      .values({ projectId, name: dto.name })
+      .values({ projectId, name })
       .returning();
     return row;
   }
@@ -157,9 +167,11 @@ export class ProjectsService {
     moduleId: string,
     dto: UpdateModuleDto,
   ) {
+    const name = sanitizePlainText(dto.name, 255);
+    if (!name) throw new BadRequestException("Module name is required");
     const [row] = await this.db
       .update(modules)
-      .set({ name: dto.name })
+      .set({ name })
       .where(and(eq(modules.id, moduleId), eq(modules.projectId, projectId)))
       .returning();
     if (!row) throw new NotFoundException("Module not found");

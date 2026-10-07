@@ -24,6 +24,7 @@
   - Walkthrough: EndUser searches KB → opens article → starts request/incident with context.
   - Verify Admin-only catalog writes (EndUser/Agent → 403 on write APIs).
   - Polish copy and edge cases (no results, inactive catalog items).
+  - Checklist: [phase5-day25-qa.md](./phase5-day25-qa.md).
 
 ---
 

@@ -7,6 +7,7 @@ import {
 } from "@nestjs/swagger";
 import { Roles } from "../common/decorators/roles.decorator";
 import { AssignmentService } from "./assignment.service";
+import { ListAgentsQueryDto } from "./dto/list-agents-query.dto";
 
 @ApiTags("assignment")
 @ApiBearerAuth()
@@ -15,7 +16,7 @@ export class AssignmentController {
   constructor(private readonly assignment: AssignmentService) {}
 
   @Get("agents")
-  @Roles("Admin", "Agent")
+  @Roles("Admin", "Agent", "Manager")
   @ApiOperation({
     summary:
       "List agents eligible for ticket assignment (optional projectId scopes to project_members)",
@@ -25,7 +26,7 @@ export class AssignmentController {
     required: false,
     description: "When set, pool = project_members Agents only",
   })
-  listAgents(@Query("projectId") projectId?: string) {
-    return this.assignment.listAgents(projectId || null);
+  listAgents(@Query() query: ListAgentsQueryDto) {
+    return this.assignment.listAgents(query.projectId);
   }
 }

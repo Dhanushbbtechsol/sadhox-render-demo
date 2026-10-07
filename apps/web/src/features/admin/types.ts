@@ -161,3 +161,62 @@ export type QueueHealthResponse = {
   queues: QueueHealthRow[];
   alert: boolean;
 };
+
+/** Dev D Phase 5 Knowledge contract */
+export type KnowledgeArticleStatus = "Draft" | "Published";
+
+export type KnowledgeCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type KnowledgeArticle = {
+  id: string;
+  title: string;
+  slug: string;
+  body: string;
+  status: KnowledgeArticleStatus;
+  categoryId: string | null;
+  authorId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateKnowledgeCategoryInput = {
+  name: string;
+  slug?: string;
+  description?: string;
+};
+
+export type UpdateKnowledgeCategoryInput = Partial<CreateKnowledgeCategoryInput>;
+
+export type CreateKnowledgeArticleInput = {
+  title: string;
+  slug?: string;
+  body: string;
+  status?: KnowledgeArticleStatus;
+  categoryId?: string | null;
+};
+
+export type UpdateKnowledgeArticleInput = Partial<CreateKnowledgeArticleInput>;
+
+export type TicketPriority = "P1" | "P2" | "P3" | "P4";
+
+/** Dev D Phase 5 Admin SLA rules contract */
+export type SlaRule = {
+  id: string;
+  priority: TicketPriority;
+  responseMinutes: number;
+  resolveMinutes: number;
+  createdAt: string;
+};
+
+export type UpdateSlaRuleInput = {
+  priority: TicketPriority;
+  responseMinutes: number;
+  resolveMinutes: number;
+};

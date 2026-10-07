@@ -6,8 +6,11 @@ import {
   mockAdminStats,
   mockAssets,
   mockAuditLogs,
+  mockKnowledgeArticles,
+  mockKnowledgeCategories,
   mockQueueHealth,
   mockSlaCompliance,
+  mockSlaRules,
   mockStatusDistribution,
   mockVolumeByModule,
 } from "./mocks";
@@ -21,12 +24,21 @@ import type {
   ChartRange,
   CountBucket,
   CreateAssetInput,
+  CreateKnowledgeArticleInput,
+  CreateKnowledgeCategoryInput,
+  KnowledgeArticle,
+  KnowledgeArticleStatus,
+  KnowledgeCategory,
   KpiMetric,
   LinkedAssetPublic,
   QueueHealthResponse,
   SlaComplianceResponse,
+  SlaRule,
   StatusDistributionResponse,
   UpdateAssetInput,
+  UpdateKnowledgeArticleInput,
+  UpdateKnowledgeCategoryInput,
+  UpdateSlaRuleInput,
   VolumeByModuleResponse,
 } from "./types";
 
@@ -420,4 +432,337 @@ function normalizeAsset(asset: Asset): Asset {
     createdAt: String(asset.createdAt),
     updatedAt: String(asset.updatedAt),
   };
+}
+
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+export type KnowledgeArticleFilters = {
+  q?: string;
+  categoryId?: string | "all";
+  status?: KnowledgeArticleStatus | "all";
+};
+
+function filterMockArticles(filters: KnowledgeArticleFilters) {
+  const needle = filters.q?.trim().toLowerCase() ?? "";
+  return mockKnowledgeArticles.filter((article) => {
+    const matchesQuery =
+      needle.length === 0 ||
+      article.title.toLowerCase().includes(needle) ||
+      article.slug.toLowerCase().includes(needle) ||
+      article.body.toLowerCase().includes(needle);
+    const matchesCategory =
+      !filters.categoryId ||
+      filters.categoryId === "all" ||
+      article.categoryId === filters.categoryId;
+    const matchesStatus =
+      !filters.status || filters.status === "all" || article.status === filters.status;
+    return matchesQuery && matchesCategory && matchesStatus;
+  });
+}
+
+/** Nest list endpoints return `{ data: T[] }`; tolerate bare arrays / stale cache envelopes. */
+function unwrapKnowledgeList<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Array.isArray((payload as { data?: unknown }).data)
+  ) {
+    return (payload as { data: T[] }).data;
+  }
+  return [];
+}
+
+export function useKnowledgeCategories() {
+  return useQuery({
+    queryKey: ["knowledge", "categories", useOfflineAdminData() ? "mock" : "live"],
+    queryFn: async (): Promise<KnowledgeCategory[]> => {
+      if (useOfflineAdminData()) {
+        return [...mockKnowledgeCategories];
+      }
+      const result = await apiFetch<unknown>("/knowledge/categories");
+      return unwrapKnowledgeList<KnowledgeCategory>(result);
+    },
+    select: (data) => unwrapKnowledgeList<KnowledgeCategory>(data),
+  });
+}
+
+export function useCreateKnowledgeCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateKnowledgeCategoryInput) => {
+      if (useOfflineAdminData()) {
+        const created: KnowledgeCategory = {
+          id: `kc-${Date.now()}`,
+          name: input.name,
+          slug: input.slug?.trim() || slugify(input.name),
+          description: input.description ?? null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        mockKnowledgeCategories.push(created);
+        return created;
+      }
+      return await apiFetch<KnowledgeCategory>("/knowledge/categories", {
+        method: "POST",
+        body: input,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["knowledge", "categories"] });
+    },
+  });
+}
+
+export function useUpdateKnowledgeCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: UpdateKnowledgeCategoryInput;
+    }) => {
+      if (useOfflineAdminData()) {
+        const index = mockKnowledgeCategories.findIndex((c) => c.id === id);
+        if (index < 0) throw new Error("Category not found");
+        mockKnowledgeCategories[index] = {
+          ...mockKnowledgeCategories[index],
+          ...input,
+          slug:
+            input.slug?.trim() ||
+            (input.name ? slugify(input.name) : mockKnowledgeCategories[index].slug),
+          updatedAt: new Date().toISOString(),
+        };
+        return mockKnowledgeCategories[index];
+      }
+      return await apiFetch<KnowledgeCategory>(`/knowledge/categories/${id}`, {
+        method: "PATCH",
+        body: input,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["knowledge", "categories"] });
+      await queryClient.invalidateQueries({ queryKey: ["knowledge", "articles"] });
+    },
+  });
+}
+
+export function useDeleteKnowledgeCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (useOfflineAdminData()) {
+        const index = mockKnowledgeCategories.findIndex((c) => c.id === id);
+        if (index < 0) throw new Error("Category not found");
+        mockKnowledgeCategories.splice(index, 1);
+        for (const article of mockKnowledgeArticles) {
+          if (article.categoryId === id) article.categoryId = null;
+        }
+        return { id };
+      }
+      await apiFetch(`/knowledge/categories/${id}`, { method: "DELETE" });
+      return { id };
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["knowledge"] });
+    },
+  });
+}
+
+export function useKnowledgeArticles(filters: KnowledgeArticleFilters = {}) {
+  const params = new URLSearchParams();
+  if (filters.q?.trim()) params.set("q", filters.q.trim());
+  if (filters.categoryId && filters.categoryId !== "all") {
+    params.set("categoryId", filters.categoryId);
+  }
+  const query = params.toString();
+
+  return useQuery({
+    queryKey: ["knowledge", "articles", filters, useOfflineAdminData() ? "mock" : "live"],
+    queryFn: async (): Promise<KnowledgeArticle[]> => {
+      if (useOfflineAdminData()) {
+        return filterMockArticles(filters);
+      }
+      const result = await apiFetch<unknown>(
+        `/knowledge/articles${query ? `?${query}` : ""}`,
+      );
+      const data = unwrapKnowledgeList<KnowledgeArticle>(result);
+      if (filters.status && filters.status !== "all") {
+        return data.filter((a) => a.status === filters.status);
+      }
+      return data;
+    },
+    select: (data) => unwrapKnowledgeList<KnowledgeArticle>(data),
+  });
+}
+
+export function useKnowledgeArticle(id: string | undefined) {
+  return useQuery({
+    queryKey: ["knowledge", "articles", id, useOfflineAdminData() ? "mock" : "live"],
+    enabled: Boolean(id) && id !== "new",
+    queryFn: async (): Promise<KnowledgeArticle> => {
+      if (!id) throw new Error("Missing article id");
+      if (useOfflineAdminData()) {
+        const found = mockKnowledgeArticles.find((a) => a.id === id);
+        if (!found) throw new Error("Article not found");
+        return found;
+      }
+      return await apiFetch<KnowledgeArticle>(`/knowledge/articles/${id}`);
+    },
+  });
+}
+
+export function useCreateKnowledgeArticle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateKnowledgeArticleInput) => {
+      const payload = {
+        ...input,
+        slug: input.slug?.trim() || slugify(input.title),
+        status: input.status ?? "Draft",
+      };
+      if (useOfflineAdminData()) {
+        const created: KnowledgeArticle = {
+          id: `ka-${Date.now()}`,
+          title: payload.title,
+          slug: payload.slug,
+          body: payload.body,
+          status: payload.status,
+          categoryId: payload.categoryId ?? null,
+          authorId: "admin-mock",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        mockKnowledgeArticles.unshift(created);
+        return created;
+      }
+      return await apiFetch<KnowledgeArticle>("/knowledge/articles", {
+        method: "POST",
+        body: payload,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["knowledge", "articles"] });
+    },
+  });
+}
+
+export function useUpdateKnowledgeArticle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      input,
+    }: {
+      id: string;
+      input: UpdateKnowledgeArticleInput;
+    }) => {
+      if (useOfflineAdminData()) {
+        const index = mockKnowledgeArticles.findIndex((a) => a.id === id);
+        if (index < 0) throw new Error("Article not found");
+        mockKnowledgeArticles[index] = {
+          ...mockKnowledgeArticles[index],
+          ...input,
+          slug:
+            input.slug?.trim() ||
+            (input.title ? slugify(input.title) : mockKnowledgeArticles[index].slug),
+          updatedAt: new Date().toISOString(),
+        };
+        return mockKnowledgeArticles[index];
+      }
+      return await apiFetch<KnowledgeArticle>(`/knowledge/articles/${id}`, {
+        method: "PATCH",
+        body: input,
+      });
+    },
+    onSuccess: async (_data, vars) => {
+      await queryClient.invalidateQueries({ queryKey: ["knowledge", "articles"] });
+      await queryClient.invalidateQueries({ queryKey: ["knowledge", "articles", vars.id] });
+    },
+  });
+}
+
+export function useDeleteKnowledgeArticle() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (useOfflineAdminData()) {
+        const index = mockKnowledgeArticles.findIndex((a) => a.id === id);
+        if (index < 0) throw new Error("Article not found");
+        mockKnowledgeArticles.splice(index, 1);
+        return { id };
+      }
+      await apiFetch(`/knowledge/articles/${id}`, { method: "DELETE" });
+      return { id };
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["knowledge", "articles"] });
+    },
+  });
+}
+
+export function useSlaRules() {
+  return useQuery({
+    queryKey: ["admin", "sla-rules", useOfflineAdminData() ? "mock" : "live"],
+    queryFn: async (): Promise<SlaRule[]> => {
+      if (useOfflineAdminData()) {
+        return [...mockSlaRules].sort((a, b) => a.priority.localeCompare(b.priority));
+      }
+      const data = await apiFetch<SlaRule[]>("/admin/sla-rules");
+      return [...data].sort((a, b) => a.priority.localeCompare(b.priority));
+    },
+  });
+}
+
+export function useUpdateSlaRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateSlaRuleInput) => {
+      if (useOfflineAdminData()) {
+        const index = mockSlaRules.findIndex((r) => r.priority === input.priority);
+        if (index < 0) throw new Error("SLA rule not found");
+        mockSlaRules[index] = {
+          ...mockSlaRules[index],
+          responseMinutes: input.responseMinutes,
+          resolveMinutes: input.resolveMinutes,
+        };
+        return mockSlaRules[index];
+      }
+      try {
+        return await apiFetch<SlaRule>(`/admin/sla-rules/${input.priority}`, {
+          method: "PATCH",
+          body: {
+            responseMinutes: input.responseMinutes,
+            resolveMinutes: input.resolveMinutes,
+          },
+        });
+      } catch (error) {
+        // Fallback: some contracts use body-only PATCH without priority in path
+        try {
+          return await apiFetch<SlaRule>("/admin/sla-rules", {
+            method: "PATCH",
+            body: input,
+          });
+        } catch (inner) {
+          throw inner instanceof Error ? inner : error;
+        }
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "sla-rules"] });
+    },
+  });
+}
+
+export function slugifyTitle(title: string) {
+  return slugify(title);
 }

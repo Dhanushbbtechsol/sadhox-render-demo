@@ -1,95 +1,144 @@
-import { describe, expect, it, vi } from "vitest";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ServiceCatalogService } from "./service-catalog.service";
 
 describe("ServiceCatalogService sanitize on write", () => {
-  it("create strips hostile HTML from name/description/department and form fields", async () => {
-    let inserted: Record<string, unknown> | undefined;
+  let service: ServiceCatalogService;
+  let insertValues: ReturnType<typeof vi.fn>;
+  let updateSet: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    insertValues = vi.fn(() => ({
+      returning: vi.fn(async () => [
+        {
+          id: "catalog-1",
+          name: "Safe Name",
+          description: "Safe description",
+          department: "IT",
+          formFields: [],
+          isActive: true,
+        },
+      ]),
+    }));
+
+    updateSet = vi.fn(() => ({
+      where: vi.fn(() => ({
+        returning: vi.fn(async () => [
+          {
+            id: "catalog-1",
+            name: "Safe Name",
+            description: "Safe description",
+            department: "IT",
+            formFields: [],
+            isActive: true,
+          },
+        ]),
+      })),
+    }));
+
     const db = {
-      insert: vi.fn(() => ({
-        values: vi.fn((row: Record<string, unknown>) => {
-          inserted = row;
-          return {
-            returning: vi.fn(async () => [{ id: "cat-1", ...row }]),
-          };
-        }),
+      insert: vi.fn(() => ({ values: insertValues })),
+      update: vi.fn(() => ({ set: updateSet })),
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            limit: vi.fn(async () => [{ id: "catalog-1" }]),
+          })),
+        })),
       })),
     };
-    const svc = new ServiceCatalogService(db as never);
 
-    await svc.create({
-      name: '<script>alert("xss")</script>Monitor',
-      description: '<img src=x onerror="alert(1)">Need a display',
-      department: "IT <b>Hardware</b>",
+    service = new ServiceCatalogService(db as never);
+  });
+
+  it("strips HTML-like payloads from create free-text fields", async () => {
+    await service.create({
+      name: '<script>alert("xss")</script>Laptop',
+      description: '<img src=x onerror="alert(1)">Need a laptop',
+      department: "<b>Hardware</b>",
       formFields: [
         {
-          name: "size<script>",
-          label: '<img src=x>Size',
+          name: "<script>qty</script>",
+          label: '<img src=x onerror="1">Quantity',
           type: "select",
-          required: true,
-          options: ['24"', '<script>evil</script>27"'],
+          options: ['<script>1</script>', "2", "   "],
         },
       ],
     });
 
-    expect(inserted).toMatchObject({
-      name: 'alert("xss") Monitor',
-      description: "Need a display",
-      department: "IT Hardware",
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'alert("xss") Laptop',
+        description: "Need a laptop",
+        department: "Hardware",
+        formFields: [
+          {
+            name: "qty",
+            label: "Quantity",
+            type: "select",
+            options: ["1", "2"],
+          },
+        ],
+      }),
+    );
+  });
+
+  it("sanitizes update free-text and form field options", async () => {
+    await service.update("catalog-1", {
+      name: "a < b > Monitor",
+      description: "  line1\n\n\n\nline2  ",
       formFields: [
         {
           name: "size",
-          label: "Size",
-          type: "select",
+          label: "Display size",
+          type: "text",
           required: true,
-          options: ['24"', 'evil 27"'],
+          options: undefined,
         },
       ],
     });
+
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "a b Monitor",
+        description: "line1\n\nline2",
+        formFields: [
+          {
+            name: "size",
+            label: "Display size",
+            type: "text",
+            required: true,
+          },
+        ],
+      }),
+    );
   });
 
-  it("update sanitizes the same fields when provided", async () => {
-    let patched: Record<string, unknown> | undefined;
+  it("rejects create when sanitization empties required fields", async () => {
+    await expect(
+      service.create({
+        name: "<script></script>",
+        description: "ok",
+        department: "IT",
+        formFields: [],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("throws NotFoundException when updating a missing item", async () => {
     const db = {
       select: vi.fn(() => ({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn(async () => [{ id: "cat-1" }]),
+            limit: vi.fn(async () => []),
           })),
         })),
       })),
-      update: vi.fn(() => ({
-        set: vi.fn((row: Record<string, unknown>) => {
-          patched = row;
-          return {
-            where: vi.fn(() => ({
-              returning: vi.fn(async () => [{ id: "cat-1", ...row }]),
-            })),
-          };
-        }),
-      })),
+      update: vi.fn(),
     };
-    const svc = new ServiceCatalogService(db as never);
-
-    await svc.update("cat-1", {
-      description: "a < b > c with <div>tags</div>",
-      formFields: [
-        {
-          name: "ok",
-          label: "Label\u0000bad",
-          type: "text",
-          options: ["<i>italic</i>option"],
-        },
-      ],
-    });
-
-    expect(patched?.description).toBe("a b c with tags");
-    expect(patched?.formFields).toEqual([
-      {
-        name: "ok",
-        label: "Labelbad",
-        type: "text",
-        options: ["italic option"],
-      },
-    ]);
+    const missing = new ServiceCatalogService(db as never);
+    await expect(
+      missing.update("missing", { name: "Nope" }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

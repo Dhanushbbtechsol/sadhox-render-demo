@@ -44,4 +44,10 @@
 - End User KB browse/search shell (Dev B)  
 - SLA rules table editor (Dev C)
 
+---
+
+## Checkpoint
+
+See [checkpoint5.md](./checkpoint5.md) for Day 21–25 evidence mapping and the Agent → EndUser walkthrough.
+
 **← Previous:** [Phase 4](./phase4.md)

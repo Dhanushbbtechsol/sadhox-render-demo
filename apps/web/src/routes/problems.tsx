@@ -3,6 +3,7 @@ import { Link } from "react-router";
 
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
 import { ListPagination } from "@/components/list-pagination";
+import { CreateProblemDialog } from "@/components/problems/create-problem-dialog";
 import { Badge } from "@/components/ui/badge";
 import { useProblems } from "@/hooks/use-tickets";
 import { cn } from "@/lib/utils";
@@ -22,11 +23,14 @@ export default function ProblemsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1 animate-in-up">
-        <h1 className="text-2xl font-semibold tracking-tight">Problems</h1>
-        <p className="text-muted-foreground text-sm">
-          Root-cause records linked to recurring incidents.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3 animate-in-up">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Problems</h1>
+          <p className="text-muted-foreground text-sm">
+            Root-cause records linked to recurring incidents.
+          </p>
+        </div>
+        <CreateProblemDialog />
       </div>
 
       {isLoading ? <TicketListSkeleton /> : null}

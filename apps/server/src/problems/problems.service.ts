@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -109,7 +110,7 @@ export class ProblemsService {
     };
   }
 
-  async get(id: string): Promise<ProblemView> {
+  async get(user: AuthUser, id: string): Promise<ProblemView> {
     const [row] = await this.db
       .select({
         problem: problems,
@@ -121,6 +122,7 @@ export class ProblemsService {
       .limit(1);
 
     if (!row) throw new NotFoundException("Problem not found");
+    await this.assertCanAccessTicket(user, row.problem.projectId);
 
     const links = await this.loadLinks([id]);
     const linkedIds = links.get(id) ?? [];
@@ -135,7 +137,7 @@ export class ProblemsService {
     );
   }
 
-  async create(dto: CreateProblemDto): Promise<ProblemView> {
+  async create(user: AuthUser, dto: CreateProblemDto): Promise<ProblemView> {
     if (dto.assignedTo) await this.assertUserExists(dto.assignedTo);
     if (dto.linkedIncidentIds?.length) {
       await this.assertIncidentsExist(dto.linkedIncidentIds);
@@ -166,11 +168,15 @@ export class ProblemsService {
       await this.replaceLinks(created!.id, dto.linkedIncidentIds);
     }
 
-    return this.get(created!.id);
+    return this.get(user, created!.id);
   }
 
-  async update(id: string, dto: UpdateProblemDto): Promise<ProblemView> {
-    const existing = await this.get(id);
+  async update(
+    user: AuthUser,
+    id: string,
+    dto: UpdateProblemDto,
+  ): Promise<ProblemView> {
+    const existing = await this.get(user, id);
 
     if (dto.assignedTo) await this.assertUserExists(dto.assignedTo);
     if (dto.linkedIncidentIds) {
@@ -216,7 +222,7 @@ export class ProblemsService {
       await this.replaceLinks(existing.id, dto.linkedIncidentIds);
     }
 
-    return this.get(id);
+    return this.get(user, id);
   }
 
   /**
@@ -224,10 +230,11 @@ export class ProblemsService {
    * Idempotent when already linked to this problem; rejects if linked elsewhere.
    */
   async linkIncident(
+    user: AuthUser,
     problemId: string,
     incidentId: string,
   ): Promise<ProblemView> {
-    await this.get(problemId);
+    await this.get(user, problemId);
     await this.assertIncidentsExist([incidentId]);
 
     const [existingLink] = await this.db
@@ -240,7 +247,7 @@ export class ProblemsService {
 
     if (existingLink) {
       if (existingLink.problemId === problemId) {
-        return this.get(problemId);
+        return this.get(user, problemId);
       }
       throw new BadRequestException(
         "Incident is already linked to another problem",
@@ -252,7 +259,20 @@ export class ProblemsService {
       incidentId,
     });
 
-    return this.get(problemId);
+    return this.get(user, problemId);
+  }
+
+  private async assertCanAccessTicket(
+    user: AuthUser,
+    projectId: string | null,
+  ) {
+    if (user.role === "Admin") return;
+    if (user.role === "Agent" && (projectId == null || projectId === "")) {
+      return;
+    }
+    if (!(await this.projectAccess.canAccess(user, projectId))) {
+      throw new ForbiddenException("Cannot access this problem");
+    }
   }
 
   private buildFilters(
