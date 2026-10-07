@@ -21,9 +21,10 @@ function useOfflineAdminData() {
   return import.meta.env.DEV && isMockAccessToken(getAccessToken());
 }
 
-/** Project list routes return a bare array (Dev D). Tolerate `{ data }` envelopes. */
-function unwrapList<T>(payload: T[] | { data: T[] }): T[] {
-  return Array.isArray(payload) ? payload : payload.data;
+/** Nest list endpoints use `{ data }`; tolerate a bare array from older servers. */
+function unwrapList<T>(result: { data: T[] } | T[] | null | undefined): T[] {
+  if (Array.isArray(result)) return result;
+  return result?.data ?? [];
 }
 
 export function useProjects() {
@@ -31,7 +32,9 @@ export function useProjects() {
     queryKey: ["projects", useOfflineAdminData() ? "mock" : "live"],
     queryFn: async (): Promise<Project[]> => {
       if (useOfflineAdminData()) return [...mockProjects];
-      const result = await apiFetch<Project[] | { data: Project[] }>("/projects");
+      const result = await apiFetch<{ data: Project[] } | Project[]>(
+        "/projects",
+      );
       return unwrapList(result);
     },
   });
@@ -156,7 +159,7 @@ export function useProjectMembers(projectId: string | undefined) {
       if (!projectId) return [];
       if (useOfflineAdminData()) return [...mockProjectMembers];
       const result = await apiFetch<
-        ProjectMember[] | { data: ProjectMember[] }
+        { data: ProjectMember[] } | ProjectMember[]
       >(`/projects/${projectId}/members`);
       return unwrapList(result);
     },
@@ -233,7 +236,7 @@ export function useProjectModules(projectId: string | undefined) {
         return mockProjectModules.filter((m) => m.projectId === projectId);
       }
       const result = await apiFetch<
-        ProjectModule[] | { data: ProjectModule[] }
+        { data: ProjectModule[] } | ProjectModule[]
       >(`/projects/${projectId}/modules`);
       return unwrapList(result);
     },
@@ -319,10 +322,10 @@ export function useDirectoryUsers(role: "Agent" | "Manager") {
       if (useOfflineAdminData()) {
         return mockDirectoryUsers.filter((u) => u.role === role);
       }
-      const result = await apiFetch<{ data: DirectoryUser[] }>(
-        `/admin/users?role=${role}`,
-      );
-      return result.data;
+      const result = await apiFetch<
+        { data: DirectoryUser[] } | DirectoryUser[]
+      >(`/admin/users?role=${role}`);
+      return unwrapList(result);
     },
   });
 }

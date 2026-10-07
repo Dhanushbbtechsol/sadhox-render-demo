@@ -173,7 +173,9 @@ export default function ProjectsListPage() {
                   {resolveManagerLabel(project.managerId, project.managerName)}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {new Date(project.createdAt).toLocaleDateString()}
+                  {project.createdAt
+                    ? new Date(project.createdAt).toLocaleDateString()
+                    : "—"}
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap justify-end gap-1">

@@ -3,30 +3,30 @@
 **Goal:** Backend foundation for projects/modules/members + `Manager` role + resource-level project ACL + scoped assignment + **Admin user management APIs**.  
 **Prerequisite:** Phase 5 gaps closed (SLA rules API, etc.). **Do not rebuild KB.**  
 **Design authority:** [../phase6.md](../phase6.md)  
-**Status (2026-10-07):** Days 26–30 coding complete on `Dev-D`; Phase 6 audit Dev D items remediations verified; handoff [phase6-handoff.md](./phase6-handoff.md); staging migrate deferred.
+**Status (2026-10-07):** Days 26–30 + Admin user CRUD landed on `Dev-D`; Phase 6 audit Dev D remediations verified; handoff [phase6-handoff.md](./phase6-handoff.md); staging migrate deferred. Dev C `/admin/users` UI still consumes these APIs.
 
 ---
 
-- **Day 26: Schema + role**
+- **Day 26: Schema + role** — **done**
   - Migration: `projects`, `project_members`, `modules`; nullable `project_id`/`module_id` on incidents, problems, service_requests, changes; add `Manager` to role enum.
   - Reject `project_members` for non-Agent in service; reject Manager as member.
   - Validate module belongs to project on ticket write.
 
-- **Day 27: ProjectAccessService + projects APIs**
+- **Day 27: ProjectAccessService + projects APIs** — **done**
   - `canAccess` / `listAccessibleProjectIds` as in phase6.md.
   - CRUD: projects (Admin create; Manager read own; Admin manage members/modules as agreed — Admin owns org-wide project CRUD).
   - Wire JWT + `@Roles('Manager')` + seed Manager user.
 
-- **Day 28: Assignment + approvals ACL**
+- **Day 28: Assignment + approvals ACL** — **done**
   - Round-robin / manual assign: pool = `project_members` when `project_id` set; else global Agents.
   - SR/Change approve: `@Roles('Admin','Manager')` + Manager ownership; null project → Admin only.
   - Filter list endpoints by accessible projects (shared helper).
 
-- **Day 29: Matrix + OpenAPI freeze**
+- **Day 29: Matrix + OpenAPI freeze** — **done**
   - Extend 401/403 matrix for Manager × own/other/null project across modules + approvals.
   - Freeze Swagger for A/B/C.
 
-- **Day 30: Checkpoint**
+- **Day 30: Checkpoint** — **done**
   - Matrix green; hand off contract.
   - Staging/TL migrate: **deferred to production go-live** (2026-10-07) — not required to close Dev D Phase 6 coding.
 

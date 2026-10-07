@@ -69,16 +69,16 @@ Hierarchy already says Admin owns users. Org user CRUD:
 
 | Surface | Notes |
 |---------|--------|
-| `GET /admin/users` | Admin; optional `?role=`; return `{ data }` **without** password hashes (exists for pickers — keep) |
-| `POST /admin/users` | Admin; body `name`, `email`, `password`, `role` ∈ Admin\|Agent\|EndUser\|Manager |
+| `GET /admin/users` | Admin; optional `?role=`; return `{ data }` **without** password hashes |
+| `POST /admin/users` | Admin; body `name`, `email`, `password`, `role` ∈ Admin\|Agent\|EndUser\|Manager; unique email → 409 |
 | `GET /admin/users/:id` | Admin; same fields as list row |
-| `PATCH /admin/users/:id` | Admin; `name?`, `email?`, `password?`, `role?` — role change reuses existing promote-to-Manager → clear `project_members` rule |
-| `PATCH /admin/users/:id/role` | Keep as thin alias or fold into PATCH body (ponytail: one write path preferred) |
-| UI `/admin/users` | Admin table + create/edit dialog; sidebar entry; no Manager access |
+| `PATCH /admin/users/:id` | Admin; `name?`, `email?`, `password?`, `role?` — role→Manager clears `project_members` |
+| `PATCH /admin/users/:id/role` | Thin alias over PATCH body `{ role }` |
+| UI `/admin/users` | **Still open (Dev C)** — Admin table + create/edit dialog; sidebar entry; no Manager access |
 
 No `is_active` / soft-delete this phase (YAGNI — no column today). No self-service signup. Seed stays for demos; Admin can create real users after go-live.
 
-**401/403:** EndUser/Agent/Manager → 403 on all `/admin/users*` writes; unauthenticated → 401.
+**401/403:** EndUser/Agent/Manager → 403 on all `/admin/users*`; unauthenticated → 401.
 
 ---
 

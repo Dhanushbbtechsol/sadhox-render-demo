@@ -9,9 +9,8 @@ import {
   Post,
   Query,
 } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from "@nestjs/swagger";
 import { IsIn, IsOptional } from "class-validator";
-import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Roles } from "../common/decorators/roles.decorator";
 import { AdminService } from "./admin.service";
 import { ChartRangeQueryDto } from "./dto/chart-range-query.dto";
@@ -87,7 +86,7 @@ export class AdminController {
 
   @Get("users")
   @ApiOperation({
-    summary: "List users filtered by role (Admin) — member/manager pickers",
+    summary: "List users filtered by role (Admin) — no password hashes",
   })
   listUsers(@Query() query: ListUsersQueryDto) {
     return this.admin.listUsers(query.role);
@@ -95,27 +94,17 @@ export class AdminController {
 
   @Post("users")
   @HttpCode(201)
-  @ApiOperation({ summary: "Create a user (Admin)" })
+  @ApiOperation({
+    summary: "Create a user (Admin). Unique email → 409.",
+  })
   createUser(@Body() dto: CreateUserDto) {
     return this.admin.createUser(dto);
   }
 
   @Get("users/:id")
-  @ApiOperation({ summary: "Get a user without the password hash (Admin)" })
+  @ApiOperation({ summary: "Get user by id (Admin) — no password hash" })
   getUser(@Param("id", ParseUUIDPipe) id: string) {
     return this.admin.getUser(id);
-  }
-
-  @Patch("users/:id/role")
-  @ApiOperation({
-    summary:
-      "Update user role (Admin). Promoting to Manager clears project_members atomically.",
-  })
-  updateUserRole(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body() dto: UpdateUserRoleDto,
-  ) {
-    return this.admin.updateUserRole(id, dto.role);
   }
 
   @Patch("users/:id")
@@ -128,6 +117,18 @@ export class AdminController {
     @Body() dto: UpdateUserDto,
   ) {
     return this.admin.updateUser(id, dto);
+  }
+
+  @Patch("users/:id/role")
+  @ApiOperation({
+    summary:
+      "Update user role (Admin). Promoting to Manager clears project_members atomically.",
+  })
+  updateUserRole(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserRoleDto,
+  ) {
+    return this.admin.updateUserRole(id, dto.role);
   }
 
   @Get("sla-rules")

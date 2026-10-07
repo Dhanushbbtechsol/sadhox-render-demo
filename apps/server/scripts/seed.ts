@@ -3,10 +3,7 @@ import * as bcrypt from "bcryptjs";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { and, eq, like, sql } from "drizzle-orm";
 import postgres from "postgres";
-import {
-  assertPasswordComplexity,
-  generateSeedPassword,
-} from "../src/common/password-policy";
+import { assertPasswordComplexity } from "../src/common/password-policy";
 import {
   users,
   slaRules,
@@ -20,6 +17,11 @@ import {
   projects,
   projectMembers,
   modules,
+  problems,
+  problemIncidents,
+  comments,
+  notifications,
+  ticketKnowledgeLinks,
 } from "../src/database/schema";
 import {
   KNOWLEDGE_ARTICLE_SEED,
@@ -28,10 +30,36 @@ import {
 import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
 
 const SHOWCASE_PREFIX = "[Showcase]";
+const SCENARIO_PREFIX = "[Scenario]";
+const SCENARIO_ASSET_PREFIX = "SCEN-";
+/** Local demo password — override with SEED_PASSWORD=... if needed. */
+const DEFAULT_SEED_PASSWORD = "ChangeMe123!";
 const PHASE6_PROJECT_ID = "a1000000-0000-4000-8000-000000000001";
 const PHASE6_MODULE_ID = "a1000000-0000-4000-8000-000000000002";
 // Second project owned by Admin — Manager/Agent must not see its tickets in scoped lists.
 const PHASE6_OTHER_PROJECT_ID = "a1000000-0000-4000-8000-000000000003";
+const PHASE6_MODULE_2_ID = "a1000000-0000-4000-8000-000000000004";
+
+const SCENARIO_INCIDENT_IDS = {
+  vpnOutage: "c1000000-0000-4000-8000-000000000001",
+  laptopBroken: "c1000000-0000-4000-8000-000000000002",
+  emailDelay: "c1000000-0000-4000-8000-000000000003",
+  printerJam: "c1000000-0000-4000-8000-000000000004",
+  accessDenied: "c1000000-0000-4000-8000-000000000005",
+  wifiSlow: "c1000000-0000-4000-8000-000000000006",
+  appCrash: "c1000000-0000-4000-8000-000000000007",
+  dbTimeout: "c1000000-0000-4000-8000-000000000008",
+  phoneDown: "c1000000-0000-4000-8000-000000000009",
+  badgeFail: "c1000000-0000-4000-8000-00000000000a",
+  monitorDead: "c1000000-0000-4000-8000-00000000000b",
+  sharedInfra: "c1000000-0000-4000-8000-00000000000c",
+} as const;
+
+const SCENARIO_PROBLEM_IDS = {
+  vpnRoot: "c2000000-0000-4000-8000-000000000001",
+  emailRoot: "c2000000-0000-4000-8000-000000000002",
+  wifiKnown: "c2000000-0000-4000-8000-000000000003",
+} as const;
 
 async function seed() {
   const url = process.env.DATABASE_URL;
@@ -42,7 +70,7 @@ async function seed() {
   const client = postgres(url, { max: 1 });
   const db = drizzle(client);
 
-  const seedPassword = process.env.SEED_PASSWORD ?? generateSeedPassword();
+  const seedPassword = process.env.SEED_PASSWORD ?? DEFAULT_SEED_PASSWORD;
   assertPasswordComplexity(seedPassword);
   const passwordHash = await bcrypt.hash(seedPassword, 12);
 
@@ -69,7 +97,7 @@ async function seed() {
       email: "user@sadhox.local",
       passwordHash,
       role: "EndUser" as const,
-      name: "End User",
+      name: "Pat Portal",
     },
     {
       email: "manager@sadhox.local",
@@ -88,12 +116,21 @@ async function seed() {
   let createdAny = false;
   for (const u of seedUsers) {
     const [existing] = await db
-      .select()
+      .select({ id: users.id })
       .from(users)
       .where(eq(users.email, u.email))
       .limit(1);
     if (existing) {
-      console.log(`skip existing user ${u.email}`);
+      await db
+        .update(users)
+        .set({
+          passwordHash: u.passwordHash,
+          name: u.name,
+          role: u.role,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, existing.id));
+      console.log(`synced password for ${u.email}`);
       continue;
     }
     await db.insert(users).values(u);
@@ -101,18 +138,19 @@ async function seed() {
     console.log(`created ${u.role} ${u.email}`);
   }
 
-  if (createdAny) {
+  {
     const { writeFileSync } = await import("node:fs");
     writeFileSync(".seed-password", seedPassword, { mode: 0o600 });
     console.log("");
-    console.log("=== ONE-TIME SEED PASSWORD (store securely; not logged elsewhere) ===");
+    console.log("=== SEED PASSWORD (synced for all seed role emails) ===");
     console.log(seedPassword);
-    console.log("======================================================================");
-    console.log("Also wrote apps/server/.seed-password (gitignored).");
-    console.log("Override with SEED_PASSWORD=... on future seeds if needed.");
-  } else {
-    console.log("No new users created — password not printed.");
-    console.log("Reset with: SEED_PASSWORD=ChangeMe123! node scripts/reset-seed-password.mjs");
+    console.log("=======================================================");
+    console.log("Wrote apps/server/.seed-password (gitignored).");
+    console.log(
+      createdAny
+        ? "New users were created this run."
+        : "Existing seed users updated (password hash synced).",
+    );
   }
 
   const defaults = [
@@ -160,6 +198,7 @@ async function seed() {
   await attachShowcaseIncidentsToProject(db);
   await seedPhase4Assets(db);
   await seedKnowledgeBase(db);
+  await seedScenarioNarrative(db);
 
   await client.end();
   console.log("Seed complete");
@@ -216,6 +255,20 @@ async function seedPhase6Projects(db: SeedDb) {
       name: "Core Services",
     });
     console.log("created module Core Services");
+  }
+
+  const [mod2] = await db
+    .select({ id: modules.id })
+    .from(modules)
+    .where(eq(modules.id, PHASE6_MODULE_2_ID))
+    .limit(1);
+  if (!mod2) {
+    await db.insert(modules).values({
+      id: PHASE6_MODULE_2_ID,
+      projectId: PHASE6_PROJECT_ID,
+      name: "End-User Devices",
+    });
+    console.log("created module End-User Devices");
   }
 
   if (agent) {
@@ -658,6 +711,591 @@ async function seedPhase4Assets(db: SeedDb) {
   }
 
   console.log(`phase4 assets seeded: ${rows.length} (prefix ${ASSET_SEED_PREFIX})`);
+}
+
+/**
+ * Coherent Platform Ops week for Admin / Agent / Manager / EndUser portals.
+ * Idempotent via [Scenario] title prefix — safe when [Showcase] data already exists.
+ */
+async function seedScenarioNarrative(db: SeedDb) {
+  const [existing] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(incidents)
+    .where(like(incidents.title, `${SCENARIO_PREFIX}%`));
+
+  if (Number(existing?.n ?? 0) > 0) {
+    console.log("skip scenario narrative (already present)");
+    return;
+  }
+
+  const [admin] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "admin@sadhox.local"))
+    .limit(1);
+  const [agent] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "agent@sadhox.local"))
+    .limit(1);
+  const [portalUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "user@sadhox.local"))
+    .limit(1);
+  const [endUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "enduser@sadhox.local"))
+    .limit(1);
+  const [manager] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "manager@sadhox.local"))
+    .limit(1);
+
+  if (!admin || !agent || !portalUser || !manager) {
+    console.log("skip scenario narrative — required seed users missing");
+    return;
+  }
+
+  const catalogId = CATALOG_SEED[0]?.id;
+  if (!catalogId) {
+    console.log("skip scenario narrative — catalog seed empty");
+    return;
+  }
+
+  const [proj] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.id, PHASE6_PROJECT_ID))
+    .limit(1);
+  if (!proj) {
+    console.log("skip scenario narrative — Platform Ops project missing");
+    return;
+  }
+
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  const requesterAlt = endUser?.id ?? portalUser.id;
+
+  type IncRow = {
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    priority: "P1" | "P2" | "P3" | "P4";
+    impact: "High" | "Medium" | "Low";
+    urgency: "High" | "Medium" | "Low";
+    status: "New" | "Assigned" | "InProgress" | "Resolved" | "Closed";
+    reporterId: string;
+    assignedTo: string | null;
+    projectId: string | null;
+    moduleId: string | null;
+    resolutionNotes?: string | null;
+    resolvedAt?: Date | null;
+    closedAt?: Date | null;
+  };
+
+  const incidentRows: IncRow[] = [
+    {
+      id: SCENARIO_INCIDENT_IDS.vpnOutage,
+      title: `${SCENARIO_PREFIX} VPN gateway intermittent for Platform Ops`,
+      description:
+        "Users on Platform Ops cannot stay connected to VPN longer than ~5 minutes. Started Monday morning.",
+      category: "Network",
+      priority: "P1",
+      impact: "High",
+      urgency: "High",
+      status: "InProgress",
+      reporterId: portalUser.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+    {
+      id: SCENARIO_INCIDENT_IDS.laptopBroken,
+      title: `${SCENARIO_PREFIX} Laptop screen flicker after docking`,
+      description: "Display blanks when docked; works undocked. Hinders remote work.",
+      category: "Hardware",
+      priority: "P2",
+      impact: "Medium",
+      urgency: "High",
+      status: "Assigned",
+      reporterId: portalUser.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+    },
+    {
+      id: SCENARIO_INCIDENT_IDS.emailDelay,
+      title: `${SCENARIO_PREFIX} Outbound mail delayed 30+ minutes`,
+      description: "Messages sit in Outbox then batch-send. Affects approvals.",
+      category: "Software",
+      priority: "P2",
+      impact: "High",
+      urgency: "Medium",
+      status: "Assigned",
+      reporterId: requesterAlt,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+    {
+      id: SCENARIO_INCIDENT_IDS.printerJam,
+      title: `${SCENARIO_PREFIX} Floor-3 printer paper jam loop`,
+      description: "Printer reports jam even after clearing tray.",
+      category: "Hardware",
+      priority: "P3",
+      impact: "Low",
+      urgency: "Medium",
+      status: "New",
+      reporterId: portalUser.id,
+      assignedTo: null,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+    },
+    {
+      id: SCENARIO_INCIDENT_IDS.accessDenied,
+      title: `${SCENARIO_PREFIX} SharePoint site access denied after role change`,
+      description: "Pat Portal lost write access to Ops handbook site.",
+      category: "Access",
+      priority: "P2",
+      impact: "Medium",
+      urgency: "High",
+      status: "InProgress",
+      reporterId: portalUser.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+    {
+      id: SCENARIO_INCIDENT_IDS.wifiSlow,
+      title: `${SCENARIO_PREFIX} Conference room Wi-Fi throughput drop`,
+      description: "Speed tests under 5 Mbps during standup; AP reboot temporary fix.",
+      category: "Network",
+      priority: "P3",
+      impact: "Medium",
+      urgency: "Medium",
+      status: "InProgress",
+      reporterId: requesterAlt,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+    {
+      id: SCENARIO_INCIDENT_IDS.appCrash,
+      title: `${SCENARIO_PREFIX} Softphone client crash on call answer`,
+      description: "App exits when accepting inbound calls on Windows 11.",
+      category: "Software",
+      priority: "P2",
+      impact: "High",
+      urgency: "High",
+      status: "Resolved",
+      reporterId: portalUser.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+      resolutionNotes: "Reinstalled softphone build 4.2.1; crash no longer reproduces.",
+      resolvedAt: new Date(now - day),
+    },
+    {
+      id: SCENARIO_INCIDENT_IDS.dbTimeout,
+      title: `${SCENARIO_PREFIX} Reporting DB query timeouts at 09:00`,
+      description: "Batch report job times out during morning peak.",
+      category: "Other",
+      priority: "P1",
+      impact: "High",
+      urgency: "High",
+      status: "Assigned",
+      reporterId: admin.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+    {
+      id: SCENARIO_INCIDENT_IDS.phoneDown,
+      title: `${SCENARIO_PREFIX} Desk phone no dial tone`,
+      description: "Handset shows registered but no dial tone on pickup.",
+      category: "Hardware",
+      priority: "P3",
+      impact: "Low",
+      urgency: "Low",
+      status: "Closed",
+      reporterId: portalUser.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+      resolutionNotes: "Replaced PoE injector; dial tone restored.",
+      resolvedAt: new Date(now - 2 * day),
+      closedAt: new Date(now - day),
+    },
+    {
+      id: SCENARIO_INCIDENT_IDS.badgeFail,
+      title: `${SCENARIO_PREFIX} Badge reader rejects valid cards`,
+      description: "Building B lobby reader beeps red for Ops badges.",
+      category: "Access",
+      priority: "P3",
+      impact: "Medium",
+      urgency: "Medium",
+      status: "New",
+      reporterId: requesterAlt,
+      assignedTo: null,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+    {
+      id: SCENARIO_INCIDENT_IDS.monitorDead,
+      title: `${SCENARIO_PREFIX} Dual-monitor blank on HDMI hub`,
+      description: "Second monitor stays black after docking station firmware update.",
+      category: "Hardware",
+      priority: "P4",
+      impact: "Low",
+      urgency: "Low",
+      status: "Resolved",
+      reporterId: portalUser.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+      resolutionNotes: "Rolled hub firmware; DisplayPort preferred path documented.",
+      resolvedAt: new Date(now - 3 * day),
+    },
+    {
+      id: SCENARIO_INCIDENT_IDS.sharedInfra,
+      title: `${SCENARIO_PREFIX} Shared Infra backup window overrun`,
+      description:
+        "Admin-owned Shared Infra ticket — Manager must not see this in scoped lists.",
+      category: "Other",
+      priority: "P2",
+      impact: "Medium",
+      urgency: "Medium",
+      status: "New",
+      reporterId: admin.id,
+      assignedTo: null,
+      projectId: PHASE6_OTHER_PROJECT_ID,
+      moduleId: null,
+    },
+  ];
+
+  for (const row of incidentRows) {
+    await db.insert(incidents).values({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      category: row.category,
+      priority: row.priority,
+      impact: row.impact,
+      urgency: row.urgency,
+      status: row.status,
+      assignedTo: row.assignedTo,
+      reporterId: row.reporterId,
+      projectId: row.projectId,
+      moduleId: row.moduleId,
+      slaDueAt: new Date(now + 2 * day),
+      resolutionNotes: row.resolutionNotes ?? null,
+      resolvedAt: row.resolvedAt ?? null,
+      closedAt: row.closedAt ?? null,
+    });
+  }
+
+  await db.insert(problems).values([
+    {
+      id: SCENARIO_PROBLEM_IDS.vpnRoot,
+      title: `${SCENARIO_PREFIX} Recurring VPN disconnect pattern`,
+      description:
+        "Multiple Platform Ops incidents point to gateway session timeout after firmware 9.1.",
+      rootCause: null,
+      knownError: false,
+      status: "Investigating",
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+    {
+      id: SCENARIO_PROBLEM_IDS.emailRoot,
+      title: `${SCENARIO_PREFIX} Mail relay queue backlog mornings`,
+      description: "Outbound delays correlate with nightly archive job overlapping SMTP peak.",
+      rootCause: "Archive job holds relay worker threads until 09:15.",
+      knownError: false,
+      status: "Open",
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+    {
+      id: SCENARIO_PROBLEM_IDS.wifiKnown,
+      title: `${SCENARIO_PREFIX} Known error — conference AP channel overlap`,
+      description: "Documented channel clash between adjacent APs in standup rooms.",
+      rootCause: "AP-12 and AP-14 both fixed on channel 36.",
+      knownError: true,
+      status: "KnownError",
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+  ]);
+
+  await db.insert(problemIncidents).values([
+    {
+      problemId: SCENARIO_PROBLEM_IDS.vpnRoot,
+      incidentId: SCENARIO_INCIDENT_IDS.vpnOutage,
+    },
+    {
+      problemId: SCENARIO_PROBLEM_IDS.emailRoot,
+      incidentId: SCENARIO_INCIDENT_IDS.emailDelay,
+    },
+    {
+      problemId: SCENARIO_PROBLEM_IDS.wifiKnown,
+      incidentId: SCENARIO_INCIDENT_IDS.wifiSlow,
+    },
+  ]);
+
+  const srStatuses = [
+    "Submitted",
+    "PendingApproval",
+    "Approved",
+    "InFulfillment",
+    "Fulfilled",
+    "Closed",
+  ] as const;
+
+  for (const [i, status] of srStatuses.entries()) {
+    const needsApprover =
+      status !== "Submitted" && status !== "PendingApproval";
+    await db.insert(serviceRequests).values({
+      catalogId,
+      requesterId: portalUser.id,
+      approverId: needsApprover ? (i % 2 === 0 ? manager.id : admin.id) : null,
+      title: `${SCENARIO_PREFIX} SR ${status} — laptop accessories`,
+      description: "Scenario service request for portal + approval walkthroughs.",
+      justification: "Platform Ops onboarding kit for Pat Portal.",
+      urgency: i % 2 === 0 ? "Medium" : "High",
+      fields: { laptopType: "Standard", accessories: "Dock + monitor" },
+      status,
+      assigneeId:
+        status === "InFulfillment" || status === "Fulfilled" || status === "Closed"
+          ? agent.id
+          : null,
+      approvedAt: needsApprover ? new Date(now - i * day) : null,
+      fulfillmentNotes:
+        status === "Fulfilled" || status === "Closed"
+          ? "Shipped dock + 27in monitor; asset tagged SCEN-HW-0001."
+          : null,
+      fulfilledAt:
+        status === "Fulfilled" || status === "Closed"
+          ? new Date(now - Math.max(i - 3, 0) * day)
+          : null,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+    });
+  }
+
+  const changeRows: {
+    title: string;
+    type: "Standard" | "Normal" | "Emergency";
+    status:
+      | "Submitted"
+      | "Approved"
+      | "Scheduled"
+      | "Implemented"
+      | "Closed";
+    projectId: string | null;
+    moduleId: string | null;
+    approvedBy: string | null;
+  }[] = [
+    {
+      title: `${SCENARIO_PREFIX} VPN firmware rollback window`,
+      type: "Emergency",
+      status: "Submitted",
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+      approvedBy: null,
+    },
+    {
+      title: `${SCENARIO_PREFIX} Softphone client push to Ops laptops`,
+      type: "Normal",
+      status: "Approved",
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+      approvedBy: manager.id,
+    },
+    {
+      title: `${SCENARIO_PREFIX} Mail archive job schedule shift`,
+      type: "Normal",
+      status: "Scheduled",
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+      approvedBy: admin.id,
+    },
+    {
+      title: `${SCENARIO_PREFIX} Conference AP channel replan`,
+      type: "Standard",
+      status: "Implemented",
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+      approvedBy: manager.id,
+    },
+    {
+      title: `${SCENARIO_PREFIX} Badge reader firmware patch Building B`,
+      type: "Normal",
+      status: "Closed",
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+      approvedBy: admin.id,
+    },
+    {
+      title: `${SCENARIO_PREFIX} Shared Infra storage maintenance`,
+      type: "Standard",
+      status: "Approved",
+      projectId: PHASE6_OTHER_PROJECT_ID,
+      moduleId: null,
+      approvedBy: admin.id,
+    },
+  ];
+
+  for (const row of changeRows) {
+    await db.insert(changes).values({
+      title: row.title,
+      description: "Scenario change for Platform Ops / Shared Infra walkthroughs.",
+      type: row.type,
+      status: row.status,
+      createdBy: agent.id,
+      approvedBy: row.approvedBy,
+      approvedAt: row.approvedBy ? new Date(now - 2 * day) : null,
+      scheduledStart: new Date(now + day),
+      scheduledEnd: new Date(now + 2 * day),
+      rollbackPlan: "Revert to previous config snapshot within 30 minutes.",
+      projectId: row.projectId,
+      moduleId: row.moduleId,
+    });
+  }
+
+  await db.insert(comments).values([
+    {
+      ticketId: SCENARIO_INCIDENT_IDS.vpnOutage,
+      ticketType: "incident",
+      authorId: portalUser.id,
+      content: "Still dropping every few minutes on the home office connection.",
+    },
+    {
+      ticketId: SCENARIO_INCIDENT_IDS.vpnOutage,
+      ticketType: "incident",
+      authorId: agent.id,
+      content: "Gathering gateway logs; will try session timeout tweak tonight.",
+    },
+    {
+      ticketId: SCENARIO_INCIDENT_IDS.laptopBroken,
+      ticketType: "incident",
+      authorId: agent.id,
+      content: "Please try a different USB-C cable and confirm if flicker persists.",
+    },
+    {
+      ticketId: SCENARIO_INCIDENT_IDS.accessDenied,
+      ticketType: "incident",
+      authorId: portalUser.id,
+      content: "Need write access restored before Friday handbook update.",
+    },
+  ]);
+
+  const publishedArticleId = KNOWLEDGE_ARTICLE_SEED.find(
+    (a) => a.status === "Published",
+  )?.id;
+  const vpnArticleId =
+    KNOWLEDGE_ARTICLE_SEED.find((a) => a.slug === "vpn-access-checklist")?.id ??
+    publishedArticleId;
+  if (publishedArticleId && vpnArticleId) {
+    await db.insert(ticketKnowledgeLinks).values([
+      {
+        ticketId: SCENARIO_INCIDENT_IDS.laptopBroken,
+        ticketType: "incident",
+        articleId: publishedArticleId,
+      },
+      {
+        ticketId: SCENARIO_INCIDENT_IDS.accessDenied,
+        ticketType: "incident",
+        articleId: vpnArticleId,
+      },
+      {
+        ticketId: SCENARIO_PROBLEM_IDS.wifiKnown,
+        ticketType: "problem",
+        articleId: publishedArticleId,
+      },
+    ]);
+  }
+
+  await db.insert(notifications).values([
+    {
+      userId: agent.id,
+      type: "ticket.assigned",
+      title: `${SCENARIO_PREFIX} Assigned: VPN gateway intermittent`,
+      body: "P1 incident on Platform Ops needs attention.",
+      readAt: null,
+    },
+    {
+      userId: portalUser.id,
+      type: "ticket.comment",
+      title: `${SCENARIO_PREFIX} Agent replied on your laptop ticket`,
+      body: "Alice Agent asked you to try a different USB-C cable.",
+      readAt: null,
+    },
+    {
+      userId: manager.id,
+      type: "request.pending_approval",
+      title: `${SCENARIO_PREFIX} SR awaiting approval`,
+      body: "Laptop accessories request from Pat Portal is pending approval.",
+      readAt: null,
+    },
+    {
+      userId: portalUser.id,
+      type: "request.fulfilled",
+      title: `${SCENARIO_PREFIX} Your accessories request was fulfilled`,
+      body: "Dock + monitor shipped; see asset SCEN-HW-0001.",
+      readAt: new Date(now - day),
+    },
+  ]);
+
+  await db.insert(assets).values([
+    {
+      assetTag: `${SCENARIO_ASSET_PREFIX}HW-0001`,
+      name: `${SCENARIO_PREFIX} Docking station (Pat Portal)`,
+      type: "Hardware",
+      status: "Active",
+      ownerId: portalUser.id,
+      purchaseCost: "189.00",
+      linkedTicketId: SCENARIO_INCIDENT_IDS.laptopBroken,
+    },
+    {
+      assetTag: `${SCENARIO_ASSET_PREFIX}HW-0002`,
+      name: `${SCENARIO_PREFIX} Softphone headset`,
+      type: "Hardware",
+      status: "InRepair",
+      ownerId: agent.id,
+      purchaseCost: "79.50",
+      linkedTicketId: SCENARIO_INCIDENT_IDS.appCrash,
+    },
+    {
+      assetTag: `${SCENARIO_ASSET_PREFIX}SW-0001`,
+      name: `${SCENARIO_PREFIX} Softphone license seat`,
+      type: "Software",
+      status: "Active",
+      ownerId: admin.id,
+      purchaseCost: "24.00",
+      linkedTicketId: null,
+    },
+    {
+      assetTag: `${SCENARIO_ASSET_PREFIX}HW-0003`,
+      name: `${SCENARIO_PREFIX} VPN token fob`,
+      type: "Hardware",
+      status: "Active",
+      ownerId: portalUser.id,
+      purchaseCost: "45.00",
+      linkedTicketId: SCENARIO_INCIDENT_IDS.vpnOutage,
+    },
+  ]);
+
+  console.log(
+    `scenario seeded: ${incidentRows.length} incidents, 3 problems, ${srStatuses.length} SRs, ${changeRows.length} changes, comments, notifications, KB links, SCEN- assets`,
+  );
 }
 
 seed().catch((err) => {

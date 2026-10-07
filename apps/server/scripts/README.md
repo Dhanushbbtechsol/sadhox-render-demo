@@ -2,6 +2,26 @@
 
 These scripts are **manual local/lab tooling**. They are not wired into Nest build, `dist/`, CI, or Render deploy.
 
+## Demo seed (`db:seed`)
+
+Re-run against local Postgres to sync role passwords and load scenario data:
+
+```bash
+cd apps/server
+pnpm db:seed
+```
+
+Default password is `ChangeMe123!` (override with `SEED_PASSWORD=...`). Seed upserts hashes for known demo emails every run. Scenario tickets use the `[Scenario]` prefix and are skipped if already present.
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Admin | `admin@sadhox.local` | `ChangeMe123!` |
+| Agent | `agent@sadhox.local` | `ChangeMe123!` |
+| EndUser | `user@sadhox.local` | `ChangeMe123!` |
+| Manager | `manager@sadhox.local` | `ChangeMe123!` |
+
+Also seeded: `enduser@sadhox.local` (second EndUser for multi-requester volume).
+
 ## Required environment
 
 Scripts that touch Postgres/Redis **require** `DATABASE_URL` and/or `REDIS_URL`.
