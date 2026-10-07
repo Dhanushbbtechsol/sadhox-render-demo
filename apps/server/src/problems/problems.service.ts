@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { and, count, desc, eq, inArray, SQL } from "drizzle-orm";
+import { AssignmentService } from "../assignment/assignment.service";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
@@ -51,6 +52,7 @@ export type ProblemView = {
 export class ProblemsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly assignment: AssignmentService,
     private readonly projectAccess: ProjectAccessService,
     private readonly projectsService: ProjectsService,
   ) {}
@@ -82,12 +84,15 @@ export class ProblemsService {
     const ids = rows.map((r) => r.problem.id);
     const links = await this.loadLinks(ids);
     const snippets = await this.loadIncidentSnippets(
+      user,
       [...links.values()].flat(),
     );
 
     return {
       data: rows.map((row) => {
-        const linkedIds = links.get(row.problem.id) ?? [];
+        const linkedIds = (links.get(row.problem.id) ?? []).filter((id) =>
+          snippets.has(id),
+        );
         return this.toView(
           row.problem,
           row.assigneeName,
@@ -124,8 +129,9 @@ export class ProblemsService {
     );
 
     const links = await this.loadLinks([id]);
-    const linkedIds = links.get(id) ?? [];
-    const snippets = await this.loadIncidentSnippets(linkedIds);
+    const rawLinkedIds = links.get(id) ?? [];
+    const snippets = await this.loadIncidentSnippets(user, rawLinkedIds);
+    const linkedIds = rawLinkedIds.filter((lid) => snippets.has(lid));
     return this.toView(
       row.problem,
       row.assigneeName,
@@ -137,16 +143,18 @@ export class ProblemsService {
   }
 
   async create(user: AuthUser, dto: CreateProblemDto): Promise<ProblemView> {
-    if (dto.assignedTo) await this.assertUserExists(dto.assignedTo);
-    if (dto.linkedIncidentIds?.length) {
-      await this.assertIncidentsExist(dto.linkedIncidentIds);
-    }
-
     const scope = await this.projectsService.resolveTicketProjectFields(
       user,
       dto.projectId,
       dto.moduleId,
     );
+
+    if (dto.assignedTo) {
+      await this.assertAssigneeInPool(dto.assignedTo, scope.projectId);
+    }
+    if (dto.linkedIncidentIds?.length) {
+      await this.assertCanLinkIncidents(user, dto.linkedIncidentIds);
+    }
 
     const now = new Date();
     const [created] = await this.db
@@ -179,11 +187,6 @@ export class ProblemsService {
   ): Promise<ProblemView> {
     const existing = await this.get(user, id);
 
-    if (dto.assignedTo) await this.assertUserExists(dto.assignedTo);
-    if (dto.linkedIncidentIds) {
-      await this.assertIncidentsExist(dto.linkedIncidentIds);
-    }
-
     let nextProjectId = existing.projectId;
     let nextModuleId = existing.moduleId;
     if (dto.projectId !== undefined || dto.moduleId !== undefined) {
@@ -194,6 +197,15 @@ export class ProblemsService {
       );
       nextProjectId = scope.projectId;
       nextModuleId = scope.moduleId;
+    }
+
+    const nextAssignee =
+      dto.assignedTo !== undefined ? dto.assignedTo : existing.assignedTo;
+    if (nextAssignee) {
+      await this.assertAssigneeInPool(nextAssignee, nextProjectId);
+    }
+    if (dto.linkedIncidentIds) {
+      await this.assertCanLinkIncidents(user, dto.linkedIncidentIds);
     }
 
     const now = new Date();
@@ -234,7 +246,7 @@ export class ProblemsService {
     incidentId: string,
   ): Promise<ProblemView> {
     await this.get(user, problemId);
-    await this.assertIncidentsExist([incidentId]);
+    await this.assertCanLinkIncidents(user, [incidentId]);
 
     const [existingLink] = await this.db
       .select({
@@ -315,7 +327,10 @@ export class ProblemsService {
     );
   }
 
-  private async loadIncidentSnippets(incidentIds: string[]) {
+  private async loadIncidentSnippets(
+    user: AuthUser,
+    incidentIds: string[],
+  ) {
     const map = new Map<string, LinkedIncidentSnippet>();
     if (incidentIds.length === 0) return map;
 
@@ -325,34 +340,76 @@ export class ProblemsService {
         title: incidents.title,
         status: incidents.status,
         priority: incidents.priority,
+        projectId: incidents.projectId,
       })
       .from(incidents)
       .where(inArray(incidents.id, incidentIds));
 
     for (const row of rows) {
-      map.set(row.id, row);
+      if (!(await this.canViewIncidentProject(user, row.projectId))) continue;
+      map.set(row.id, {
+        id: row.id,
+        title: row.title,
+        status: row.status,
+        priority: row.priority,
+      });
     }
     return map;
   }
 
-  private async assertIncidentsExist(ids: string[]) {
+  /** Link only incidents the actor can already view (blocks cross-project probe). */
+  private async assertCanLinkIncidents(user: AuthUser, ids: string[]) {
+    if (ids.length === 0) return;
+
     const rows = await this.db
-      .select({ id: incidents.id })
+      .select({ id: incidents.id, projectId: incidents.projectId })
       .from(incidents)
       .where(inArray(incidents.id, ids));
 
     if (rows.length !== ids.length) {
       throw new BadRequestException("One or more incident IDs are invalid");
     }
+
+    for (const row of rows) {
+      await this.projectAccess.assertCanViewTicket(user, row.projectId);
+    }
   }
 
-  private async assertUserExists(userId: string) {
-    const [row] = await this.db
+  private async canViewIncidentProject(
+    user: AuthUser,
+    projectId: string | null,
+  ): Promise<boolean> {
+    try {
+      await this.projectAccess.assertCanViewTicket(user, projectId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Project tickets: assignee must be a project member Agent.
+   * Unscoped tickets: Agent or Admin (legacy global pool).
+   */
+  private async assertAssigneeInPool(
+    userId: string,
+    projectId: string | null,
+  ) {
+    const [agent] = await this.db
       .select({ id: users.id })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
-    if (!row) throw new NotFoundException("Assignee not found");
+    if (!agent) throw new NotFoundException("Assignee not found");
+
+    const inPool = await this.assignment.isInPool(userId, projectId);
+    if (!inPool) {
+      throw new BadRequestException(
+        projectId
+          ? "Assignee must be a member of this project"
+          : "Assignee must be an Agent or Admin",
+      );
+    }
   }
 
   private toView(

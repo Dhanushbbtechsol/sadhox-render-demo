@@ -64,36 +64,6 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["Admin"],
   },
   {
-    to: "/admin/knowledge",
-    label: "Knowledge",
-    icon: BookOpenIcon,
-    roles: ["Admin"],
-  },
-  {
-    to: "/admin/sla-rules",
-    label: "SLA rules",
-    icon: TimerIcon,
-    roles: ["Admin"],
-  },
-  {
-    to: "/admin/audit-logs",
-    label: "Audit logs",
-    icon: ScrollTextIcon,
-    roles: ["Admin"],
-  },
-  {
-    to: "/admin/queues",
-    label: "Queues",
-    icon: ServerIcon,
-    roles: ["Admin"],
-  },
-  {
-    to: "/admin/catalog",
-    label: "Catalog admin",
-    icon: Settings2Icon,
-    roles: ["Admin"],
-  },
-  {
     kind: "group",
     id: "incident-desk",
     label: "Incident Desk",
@@ -111,6 +81,36 @@ const NAV_ITEMS: NavItem[] = [
         icon: ClipboardListIcon,
       },
     ],
+  },
+  {
+    to: "/requests",
+    label: "Requests",
+    icon: ListTodoIcon,
+    roles: ["Admin", "Agent", "EndUser", "Manager"],
+  },
+  {
+    to: "/admin/knowledge",
+    label: "Knowledge",
+    icon: BookOpenIcon,
+    roles: ["Admin"],
+  },
+  {
+    to: "/admin/sla-rules",
+    label: "SLA",
+    icon: TimerIcon,
+    roles: ["Admin"],
+  },
+  {
+    to: "/admin/queues",
+    label: "Queues",
+    icon: ServerIcon,
+    roles: ["Admin"],
+  },
+  {
+    to: "/admin/catalog",
+    label: "Catalog admin",
+    icon: Settings2Icon,
+    roles: ["Admin"],
   },
   {
     to: "/portal",
@@ -132,12 +132,6 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["Admin", "Agent", "EndUser"],
   },
   {
-    to: "/requests",
-    label: "Requests",
-    icon: ListTodoIcon,
-    roles: ["Admin", "Agent", "EndUser", "Manager"],
-  },
-  {
     to: "/changes",
     label: "Changes",
     icon: GitBranchIcon,
@@ -148,6 +142,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Approvals",
     icon: InboxIcon,
     roles: ["Admin", "Manager"],
+  },
+  {
+    to: "/admin/audit-logs",
+    label: "Audit logs",
+    icon: ScrollTextIcon,
+    roles: ["Admin"],
   },
 ];
 

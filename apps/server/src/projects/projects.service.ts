@@ -254,7 +254,7 @@ export class ProjectsService {
 
   /**
    * Validate project/module pair for ticket writes.
-   * - Both null: OK (unscoped, Admin-only later for non-EndUser lists)
+   * - Unscoped (null): Admin or EndUser only — Manager/Agent must stamp a project
    * - project set, module null: OK
    * - module set without project: reject
    * - module must belong to project
@@ -269,6 +269,7 @@ export class ProjectsService {
     const mid = moduleId === undefined ? undefined : moduleId;
 
     if (pid === undefined && mid === undefined) {
+      this.assertMayStampUnscoped(user);
       return { projectId: null, moduleId: null };
     }
 
@@ -279,18 +280,18 @@ export class ProjectsService {
       throw new BadRequestException("moduleId requires projectId");
     }
 
-    if (resolvedProjectId) {
-      if (user.role !== "EndUser") {
-        await this.access.assertCanAccess(user, resolvedProjectId);
-      } else {
-        // EndUser may attach to any existing project (portal); existence check only.
-        const [proj] = await this.db
-          .select({ id: projects.id })
-          .from(projects)
-          .where(eq(projects.id, resolvedProjectId))
-          .limit(1);
-        if (!proj) throw new NotFoundException("Project not found");
-      }
+    if (!resolvedProjectId) {
+      this.assertMayStampUnscoped(user);
+    } else if (user.role !== "EndUser") {
+      await this.access.assertCanAccess(user, resolvedProjectId);
+    } else {
+      // EndUser may attach to any existing project (portal); existence check only.
+      const [proj] = await this.db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.id, resolvedProjectId))
+        .limit(1);
+      if (!proj) throw new NotFoundException("Project not found");
     }
 
     if (resolvedModuleId && resolvedProjectId) {
@@ -309,6 +310,14 @@ export class ProjectsService {
       projectId: resolvedProjectId,
       moduleId: resolvedModuleId,
     };
+  }
+
+  /** Unscoped tickets are Admin (global pool) or EndUser (own) only. */
+  private assertMayStampUnscoped(user: AuthUser): void {
+    if (user.role === "Admin" || user.role === "EndUser") return;
+    throw new BadRequestException(
+      "Only Admin may create or clear unscoped tickets",
+    );
   }
 
   private async loadProject(id: string): Promise<ProjectView> {

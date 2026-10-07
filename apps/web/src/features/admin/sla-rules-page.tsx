@@ -98,7 +98,7 @@ export default function SlaRulesPage() {
         <div className="min-w-0">
           <h1 className="flex items-center gap-2 text-xl font-semibold">
             <TimerIcon className="size-5" />
-            SLA rules
+            SLA
           </h1>
           <p className="text-sm text-muted-foreground">
             Per-priority response and resolve targets. Not a drag-and-drop policy builder.

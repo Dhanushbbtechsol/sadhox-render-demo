@@ -165,12 +165,6 @@ export class ServiceRequestsService {
       })
       .returning();
 
-    const [requester] = await this.db
-      .select({ name: users.name })
-      .from(users)
-      .where(eq(users.id, user.userId))
-      .limit(1);
-
     await this.notifyApproversOfSubmission(
       created.id,
       catalog.name,
