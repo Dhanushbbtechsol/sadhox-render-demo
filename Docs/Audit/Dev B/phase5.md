@@ -1,10 +1,12 @@
 # Security Audit: Dev B (Phase 5)
 
-Reaudit 2026-10-06. Combined: [phase5.md](../phase5.md).
+Reaudit 2026-10-07. Combined: [phase5.md](../phase5.md). **CLEAN.**
 
-## Open findings assigned to Dev B
+## Low — Resolved (coord)
 
-**None.** Low catalog sanitize coordinated with Dev D — **FIXED** in `ServiceCatalogService` (`sanitizePlainText` + option size caps).
+### [A03] Catalog free-text trim-only — **FIXED (verified)**
+
+Dev D sanitize choke point on `ServiceCatalogService` + DTO option caps. Admin catalog UI no longer needs a separate client sanitize path.
 
 ## Spot-checked (clean)
 

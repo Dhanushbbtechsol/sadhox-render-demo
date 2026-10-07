@@ -1,7 +1,7 @@
 # Sadhox — Status & Feature Handoff (for Claude / agents)
 
 **Last updated:** 2026-10-07  
-**Integration branch:** `Audit` (Phase 5 merges); `Dev-C` has Audit merged + Dev C Phase 5 close-out  
+**Integration branch:** `Audit` (Phase 5 merges + remediations); `Dev-C` has Audit merged + Dev C Phase 5 close-out  
 **Memory bank:** `memory-bank/` (read all six files at task start)
 
 This document is the short “what exists / what doesn’t” brief. Requirements and plans stay in PRD/FRD/Phase docs.
@@ -103,7 +103,7 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 
 **Phase 5 Medium/Low (2026-10-06 audit):** closed on `Dev-C` 2026-10-07 — SLA rules API, Admin Knowledge `{ data }` unwrap, offline-only mocks, catalog sanitize/option caps. See `Docs/Audit/phase5.md`.
 
-Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md`): hardcoded LAN defaults in ops scripts (verify `require-env.mjs` path); CSRF gap with `SameSite=None` refresh cookie; minor throttle/Sentry hardening.
+Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md` / Dev D phase5): CSRF gap with `SameSite=None` refresh cookie; throttle ceiling / logout throttle; Sentry WS auth noise. **LAN script High is closed.**
 
 **Production go-live** checklist incomplete (`Docs/Phase/Dev D/go-live-checklist.md`) — do not assume live Render/Vercel is fully cut over.
 

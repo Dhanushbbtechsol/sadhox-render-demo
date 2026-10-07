@@ -1,4 +1,4 @@
-# Phase 5 reaudit — 2026-10-06
+# Phase 5 reaudit — 2026-10-07
 
 Scope: current `Audit` / `Dev-C` tree after Dev-A/B/C/D Phase 5 merges. Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT + refresh cookie, Socket.IO, BullMQ/Redis, Resend.
 
@@ -6,9 +6,9 @@ Scope: current `Audit` / `Dev-C` tree after Dev-A/B/C/D Phase 5 merges. Stack: R
 
 **Owners:** [Dev A](./Dev%20A/phase5.md) · [Dev B](./Dev%20B/phase5.md) · [Dev C](./Dev%20C/phase5.md) · [Dev D](./Dev%20D/phase5.md)
 
-## What landed (spot-checked)
+## Verified remediations (since 2026-10-06)
 
-| Surface | Evidence |
+| Item | Evidence |
 | --- | --- |
 | Knowledge schema + migration | `0009_phase5_knowledge_base` + `knowledge_*` / `ticket_knowledge_links` |
 | KnowledgeModule RBAC | `@Roles` on reads/writes/links; Draft hidden from non-Admin |
@@ -19,6 +19,9 @@ Scope: current `Audit` / `Dev-C` tree after Dev-A/B/C/D Phase 5 merges. Stack: R
 | Admin KB authoring UI | `/admin/knowledge` |
 | Admin SLA rules API | `GET`/`PATCH /admin/sla-rules` (+ path param) |
 | Dashboard CSV export | client-side from existing admin aggregates |
+| Catalog sanitize | `ServiceCatalogService` → `sanitizePlainText` on name/description/department/form fields |
+| Catalog options bounds | `CatalogFormFieldDto` `@ArrayMaxSize` + `@MaxLength(..., { each: true })` |
+| Hardcoded LAN script defaults | `requireEnv` in probe/clean/rebaseline; no `192.168.*` fallbacks |
 
 ## Medium — Resolved
 
@@ -46,28 +49,34 @@ Mocks only via `useOfflineAdminData()`; live authoring/SLA fail loudly.
 
 ## Still open from Phase 4 — Dev D (carryover)
 
-| Sev | Item |
-| --- | --- |
-| High | Hardcoded LAN DB/Redis defaults in probe/clean/rebaseline scripts |
-| Medium | `SameSite=None` refresh cookie without CSRF defense |
-| Low | `THROTTLE_GLOBAL_LIMIT` prod ceiling; throttle `/auth/logout`; skip expected WS auth denials in Sentry |
+| Sev | Item | Status |
+| --- | --- | --- |
+| High | Hardcoded LAN DB/Redis defaults in scripts | **FIXED (verified)** |
+| Medium | `SameSite=None` refresh cookie without CSRF | **Still open** |
+| Low | Cap `THROTTLE_GLOBAL_LIMIT` in production | **Still open** |
+| Low | Throttle `/auth/logout` like refresh | **Still open** |
+| Low | Skip expected WS auth denials in Sentry | **Still open** (`sentry-exception.filter.ts` still `captureException` for all WS) |
 
 ## Still sound (spot-checked)
 
-Knowledge Draft visibility; link Published-only; EndUser cannot mutate links; portal `readOnly` + server ACL; catalog `POST`/`PATCH` Admin; `includeInactive` Admin-only; markdown preview is React text nodes (no HTML injection sink); Drizzle `ilike` parameterized; RBAC matrix covers Knowledge + catalog writes + SLA rules.
+Knowledge Draft visibility; link Published-only; EndUser cannot mutate links; EndUser ticket ACL on links; portal `readOnly` + server ACL; catalog `POST`/`PATCH` Admin; `includeInactive` Admin-only; SLA Admin-only; markdown preview is React text nodes (no HTML injection sink); Drizzle `ilike` parameterized; RBAC matrix covers Knowledge + catalog writes + SLA rules.
 
-A06 CVE scan / A10 SSRF: nothing new in Phase 5 deltas.
+A06 CVE scan / A10 SSRF: nothing new.
 
 ## Review checklist (human)
 
 1. Admin publishes article → appears in End User `/knowledge` search (live API, not mocks).
-2. EndUser `POST` knowledge article / catalog item → 403.
-3. EndUser cannot list KB links on another user’s incident.
-4. Admin SLA editor: PATCH persists and affects breach timing.
-5. Catalog create with hostile `description` / option strings stays plain text in request form UI.
+2. Admin Knowledge list loads against Nest `{ data }` envelope.
+3. EndUser `POST` knowledge article / catalog item → 403.
+4. EndUser cannot list KB links on another user’s incident.
+5. Admin SLA editor: PATCH persists and affects breach timing.
+6. Catalog create with hostile `description` / option strings stays plain text in request form UI.
+7. Probe scripts fail without `DATABASE_URL` / `REDIS_URL`.
 
 ## Not checked / out of scope
 
 - Staging TLS and secret stores
-- Full lockfile CVE audit
+- Full lockfile CVE audit / `pnpm-lock.yaml` CVE scan
 - Phase 6 Projects / Manager
+- Live Render/Vercel cutover
+- Full Playwright Phase 5 walkthrough
