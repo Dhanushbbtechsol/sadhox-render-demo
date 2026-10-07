@@ -169,7 +169,7 @@ const MATRIX: MatrixRow[] = [
   {
     method: "get",
     path: "/service-catalog",
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   { method: "post", path: "/service-catalog", allowed: ["Admin"] },
   {

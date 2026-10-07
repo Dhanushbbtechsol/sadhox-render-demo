@@ -129,7 +129,7 @@ const NAV_ITEMS: NavItem[] = [
     to: "/catalog",
     label: "Catalog",
     icon: LayoutGridIcon,
-    roles: ["Admin", "Agent", "EndUser"],
+    roles: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     to: "/changes",

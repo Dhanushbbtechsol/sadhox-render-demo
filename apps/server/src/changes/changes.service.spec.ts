@@ -53,11 +53,16 @@ function createProjectAccessMock() {
         throw new ForbiddenException("Admin or Manager role required");
       }
     }),
-    resolveProjectModule: vi.fn().mockResolvedValue({
+    ticketProjectScope: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+function createProjectsServiceMock() {
+  return {
+    resolveTicketProjectFields: vi.fn().mockResolvedValue({
       projectId: null,
       moduleId: null,
     }),
-    ticketProjectScope: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -104,6 +109,7 @@ describe("ChangesService.update Admin gates", () => {
       db as never,
       { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
       createProjectAccessMock() as never,
+      createProjectsServiceMock() as never,
     );
     await expect(
       service.update(agent, submitted.id as string, { status: "Scheduled" }),
@@ -116,6 +122,7 @@ describe("ChangesService.update Admin gates", () => {
       db as never,
       { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
       createProjectAccessMock() as never,
+      createProjectsServiceMock() as never,
     );
     await expect(
       service.update(agent, approved.id as string, { status: "Scheduled" }),
@@ -128,6 +135,7 @@ describe("ChangesService.update Admin gates", () => {
       db as never,
       { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
       createProjectAccessMock() as never,
+      createProjectsServiceMock() as never,
     );
     await expect(
       service.update(agent, submitted.id as string, { status: "Approved" }),
@@ -140,6 +148,7 @@ describe("ChangesService.update Admin gates", () => {
       db as never,
       { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
       createProjectAccessMock() as never,
+      createProjectsServiceMock() as never,
     );
     await expect(
       service.update(agent, submitted.id as string, { status: "Rolled Back" }),
@@ -195,11 +204,38 @@ describe("ChangesService.update Admin gates", () => {
       db as never,
       { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
       createProjectAccessMock() as never,
+      createProjectsServiceMock() as never,
     );
     const result = await service.update(admin, approved.id as string, {
       status: "Scheduled",
     });
     expect(result.status).toBe("Scheduled");
     expect(db.update).toHaveBeenCalled();
+  });
+
+  it("rejects Agent create with foreign projectId (A01/A04)", async () => {
+    const projectsService = {
+      resolveTicketProjectFields: vi.fn().mockRejectedValue(
+        new ForbiddenException("Cannot access this project"),
+      ),
+    };
+    const service = new ChangesService(
+      {} as never,
+      { sendApprovalOutcome: vi.fn() } as never,
+      createProjectAccessMock() as never,
+      projectsService as never,
+    );
+    await expect(
+      service.create(agent, {
+        title: "x",
+        description: "y",
+        type: "Standard",
+        scheduledStart: "2030-01-01T10:00:00.000Z",
+        scheduledEnd: "2030-01-01T12:00:00.000Z",
+        rollbackPlan: "",
+        projectId: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(projectsService.resolveTicketProjectFields).toHaveBeenCalled();
   });
 });
