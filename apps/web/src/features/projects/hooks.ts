@@ -58,10 +58,14 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: async (input: CreateProjectInput) => {
       if (useOfflineAdminData()) {
+        const managerName =
+          mockDirectoryUsers.find((u) => u.id === input.managerId)?.name ??
+          null;
         const created: Project = {
           id: `proj-${Date.now()}`,
           name: input.name,
           managerId: input.managerId,
+          managerName,
           createdAt: new Date().toISOString(),
         };
         mockProjects.push(created);
@@ -91,7 +95,21 @@ export function useUpdateProject() {
       if (useOfflineAdminData()) {
         const index = mockProjects.findIndex((p) => p.id === id);
         if (index < 0) throw new Error("Project not found");
-        mockProjects[index] = { ...mockProjects[index], ...input };
+        const nextManagerId =
+          input.managerId !== undefined
+            ? input.managerId
+            : mockProjects[index].managerId;
+        const managerName =
+          nextManagerId == null
+            ? null
+            : (mockDirectoryUsers.find((u) => u.id === nextManagerId)?.name ??
+              mockProjects[index].managerName ??
+              null);
+        mockProjects[index] = {
+          ...mockProjects[index],
+          ...input,
+          managerName,
+        };
         return mockProjects[index];
       }
       return await apiFetch<Project>(`/projects/${id}`, {

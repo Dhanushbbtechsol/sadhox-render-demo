@@ -171,9 +171,16 @@ describe("ProjectsService CRUD role rules", () => {
     const db = {
       select: vi.fn(() => ({
         from: vi.fn(() => ({
-          where: vi.fn(async () => [
-            { id: "proj-own", name: "Mine", managerId: "mgr-1" },
-          ]),
+          leftJoin: vi.fn(() => ({
+            where: vi.fn(async () => [
+              {
+                id: "proj-own",
+                name: "Mine",
+                managerId: "mgr-1",
+                managerName: "Mgr",
+              },
+            ]),
+          })),
         })),
       })),
     };
@@ -192,6 +199,7 @@ describe("ProjectsService CRUD role rules", () => {
     expect(access.listAccessibleProjectIds).toHaveBeenCalled();
     expect(rows).toHaveLength(1);
     expect(rows[0]?.id).toBe("proj-own");
+    expect(rows[0]?.managerName).toBe("Mgr");
   });
 
   it("getById: Manager forbidden on inaccessible project", async () => {
@@ -202,10 +210,17 @@ describe("ProjectsService CRUD role rules", () => {
     const db = {
       select: vi.fn(() => ({
         from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            limit: vi.fn(async () => [
-              { id: "proj-other", name: "Other", managerId: "other" },
-            ]),
+          leftJoin: vi.fn(() => ({
+            where: vi.fn(() => ({
+              limit: vi.fn(async () => [
+                {
+                  id: "proj-other",
+                  name: "Other",
+                  managerId: "other",
+                  managerName: "Other Mgr",
+                },
+              ]),
+            })),
           })),
         })),
       })),
