@@ -144,6 +144,10 @@ const MATRIX: MatrixRow[] = [
     path: `/admin/users/${ID}/role`,
     allowed: ["Admin"],
   },
+  { method: "get", path: "/admin/users", allowed: ["Admin"] },
+  { method: "post", path: "/admin/users", allowed: ["Admin"] },
+  { method: "get", path: `/admin/users/${ID}`, allowed: ["Admin"] },
+  { method: "patch", path: `/admin/users/${ID}`, allowed: ["Admin"] },
   {
     method: "get",
     path: "/service-requests",
@@ -460,6 +464,10 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "listSlaRules",
             "updateSlaRule",
             "updateUserRole",
+            "listUsers",
+            "createUser",
+            "getUser",
+            "updateUser",
           ]),
         },
         {

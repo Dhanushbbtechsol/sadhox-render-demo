@@ -30,13 +30,13 @@
   - Matrix green; hand off contract.
   - Staging/TL migrate: **deferred to production go-live** (2026-10-07) — not required to close Dev D Phase 6 coding.
 
-- **User management (still open — Admin only)**
+- **User management (landed):**
   - `POST /admin/users` — create (`name`, `email`, `password`, `role`); hash password; unique email → 409.
   - `GET /admin/users/:id` — detail without hash.
-  - `PATCH /admin/users/:id` — `name?`, `email?`, `password?`, `role?`; role→Manager clears `project_members` (same rule as today’s `PATCH …/role`).
-  - Prefer one PATCH write path; keep `PATCH …/role` only if clients already depend on it.
-  - Extend 401/403 matrix rows for create/get/patch users.
-  - Document in [contracts/phase6-openapi.md](../../contracts/phase6-openapi.md).
+  - `PATCH /admin/users/:id` — `name?`, `email?`, `password?`, `role?`; role→Manager clears `project_members` (same rule as `PATCH …/role`).
+  - `PATCH …/role` kept for existing clients.
+  - 401/403 matrix rows for list/create/get/patch users.
+  - Contract: [contracts/phase6-openapi.md](../../contracts/phase6-openapi.md). UI: Dev C `/admin/users`.
 
 ## Consumers
 
