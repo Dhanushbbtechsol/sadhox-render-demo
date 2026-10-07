@@ -25,6 +25,7 @@ import { KnowledgeModule } from "./knowledge/knowledge.module";
 import { MailModule } from "./mail/mail.module";
 import { ObservabilityModule } from "./observability/observability.module";
 import { ProblemsModule } from "./problems/problems.module";
+import { ProjectsModule } from "./projects/projects.module";
 import { QueuesModule } from "./queues/queues.module";
 import { ServiceCatalogModule } from "./service-catalog/service-catalog.module";
 import { ServiceRequestsModule } from "./service-requests/service-requests.module";
@@ -58,6 +59,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     QueuesModule,
     MailModule,
     HealthModule,
+    ProjectsModule,
     IncidentsModule,
     ProblemsModule,
     KnowledgeModule,

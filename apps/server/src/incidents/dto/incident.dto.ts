@@ -43,6 +43,26 @@ export class CreateIncidentDto {
   @ApiProperty({ enum: IMPACT_URGENCY })
   @IsIn([...IMPACT_URGENCY])
   urgency!: (typeof IMPACT_URGENCY)[number];
+
+  @ApiPropertyOptional({
+    format: "uuid",
+    nullable: true,
+    description: "Optional project scope (module must belong to this project)",
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  projectId?: string | null;
+
+  @ApiPropertyOptional({
+    format: "uuid",
+    nullable: true,
+    description: "Optional module; requires projectId",
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  moduleId?: string | null;
 }
 
 export class UpdateIncidentDto {
@@ -102,6 +122,18 @@ export class UpdateIncidentDto {
   @MinLength(5)
   @MaxLength(10_000)
   resolutionNotes?: string;
+
+  @ApiPropertyOptional({ format: "uuid", nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  projectId?: string | null;
+
+  @ApiPropertyOptional({ format: "uuid", nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  moduleId?: string | null;
 }
 
 export class AssignIncidentDto {

@@ -65,7 +65,7 @@ export function SlaBreachAlertEmail({
               Open ticket
             </Button>
           </Section>
-          <Text style={emailStyles.muted}>Sadhox ITSM urgent notification</Text>
+          <Text style={emailStyles.muted}>Yukti ITSM urgent notification</Text>
         </Container>
       </Body>
     </Html>

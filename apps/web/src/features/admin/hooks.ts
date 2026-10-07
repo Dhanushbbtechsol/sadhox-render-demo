@@ -467,6 +467,19 @@ function filterMockArticles(filters: KnowledgeArticleFilters) {
   });
 }
 
+/** Nest list endpoints return `{ data: T[] }`; tolerate bare arrays / stale cache envelopes. */
+function unwrapKnowledgeList<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Array.isArray((payload as { data?: unknown }).data)
+  ) {
+    return (payload as { data: T[] }).data;
+  }
+  return [];
+}
+
 export function useKnowledgeCategories() {
   return useQuery({
     queryKey: ["knowledge", "categories", useOfflineAdminData() ? "mock" : "live"],
@@ -474,13 +487,10 @@ export function useKnowledgeCategories() {
       if (useOfflineAdminData()) {
         return [...mockKnowledgeCategories];
       }
-      try {
-        return await apiFetch<KnowledgeCategory[]>("/knowledge/categories");
-      } catch (error) {
-        if (import.meta.env.DEV) return [...mockKnowledgeCategories];
-        throw error;
-      }
+      const result = await apiFetch<unknown>("/knowledge/categories");
+      return unwrapKnowledgeList<KnowledgeCategory>(result);
     },
+    select: (data) => unwrapKnowledgeList<KnowledgeCategory>(data),
   });
 }
 
@@ -500,26 +510,10 @@ export function useCreateKnowledgeCategory() {
         mockKnowledgeCategories.push(created);
         return created;
       }
-      try {
-        return await apiFetch<KnowledgeCategory>("/knowledge/categories", {
-          method: "POST",
-          body: input,
-        });
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          const created: KnowledgeCategory = {
-            id: `kc-${Date.now()}`,
-            name: input.name,
-            slug: input.slug?.trim() || slugify(input.name),
-            description: input.description ?? null,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          mockKnowledgeCategories.push(created);
-          return created;
-        }
-        throw error;
-      }
+      return await apiFetch<KnowledgeCategory>("/knowledge/categories", {
+        method: "POST",
+        body: input,
+      });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["knowledge", "categories"] });
@@ -550,24 +544,10 @@ export function useUpdateKnowledgeCategory() {
         };
         return mockKnowledgeCategories[index];
       }
-      try {
-        return await apiFetch<KnowledgeCategory>(`/knowledge/categories/${id}`, {
-          method: "PATCH",
-          body: input,
-        });
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          const index = mockKnowledgeCategories.findIndex((c) => c.id === id);
-          if (index < 0) throw new Error("Category not found");
-          mockKnowledgeCategories[index] = {
-            ...mockKnowledgeCategories[index],
-            ...input,
-            updatedAt: new Date().toISOString(),
-          };
-          return mockKnowledgeCategories[index];
-        }
-        throw error;
-      }
+      return await apiFetch<KnowledgeCategory>(`/knowledge/categories/${id}`, {
+        method: "PATCH",
+        body: input,
+      });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["knowledge", "categories"] });
@@ -589,18 +569,8 @@ export function useDeleteKnowledgeCategory() {
         }
         return { id };
       }
-      try {
-        await apiFetch(`/knowledge/categories/${id}`, { method: "DELETE" });
-        return { id };
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          const index = mockKnowledgeCategories.findIndex((c) => c.id === id);
-          if (index < 0) throw new Error("Category not found");
-          mockKnowledgeCategories.splice(index, 1);
-          return { id };
-        }
-        throw error;
-      }
+      await apiFetch(`/knowledge/categories/${id}`, { method: "DELETE" });
+      return { id };
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["knowledge"] });
@@ -622,19 +592,16 @@ export function useKnowledgeArticles(filters: KnowledgeArticleFilters = {}) {
       if (useOfflineAdminData()) {
         return filterMockArticles(filters);
       }
-      try {
-        const data = await apiFetch<KnowledgeArticle[]>(
-          `/knowledge/articles${query ? `?${query}` : ""}`,
-        );
-        if (filters.status && filters.status !== "all") {
-          return data.filter((a) => a.status === filters.status);
-        }
-        return data;
-      } catch (error) {
-        if (import.meta.env.DEV) return filterMockArticles(filters);
-        throw error;
+      const result = await apiFetch<unknown>(
+        `/knowledge/articles${query ? `?${query}` : ""}`,
+      );
+      const data = unwrapKnowledgeList<KnowledgeArticle>(result);
+      if (filters.status && filters.status !== "all") {
+        return data.filter((a) => a.status === filters.status);
       }
+      return data;
     },
+    select: (data) => unwrapKnowledgeList<KnowledgeArticle>(data),
   });
 }
 
@@ -649,16 +616,7 @@ export function useKnowledgeArticle(id: string | undefined) {
         if (!found) throw new Error("Article not found");
         return found;
       }
-      try {
-        return await apiFetch<KnowledgeArticle>(`/knowledge/articles/${id}`);
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          const found = mockKnowledgeArticles.find((a) => a.id === id);
-          if (!found) throw new Error("Article not found");
-          return found;
-        }
-        throw error;
-      }
+      return await apiFetch<KnowledgeArticle>(`/knowledge/articles/${id}`);
     },
   });
 }
@@ -687,29 +645,10 @@ export function useCreateKnowledgeArticle() {
         mockKnowledgeArticles.unshift(created);
         return created;
       }
-      try {
-        return await apiFetch<KnowledgeArticle>("/knowledge/articles", {
-          method: "POST",
-          body: payload,
-        });
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          const created: KnowledgeArticle = {
-            id: `ka-${Date.now()}`,
-            title: payload.title,
-            slug: payload.slug,
-            body: payload.body,
-            status: payload.status,
-            categoryId: payload.categoryId ?? null,
-            authorId: "admin-mock",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          mockKnowledgeArticles.unshift(created);
-          return created;
-        }
-        throw error;
-      }
+      return await apiFetch<KnowledgeArticle>("/knowledge/articles", {
+        method: "POST",
+        body: payload,
+      });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["knowledge", "articles"] });
@@ -740,24 +679,10 @@ export function useUpdateKnowledgeArticle() {
         };
         return mockKnowledgeArticles[index];
       }
-      try {
-        return await apiFetch<KnowledgeArticle>(`/knowledge/articles/${id}`, {
-          method: "PATCH",
-          body: input,
-        });
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          const index = mockKnowledgeArticles.findIndex((a) => a.id === id);
-          if (index < 0) throw new Error("Article not found");
-          mockKnowledgeArticles[index] = {
-            ...mockKnowledgeArticles[index],
-            ...input,
-            updatedAt: new Date().toISOString(),
-          };
-          return mockKnowledgeArticles[index];
-        }
-        throw error;
-      }
+      return await apiFetch<KnowledgeArticle>(`/knowledge/articles/${id}`, {
+        method: "PATCH",
+        body: input,
+      });
     },
     onSuccess: async (_data, vars) => {
       await queryClient.invalidateQueries({ queryKey: ["knowledge", "articles"] });
@@ -776,18 +701,8 @@ export function useDeleteKnowledgeArticle() {
         mockKnowledgeArticles.splice(index, 1);
         return { id };
       }
-      try {
-        await apiFetch(`/knowledge/articles/${id}`, { method: "DELETE" });
-        return { id };
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          const index = mockKnowledgeArticles.findIndex((a) => a.id === id);
-          if (index < 0) throw new Error("Article not found");
-          mockKnowledgeArticles.splice(index, 1);
-          return { id };
-        }
-        throw error;
-      }
+      await apiFetch(`/knowledge/articles/${id}`, { method: "DELETE" });
+      return { id };
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["knowledge", "articles"] });
@@ -802,15 +717,8 @@ export function useSlaRules() {
       if (useOfflineAdminData()) {
         return [...mockSlaRules].sort((a, b) => a.priority.localeCompare(b.priority));
       }
-      try {
-        const data = await apiFetch<SlaRule[]>("/admin/sla-rules");
-        return [...data].sort((a, b) => a.priority.localeCompare(b.priority));
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          return [...mockSlaRules].sort((a, b) => a.priority.localeCompare(b.priority));
-        }
-        throw error;
-      }
+      const data = await apiFetch<SlaRule[]>("/admin/sla-rules");
+      return [...data].sort((a, b) => a.priority.localeCompare(b.priority));
     },
   });
 }
@@ -845,16 +753,6 @@ export function useUpdateSlaRule() {
             body: input,
           });
         } catch (inner) {
-          if (import.meta.env.DEV) {
-            const index = mockSlaRules.findIndex((r) => r.priority === input.priority);
-            if (index < 0) throw new Error("SLA rule not found");
-            mockSlaRules[index] = {
-              ...mockSlaRules[index],
-              responseMinutes: input.responseMinutes,
-              resolveMinutes: input.resolveMinutes,
-            };
-            return mockSlaRules[index];
-          }
           throw inner instanceof Error ? inner : error;
         }
       }

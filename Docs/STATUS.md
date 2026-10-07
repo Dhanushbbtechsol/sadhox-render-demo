@@ -1,12 +1,13 @@
 # Sadhox — Status & Feature Handoff (for Claude / agents)
 
 **Last updated:** 2026-10-07  
-**Integration branch:** `Audit` (Phase 5 merges + remediations; reaudit docs updated)  
+**Integration branch:** `Audit` (Phase 5 remediations + Phase 6 Dev A foundation; reaudit docs updated)  
 **Memory bank:** `memory-bank/` (read all six files at task start)
 
 This document is the short “what exists / what doesn’t” brief. Requirements and plans stay in PRD/FRD/Phase docs.
 
-**Next phase (designed, not coded):** [Phase 6 — Projects / Manager](./Phase/phase6.md). Close Phase 5 gaps first. Do not rebuild Knowledge Base.
+**Phase 6 (in progress):** [Projects / Manager](./Phase/phase6.md) — Dev A incident/problem scoping + foundation (`Manager`, projects APIs, ProjectAccess, assignment pool) landed; Dev B (SR/Change approve) and Dev C (Admin project UI / Manager dashboard) still open. Close remaining Phase 5 Medium gaps. Do not rebuild Knowledge Base.
+
 
 ---
 
@@ -115,9 +116,10 @@ Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md` / Dev D phase5): CSR
 
 **Out of scope (by design):** SSO, multi-tenant billing, drag-drop SLA builder, advanced BI, native apps, CMDB graphs, multi-level approval chains.
 
-### Phase 6 (planned) — not implemented yet
+### Phase 6 — partial
 
-Projects + modules + `Manager` role; resource-level `ProjectAccessService`; project-scoped assignment pool; Admin **and** Manager single-level approvals (null `project_id` = Admin-only); Managers are **not** ticket-working `project_members`. Full design: [Phase/phase6.md](./Phase/phase6.md).
+**Landed (Dev A + foundation):** projects/modules/`Manager`; `ProjectAccessService`; incident/problem project scoping + assignment pool.  
+**Still open:** Dev B SR/Change project + Manager approve; Dev C Admin project CRUD + Manager dashboard. Full design: [Phase/phase6.md](./Phase/phase6.md).
 
 ---
 

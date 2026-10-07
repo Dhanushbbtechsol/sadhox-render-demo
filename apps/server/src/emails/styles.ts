@@ -1,4 +1,4 @@
-/** Shared inline styles for Sadhox transactional emails. */
+/** Shared inline styles for Yukti transactional emails. */
 export const emailStyles = {
   main: {
     backgroundColor: "#f4f6f8",

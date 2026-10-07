@@ -31,10 +31,10 @@ export class IncidentsController {
   constructor(private readonly incidents: IncidentsService) {}
 
   @Get()
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "Manager", "EndUser")
   @ApiOperation({
     summary:
-      "Paginated incident list with filters (EndUser scoped to own tickets)",
+      "Paginated incident list (EndUser own; Manager/Agent by project access)",
   })
   list(@CurrentUser() user: AuthUser, @Query() query: ListIncidentsQueryDto) {
     return this.incidents.list(user, query);
@@ -42,7 +42,7 @@ export class IncidentsController {
 
   @Post()
   @HttpCode(201)
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "Manager", "EndUser")
   @ApiOperation({
     summary: "Create incident (priority + SLA computed server-side)",
   })
@@ -51,7 +51,7 @@ export class IncidentsController {
   }
 
   @Get(":id")
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "Manager", "EndUser")
   @ApiOperation({
     summary: "Incident detail with reporter, assignee, and SLA target",
   })
@@ -63,7 +63,7 @@ export class IncidentsController {
   }
 
   @Get(":id/linked-assets")
-  @Roles("Admin", "Agent")
+  @Roles("Admin", "Agent", "Manager")
   @ApiOperation({
     summary:
       "Assets linked to this incident (no purchaseCost — financial Admin-only)",
@@ -76,7 +76,7 @@ export class IncidentsController {
   }
 
   @Patch(":id")
-  @Roles("Admin", "Agent")
+  @Roles("Admin", "Agent", "Manager")
   @ApiOperation({
     summary: "Update incident fields with ITIL status transition guards",
   })
@@ -90,7 +90,7 @@ export class IncidentsController {
 
   @Post(":id/assign")
   @HttpCode(200)
-  @Roles("Admin", "Agent")
+  @Roles("Admin", "Agent", "Manager")
   @ApiOperation({
     summary:
       "Assign incident (manual agentId or round-robin) and notify assignee",
@@ -104,7 +104,7 @@ export class IncidentsController {
   }
 
   @Get(":id/comments")
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "Manager", "EndUser")
   @ApiOperation({ summary: "List comments for an incident" })
   listComments(
     @CurrentUser() user: AuthUser,
@@ -115,7 +115,7 @@ export class IncidentsController {
 
   @Post(":id/comments")
   @HttpCode(201)
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "Manager", "EndUser")
   @ApiOperation({ summary: "Add a comment and emit comment.created" })
   addComment(
     @CurrentUser() user: AuthUser,

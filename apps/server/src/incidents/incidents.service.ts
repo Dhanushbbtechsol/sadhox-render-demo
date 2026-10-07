@@ -23,6 +23,8 @@ import {
 } from "../database/schema";
 import { EventsService } from "../events/events.service";
 import { MailService } from "../mail/mail.service";
+import { ProjectAccessService } from "../projects/project-access.service";
+import { ProjectsService } from "../projects/projects.service";
 import type {
   AssignIncidentDto,
   CreateCommentDto,
@@ -56,6 +58,8 @@ export type IncidentListItem = {
   assigneeName: string | null;
   reporterId: string;
   reporterName: string | null;
+  projectId: string | null;
+  moduleId: string | null;
   slaDueAt: string | null;
   slaBreached: boolean;
   resolutionNotes: string | null;
@@ -90,12 +94,14 @@ export class IncidentsService {
     private readonly assignment: AssignmentService,
     private readonly mail: MailService,
     private readonly assets: AssetsService,
+    private readonly projectAccess: ProjectAccessService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async list(user: AuthUser, query: ListIncidentsQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const filters = this.buildFilters(user, query);
+    const filters = await this.buildFilters(user, query);
 
     const [totalRow] = await this.db
       .select({ total: count() })
@@ -140,7 +146,11 @@ export class IncidentsService {
   async get(user: AuthUser, id: string): Promise<IncidentDetail> {
     const row = await this.loadIncidentRow(id);
     if (!row) throw new NotFoundException("Incident not found");
-    this.assertCanRead(user, row.incident.reporterId);
+    await this.assertCanRead(
+      user,
+      row.incident.reporterId,
+      row.incident.projectId,
+    );
 
     const [sla] = await this.db
       .select({ resolveMinutes: slaRules.resolveMinutes })
@@ -167,7 +177,11 @@ export class IncidentsService {
   async listLinkedAssets(user: AuthUser, incidentId: string) {
     const row = await this.loadIncidentRow(incidentId);
     if (!row) throw new NotFoundException("Incident not found");
-    this.assertCanRead(user, row.incident.reporterId);
+    await this.assertCanRead(
+      user,
+      row.incident.reporterId,
+      row.incident.projectId,
+    );
     return this.assets.listLinkedPublic(incidentId);
   }
 
@@ -181,6 +195,12 @@ export class IncidentsService {
       resolveMinutes,
     );
 
+    const scope = await this.projectsService.resolveTicketProjectFields(
+      user,
+      dto.projectId,
+      dto.moduleId,
+    );
+
     const [created] = await this.db
       .insert(incidents)
       .values({
@@ -192,6 +212,8 @@ export class IncidentsService {
         priority,
         status: "New",
         reporterId: user.userId,
+        projectId: scope.projectId,
+        moduleId: scope.moduleId,
         slaDueAt,
         slaBreached: false,
         createdAt: now,
@@ -209,6 +231,10 @@ export class IncidentsService {
 
     const existing = await this.loadIncidentRow(id);
     if (!existing) throw new NotFoundException("Incident not found");
+    await this.projectAccess.assertCanAccessTicketProject(
+      user,
+      existing.incident.projectId,
+    );
 
     const current = existing.incident.status;
     if (current === "Resolved" || current === "Closed") {
@@ -222,7 +248,10 @@ export class IncidentsService {
     let agentName: string;
 
     if (agentId) {
-      const agent = await this.assertAssigneeIsAgentOrAdmin(agentId);
+      const agent = await this.assertAssigneeInPool(
+        agentId,
+        existing.incident.projectId,
+      );
       agentEmail = agent.email;
       agentName = agent.name;
     } else {
@@ -283,6 +312,26 @@ export class IncidentsService {
 
     const existing = await this.loadIncidentRow(id);
     if (!existing) throw new NotFoundException("Incident not found");
+    await this.projectAccess.assertCanAccessTicketProject(
+      user,
+      existing.incident.projectId,
+    );
+
+    let nextProjectId = existing.incident.projectId;
+    let nextModuleId = existing.incident.moduleId;
+    if (dto.projectId !== undefined || dto.moduleId !== undefined) {
+      const scope = await this.projectsService.resolveTicketProjectFields(
+        user,
+        dto.projectId !== undefined
+          ? dto.projectId
+          : existing.incident.projectId,
+        dto.moduleId !== undefined
+          ? dto.moduleId
+          : existing.incident.moduleId,
+      );
+      nextProjectId = scope.projectId;
+      nextModuleId = scope.moduleId;
+    }
 
     const impact = dto.impact ?? existing.incident.impact;
     const urgency = dto.urgency ?? existing.incident.urgency;
@@ -347,7 +396,7 @@ export class IncidentsService {
     }
 
     if (dto.assignedTo !== undefined && dto.assignedTo !== null) {
-      await this.assertAssigneeIsAgentOrAdmin(dto.assignedTo);
+      await this.assertAssigneeInPool(dto.assignedTo, nextProjectId);
     }
 
     // Assigning via PATCH on New auto-moves to Assigned (same lifecycle rule).
@@ -373,6 +422,9 @@ export class IncidentsService {
         status,
         ...(dto.assignedTo !== undefined
           ? { assignedTo: dto.assignedTo }
+          : {}),
+        ...(dto.projectId !== undefined || dto.moduleId !== undefined
+          ? { projectId: nextProjectId, moduleId: nextModuleId }
           : {}),
         resolutionNotes,
         priority,
@@ -463,12 +515,21 @@ export class IncidentsService {
     return view;
   }
 
-  private buildFilters(user: AuthUser, query: ListIncidentsQueryDto): SQL | undefined {
+  private async buildFilters(
+    user: AuthUser,
+    query: ListIncidentsQueryDto,
+  ): Promise<SQL | undefined> {
     const parts: SQL[] = [];
 
     if (user.role === "EndUser") {
       parts.push(eq(incidents.reporterId, user.userId));
     } else {
+      const projectScope = await this.projectAccess.ticketProjectScope(
+        user,
+        incidents.projectId,
+      );
+      if (projectScope) parts.push(projectScope);
+
       if (query.reporterId) {
         parts.push(eq(incidents.reporterId, query.reporterId));
       }
@@ -558,6 +619,8 @@ export class IncidentsService {
       assigneeName,
       reporterId: row.reporterId,
       reporterName,
+      projectId: row.projectId,
+      moduleId: row.moduleId,
       slaDueAt: row.slaDueAt?.toISOString() ?? null,
       slaBreached: row.slaBreached,
       resolutionNotes: row.resolutionNotes,
@@ -568,10 +631,18 @@ export class IncidentsService {
     };
   }
 
-  private assertCanRead(user: AuthUser, reporterId: string) {
-    if (user.role === "EndUser" && reporterId !== user.userId) {
-      throw new ForbiddenException("Cannot access this incident");
+  private async assertCanRead(
+    user: AuthUser,
+    reporterId: string,
+    projectId: string | null,
+  ) {
+    if (user.role === "EndUser") {
+      if (reporterId !== user.userId) {
+        throw new ForbiddenException("Cannot access this incident");
+      }
+      return;
     }
+    await this.projectAccess.assertCanAccessTicketProject(user, projectId);
   }
 
   private async lookupResolveMinutes(priority: Priority) {
@@ -583,8 +654,14 @@ export class IncidentsService {
     return rule?.resolveMinutes ?? null;
   }
 
-  /** Same allowlist as POST /assign — only Agent or Admin may be assigned. */
-  private async assertAssigneeIsAgentOrAdmin(userId: string) {
+  /**
+   * Project tickets: assignee must be a project member Agent.
+   * Unscoped tickets: Agent or Admin (legacy global pool).
+   */
+  private async assertAssigneeInPool(
+    userId: string,
+    projectId: string | null,
+  ) {
     const [agent] = await this.db
       .select({
         id: users.id,
@@ -596,8 +673,14 @@ export class IncidentsService {
       .where(eq(users.id, userId))
       .limit(1);
     if (!agent) throw new NotFoundException("Assignee not found");
-    if (agent.role !== "Agent" && agent.role !== "Admin") {
-      throw new BadRequestException("Assignee must be an Agent or Admin");
+
+    const inPool = await this.assignment.isInPool(userId, projectId);
+    if (!inPool) {
+      throw new BadRequestException(
+        projectId
+          ? "Assignee must be a member of this project"
+          : "Assignee must be an Agent or Admin",
+      );
     }
     return agent;
   }

@@ -31,8 +31,12 @@ const NEXT_STATUS: Partial<Record<IncidentStatus, IncidentStatus>> = {
 
 export function IncidentActions({ incident }: { incident: Incident }) {
   const user = useAuthStore((s) => s.user);
-  const canManage = user?.role === "Admin" || user?.role === "Agent";
-  const { data: agents = [] } = useAgents();
+  const canManage =
+    user?.role === "Admin" ||
+    user?.role === "Agent" ||
+    user?.role === "Manager";
+  const projectScoped = Boolean(incident.projectId);
+  const { data: agents = [] } = useAgents(incident.projectId);
   const assign = useAssignIncident(incident.id);
   const update = useUpdateIncident(incident.id);
   const [selectedAgent, setSelectedAgent] = useState<string>("");
@@ -130,6 +134,9 @@ export function IncidentActions({ incident }: { incident: Incident }) {
         <h3 className="text-sm font-semibold tracking-tight">Workflow</h3>
         <p className="text-muted-foreground mt-0.5 text-xs">
           Assign agents and advance through the ITIL lifecycle.
+          {projectScoped
+            ? " Assignee pool is this project's members."
+            : " Unscoped ticket — global Agent pool (Admin)."}
           {next ? (
             <>
               {" "}
@@ -145,18 +152,20 @@ export function IncidentActions({ incident }: { incident: Incident }) {
 
       {canAssign ? (
         <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={busy}
-            onClick={() => void handleAssignToMe()}
-          >
-            Assign to Me
-          </Button>
+          {user?.role === "Agent" ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => void handleAssignToMe()}
+            >
+              Assign to Me
+            </Button>
+          ) : null}
           <Button
             size="sm"
             variant="outline"
-            disabled={busy}
+            disabled={busy || agents.length === 0}
             onClick={() => void handleAutoAssign()}
           >
             Auto-assign
@@ -167,13 +176,23 @@ export function IncidentActions({ incident }: { incident: Incident }) {
       {canAssign ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="min-w-0 flex-1 space-y-1.5">
-            <Label htmlFor="agent-select">Assign agent</Label>
+            <Label htmlFor="agent-select">
+              {projectScoped ? "Assign project member" : "Assign agent"}
+            </Label>
             <Select
               value={selectedAgent}
               onValueChange={(v) => setSelectedAgent(v ?? "")}
             >
               <SelectTrigger id="agent-select">
-                <SelectValue placeholder="Select agent…" />
+                <SelectValue
+                  placeholder={
+                    agents.length === 0
+                      ? projectScoped
+                        ? "No project members"
+                        : "No agents"
+                      : "Select agent…"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {agents.map((agent) => (

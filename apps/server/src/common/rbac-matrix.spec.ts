@@ -30,13 +30,15 @@ import { KnowledgeController } from "../knowledge/knowledge.controller";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { ProblemsController } from "../problems/problems.controller";
 import { ProblemsService } from "../problems/problems.service";
+import { ProjectsController } from "../projects/projects.controller";
+import { ProjectsService } from "../projects/projects.service";
 import { ServiceCatalogController } from "../service-catalog/service-catalog.controller";
 import { ServiceCatalogService } from "../service-catalog/service-catalog.service";
 import { ServiceRequestsController } from "../service-requests/service-requests.controller";
 import { ServiceRequestsService } from "../service-requests/service-requests.service";
 
 const ID = "11111111-1111-4111-8111-111111111111";
-const ALL_ROLES: UserRole[] = ["Admin", "Agent", "EndUser"];
+const ALL_ROLES: UserRole[] = ["Admin", "Agent", "EndUser", "Manager"];
 
 type MatrixRow = {
   method: "get" | "post" | "patch" | "delete";
@@ -45,33 +47,70 @@ type MatrixRow = {
 };
 
 const MATRIX: MatrixRow[] = [
-  { method: "get", path: "/incidents", allowed: ["Admin", "Agent", "EndUser"] },
-  { method: "post", path: "/incidents", allowed: ["Admin", "Agent", "EndUser"] },
+  {
+    method: "get",
+    path: "/incidents",
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
+  },
+  {
+    method: "post",
+    path: "/incidents",
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
+  },
   {
     method: "get",
     path: `/incidents/${ID}`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
   },
-  { method: "patch", path: `/incidents/${ID}`, allowed: ["Admin", "Agent"] },
+  {
+    method: "patch",
+    path: `/incidents/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
   {
     method: "get",
     path: `/incidents/${ID}/comments`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
   },
   {
     method: "get",
     path: `/incidents/${ID}/linked-assets`,
-    allowed: ["Admin", "Agent"],
+    allowed: ["Admin", "Agent", "Manager"],
   },
   {
     method: "post",
     path: `/incidents/${ID}/comments`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
   },
-  { method: "get", path: "/problems", allowed: ["Admin", "Agent"] },
-  { method: "post", path: "/problems", allowed: ["Admin", "Agent"] },
-  { method: "get", path: `/problems/${ID}`, allowed: ["Admin", "Agent"] },
-  { method: "patch", path: `/problems/${ID}`, allowed: ["Admin", "Agent"] },
+  { method: "get", path: "/problems", allowed: ["Admin", "Agent", "Manager"] },
+  { method: "post", path: "/problems", allowed: ["Admin", "Agent", "Manager"] },
+  {
+    method: "get",
+    path: `/problems/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  {
+    method: "patch",
+    path: `/problems/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  { method: "get", path: "/projects", allowed: ["Admin", "Agent", "Manager"] },
+  { method: "post", path: "/projects", allowed: ["Admin"] },
+  {
+    method: "get",
+    path: `/projects/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  {
+    method: "get",
+    path: `/projects/${ID}/modules`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  {
+    method: "get",
+    path: `/projects/${ID}/members`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
   {
     method: "get",
     path: "/service-requests",
@@ -233,6 +272,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         HealthController,
         IncidentsController,
         ProblemsController,
+        ProjectsController,
         ServiceRequestsController,
         ChangesController,
         AssetsController,
@@ -279,7 +319,27 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         },
         {
           provide: ProblemsService,
-          useValue: stubService(["list", "get", "create", "update"]),
+          useValue: stubService([
+            "list",
+            "get",
+            "create",
+            "update",
+            "linkIncident",
+          ]),
+        },
+        {
+          provide: ProjectsService,
+          useValue: stubService([
+            "list",
+            "get",
+            "create",
+            "update",
+            "listModules",
+            "createModule",
+            "listMembers",
+            "addMember",
+            "removeMember",
+          ]),
         },
         {
           provide: ServiceRequestsService,
