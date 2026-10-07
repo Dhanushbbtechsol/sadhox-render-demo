@@ -37,6 +37,13 @@ const MOCK_USERS: Record<string, AuthUser & { password: string }> = import.meta
         role: "Admin",
         password: "password",
       },
+      "manager@sadhox.local": {
+        id: "user-manager",
+        email: "manager@sadhox.local",
+        name: "Morgan Manager",
+        role: "Manager",
+        password: "password",
+      },
     }
   : {};
 
@@ -56,6 +63,7 @@ interface AuthState {
 export function homePathForRole(role: UserRole): string {
   if (role === "Admin") return "/admin/dashboard";
   if (role === "EndUser") return "/portal";
+  if (role === "Manager") return "/approvals";
   return "/incidents";
 }
 

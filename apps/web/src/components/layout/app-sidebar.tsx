@@ -109,19 +109,19 @@ const NAV_ITEMS: NavItem[] = [
     to: "/requests",
     label: "Requests",
     icon: ListTodoIcon,
-    roles: ["Admin", "Agent", "EndUser"],
+    roles: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     to: "/changes",
     label: "Changes",
     icon: GitBranchIcon,
-    roles: ["Admin", "Agent"],
+    roles: ["Admin", "Agent", "Manager"],
   },
   {
     to: "/approvals",
     label: "Approvals",
     icon: InboxIcon,
-    roles: ["Admin"],
+    roles: ["Admin", "Manager"],
   },
 ];
 

@@ -6,7 +6,7 @@
 
 This document is the short “what exists / what doesn’t” brief. Requirements and plans stay in PRD/FRD/Phase docs.
 
-**Next phase (designed, not coded):** [Phase 6 — Projects / Manager](./Phase/phase6.md). Close Phase 5 gaps first. Do not rebuild Knowledge Base.
+**Current phase:** [Phase 6 — Projects / Manager](./Phase/phase6.md) — **in progress** (Dev B request/change project scoping + Manager approvals landed; Dev A/C surfaces still open). Do not rebuild Knowledge Base.
 
 ---
 
@@ -14,8 +14,7 @@ This document is the short “what exists / what doesn’t” brief. Requirement
 
 Sadhox is an **ITSM** web app: End Users report issues and request services; Agents work queues; Admins approve, inventory assets, and oversee KPIs/audit/automation.
 
-**Roles (today):** `Admin` | `Agent` | `EndUser`  
-**Roles (Phase 6):** + `Manager` — see [Phase/phase6.md](./Phase/phase6.md)  
+**Roles:** `Admin` | `Agent` | `EndUser` | `Manager` — see [Phase/phase6.md](./Phase/phase6.md)  
 **Personas:** Ian (Admin), Alice (Agent), Eve (EndUser) — see `Docs/PRD.md`  
 **Note:** “Employee” in product talk maps to **Agent**, not a separate role.
 
@@ -91,7 +90,7 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 - Ticket ACL on link list/mutate (`assertCanAccessTicket`)
 
 ### Nest modules present
-`auth`, `assignment`, `events`, `queues`, `mail`, `health`, `observability`, `incidents`, `problems`, `knowledge`, `service-catalog`, `service-requests`, `changes`, `comments`, `assets`, `admin`, `database`
+`auth`, `assignment`, `events`, `queues`, `mail`, `health`, `observability`, `incidents`, `problems`, `knowledge`, `service-catalog`, `service-requests`, `changes`, `projects`, `comments`, `assets`, `admin`, `database`
 
 ### Key frontend routes (role-gated)
 `/login`, role home, `/incidents`, `/problems`, `/catalog`, `/requests`, `/approvals`, `/changes`, `/portal`, `/portal/incidents/:id`, `/knowledge`, `/assets`, `/admin/dashboard`, `/admin/audit-logs`, `/admin/queues`, `/admin/catalog`, `/admin/knowledge`, `/admin/sla-rules`
@@ -115,9 +114,13 @@ Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md`): hardcoded LAN defa
 
 **Out of scope (by design):** SSO, multi-tenant billing, drag-drop SLA builder, advanced BI, native apps, CMDB graphs, multi-level approval chains.
 
-### Phase 6 (planned) — not implemented yet
+### Phase 6 — in progress
 
-Projects + modules + `Manager` role; resource-level `ProjectAccessService`; project-scoped assignment pool; Admin **and** Manager single-level approvals (null `project_id` = Admin-only); Managers are **not** ticket-working `project_members`. Full design: [Phase/phase6.md](./Phase/phase6.md).
+Design: [Phase/phase6.md](./Phase/phase6.md).
+
+**Landed (Dev B + foundation):** `Manager` role; `projects` / `project_members` / `modules`; `ProjectAccessService`; optional `projectId`/`moduleId` on service requests & changes; Manager-alongside-Admin approvals (null project = Admin-only); scoped SR/Change lists; catalog/change create pickers; Manager approvals UI. QA: [Phase/Dev B/phase6-day30-qa.md](./Phase/Dev%20B/phase6-day30-qa.md).
+
+**Still open:** Dev A incident/problem project fields + assignment pool UI; Dev C Admin project CRUD + Manager dashboard; full assignment-pool wiring for incidents; migrate+reseed locally (`0010_phase6_projects_manager`).
 
 ---
 
