@@ -1,10 +1,12 @@
 import { InjectQueue } from "@nestjs/bullmq";
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import * as bcrypt from "bcryptjs";
 import { and, asc, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 import type { Queue } from "bullmq";
 import {
@@ -13,6 +15,8 @@ import {
   stackOpenClosed,
   type ChartRangePreset,
 } from "./chart-range";
+import { assertPasswordComplexity } from "../common/password-policy";
+import { sanitizePlainText } from "../common/sanitize-plain-text";
 import type { UserRole } from "../common/types/roles";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
@@ -594,11 +598,137 @@ export class AdminService {
     };
   }
 
+  async createUser(input: {
+    name: string;
+    email: string;
+    password: string;
+    role: UserRole;
+  }) {
+    const name = this.requireName(input.name);
+    const email = this.normalizeEmail(input.email);
+    this.assertPassword(input.password);
+    await this.assertEmailAvailable(email);
+
+    const passwordHash = await bcrypt.hash(input.password, 12);
+    const [row] = await this.db
+      .insert(users)
+      .values({ name, email, passwordHash, role: input.role })
+      .returning({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+      });
+    return row;
+  }
+
+  async getUser(userId: string) {
+    const [row] = await this.db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!row) throw new NotFoundException("User not found");
+    return row;
+  }
+
+  async updateUser(
+    userId: string,
+    input: {
+      name?: string;
+      email?: string;
+      password?: string;
+      role?: UserRole;
+    },
+  ) {
+    if (
+      input.name === undefined &&
+      input.email === undefined &&
+      input.password === undefined &&
+      input.role === undefined
+    ) {
+      throw new BadRequestException("No fields to update");
+    }
+
+    const name =
+      input.name !== undefined ? this.requireName(input.name) : undefined;
+    const email =
+      input.email !== undefined ? this.normalizeEmail(input.email) : undefined;
+    if (input.password !== undefined) this.assertPassword(input.password);
+    if (email !== undefined) await this.assertEmailAvailable(email, userId);
+
+    const passwordHash =
+      input.password !== undefined
+        ? await bcrypt.hash(input.password, 12)
+        : undefined;
+
+    const written = await this.persistUser(userId, {
+      name,
+      email,
+      passwordHash,
+      role: input.role,
+    });
+    return {
+      id: written.id,
+      name: written.name,
+      email: written.email,
+      role: written.role,
+    };
+  }
+
   /**
    * Admin role update. Promoting to Manager clears project_members for that
    * user in the same transaction (Managers supervise; must not remain workers).
    */
   async updateUserRole(userId: string, role: UserRole) {
+    return this.persistUser(userId, { role });
+  }
+
+  private requireName(name: string): string {
+    const cleaned = sanitizePlainText(name, 255);
+    if (!cleaned) throw new BadRequestException("Name is required");
+    return cleaned;
+  }
+
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
+  private assertPassword(password: string): void {
+    try {
+      assertPasswordComplexity(password);
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : "Invalid password",
+      );
+    }
+  }
+
+  private async assertEmailAvailable(email: string, exceptUserId?: string) {
+    const [row] = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    if (row && row.id !== exceptUserId) {
+      throw new ConflictException("Email already in use");
+    }
+  }
+
+  private async persistUser(
+    userId: string,
+    patch: {
+      name?: string;
+      email?: string;
+      passwordHash?: string;
+      role?: UserRole;
+    },
+  ) {
     return this.db.transaction(async (tx) => {
       const [existing] = await tx
         .select({
@@ -616,7 +746,15 @@ export class AdminService {
 
       const [updated] = await tx
         .update(users)
-        .set({ role, updatedAt: new Date() })
+        .set({
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          ...(patch.email !== undefined ? { email: patch.email } : {}),
+          ...(patch.passwordHash !== undefined
+            ? { passwordHash: patch.passwordHash }
+            : {}),
+          ...(patch.role !== undefined ? { role: patch.role } : {}),
+          updatedAt: new Date(),
+        })
         .where(eq(users.id, userId))
         .returning({
           id: users.id,
@@ -626,7 +764,7 @@ export class AdminService {
         });
 
       let membershipsRemoved = 0;
-      if (role === "Manager") {
+      if (patch.role === "Manager") {
         const removed = await tx
           .delete(projectMembers)
           .where(eq(projectMembers.userId, userId))

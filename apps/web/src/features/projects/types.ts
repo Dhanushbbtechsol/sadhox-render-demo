@@ -29,7 +29,8 @@ export type DirectoryUser = {
 
 export type CreateProjectInput = {
   name: string;
-  managerId?: string | null;
+  /** Required — matches API/DB `projects.manager_id` NOT NULL */
+  managerId: string;
 };
 
 export type UpdateProjectInput = {

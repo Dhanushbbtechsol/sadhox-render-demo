@@ -21,13 +21,18 @@ function useOfflineAdminData() {
   return import.meta.env.DEV && isMockAccessToken(getAccessToken());
 }
 
+/** Project list routes return a bare array (Dev D). Tolerate `{ data }` envelopes. */
+function unwrapList<T>(payload: T[] | { data: T[] }): T[] {
+  return Array.isArray(payload) ? payload : payload.data;
+}
+
 export function useProjects() {
   return useQuery({
     queryKey: ["projects", useOfflineAdminData() ? "mock" : "live"],
     queryFn: async (): Promise<Project[]> => {
       if (useOfflineAdminData()) return [...mockProjects];
-      const result = await apiFetch<{ data: Project[] }>("/projects");
-      return result.data;
+      const result = await apiFetch<Project[] | { data: Project[] }>("/projects");
+      return unwrapList(result);
     },
   });
 }
@@ -56,7 +61,7 @@ export function useCreateProject() {
         const created: Project = {
           id: `proj-${Date.now()}`,
           name: input.name,
-          managerId: input.managerId ?? null,
+          managerId: input.managerId,
           createdAt: new Date().toISOString(),
         };
         mockProjects.push(created);
@@ -132,10 +137,10 @@ export function useProjectMembers(projectId: string | undefined) {
     queryFn: async (): Promise<ProjectMember[]> => {
       if (!projectId) return [];
       if (useOfflineAdminData()) return [...mockProjectMembers];
-      const result = await apiFetch<{ data: ProjectMember[] }>(
-        `/projects/${projectId}/members`,
-      );
-      return result.data;
+      const result = await apiFetch<
+        ProjectMember[] | { data: ProjectMember[] }
+      >(`/projects/${projectId}/members`);
+      return unwrapList(result);
     },
   });
 }
@@ -209,10 +214,10 @@ export function useProjectModules(projectId: string | undefined) {
       if (useOfflineAdminData()) {
         return mockProjectModules.filter((m) => m.projectId === projectId);
       }
-      const result = await apiFetch<{ data: ProjectModule[] }>(
-        `/projects/${projectId}/modules`,
-      );
-      return result.data;
+      const result = await apiFetch<
+        ProjectModule[] | { data: ProjectModule[] }
+      >(`/projects/${projectId}/modules`);
+      return unwrapList(result);
     },
   });
 }

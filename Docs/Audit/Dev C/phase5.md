@@ -4,7 +4,7 @@ Reaudit 2026-10-07 (pass 2). Combined: [phase5.md](../phase5.md).
 
 ## Medium — Resolved
 
-### [A04 / A08] Knowledge list hooks ignore `{ data }` envelope — **FIXED (verified)**
+### [A04 / A08] Knowledge list hooks ignore API `{ data }` envelope — **FIXED (verified)**
 
 `unwrapKnowledgeList` in `features/admin/hooks.ts` for categories + articles (tolerates bare arrays for stale cache). Same pattern as portal `use-knowledge.ts` (`f9c6156`).
 
@@ -16,7 +16,7 @@ Mocks only when `useOfflineAdminData()` (DEV + mock access token). Live Knowledg
 
 ### [A04 / A07] Residual DEV `catch → mock` on assets / dashboard / audit / queues
 
-Same file: live `catch { if (DEV) return mocks }` remains on non-Knowledge admin reads.
+`features/admin/hooks.ts` still returns mocks on live API failure for non-Knowledge admin reads when `import.meta.env.DEV` (outside `useOfflineAdminData()`).
 
 **Fix:** rethrow unless `useOfflineAdminData()`.
 

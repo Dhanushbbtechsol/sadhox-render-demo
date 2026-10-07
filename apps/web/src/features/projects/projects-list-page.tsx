@@ -4,6 +4,14 @@ import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -36,9 +44,9 @@ export default function ProjectsListPage() {
   const createProject = useCreateProject();
 
   const [query, setQuery] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
-  const [managerId, setManagerId] = useState<string>("");
-  const [creating, setCreating] = useState(false);
+  const [managerId, setManagerId] = useState("");
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -52,20 +60,33 @@ export default function ProjectsListPage() {
     return managers.data?.find((m) => m.id === id)?.name ?? id.slice(0, 8);
   };
 
+  function resetForm() {
+    setName("");
+    setManagerId("");
+  }
+
+  function openDialog() {
+    resetForm();
+    setDialogOpen(true);
+  }
+
   async function onCreate() {
     if (!name.trim()) {
       toast.error("Project name is required");
       return;
     }
+    if (!managerId) {
+      toast.error("Manager is required");
+      return;
+    }
     try {
       const created = await createProject.mutateAsync({
         name: name.trim(),
-        managerId: managerId || null,
+        managerId,
       });
       toast.success(`Created ${created.name}`);
-      setName("");
-      setManagerId("");
-      setCreating(false);
+      setDialogOpen(false);
+      resetForm();
       navigate(`/admin/projects/${created.id}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Create failed");
@@ -82,54 +103,11 @@ export default function ProjectsListPage() {
             modules.
           </p>
         </div>
-        <Button className="shrink-0" onClick={() => setCreating((v) => !v)}>
+        <Button className="shrink-0" onClick={openDialog}>
           <PlusIcon />
           New project
         </Button>
       </div>
-
-      {creating ? (
-        <div className="grid gap-3 rounded-none border p-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
-          <div className="grid gap-1.5">
-            <Label htmlFor="project-name">Name</Label>
-            <Input
-              id="project-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Corporate IT"
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Manager</Label>
-            <Select
-              items={[
-                { value: "__none__", label: "No manager" },
-                ...(managers.data ?? []).map((m) => ({
-                  value: m.id,
-                  label: m.name,
-                })),
-              ]}
-              value={managerId || "__none__"}
-              onValueChange={(v) => setManagerId(!v || v === "__none__" ? "" : v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Optional" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No manager</SelectItem>
-                {(managers.data ?? []).map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={onCreate} disabled={createProject.isPending}>
-            Create
-          </Button>
-        </div>
-      ) : null}
 
       <Input
         value={query}
@@ -183,6 +161,82 @@ export default function ProjectsListPage() {
           </TableBody>
         </Table>
       ) : null}
+
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) resetForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New project</DialogTitle>
+            <DialogDescription>
+              Set a name and assign a Manager. You can add Agents and modules
+              after creating.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="project-name">Name</Label>
+              <Input
+                id="project-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Corporate IT"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void onCreate();
+                  }
+                }}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Manager</Label>
+              <Select
+                items={(managers.data ?? []).map((m) => ({
+                  value: m.id,
+                  label: m.name,
+                }))}
+                value={managerId || undefined}
+                onValueChange={(v) => setManagerId(v ?? "")}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a Manager" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(managers.data ?? []).map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void onCreate()}
+              disabled={createProject.isPending}
+            >
+              {createProject.isPending ? "Creating…" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

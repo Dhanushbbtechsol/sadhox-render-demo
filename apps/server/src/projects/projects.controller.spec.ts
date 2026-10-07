@@ -19,7 +19,7 @@ describe("ProjectsController RBAC metadata", () => {
     expect(Reflect.getMetadata(ROLES_KEY, createModule)).toEqual(["Admin"]);
   });
 
-  it("list allows Admin/Manager/Agent/EndUser; get allows Admin/Manager/Agent", () => {
+  it("list/get allow staff roles and EndUser project picker", () => {
     expect(Reflect.getMetadata(ROLES_KEY, list)).toEqual([
       "Admin",
       "Manager",
