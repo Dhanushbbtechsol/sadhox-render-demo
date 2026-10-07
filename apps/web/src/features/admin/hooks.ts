@@ -496,7 +496,7 @@ export function useCreateKnowledgeCategory() {
         mockKnowledgeCategories.push(created);
         return created;
       }
-      return apiFetch<KnowledgeCategory>("/knowledge/categories", {
+      return await apiFetch<KnowledgeCategory>("/knowledge/categories", {
         method: "POST",
         body: input,
       });
@@ -530,7 +530,7 @@ export function useUpdateKnowledgeCategory() {
         };
         return mockKnowledgeCategories[index];
       }
-      return apiFetch<KnowledgeCategory>(`/knowledge/categories/${id}`, {
+      return await apiFetch<KnowledgeCategory>(`/knowledge/categories/${id}`, {
         method: "PATCH",
         body: input,
       });
@@ -601,7 +601,7 @@ export function useKnowledgeArticle(id: string | undefined) {
         if (!found) throw new Error("Article not found");
         return found;
       }
-      return apiFetch<KnowledgeArticle>(`/knowledge/articles/${id}`);
+      return await apiFetch<KnowledgeArticle>(`/knowledge/articles/${id}`);
     },
   });
 }
@@ -630,7 +630,7 @@ export function useCreateKnowledgeArticle() {
         mockKnowledgeArticles.unshift(created);
         return created;
       }
-      return apiFetch<KnowledgeArticle>("/knowledge/articles", {
+      return await apiFetch<KnowledgeArticle>("/knowledge/articles", {
         method: "POST",
         body: payload,
       });
@@ -664,7 +664,7 @@ export function useUpdateKnowledgeArticle() {
         };
         return mockKnowledgeArticles[index];
       }
-      return apiFetch<KnowledgeArticle>(`/knowledge/articles/${id}`, {
+      return await apiFetch<KnowledgeArticle>(`/knowledge/articles/${id}`, {
         method: "PATCH",
         body: input,
       });
@@ -733,12 +733,14 @@ export function useUpdateSlaRule() {
         });
       } catch (error) {
         // Alternate contract: body includes priority (no path param). Still fail loud — no mock.
-        return apiFetch<SlaRule>("/admin/sla-rules", {
-          method: "PATCH",
-          body: input,
-        }).catch(() => {
-          throw error;
-        });
+        try {
+          return await apiFetch<SlaRule>("/admin/sla-rules", {
+            method: "PATCH",
+            body: input,
+          });
+        } catch (inner) {
+          throw inner instanceof Error ? inner : error;
+        }
       }
     },
     onSuccess: async () => {
