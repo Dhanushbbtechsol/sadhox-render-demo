@@ -1,6 +1,11 @@
-import { InjectQueue } from "@nestjs/bullmq";
-import { Inject, Injectable } from "@nestjs/common";
-import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
+﻿import { InjectQueue } from "@nestjs/bullmq";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { and, asc, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 import type { Queue } from "bullmq";
 import {
   computeSlaComplianceRate,
@@ -8,16 +13,25 @@ import {
   stackOpenClosed,
   type ChartRangePreset,
 } from "./chart-range";
+import type { UserRole } from "../common/types/roles";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
   auditLog,
   changes,
   incidents,
+  projectMembers,
   serviceRequests,
+  slaRules,
   users,
+  type Priority,
 } from "../database/schema";
 import type { ListAuditLogsQueryDto } from "./dto/list-audit-logs-query.dto";
+import {
+  SLA_PRIORITIES,
+  type SlaPriority,
+  type UpdateSlaRuleMinutesDto,
+} from "./dto/sla-rule.dto";
 import {
   EMAIL_QUEUE,
   SLA_QUEUE,
@@ -426,6 +440,73 @@ export class AdminService {
     };
   }
 
+  /**
+   * Admin SLA table editor ΓÇö matches web `SlaRule` contract
+   * (`id`, `priority`, `responseMinutes`, `resolveMinutes`, `createdAt` ISO).
+   */
+  async listSlaRules() {
+    const rows = await this.db
+      .select({
+        id: slaRules.id,
+        priority: slaRules.priority,
+        responseMinutes: slaRules.responseMinutes,
+        resolveMinutes: slaRules.resolveMinutes,
+        createdAt: slaRules.createdAt,
+      })
+      .from(slaRules)
+      .orderBy(asc(slaRules.priority));
+
+    return rows.map((row) => ({
+      id: row.id,
+      priority: row.priority,
+      responseMinutes: row.responseMinutes,
+      resolveMinutes: row.resolveMinutes,
+      createdAt: row.createdAt.toISOString(),
+    }));
+  }
+
+  async updateSlaRule(priority: string, dto: UpdateSlaRuleMinutesDto) {
+    if (!SLA_PRIORITIES.includes(priority as SlaPriority)) {
+      throw new BadRequestException(
+        `priority must be one of ${SLA_PRIORITIES.join(", ")}`,
+      );
+    }
+    const p = priority as Priority;
+
+    const [existing] = await this.db
+      .select({ id: slaRules.id })
+      .from(slaRules)
+      .where(eq(slaRules.priority, p))
+      .limit(1);
+
+    if (!existing) {
+      throw new NotFoundException(`SLA rule not found for priority ${p}`);
+    }
+
+    const [row] = await this.db
+      .update(slaRules)
+      .set({
+        responseMinutes: dto.responseMinutes,
+        resolveMinutes: dto.resolveMinutes,
+      })
+      .where(eq(slaRules.priority, p))
+      .returning({
+        id: slaRules.id,
+        priority: slaRules.priority,
+        responseMinutes: slaRules.responseMinutes,
+        resolveMinutes: slaRules.resolveMinutes,
+        createdAt: slaRules.createdAt,
+      });
+
+    return {
+      id: row.id,
+      priority: row.priority,
+      responseMinutes: row.responseMinutes,
+      resolveMinutes: row.resolveMinutes,
+      createdAt: row.createdAt.toISOString(),
+    };
+  }
+
   async queueHealth() {
     const queues = [
       { name: SLA_QUEUE, queue: this.slaQueue },
@@ -486,6 +567,54 @@ export class AdminService {
       queues: results,
       alert: results.some((q) => q.alert),
     };
+  }
+
+  /**
+   * Admin role update. Promoting to Manager clears project_members for that
+   * user in the same transaction (Managers supervise; must not remain workers).
+   */
+  async updateUserRole(userId: string, role: UserRole) {
+    return this.db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      if (!existing) {
+        throw new NotFoundException("User not found");
+      }
+
+      const [updated] = await tx
+        .update(users)
+        .set({ role, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+        .returning({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+        });
+
+      let membershipsRemoved = 0;
+      if (role === "Manager") {
+        const removed = await tx
+          .delete(projectMembers)
+          .where(eq(projectMembers.userId, userId))
+          .returning({ projectId: projectMembers.projectId });
+        membershipsRemoved = removed.length;
+      }
+
+      return {
+        ...updated!,
+        previousRole: existing.role,
+        membershipsRemoved,
+      };
+    });
   }
 
   /** Count recent failed jobs whose reason indicates a stall (BullMQ has no stalled JobType). */

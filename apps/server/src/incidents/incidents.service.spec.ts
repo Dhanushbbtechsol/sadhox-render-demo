@@ -85,6 +85,19 @@ describe("IncidentsService.update assignee role", () => {
       { emitTicketUpdated: vi.fn() } as never,
       {} as never,
       { sendTicketAssigned: vi.fn() } as never,
+      {} as never,
+      {
+        resolveTicketProjectScope: vi.fn().mockResolvedValue({
+          projectId: null,
+          moduleId: null,
+        }),
+      } as never,
+      {
+        listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
+        canAccess: vi.fn(),
+        canApprove: vi.fn(),
+        assertCanApprove: vi.fn(),
+      } as never,
     );
 
     await expect(

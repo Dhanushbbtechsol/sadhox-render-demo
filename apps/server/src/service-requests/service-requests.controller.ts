@@ -29,9 +29,10 @@ export class ServiceRequestsController {
   constructor(private readonly requests: ServiceRequestsService) {}
 
   @Get()
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "EndUser", "Manager")
   @ApiOperation({
-    summary: "List service requests (EndUser: own only; Admin/Agent: all)",
+    summary:
+      "List service requests (EndUser: own; Admin: all; Agent/Manager: project-scoped)",
   })
   list(@CurrentUser() user: AuthUser) {
     return this.requests.list(user);
@@ -64,8 +65,11 @@ export class ServiceRequestsController {
   }
 
   @Patch(":id/approve")
-  @Roles("Admin")
-  @ApiOperation({ summary: "Approve a submitted service request (Admin)" })
+  @Roles("Admin", "Manager")
+  @ApiOperation({
+    summary:
+      "Approve a submitted service request (Admin; Manager owns ticket project)",
+  })
   approve(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
@@ -74,8 +78,11 @@ export class ServiceRequestsController {
   }
 
   @Patch(":id/reject")
-  @Roles("Admin")
-  @ApiOperation({ summary: "Reject a submitted service request (Admin)" })
+  @Roles("Admin", "Manager")
+  @ApiOperation({
+    summary:
+      "Reject a submitted service request (Admin; Manager owns ticket project)",
+  })
   reject(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,

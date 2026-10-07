@@ -4,7 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { count, desc, eq, inArray, SQL } from "drizzle-orm";
+import { and, count, desc, eq, inArray, SQL } from "drizzle-orm";
+import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
@@ -14,6 +15,9 @@ import {
   users,
   type ProblemStatus,
 } from "../database/schema";
+import { ProjectAccessService } from "../projects/project-access.service";
+import { buildTicketProjectListFilter } from "../projects/project-list-scope";
+import { ProjectScopeService } from "../projects/project-scope.service";
 import type {
   CreateProblemDto,
   ListProblemsQueryDto,
@@ -44,12 +48,20 @@ export type ProblemView = {
 
 @Injectable()
 export class ProblemsService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly projectScope: ProjectScopeService,
+    private readonly projectAccess: ProjectAccessService,
+  ) {}
 
-  async list(query: ListProblemsQueryDto) {
+  async list(user: AuthUser, query: ListProblemsQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const filters = this.buildFilters(query);
+    const accessibleIds =
+      user.role === "Admin"
+        ? null
+        : await this.projectAccess.listAccessibleProjectIds(user);
+    const filters = this.buildFilters(query, user.role, accessibleIds);
 
     const [totalRow] = await this.db
       .select({ total: count() })
@@ -128,6 +140,10 @@ export class ProblemsService {
     if (dto.linkedIncidentIds?.length) {
       await this.assertIncidentsExist(dto.linkedIncidentIds);
     }
+    const scope = await this.projectScope.resolveTicketProjectScope({
+      projectId: dto.projectId,
+      moduleId: dto.moduleId,
+    });
 
     const now = new Date();
     const [created] = await this.db
@@ -139,6 +155,8 @@ export class ProblemsService {
         knownError: dto.knownError ?? false,
         status: dto.status ?? "Open",
         assignedTo: dto.assignedTo ?? null,
+        projectId: scope.projectId,
+        moduleId: scope.moduleId,
         createdAt: now,
         updatedAt: now,
       })
@@ -158,6 +176,20 @@ export class ProblemsService {
     if (dto.linkedIncidentIds) {
       await this.assertIncidentsExist(dto.linkedIncidentIds);
     }
+    const [existingRow] = await this.db
+      .select({
+        projectId: problems.projectId,
+        moduleId: problems.moduleId,
+      })
+      .from(problems)
+      .where(eq(problems.id, id))
+      .limit(1);
+    const scope = await this.projectScope.resolveTicketProjectScope({
+      projectId: dto.projectId,
+      moduleId: dto.moduleId,
+      existingProjectId: existingRow?.projectId,
+      existingModuleId: existingRow?.moduleId,
+    });
 
     const now = new Date();
     await this.db
@@ -172,6 +204,9 @@ export class ProblemsService {
         ...(dto.status !== undefined ? { status: dto.status } : {}),
         ...(dto.assignedTo !== undefined
           ? { assignedTo: dto.assignedTo }
+          : {}),
+        ...(dto.projectId !== undefined || dto.moduleId !== undefined
+          ? { projectId: scope.projectId, moduleId: scope.moduleId }
           : {}),
         updatedAt: now,
       })
@@ -220,9 +255,22 @@ export class ProblemsService {
     return this.get(problemId);
   }
 
-  private buildFilters(query: ListProblemsQueryDto): SQL | undefined {
-    if (!query.status) return undefined;
-    return eq(problems.status, query.status);
+  private buildFilters(
+    query: ListProblemsQueryDto,
+    role: string,
+    accessibleIds: string[] | null,
+  ): SQL | undefined {
+    const parts: SQL[] = [];
+    if (query.status) parts.push(eq(problems.status, query.status));
+    const projectFilter = buildTicketProjectListFilter(
+      problems.projectId,
+      role,
+      accessibleIds,
+    );
+    if (projectFilter) parts.push(projectFilter);
+    if (parts.length === 0) return undefined;
+    if (parts.length === 1) return parts[0];
+    return and(...parts);
   }
 
   private async loadLinks(problemIds: string[]) {

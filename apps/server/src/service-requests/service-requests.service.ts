@@ -8,7 +8,6 @@ import {
 } from "@nestjs/common";
 import { and, desc, eq } from "drizzle-orm";
 import {
-  assertAdminRole,
   assertAgentOrAdminRole,
   canTransitionRequestFulfillment,
   isPendingServiceRequestStatus,
@@ -22,6 +21,9 @@ import {
   users,
 } from "../database/schema";
 import { MailService } from "../mail/mail.service";
+import { ProjectAccessService } from "../projects/project-access.service";
+import { buildTicketProjectListFilter } from "../projects/project-list-scope";
+import { ProjectScopeService } from "../projects/project-scope.service";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
 import type {
   CreateServiceRequestDto,
@@ -41,6 +43,8 @@ export class ServiceRequestsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly mail: MailService,
+    private readonly projectScope: ProjectScopeService,
+    private readonly projectAccess: ProjectAccessService,
   ) {}
 
   private async mapRow(row: {
@@ -118,6 +122,11 @@ export class ServiceRequestsService {
       throw new NotFoundException("Catalog item not found");
     }
 
+    const scope = await this.projectScope.resolveTicketProjectScope({
+      projectId: dto.projectId,
+      moduleId: dto.moduleId,
+    });
+
     const [created] = await this.db
       .insert(serviceRequests)
       .values({
@@ -129,6 +138,8 @@ export class ServiceRequestsService {
         urgency: dto.urgency,
         fields: dto.fields ?? {},
         status: "Submitted",
+        projectId: scope.projectId,
+        moduleId: scope.moduleId,
       })
       .returning();
 
@@ -167,12 +178,28 @@ export class ServiceRequestsService {
       .leftJoin(serviceCatalog, eq(serviceRequests.catalogId, serviceCatalog.id))
       .leftJoin(users, eq(serviceRequests.requesterId, users.id));
 
-    const rows =
-      user.role === "EndUser"
-        ? await base
-            .where(eq(serviceRequests.requesterId, user.userId))
-            .orderBy(desc(serviceRequests.createdAt))
-        : await base.orderBy(desc(serviceRequests.createdAt));
+    const accessibleIds =
+      user.role === "Admin" || user.role === "EndUser"
+        ? null
+        : await this.projectAccess.listAccessibleProjectIds(user);
+    const projectFilter = buildTicketProjectListFilter(
+      serviceRequests.projectId,
+      user.role,
+      accessibleIds,
+    );
+
+    let rows;
+    if (user.role === "EndUser") {
+      rows = await base
+        .where(eq(serviceRequests.requesterId, user.userId))
+        .orderBy(desc(serviceRequests.createdAt));
+    } else if (projectFilter) {
+      rows = await base
+        .where(projectFilter)
+        .orderBy(desc(serviceRequests.createdAt));
+    } else {
+      rows = await base.orderBy(desc(serviceRequests.createdAt));
+    }
 
     return {
       data: await Promise.all(rows.map((row) => this.mapRow(row))),
@@ -196,12 +223,8 @@ export class ServiceRequestsService {
   }
 
   async approve(user: AuthUser, id: string) {
-    try {
-      assertAdminRole(user.role);
-    } catch {
-      throw new ForbiddenException("Admin role required");
-    }
     const existing = await this.requirePending(id);
+    await this.projectAccess.assertCanApprove(user, existing.projectId);
 
     const [updated] = await this.db
       .update(serviceRequests)
@@ -220,16 +243,12 @@ export class ServiceRequestsService {
   }
 
   async reject(user: AuthUser, id: string, dto: RejectServiceRequestDto) {
-    try {
-      assertAdminRole(user.role);
-    } catch {
-      throw new ForbiddenException("Admin role required");
-    }
     const reason = sanitizePlainText(dto.reason ?? "");
     if (!reason) {
       throw new BadRequestException("Rejection reason is required");
     }
     const existing = await this.requirePending(id);
+    await this.projectAccess.assertCanApprove(user, existing.projectId);
 
     const [updated] = await this.db
       .update(serviceRequests)

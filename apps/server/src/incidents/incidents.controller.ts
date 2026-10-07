@@ -31,10 +31,10 @@ export class IncidentsController {
   constructor(private readonly incidents: IncidentsService) {}
 
   @Get()
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "EndUser", "Manager")
   @ApiOperation({
     summary:
-      "Paginated incident list with filters (EndUser scoped to own tickets)",
+      "Paginated incident list (EndUser: own; Admin: all; Agent/Manager: project-scoped)",
   })
   list(@CurrentUser() user: AuthUser, @Query() query: ListIncidentsQueryDto) {
     return this.incidents.list(user, query);

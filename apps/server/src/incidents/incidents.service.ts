@@ -23,6 +23,9 @@ import {
 } from "../database/schema";
 import { EventsService } from "../events/events.service";
 import { MailService } from "../mail/mail.service";
+import { ProjectAccessService } from "../projects/project-access.service";
+import { buildTicketProjectListFilter } from "../projects/project-list-scope";
+import { ProjectScopeService } from "../projects/project-scope.service";
 import type {
   AssignIncidentDto,
   CreateCommentDto,
@@ -90,12 +93,18 @@ export class IncidentsService {
     private readonly assignment: AssignmentService,
     private readonly mail: MailService,
     private readonly assets: AssetsService,
+    private readonly projectScope: ProjectScopeService,
+    private readonly projectAccess: ProjectAccessService,
   ) {}
 
   async list(user: AuthUser, query: ListIncidentsQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const filters = this.buildFilters(user, query);
+    const accessibleIds =
+      user.role === "Admin" || user.role === "EndUser"
+        ? null
+        : await this.projectAccess.listAccessibleProjectIds(user);
+    const filters = this.buildFilters(user, query, accessibleIds);
 
     const [totalRow] = await this.db
       .select({ total: count() })
@@ -180,6 +189,10 @@ export class IncidentsService {
       now,
       resolveMinutes,
     );
+    const scope = await this.projectScope.resolveTicketProjectScope({
+      projectId: dto.projectId,
+      moduleId: dto.moduleId,
+    });
 
     const [created] = await this.db
       .insert(incidents)
@@ -194,6 +207,8 @@ export class IncidentsService {
         reporterId: user.userId,
         slaDueAt,
         slaBreached: false,
+        projectId: scope.projectId,
+        moduleId: scope.moduleId,
         createdAt: now,
         updatedAt: now,
       })
@@ -350,6 +365,13 @@ export class IncidentsService {
       await this.assertAssigneeIsAgentOrAdmin(dto.assignedTo);
     }
 
+    const scope = await this.projectScope.resolveTicketProjectScope({
+      projectId: dto.projectId,
+      moduleId: dto.moduleId,
+      existingProjectId: existing.incident.projectId,
+      existingModuleId: existing.incident.moduleId,
+    });
+
     // Assigning via PATCH on New auto-moves to Assigned (same lifecycle rule).
     let status = toStatus;
     if (
@@ -373,6 +395,9 @@ export class IncidentsService {
         status,
         ...(dto.assignedTo !== undefined
           ? { assignedTo: dto.assignedTo }
+          : {}),
+        ...(dto.projectId !== undefined || dto.moduleId !== undefined
+          ? { projectId: scope.projectId, moduleId: scope.moduleId }
           : {}),
         resolutionNotes,
         priority,
@@ -463,7 +488,11 @@ export class IncidentsService {
     return view;
   }
 
-  private buildFilters(user: AuthUser, query: ListIncidentsQueryDto): SQL | undefined {
+  private buildFilters(
+    user: AuthUser,
+    query: ListIncidentsQueryDto,
+    accessibleIds: string[] | null,
+  ): SQL | undefined {
     const parts: SQL[] = [];
 
     if (user.role === "EndUser") {
@@ -479,6 +508,13 @@ export class IncidentsService {
 
     if (query.status) parts.push(eq(incidents.status, query.status));
     if (query.priority) parts.push(eq(incidents.priority, query.priority));
+
+    const projectFilter = buildTicketProjectListFilter(
+      incidents.projectId,
+      user.role,
+      accessibleIds,
+    );
+    if (projectFilter) parts.push(projectFilter);
 
     if (parts.length === 0) return undefined;
     if (parts.length === 1) return parts[0];

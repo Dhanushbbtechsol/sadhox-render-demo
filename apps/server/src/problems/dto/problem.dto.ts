@@ -15,6 +15,7 @@ import {
   MinLength,
   ValidateIf,
 } from "class-validator";
+import { ProjectScopeFieldsDto } from "../../common/dto/project-scope.dto";
 
 const PROBLEM_STATUSES = [
   "Open",
@@ -24,7 +25,7 @@ const PROBLEM_STATUSES = [
   "Closed",
 ] as const;
 
-export class CreateProblemDto {
+export class CreateProblemDto extends ProjectScopeFieldsDto {
   @ApiProperty({ minLength: 5, maxLength: 255 })
   @IsString()
   @MinLength(5)
@@ -72,7 +73,7 @@ export class CreateProblemDto {
   linkedIncidentIds?: string[];
 }
 
-export class UpdateProblemDto {
+export class UpdateProblemDto extends ProjectScopeFieldsDto {
   @ApiPropertyOptional({ minLength: 5, maxLength: 255 })
   @IsOptional()
   @IsString()

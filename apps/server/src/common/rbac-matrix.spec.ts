@@ -26,15 +26,19 @@ import { HealthController } from "../health/health.controller";
 import { RedisHealthIndicator } from "../health/redis.health";
 import { IncidentsController } from "../incidents/incidents.controller";
 import { IncidentsService } from "../incidents/incidents.service";
+import { KnowledgeController } from "../knowledge/knowledge.controller";
+import { KnowledgeService } from "../knowledge/knowledge.service";
 import { ProblemsController } from "../problems/problems.controller";
 import { ProblemsService } from "../problems/problems.service";
 import { ServiceCatalogController } from "../service-catalog/service-catalog.controller";
 import { ServiceCatalogService } from "../service-catalog/service-catalog.service";
 import { ServiceRequestsController } from "../service-requests/service-requests.controller";
 import { ServiceRequestsService } from "../service-requests/service-requests.service";
+import { ProjectsController } from "../projects/projects.controller";
+import { ProjectsService } from "../projects/projects.service";
 
 const ID = "11111111-1111-4111-8111-111111111111";
-const ALL_ROLES: UserRole[] = ["Admin", "Agent", "EndUser"];
+const ALL_ROLES: UserRole[] = ["Admin", "Agent", "EndUser", "Manager"];
 
 type MatrixRow = {
   method: "get" | "post" | "patch" | "delete";
@@ -43,7 +47,7 @@ type MatrixRow = {
 };
 
 const MATRIX: MatrixRow[] = [
-  { method: "get", path: "/incidents", allowed: ["Admin", "Agent", "EndUser"] },
+  { method: "get", path: "/incidents", allowed: ["Admin", "Agent", "EndUser", "Manager"] },
   { method: "post", path: "/incidents", allowed: ["Admin", "Agent", "EndUser"] },
   {
     method: "get",
@@ -66,14 +70,14 @@ const MATRIX: MatrixRow[] = [
     path: `/incidents/${ID}/comments`,
     allowed: ["Admin", "Agent", "EndUser"],
   },
-  { method: "get", path: "/problems", allowed: ["Admin", "Agent"] },
+  { method: "get", path: "/problems", allowed: ["Admin", "Agent", "Manager"] },
   { method: "post", path: "/problems", allowed: ["Admin", "Agent"] },
   { method: "get", path: `/problems/${ID}`, allowed: ["Admin", "Agent"] },
   { method: "patch", path: `/problems/${ID}`, allowed: ["Admin", "Agent"] },
   {
     method: "get",
     path: "/service-requests",
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     method: "post",
@@ -88,17 +92,17 @@ const MATRIX: MatrixRow[] = [
   {
     method: "patch",
     path: `/service-requests/${ID}/approve`,
-    allowed: ["Admin"],
+    allowed: ["Admin", "Manager"],
   },
   {
     method: "patch",
     path: `/service-requests/${ID}/reject`,
-    allowed: ["Admin"],
+    allowed: ["Admin", "Manager"],
   },
-  { method: "get", path: "/changes", allowed: ["Admin", "Agent"] },
+  { method: "get", path: "/changes", allowed: ["Admin", "Agent", "Manager"] },
   { method: "post", path: "/changes", allowed: ["Admin", "Agent"] },
   { method: "get", path: `/changes/${ID}`, allowed: ["Admin", "Agent"] },
-  { method: "patch", path: `/changes/${ID}/approve`, allowed: ["Admin"] },
+  { method: "patch", path: `/changes/${ID}/approve`, allowed: ["Admin", "Manager"] },
   { method: "patch", path: `/changes/${ID}`, allowed: ["Admin", "Agent"] },
   { method: "get", path: "/assets", allowed: ["Admin"] },
   { method: "post", path: "/assets", allowed: ["Admin"] },
@@ -112,8 +116,115 @@ const MATRIX: MatrixRow[] = [
     path: "/service-catalog",
     allowed: ["Admin", "Agent", "EndUser"],
   },
+  { method: "post", path: "/service-catalog", allowed: ["Admin"] },
+  {
+    method: "patch",
+    path: `/service-catalog/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "get",
+    path: "/knowledge/categories",
+    allowed: ["Admin", "Agent", "EndUser"],
+  },
+  {
+    method: "post",
+    path: "/knowledge/categories",
+    allowed: ["Admin"],
+  },
+  {
+    method: "patch",
+    path: `/knowledge/categories/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "delete",
+    path: `/knowledge/categories/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "get",
+    path: "/knowledge/articles",
+    allowed: ["Admin", "Agent", "EndUser"],
+  },
+  {
+    method: "post",
+    path: "/knowledge/articles",
+    allowed: ["Admin"],
+  },
+  {
+    method: "get",
+    path: `/knowledge/articles/${ID}`,
+    allowed: ["Admin", "Agent", "EndUser"],
+  },
+  {
+    method: "patch",
+    path: `/knowledge/articles/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "delete",
+    path: `/knowledge/articles/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "get",
+    path: `/knowledge/tickets/incident/${ID}/links`,
+    allowed: ["Admin", "Agent", "EndUser"],
+  },
+  {
+    method: "post",
+    path: `/knowledge/tickets/incident/${ID}/links`,
+    allowed: ["Admin", "Agent"],
+  },
+  {
+    method: "delete",
+    path: `/knowledge/tickets/incident/${ID}/links/${ID}`,
+    allowed: ["Admin", "Agent"],
+  },
   { method: "get", path: "/admin/dashboard/stats", allowed: ["Admin"] },
+  { method: "get", path: "/admin/sla-rules", allowed: ["Admin"] },
+  { method: "patch", path: "/admin/sla-rules", allowed: ["Admin"] },
+  { method: "patch", path: "/admin/sla-rules/P1", allowed: ["Admin"] },
+  {
+    method: "patch",
+    path: `/admin/users/${ID}/role`,
+    allowed: ["Admin"],
+  },
   { method: "get", path: "/health/ready", allowed: ["Admin"] },
+  // Phase 6 — projects
+  { method: "get", path: "/projects", allowed: ["Admin", "Manager"] },
+  { method: "post", path: "/projects", allowed: ["Admin"] },
+  { method: "get", path: `/projects/${ID}`, allowed: ["Admin", "Manager"] },
+  { method: "patch", path: `/projects/${ID}`, allowed: ["Admin"] },
+  { method: "delete", path: `/projects/${ID}`, allowed: ["Admin"] },
+  {
+    method: "get",
+    path: `/projects/${ID}/members`,
+    allowed: ["Admin", "Manager"],
+  },
+  { method: "post", path: `/projects/${ID}/members`, allowed: ["Admin"] },
+  {
+    method: "delete",
+    path: `/projects/${ID}/members/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "get",
+    path: `/projects/${ID}/modules`,
+    allowed: ["Admin", "Manager"],
+  },
+  { method: "post", path: `/projects/${ID}/modules`, allowed: ["Admin"] },
+  {
+    method: "patch",
+    path: `/projects/${ID}/modules/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "delete",
+    path: `/projects/${ID}/modules/${ID}`,
+    allowed: ["Admin"],
+  },
 ];
 
 function stubService(methods: string[]) {
@@ -166,6 +277,8 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         ChangesController,
         AssetsController,
         ServiceCatalogController,
+        KnowledgeController,
+        ProjectsController,
         AdminController,
       ],
       providers: [
@@ -243,7 +356,24 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         },
         {
           provide: ServiceCatalogService,
-          useValue: stubService(["list"]),
+          useValue: stubService(["list", "create", "update"]),
+        },
+        {
+          provide: KnowledgeService,
+          useValue: stubService([
+            "listCategories",
+            "createCategory",
+            "updateCategory",
+            "deleteCategory",
+            "listArticles",
+            "createArticle",
+            "getArticle",
+            "updateArticle",
+            "deleteArticle",
+            "listLinks",
+            "linkArticle",
+            "unlinkArticle",
+          ]),
         },
         {
           provide: AdminService,
@@ -251,6 +381,26 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "dashboardStats",
             "ticketsByStatus",
             "slaPerformance",
+            "listSlaRules",
+            "updateSlaRule",
+            "updateUserRole",
+          ]),
+        },
+        {
+          provide: ProjectsService,
+          useValue: stubService([
+            "list",
+            "getById",
+            "create",
+            "update",
+            "remove",
+            "listMembers",
+            "addMember",
+            "removeMember",
+            "listModules",
+            "createModule",
+            "updateModule",
+            "removeModule",
           ]),
         },
       ],
@@ -272,17 +422,46 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
   it.each([
     { method: "get" as const, path: "/incidents" },
     { method: "get" as const, path: "/admin/dashboard/stats" },
+    { method: "get" as const, path: "/admin/sla-rules" },
+    { method: "patch" as const, path: "/admin/sla-rules" },
+    { method: "patch" as const, path: "/admin/sla-rules/P1" },
     { method: "get" as const, path: "/assets" },
     { method: "get" as const, path: "/problems" },
     { method: "get" as const, path: "/health/ready" },
+    { method: "get" as const, path: "/knowledge/articles" },
+    {
+      method: "post" as const,
+      path: `/knowledge/tickets/incident/${ID}/links`,
+    },
   ])("unauthenticated $method $path → 401", async ({ method, path }) => {
-    await request(app.getHttpServer())[method](path).expect(401);
+    const req = request(app.getHttpServer())[method](path);
+    if (method === "post" || method === "patch") {
+      await req
+        .send({
+          priority: "P1",
+          responseMinutes: 15,
+          resolveMinutes: 240,
+          articleId: ID,
+        })
+        .expect(401);
+      return;
+    }
+    await req.expect(401);
   });
 
   it("EndUser is 403 on Admin-only and Agent-only routes", async () => {
     await request(app.getHttpServer())
       .get("/admin/dashboard/stats")
       .set("x-test-role", "EndUser")
+      .expect(403);
+    await request(app.getHttpServer())
+      .get("/admin/sla-rules")
+      .set("x-test-role", "EndUser")
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch("/admin/sla-rules/P1")
+      .set("x-test-role", "EndUser")
+      .send({ responseMinutes: 15, resolveMinutes: 240 })
       .expect(403);
     await request(app.getHttpServer())
       .get("/assets")
@@ -300,6 +479,15 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
       .set("x-test-role", "Agent")
       .expect(403);
     await request(app.getHttpServer())
+      .get("/admin/sla-rules")
+      .set("x-test-role", "Agent")
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch("/admin/sla-rules")
+      .set("x-test-role", "Agent")
+      .send({ priority: "P1", responseMinutes: 15, resolveMinutes: 240 })
+      .expect(403);
+    await request(app.getHttpServer())
       .get("/assets")
       .set("x-test-role", "Agent")
       .expect(403);
@@ -307,6 +495,21 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
       .get("/health/ready")
       .set("x-test-role", "Agent")
       .expect(403);
+  });
+
+  it("Admin succeeds on SLA rules GET/PATCH", async () => {
+    await request(app.getHttpServer())
+      .get("/admin/sla-rules")
+      .set("x-test-role", "Admin")
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch("/admin/sla-rules/P1")
+      .set("x-test-role", "Admin")
+      .send({ responseMinutes: 15, resolveMinutes: 240 })
+      .expect((res) => {
+        expect(res.status).not.toBe(401);
+        expect(res.status).not.toBe(403);
+      });
   });
 
   it.each(

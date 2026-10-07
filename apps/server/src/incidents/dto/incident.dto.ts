@@ -8,6 +8,7 @@ import {
   MinLength,
   ValidateIf,
 } from "class-validator";
+import { ProjectScopeFieldsDto } from "../../common/dto/project-scope.dto";
 
 const IMPACT_URGENCY = ["High", "Medium", "Low"] as const;
 const CATEGORIES = [
@@ -19,7 +20,7 @@ const CATEGORIES = [
   "Other",
 ] as const;
 
-export class CreateIncidentDto {
+export class CreateIncidentDto extends ProjectScopeFieldsDto {
   @ApiProperty({ minLength: 5, maxLength: 255 })
   @IsString()
   @MinLength(5)
@@ -45,7 +46,7 @@ export class CreateIncidentDto {
   urgency!: (typeof IMPACT_URGENCY)[number];
 }
 
-export class UpdateIncidentDto {
+export class UpdateIncidentDto extends ProjectScopeFieldsDto {
   @ApiPropertyOptional({ minLength: 5, maxLength: 255 })
   @IsOptional()
   @IsString()

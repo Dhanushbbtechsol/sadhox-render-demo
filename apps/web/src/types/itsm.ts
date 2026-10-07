@@ -1,6 +1,6 @@
 /** Contract types aligned with Nest incident/problem API. */
 
-export type UserRole = "Admin" | "Agent" | "EndUser";
+export type UserRole = "Admin" | "Agent" | "EndUser" | "Manager";
 
 export type Impact = "Low" | "Medium" | "High";
 export type Urgency = "Low" | "Medium" | "High";

@@ -118,9 +118,21 @@ describe("AssignmentService.assignNextAgent concurrency", () => {
   it("propagates no-agents failure from the service transaction", async () => {
     const db = {
       transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+        let call = 0;
         const tx = {
           execute: vi.fn(async () => undefined),
           select: vi.fn(() => {
+            call += 1;
+            if (call === 1) {
+              // ticket meta — null project → global Agent pool
+              return {
+                from: () => ({
+                  where: () => ({
+                    limit: async () => [{ id: "ticket-1", projectId: null }],
+                  }),
+                }),
+              };
+            }
             const chain: {
               from: () => unknown;
               where: () => unknown;

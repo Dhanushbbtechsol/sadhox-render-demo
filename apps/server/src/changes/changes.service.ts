@@ -8,7 +8,6 @@ import {
 } from "@nestjs/common";
 import { and, desc, eq } from "drizzle-orm";
 import {
-  assertAdminRole,
   canTransitionChange,
   CHANGE_API_TO_DB_STATUS,
   requiresAdminForChangeStatus,
@@ -18,6 +17,9 @@ import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import { changes, users, type UserRole } from "../database/schema";
 import { MailService } from "../mail/mail.service";
+import { ProjectAccessService } from "../projects/project-access.service";
+import { buildTicketProjectListFilter } from "../projects/project-list-scope";
+import { ProjectScopeService } from "../projects/project-scope.service";
 import type { CreateChangeDto, UpdateChangeDto } from "./dto/change.dto";
 
 type DbChangeStatus =
@@ -58,6 +60,8 @@ export class ChangesService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly mail: MailService,
+    private readonly projectScope: ProjectScopeService,
+    private readonly projectAccess: ProjectAccessService,
   ) {}
 
   private mapRow(row: {
@@ -105,6 +109,11 @@ export class ChangesService {
       );
     }
 
+    const scope = await this.projectScope.resolveTicketProjectScope({
+      projectId: dto.projectId,
+      moduleId: dto.moduleId,
+    });
+
     const [created] = await this.db
       .insert(changes)
       .values({
@@ -116,6 +125,8 @@ export class ChangesService {
         rollbackPlan,
         status: "Submitted",
         createdBy: user.userId,
+        projectId: scope.projectId,
+        moduleId: scope.moduleId,
       })
       .returning();
 
@@ -159,7 +170,10 @@ export class ChangesService {
     }
   }
 
-  async list(filters: { type?: string; status?: string }) {
+  async list(
+    user: AuthUser,
+    filters: { type?: string; status?: string },
+  ) {
     const conditions = [];
     if (filters.type) {
       conditions.push(eq(changes.type, filters.type as never));
@@ -168,6 +182,17 @@ export class ChangesService {
       const dbStatus = API_TO_DB_STATUS[filters.status] ?? filters.status;
       conditions.push(eq(changes.status, dbStatus as never));
     }
+
+    const accessibleIds =
+      user.role === "Admin"
+        ? null
+        : await this.projectAccess.listAccessibleProjectIds(user);
+    const projectFilter = buildTicketProjectListFilter(
+      changes.projectId,
+      user.role,
+      accessibleIds,
+    );
+    if (projectFilter) conditions.push(projectFilter);
 
     const rows = conditions.length
       ? await this.db
@@ -237,17 +262,13 @@ export class ChangesService {
   }
 
   async approve(user: AuthUser, id: string) {
-    try {
-      assertAdminRole(user.role);
-    } catch {
-      throw new ForbiddenException("Admin role required");
-    }
     const [existing] = await this.db
       .select()
       .from(changes)
       .where(eq(changes.id, id))
       .limit(1);
     if (!existing) throw new NotFoundException("Change not found");
+    await this.projectAccess.assertCanApprove(user, existing.projectId);
 
     const apiStatus = DB_TO_API_STATUS[existing.status] ?? existing.status;
     if (apiStatus !== "Submitted" && apiStatus !== "Draft") {
@@ -364,6 +385,17 @@ export class ChangesService {
     const end = patch.scheduledEnd ?? existing.scheduledEnd;
     if (start && end && !(start < end)) {
       throw new BadRequestException("scheduledEnd must be after scheduledStart");
+    }
+
+    if (dto.projectId !== undefined || dto.moduleId !== undefined) {
+      const scope = await this.projectScope.resolveTicketProjectScope({
+        projectId: dto.projectId,
+        moduleId: dto.moduleId,
+        existingProjectId: existing.projectId,
+        existingModuleId: existing.moduleId,
+      });
+      patch.projectId = scope.projectId;
+      patch.moduleId = scope.moduleId;
     }
 
     await this.db.update(changes).set(patch).where(eq(changes.id, id));

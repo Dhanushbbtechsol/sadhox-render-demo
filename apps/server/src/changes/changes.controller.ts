@@ -24,15 +24,16 @@ export class ChangesController {
   constructor(private readonly changes: ChangesService) {}
 
   @Get()
-  @Roles("Admin", "Agent")
+  @Roles("Admin", "Agent", "Manager")
   @ApiOperation({ summary: "List changes with optional type/status filters" })
   @ApiQuery({ name: "type", required: false })
   @ApiQuery({ name: "status", required: false })
   list(
+    @CurrentUser() user: AuthUser,
     @Query("type") type?: string,
     @Query("status") status?: string,
   ) {
-    return this.changes.list({ type, status });
+    return this.changes.list(user, { type, status });
   }
 
   @Post()
@@ -50,8 +51,10 @@ export class ChangesController {
   }
 
   @Patch(":id/approve")
-  @Roles("Admin")
-  @ApiOperation({ summary: "Approve a change (Admin)" })
+  @Roles("Admin", "Manager")
+  @ApiOperation({
+    summary: "Approve a change (Admin; Manager owns ticket project)",
+  })
   approve(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,

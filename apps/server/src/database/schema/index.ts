@@ -15,7 +15,12 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-export const userRoleEnum = pgEnum("user_role", ["Admin", "Agent", "EndUser"]);
+export const userRoleEnum = pgEnum("user_role", [
+  "Admin",
+  "Agent",
+  "EndUser",
+  "Manager",
+]);
 export const incidentStatusEnum = pgEnum("incident_status", [
   "New",
   "Assigned",
@@ -135,6 +140,58 @@ export const refreshTokens = pgTable(
   ],
 );
 
+/** Phase 6 — project owned by a Manager (projects.manager_id). */
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    managerId: uuid("manager_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("projects_manager_id_idx").on(t.managerId)],
+);
+
+/**
+ * Phase 6 — Agents who work tickets on a project.
+ * Service rejects non-Agent inserts (Managers supervise; Admins are global).
+ */
+export const projectMembers = pgTable(
+  "project_members",
+  {
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({
+      columns: [t.projectId, t.userId],
+      name: "project_members_pk",
+    }),
+    index("project_members_user_id_idx").on(t.userId),
+  ],
+);
+
+/** Phase 6 — modules within a project (tickets may reference both). */
+export const modules = pgTable(
+  "modules",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }).notNull(),
+  },
+  (t) => [index("modules_project_id_idx").on(t.projectId)],
+);
+
 export const auditLog = pgTable(
   "audit_log",
   {
@@ -175,6 +232,12 @@ export const incidents = pgTable(
     resolutionNotes: text("resolution_notes"),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    moduleId: uuid("module_id").references(() => modules.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -186,6 +249,7 @@ export const incidents = pgTable(
     index("incidents_status_idx").on(t.status),
     index("incidents_assigned_to_idx").on(t.assignedTo),
     index("incidents_reporter_id_idx").on(t.reporterId),
+    index("incidents_project_id_idx").on(t.projectId),
   ],
 );
 
@@ -201,6 +265,12 @@ export const problems = pgTable(
     assignedTo: uuid("assigned_to").references(() => users.id, {
       onDelete: "set null",
     }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    moduleId: uuid("module_id").references(() => modules.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -208,7 +278,10 @@ export const problems = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("problems_status_idx").on(t.status)],
+  (t) => [
+    index("problems_status_idx").on(t.status),
+    index("problems_project_id_idx").on(t.projectId),
+  ],
 );
 
 /** Links one Problem to many Incident records (root-cause grouping). */
@@ -291,6 +364,12 @@ export const serviceRequests = pgTable(
     rejectionReason: text("rejection_reason"),
     fulfillmentNotes: text("fulfillment_notes"),
     fulfilledAt: timestamp("fulfilled_at", { withTimezone: true }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    moduleId: uuid("module_id").references(() => modules.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -301,6 +380,7 @@ export const serviceRequests = pgTable(
   (t) => [
     index("service_requests_status_idx").on(t.status),
     index("service_requests_requester_id_idx").on(t.requesterId),
+    index("service_requests_project_id_idx").on(t.projectId),
   ],
 );
 
@@ -322,6 +402,12 @@ export const changes = pgTable(
       onDelete: "set null",
     }),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
+    projectId: uuid("project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    moduleId: uuid("module_id").references(() => modules.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -332,6 +418,7 @@ export const changes = pgTable(
   (t) => [
     index("changes_status_idx").on(t.status),
     index("changes_type_idx").on(t.type),
+    index("changes_project_id_idx").on(t.projectId),
   ],
 );
 
@@ -545,3 +632,6 @@ export type KnowledgeArticleStatus =
 export type KnowledgeTicketType =
   (typeof knowledgeTicketTypeEnum.enumValues)[number];
 export type TicketKnowledgeLink = typeof ticketKnowledgeLinks.$inferSelect;
+export type Project = typeof projects.$inferSelect;
+export type ProjectMember = typeof projectMembers.$inferSelect;
+export type ProjectModule = typeof modules.$inferSelect;

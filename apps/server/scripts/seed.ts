@@ -58,6 +58,12 @@ async function seed() {
       role: "EndUser" as const,
       name: "End User",
     },
+    {
+      email: "manager@sadhox.local",
+      passwordHash,
+      role: "Manager" as const,
+      name: "Morgan Manager",
+    },
   ];
 
   let createdAny = false;

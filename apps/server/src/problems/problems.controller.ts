@@ -10,6 +10,10 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  CurrentUser,
+  type AuthUser,
+} from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import {
   CreateProblemDto,
@@ -25,10 +29,13 @@ export class ProblemsController {
   constructor(private readonly problems: ProblemsService) {}
 
   @Get()
-  @Roles("Admin", "Agent")
-  @ApiOperation({ summary: "Paginated problem list" })
-  list(@Query() query: ListProblemsQueryDto) {
-    return this.problems.list(query);
+  @Roles("Admin", "Agent", "Manager")
+  @ApiOperation({ summary: "Paginated problem list (project-scoped for Agent/Manager)" })
+  list(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ListProblemsQueryDto,
+  ) {
+    return this.problems.list(user, query);
   }
 
   @Post()
