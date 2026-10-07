@@ -8,13 +8,14 @@ import { LinkToProblem } from "@/components/incidents/link-to-problem";
 import { SlaCountdown } from "@/components/incidents/sla-countdown";
 import { RelatedArticles } from "@/components/knowledge/related-articles";
 import { PriorityBadge } from "@/components/priority-badge";
+import { EditTicketProjectScope } from "@/components/projects/edit-ticket-project-scope";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIncidentLinkedAssets } from "@/features/admin/hooks";
 import { useProjectModules, useProjects } from "@/hooks/use-projects";
-import { useIncident } from "@/hooks/use-tickets";
+import { useIncident, useUpdateIncident } from "@/hooks/use-tickets";
 import { useAuthStore } from "@/stores/auth-store";
 import { INCIDENT_STATUS_LABELS } from "@/types/itsm";
 
@@ -27,6 +28,7 @@ function statusVariant(status: string) {
 export default function IncidentDetailPage() {
   const { id } = useParams();
   const { data, isLoading, isError, error } = useIncident(id);
+  const update = useUpdateIncident(id ?? "");
   const role = useAuthStore((s) => s.user?.role);
   const canSeeLinkedAssets =
     role === "Admin" || role === "Agent" || role === "Manager";
@@ -133,6 +135,15 @@ export default function IncidentDetailPage() {
           <div className="flex flex-wrap gap-2">
             <LinkToProblem incidentId={data.id} />
           </div>
+
+          <EditTicketProjectScope
+            projectId={data.projectId}
+            moduleId={data.moduleId}
+            busy={update.isPending}
+            onSave={async (next) => {
+              await update.mutateAsync(next);
+            }}
+          />
 
           <IncidentActions incident={data} />
 

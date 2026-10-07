@@ -180,6 +180,10 @@ export function IncidentActions({ incident }: { incident: Incident }) {
               {projectScoped ? "Assign project member" : "Assign agent"}
             </Label>
             <Select
+              items={agents.map((agent) => ({
+                value: agent.id,
+                label: `${agent.name} (${agent.openTicketCount} open)`,
+              }))}
               value={selectedAgent}
               onValueChange={(v) => setSelectedAgent(v ?? "")}
             >

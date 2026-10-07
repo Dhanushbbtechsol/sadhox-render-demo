@@ -198,6 +198,10 @@ export default function ProjectsListPage() {
             <div className="grid gap-1.5">
               <Label>Manager</Label>
               <Select
+                items={(managers.data ?? []).map((m) => ({
+                  value: m.id,
+                  label: m.name,
+                }))}
                 value={managerId || undefined}
                 onValueChange={(v) => setManagerId(v ?? "")}
               >

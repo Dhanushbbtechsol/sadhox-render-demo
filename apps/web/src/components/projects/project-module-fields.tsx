@@ -66,6 +66,18 @@ function RhfProjectModuleFields<T extends FieldValues>({
   const { data: modules = [] } = useProjectModules(projectId);
   const allowUnscoped = useAllowUnscopedProject();
 
+  const projectItems = [
+    ...(allowUnscoped ? [{ value: NONE, label: "No project" }] : []),
+    ...projects.map((project) => ({
+      value: project.id,
+      label: project.name,
+    })),
+  ];
+  const moduleItems = [
+    { value: NONE, label: "No module" },
+    ...modules.map((mod) => ({ value: mod.id, label: mod.name })),
+  ];
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-2">
@@ -75,6 +87,7 @@ function RhfProjectModuleFields<T extends FieldValues>({
           name={projectField}
           render={({ field }) => (
             <Select
+              items={projectItems}
               value={
                 field.value
                   ? String(field.value)
@@ -117,6 +130,7 @@ function RhfProjectModuleFields<T extends FieldValues>({
           name={moduleField}
           render={({ field }) => (
             <Select
+              items={moduleItems}
               value={field.value ? String(field.value) : NONE}
               disabled={!projectId}
               onValueChange={(value) => {
@@ -156,11 +170,24 @@ function ControlledProjectModuleFields({
   const { data: modules = [] } = useProjectModules(projectId || undefined);
   const allowUnscoped = useAllowUnscopedProject();
 
+  const projectItems = [
+    ...(allowUnscoped ? [{ value: NONE, label: "No project" }] : []),
+    ...projects.map((project) => ({
+      value: project.id,
+      label: project.name,
+    })),
+  ];
+  const moduleItems = [
+    { value: NONE, label: "No module" },
+    ...modules.map((mod) => ({ value: mod.id, label: mod.name })),
+  ];
+
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-1.5">
         <Label>{allowUnscoped ? "Project (optional)" : "Project"}</Label>
         <Select
+          items={projectItems}
           value={projectId || (allowUnscoped ? NONE : undefined)}
           onValueChange={(value) => {
             const next = value === NONE || !value ? "" : value;
@@ -188,6 +215,7 @@ function ControlledProjectModuleFields({
       <div className="space-y-1.5">
         <Label>Module (optional)</Label>
         <Select
+          items={moduleItems}
           value={moduleId || NONE}
           onValueChange={(value) => {
             onModuleChange(value === NONE || !value ? "" : value);

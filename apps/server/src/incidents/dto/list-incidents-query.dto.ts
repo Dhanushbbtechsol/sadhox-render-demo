@@ -48,6 +48,14 @@ export class ListIncidentsQueryDto {
   reporterId?: string;
 
   @ApiPropertyOptional({
+    format: "uuid",
+    description: "Narrow to one project (must be accessible)",
+  })
+  @IsOptional()
+  @IsUUID()
+  projectId?: string;
+
+  @ApiPropertyOptional({
     enum: ["createdAt", "priority", "status", "slaDueAt"],
     default: "createdAt",
   })

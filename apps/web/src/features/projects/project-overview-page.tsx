@@ -79,6 +79,13 @@ export default function ProjectOverviewPage() {
       <div className="grid gap-1.5">
         <Label>Manager</Label>
         <Select
+          items={[
+            { value: "__none__", label: "No manager" },
+            ...(managers.data ?? []).map((m) => ({
+              value: m.id,
+              label: `${m.name} (${m.email})`,
+            })),
+          ]}
           value={managerId || "__none__"}
           onValueChange={(v) => setManagerId(!v || v === "__none__" ? "" : v)}
         >

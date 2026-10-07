@@ -89,6 +89,7 @@ export interface CreateIncidentInput {
   urgency: Urgency;
   projectId?: string | null;
   moduleId?: string | null;
+  assignedTo?: string | null;
 }
 
 export interface UpdateIncidentInput {

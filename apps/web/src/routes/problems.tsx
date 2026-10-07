@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
 import { ListPagination } from "@/components/list-pagination";
 import { CreateProblemDialog } from "@/components/problems/create-problem-dialog";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useProjects } from "@/hooks/use-projects";
 import { useProblems } from "@/hooks/use-tickets";
 import { cn } from "@/lib/utils";
 import { PROBLEM_STATUS_LABELS } from "@/types/itsm";
@@ -13,13 +21,26 @@ const PAGE_SIZE = 20;
 
 export default function ProblemsPage() {
   const [page, setPage] = useState(1);
+  const [projectFilter, setProjectFilter] = useState("all");
+  const { data: projects = [] } = useProjects();
+
+  useEffect(() => {
+    setPage(1);
+  }, [projectFilter]);
+
   const { data, isLoading, isError, error } = useProblems({
     page,
     pageSize: PAGE_SIZE,
+    projectId: projectFilter === "all" ? undefined : projectFilter,
   });
   const problems = data?.data;
   const meta = data?.meta;
   const totalPages = meta?.totalPages ?? 1;
+
+  const projectName = (id: string | null | undefined) => {
+    if (!id) return "Unscoped";
+    return projects.find((p) => p.id === id)?.name ?? id.slice(0, 8);
+  };
 
   return (
     <div className="space-y-6">
@@ -31,6 +52,25 @@ export default function ProblemsPage() {
           </p>
         </div>
         <CreateProblemDialog />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Select
+          value={projectFilter}
+          onValueChange={(v) => v && setProjectFilter(v)}
+        >
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Project" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All projects</SelectItem>
+            {projects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                {project.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? <TicketListSkeleton /> : null}
@@ -72,6 +112,9 @@ export default function ProblemsPage() {
                   {problem.knownError ? (
                     <Badge variant="warning">Known error</Badge>
                   ) : null}
+                  <Badge variant="secondary">
+                    {projectName(problem.projectId)}
+                  </Badge>
                 </div>
                 <p className="text-sm font-semibold tracking-tight">
                   {problem.title}

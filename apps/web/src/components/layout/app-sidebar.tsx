@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   AlertTriangleIcon,
   BookOpenIcon,
+  BriefcaseIcon,
   ChevronDownIcon,
   ClipboardListIcon,
   LayoutDashboardIcon,
@@ -35,11 +36,24 @@ interface NavLinkItem {
   roles: UserRole[];
 }
 
-interface NavChildItem {
+interface NavChildLink {
+  kind?: "link";
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  roles?: UserRole[];
 }
+
+interface NavChildGroup {
+  kind: "group";
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  roles?: UserRole[];
+  children: NavChildLink[];
+}
+
+type NavGroupChild = NavChildLink | NavChildGroup;
 
 interface NavGroupItem {
   kind: "group";
@@ -47,10 +61,45 @@ interface NavGroupItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   roles: UserRole[];
-  children: NavChildItem[];
+  children: NavGroupChild[];
 }
 
 type NavItem = NavLinkItem | NavGroupItem;
+
+function roleAllows(roles: UserRole[] | undefined, role: UserRole | undefined): boolean {
+  if (!role) return false;
+  if (!roles) return true;
+  return roles.includes(role);
+}
+
+function filterGroupChildren(
+  children: NavGroupChild[],
+  role: UserRole | undefined,
+): NavGroupChild[] {
+  return children.flatMap((child) => {
+    if (!roleAllows(child.roles, role)) return [];
+    if (child.kind === "group") {
+      const nested = filterGroupChildren(child.children, role) as NavChildLink[];
+      if (nested.length === 0) return [];
+      return [{ ...child, children: nested }];
+    }
+    return [child];
+  });
+}
+
+function collectLeafLinks(children: NavGroupChild[]): NavChildLink[] {
+  return children.flatMap((child) =>
+    child.kind === "group" ? child.children : [child],
+  );
+}
+
+function pathMatches(pathname: string, to: string): boolean {
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
+function groupHasActivePath(children: NavGroupChild[], pathname: string): boolean {
+  return collectLeafLinks(children).some((child) => pathMatches(pathname, child.to));
+}
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -66,47 +115,62 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["Manager"],
   },
   {
-    to: "/admin/projects",
-    label: "Projects",
-    icon: FolderKanbanIcon,
-    roles: ["Admin"],
-  },
-  {
     to: "/admin/users",
     label: "Users",
     icon: UsersIcon,
     roles: ["Admin"],
   },
   {
-    to: "/assets",
-    label: "Assets",
-    icon: PackageIcon,
-    roles: ["Admin"],
-  },
-  {
     kind: "group",
-    id: "incident-desk",
-    label: "Incident Desk",
-    icon: AlertTriangleIcon,
-    roles: ["Admin", "Agent", "Manager"],
+    id: "workspace",
+    label: "Workspace",
+    icon: BriefcaseIcon,
+    roles: ["Admin", "Agent", "Manager", "EndUser"],
     children: [
       {
-        to: "/incidents",
-        label: "Incidents",
-        icon: AlertTriangleIcon,
+        to: "/admin/projects",
+        label: "Projects",
+        icon: FolderKanbanIcon,
+        roles: ["Admin"],
       },
       {
-        to: "/problems",
-        label: "Problems",
-        icon: ClipboardListIcon,
+        kind: "group",
+        id: "incident-desk",
+        label: "Incident Desk",
+        icon: AlertTriangleIcon,
+        roles: ["Admin", "Agent", "Manager"],
+        children: [
+          {
+            to: "/incidents",
+            label: "Incidents",
+            icon: AlertTriangleIcon,
+          },
+          {
+            to: "/problems",
+            label: "Problems",
+            icon: ClipboardListIcon,
+          },
+        ],
+      },
+      {
+        to: "/requests",
+        label: "Requests",
+        icon: ListTodoIcon,
+        roles: ["Admin", "Agent", "EndUser", "Manager"],
+      },
+      {
+        to: "/changes",
+        label: "Changes",
+        icon: GitBranchIcon,
+        roles: ["Admin", "Agent", "Manager"],
+      },
+      {
+        to: "/assets",
+        label: "Assets",
+        icon: PackageIcon,
+        roles: ["Admin"],
       },
     ],
-  },
-  {
-    to: "/requests",
-    label: "Requests",
-    icon: ListTodoIcon,
-    roles: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     to: "/admin/knowledge",
@@ -133,6 +197,12 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["Admin"],
   },
   {
+    to: "/catalog",
+    label: "Catalog",
+    icon: LayoutGridIcon,
+    roles: ["Admin", "Agent", "EndUser", "Manager"],
+  },
+  {
     to: "/portal",
     label: "My Portal",
     icon: LifeBuoyIcon,
@@ -144,18 +214,6 @@ const NAV_ITEMS: NavItem[] = [
     icon: BookOpenIcon,
     // Admin uses the merged /admin/knowledge browse + authoring page
     roles: ["Agent", "EndUser"],
-  },
-  {
-    to: "/catalog",
-    label: "Catalog",
-    icon: LayoutGridIcon,
-    roles: ["Admin", "Agent", "EndUser", "Manager"],
-  },
-  {
-    to: "/changes",
-    label: "Changes",
-    icon: GitBranchIcon,
-    roles: ["Admin", "Agent", "Manager"],
   },
   {
     to: "/approvals",
@@ -224,15 +282,14 @@ function SidebarLink({
 function SidebarNavGroup({
   item,
   collapsed,
+  nested = false,
 }: {
-  item: NavGroupItem;
+  item: NavGroupItem | (NavChildGroup & { roles?: UserRole[] });
   collapsed: boolean;
+  nested?: boolean;
 }) {
   const location = useLocation();
-  const childActive = item.children.some(
-    (child) =>
-      location.pathname === child.to || location.pathname.startsWith(`${child.to}/`),
-  );
+  const childActive = groupHasActivePath(item.children, location.pathname);
   const [open, setOpen] = useState(childActive);
   const Icon = item.icon;
 
@@ -240,11 +297,11 @@ function SidebarNavGroup({
     if (childActive) setOpen(true);
   }, [childActive]);
 
-  // Collapsed: show child links as icon-only (first child as primary shortcut)
+  // Collapsed: flatten to leaf link icons
   if (collapsed) {
     return (
       <div className="flex flex-col gap-1">
-        {item.children.map((child) => (
+        {collectLeafLinks(item.children).map((child) => (
           <SidebarLink
             key={child.to}
             to={child.to}
@@ -267,6 +324,7 @@ function SidebarNavGroup({
           "text-sidebar-item-foreground",
           "hover:bg-sidebar-item-hover hover:text-sidebar-item-hover-foreground hover:font-bold",
           childActive && "font-bold",
+          nested && "py-2 text-[13px]",
         )}
         aria-expanded={open}
         title={item.label}
@@ -289,16 +347,30 @@ function SidebarNavGroup({
         />
       </button>
       {open ? (
-        <div className="ml-3 flex flex-col gap-0.5 border-l border-sidebar-border pl-2">
-          {item.children.map((child) => (
-            <SidebarLink
-              key={child.to}
-              to={child.to}
-              label={child.label}
-              icon={child.icon}
-              collapsed={false}
-            />
-          ))}
+        <div
+          className={cn(
+            "ml-3 flex flex-col gap-0.5 border-l border-sidebar-border pl-2",
+            nested && "ml-2",
+          )}
+        >
+          {item.children.map((child) =>
+            child.kind === "group" ? (
+              <SidebarNavGroup
+                key={child.id}
+                item={child}
+                collapsed={false}
+                nested
+              />
+            ) : (
+              <SidebarLink
+                key={child.to}
+                to={child.to}
+                label={child.label}
+                icon={child.icon}
+                collapsed={false}
+              />
+            ),
+          )}
         </div>
       ) : null}
     </div>
@@ -313,7 +385,15 @@ export function AppSidebar({
   onToggle: () => void;
 }) {
   const role = useAuthStore((s) => s.user?.role);
-  const items = NAV_ITEMS.filter((item) => (role ? item.roles.includes(role) : false));
+  const items = NAV_ITEMS.flatMap((item) => {
+    if (!roleAllows(item.roles, role)) return [];
+    if (item.kind === "group") {
+      const children = filterGroupChildren(item.children, role);
+      if (children.length === 0) return [];
+      return [{ ...item, children }];
+    }
+    return [item];
+  });
 
   return (
     <aside

@@ -27,7 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateIncident } from "@/hooks/use-tickets";
+import { useAgents, useCreateIncident } from "@/hooks/use-tickets";
+import { useAuthStore } from "@/stores/auth-store";
 import {
   INCIDENT_CATEGORIES,
   calculatePriority,
@@ -36,6 +37,7 @@ import {
 } from "@/types/itsm";
 
 const LEVELS = ["Low", "Medium", "High"] as const;
+const NONE = "__none__";
 
 const createIncidentSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters").max(120),
@@ -45,6 +47,7 @@ const createIncidentSchema = z.object({
   urgency: z.enum(LEVELS),
   projectId: z.string().uuid().optional(),
   moduleId: z.string().uuid().optional(),
+  assignedTo: z.string().uuid().optional(),
 });
 
 type CreateIncidentForm = z.infer<typeof createIncidentSchema>;
@@ -56,6 +59,9 @@ export function CreateIncidentDialog({
 }) {
   const [open, setOpen] = useState(false);
   const createIncident = useCreateIncident();
+  const role = useAuthStore((s) => s.user?.role);
+  const canAssign =
+    role === "Admin" || role === "Agent" || role === "Manager";
 
   const form = useForm<CreateIncidentForm>({
     resolver: zodResolver(createIncidentSchema),
@@ -67,20 +73,29 @@ export function CreateIncidentDialog({
       urgency: "Medium",
       projectId: undefined,
       moduleId: undefined,
+      assignedTo: undefined,
     },
   });
 
   const impact = useWatch({ control: form.control, name: "impact" }) as Impact;
   const urgency = useWatch({ control: form.control, name: "urgency" }) as Urgency;
   const projectId = useWatch({ control: form.control, name: "projectId" });
+  const { data: agents = [] } = useAgents(projectId, { enabled: canAssign });
   const previewPriority = calculatePriority(impact, urgency);
 
   async function onSubmit(values: CreateIncidentForm) {
     try {
       const created = await createIncident.mutateAsync({
-        ...values,
+        title: values.title,
+        description: values.description,
+        category: values.category,
+        impact: values.impact,
+        urgency: values.urgency,
         projectId: values.projectId ?? null,
         moduleId: values.projectId ? (values.moduleId ?? null) : null,
+        ...(canAssign && values.assignedTo
+          ? { assignedTo: values.assignedTo }
+          : {}),
       });
       toast.success(`Incident ${created.id} created`, {
         description: `Priority ${created.priority} assigned automatically.`,
@@ -135,8 +150,63 @@ export function CreateIncidentDialog({
             projectField="projectId"
             moduleField="moduleId"
             projectId={projectId}
-            onProjectChange={() => form.setValue("moduleId", undefined)}
+            onProjectChange={() => {
+              form.setValue("moduleId", undefined);
+              form.setValue("assignedTo", undefined);
+            }}
           />
+
+          {canAssign ? (
+            <div className="space-y-2">
+              <Label htmlFor="agents-select">Agents</Label>
+              <Controller
+                control={form.control}
+                name="assignedTo"
+                render={({ field }) => (
+                  <Select
+                    items={[
+                      { value: NONE, label: "Unassigned" },
+                      ...agents.map((agent) => ({
+                        value: agent.id,
+                        label: `${agent.name} (${agent.openTicketCount} open)`,
+                      })),
+                    ]}
+                    value={field.value ?? NONE}
+                    onValueChange={(value) => {
+                      field.onChange(
+                        !value || value === NONE ? undefined : value,
+                      );
+                    }}
+                  >
+                    <SelectTrigger id="agents-select">
+                      <SelectValue
+                        placeholder={
+                          agents.length === 0
+                            ? projectId
+                              ? "No project members"
+                              : "No agents"
+                            : "Unassigned"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>Unassigned</SelectItem>
+                      {agents.map((agent) => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          {agent.name} ({agent.openTicketCount} open)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <p className="text-muted-foreground text-xs">
+                {projectId
+                  ? "Pool is this project's Agent members."
+                  : "Global Agent pool (unscoped ticket)."}
+              </p>
+            </div>
+          ) : null}
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">

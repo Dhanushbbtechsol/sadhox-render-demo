@@ -7,8 +7,8 @@
 
 ---
 
-- **Day 26–27:** Types/hooks for project + module; create/edit forms pick project then module (module must belong to project). ✅
-- **Day 28:** List/detail filtered by API (Manager/Agent scope). Round-robin + manual assignee pickers use project members when project set; show global pool only for null-project tickets (Admin). ✅
+- **Day 26–27:** Types/hooks for project + module; create/edit forms pick project then module (module must belong to project). ✅ (create dialogs + detail **edit scope** via `EditTicketProjectScope`)
+- **Day 28:** List/detail filtered by API (Manager/Agent scope) + optional `?projectId=` list filter UI. Round-robin + manual assignee pickers use project members when project set; show global pool only for null-project tickets (Admin). ✅
 - **Day 29:** RBAC walkthrough — Manager sees own project tickets only; Agent only member projects; EndUser unchanged. ✅ (matrix + notes below)
 - **Day 30:** Fix edge cases; hand QA notes. ✅
 
@@ -24,6 +24,8 @@
 
 ### Frontend
 - `useProjects` / `useProjectModules`; create incident + create problem dialogs with project→module cascade
+- Detail edit: `EditTicketProjectScope` on incident + problem detail (PATCH project/module); problem detail shows project/module
+- List: project filter dropdown on `/incidents` and `/problems` (`?projectId=`); project column/badge on rows
 - `useAgents(projectId)` + IncidentActions pool messaging
 - Router/sidebar: Manager can open `/incidents` and `/problems`
 - Seed: `manager@sadhox.local`, project **Core Platform** (Alice as member, module **API**); open showcase incidents attached
@@ -49,11 +51,12 @@
 
 ### Manual checklist
 1. Migrate: apply `0010_phase6_projects_manager`, re-seed
-2. Login Manager → incidents list non-empty (showcase open tickets on Core Platform)
+2. Login Manager → incidents list non-empty (showcase open tickets on Core Platform); project filter narrows queue
 3. Login Agent → same; assign picker shows Alice only for project tickets
 4. Login Admin → create incident with “No project”; Agent cannot open it
 5. Create problem with project+module; appears for Manager/Agent of that project
-6. Portal EndUser create/list still own-only
+6. Detail → edit project/module (Save scope); assignee pool updates after move
+7. Portal EndUser create/list still own-only
 
 ---
 
