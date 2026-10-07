@@ -93,7 +93,7 @@ AI assistants should suggest updates to this file when they notice relevant chan
 - The integration/review branch is `Audit` (local/remote); case variant `audit` may appear in docs.
 - Phases 1–5 feature work is merged; Dev C Phase 5 close-out on `Dev-C` (2026-10-07) — Phase 5 Medium/Low closed in `Docs/Audit/phase5.md` / `Docs/STATUS.md`. Sync to `Audit` before Phase 6 code.
 - Dev tracks: A = Incidents/Problems/portal/ticket–KB links; B = Catalog/Requests/Changes/End-User KB/Admin catalog UI; C = Assets/Admin dashboard/KB authoring/SLA UI/CSV; D = Auth/schema/realtime/jobs/mail/Knowledge+catalog APIs/CI.
-- Phase 6 (Projects / Manager / **Admin User Management**) is in `Docs/Phase/phase6.md`; do not rebuild Knowledge Base. Employee = Agent; Managers approve alongside Admin; Managers are not project_members; user CRUD is Admin-only (still open beyond picker + `PATCH …/role`).
+- Phase 6 (Projects / Manager / **Admin User Management**) is in `Docs/Phase/phase6.md`; do not rebuild Knowledge Base. Employee = Agent; Managers approve alongside Admin; Managers are not project_members; user CRUD is Admin-only (`POST`/`GET`/`PATCH /admin/users` + `/admin/users` UI).
 - `Docs/Audit` holds phased audit reports (`phase1.md` … `phase5.md`) and per-developer folders (`Dev A` … `Dev D`).
 - `Docs/Phase` holds per-developer implementation plans and phase notes; product docs live under `Docs/` (`PRD.md`, `FRD.md`, `Techstack.md`, `Architechture.md`, `Workflow.md`, `STATUS.md`).
 - Drizzle schema lives under `apps/server`, not `packages/db`.

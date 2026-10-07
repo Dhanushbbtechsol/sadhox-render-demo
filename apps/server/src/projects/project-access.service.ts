@@ -1,26 +1,22 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from "@nestjs/common";
-import { and, eq, inArray, isNull, or, SQL, sql } from "drizzle-orm";
+import { ForbiddenException, Inject, Injectable } from "@nestjs/common";
+import { and, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
-import { modules, projectMembers, projects, users } from "../database/schema";
+import { projectMembers, projects } from "../database/schema";
 
 type AccessUser = Pick<AuthUser, "userId" | "role">;
 
 /**
- * Resource-level project ACL (Phase 6).
- * Guards alone are not enough — every ticket list/get must call these helpers.
+ * Phase 6 AuthZ — design authority Docs/Phase/phase6.md:
+ * - Admin → always
+ * - Manager → projects.manager_id = user.id
+ * - Agent → row in project_members
+ * - EndUser → N/A for project lists
  *
- * Reachable product states are single-role. Manager ownership and Agent
- * membership paths are still OR'd as defense-in-depth (e.g. stale membership
- * after Agent→Manager promotion — cleared by AdminService.updateUserRole).
+ * Reachable product states are single-role. Both data paths are still OR'd
+ * as defense-in-depth (e.g. stale membership after Agent→Manager promotion).
  */
 @Injectable()
 export class ProjectAccessService {
@@ -70,12 +66,10 @@ export class ProjectAccessService {
 
   async assertCanAccess(
     user: AccessUser,
-    projectId: string | null | undefined,
+    projectId: string,
   ): Promise<void> {
-    const ok = await this.canAccess(user, projectId);
-    if (!ok) {
-      throw new ForbiddenException("Cannot access this project");
-    }
+    if (await this.canAccess(user, projectId)) return;
+    throw new ForbiddenException("Cannot access this project");
   }
 
   /**
@@ -111,13 +105,11 @@ export class ProjectAccessService {
         "Null-project tickets require Admin approval",
       );
     }
-    throw new ForbiddenException("Not allowed to approve for this project");
+    throw new ForbiddenException(
+      "Not allowed to approve for this project",
+    );
   }
 
-  /**
-   * Project IDs the user may see.
-   * Admin: all project ids. EndUser: []. Manager/Agent: owned ∪ memberships.
-   */
   async listAccessibleProjectIds(user: AccessUser): Promise<string[]> {
     if (user.role === "Admin") {
       const rows = await this.db.select({ id: projects.id }).from(projects);
@@ -127,6 +119,7 @@ export class ProjectAccessService {
       return [];
     }
 
+    // Union both paths (manager_id + project_members).
     const owned = await this.db
       .select({ id: projects.id })
       .from(projects)
@@ -138,7 +131,10 @@ export class ProjectAccessService {
       .where(eq(projectMembers.userId, user.userId));
 
     return [
-      ...new Set([...owned.map((r) => r.id), ...member.map((r) => r.id)]),
+      ...new Set([
+        ...owned.map((r) => r.id),
+        ...member.map((r) => r.id),
+      ]),
     ];
   }
 
@@ -195,54 +191,5 @@ export class ProjectAccessService {
     }
 
     await this.assertCanAccess(user, projectId);
-  }
-
-  /**
-   * Resolve optional project/module on create. Module must belong to project.
-   */
-  async resolveProjectModule(input: {
-    projectId?: string | null;
-    moduleId?: string | null;
-  }): Promise<{ projectId: string | null; moduleId: string | null }> {
-    const projectId = input.projectId ?? null;
-    const moduleId = input.moduleId ?? null;
-
-    if (!projectId && moduleId) {
-      throw new BadRequestException("moduleId requires projectId");
-    }
-
-    if (projectId) {
-      const [project] = await this.db
-        .select({ id: projects.id })
-        .from(projects)
-        .where(eq(projects.id, projectId))
-        .limit(1);
-      if (!project) throw new NotFoundException("Project not found");
-    }
-
-    if (moduleId && projectId) {
-      const [mod] = await this.db
-        .select({ id: modules.id, projectId: modules.projectId })
-        .from(modules)
-        .where(eq(modules.id, moduleId))
-        .limit(1);
-      if (!mod) throw new NotFoundException("Module not found");
-      if (mod.projectId !== projectId) {
-        throw new BadRequestException("Module does not belong to project");
-      }
-    }
-
-    return { projectId, moduleId };
-  }
-
-  async assertAgentMember(userId: string): Promise<void> {
-    const [user] = await this.db
-      .select({ role: users.role })
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-    if (!user || user.role !== "Agent") {
-      throw new BadRequestException("Only Agents can be project members");
-    }
   }
 }

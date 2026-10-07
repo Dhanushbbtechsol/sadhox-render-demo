@@ -1,22 +1,8 @@
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { ProjectAccessService } from "./project-access.service";
 import { ProjectScopeService } from "./project-scope.service";
 import { ProjectsService } from "./projects.service";
-
-const admin = {
-  userId: "admin-1",
-  email: "a@x",
-  name: "Admin",
-  role: "Admin" as const,
-};
-
-const manager = {
-  userId: "mgr-1",
-  email: "m@x",
-  name: "Mgr",
-  role: "Manager" as const,
-};
 
 describe("ProjectsService.addMember (Phase 6)", () => {
   it("rejects Manager as project member", async () => {
@@ -28,154 +14,71 @@ describe("ProjectsService.addMember (Phase 6)", () => {
           })),
         })),
       })),
-      insert: vi.fn(() => ({
-        values: vi.fn(() => ({
-          onConflictDoNothing: vi.fn(async () => undefined),
-        })),
-      })),
+      insert: vi.fn(),
       _queue: [
-        {
-          id: "proj-1",
-          name: "P",
-          managerId: "mgr-1",
-          createdAt: new Date(),
-          managerName: "Mgr",
-        },
-        { id: "user-mgr", name: "M", email: "m@x", role: "Manager" },
+        [{ id: "proj-1" }],
+        [{ id: "user-mgr", role: "Manager" }],
       ] as unknown[],
     };
-    // loadProject join shape for first select; assertUserRole for second
-    db.select = vi.fn(() => ({
-      from: vi.fn(() => ({
-        leftJoin: vi.fn(() => ({
-          where: vi.fn(() => ({
-            limit: vi.fn(async () => [
-              {
-                project: {
-                  id: "proj-1",
-                  name: "P",
-                  managerId: "mgr-1",
-                  createdAt: new Date(),
-                },
-                managerName: "Mgr",
-              },
-            ]),
-          })),
-        })),
-        where: vi.fn(() => ({
-          limit: vi.fn(async () => [
-            { id: "user-mgr", name: "M", email: "m@x", role: "Manager" },
-          ]),
-        })),
-      })),
-    }));
-    const svc = new ProjectsService(
-      db as never,
-      {} as unknown as ProjectAccessService,
-    );
+    const scope = new ProjectScopeService(db as never);
+    const access = new ProjectAccessService(db as never);
+    const svc = new ProjectsService(db as never, scope, access);
 
     await expect(
-      svc.addMember(admin, "proj-1", { userId: "user-mgr" }),
+      svc.addMember("proj-1", { userId: "user-mgr" }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(db.insert).not.toHaveBeenCalled();
   });
 
   it("rejects Admin as project member", async () => {
     const db = {
-      insert: vi.fn(() => ({
-        values: vi.fn(() => ({
-          onConflictDoNothing: vi.fn(async () => undefined),
-        })),
-      })),
       select: vi.fn(() => ({
         from: vi.fn(() => ({
-          leftJoin: vi.fn(() => ({
-            where: vi.fn(() => ({
-              limit: vi.fn(async () => [
-                {
-                  project: {
-                    id: "proj-1",
-                    name: "P",
-                    managerId: "mgr-1",
-                    createdAt: new Date(),
-                  },
-                  managerName: "Mgr",
-                },
-              ]),
-            })),
-          })),
           where: vi.fn(() => ({
-            limit: vi.fn(async () => [
-              {
-                id: "user-admin",
-                name: "A",
-                email: "a@x",
-                role: "Admin",
-              },
-            ]),
+            limit: vi.fn(async () => db._queue.shift()),
           })),
         })),
       })),
+      insert: vi.fn(),
+      _queue: [[{ id: "proj-1" }], [{ id: "user-admin", role: "Admin" }]],
     };
-    const svc = new ProjectsService(
-      db as never,
-      {} as unknown as ProjectAccessService,
-    );
+    const scope = new ProjectScopeService(db as never);
+    const access = new ProjectAccessService(db as never);
+    const svc = new ProjectsService(db as never, scope, access);
 
     await expect(
-      svc.addMember(admin, "proj-1", { userId: "user-admin" }),
+      svc.addMember("proj-1", { userId: "user-admin" }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("allows Agent membership insert", async () => {
     const db = {
-      insert: vi.fn(() => ({
-        values: vi.fn(() => ({
-          onConflictDoNothing: vi.fn(async () => undefined),
-        })),
-      })),
       select: vi.fn(() => ({
         from: vi.fn(() => ({
-          leftJoin: vi.fn(() => ({
-            where: vi.fn(() => ({
-              limit: vi.fn(async () => [
-                {
-                  project: {
-                    id: "proj-1",
-                    name: "P",
-                    managerId: "mgr-1",
-                    createdAt: new Date(),
-                  },
-                  managerName: "Mgr",
-                },
-              ]),
-            })),
-          })),
           where: vi.fn(() => ({
-            limit: vi.fn(async () => [
-              {
-                id: "user-agent",
-                name: "Agent",
-                email: "ag@x",
-                role: "Agent",
-              },
-            ]),
+            limit: vi.fn(async () => db._queue.shift()),
           })),
         })),
       })),
+      insert: vi.fn(() => ({
+        values: vi.fn(() => ({
+          returning: vi.fn(async () => [
+            { projectId: "proj-1", userId: "user-agent" },
+          ]),
+        })),
+      })),
+      _queue: [[{ id: "proj-1" }], [{ id: "user-agent", role: "Agent" }]],
     };
-    const svc = new ProjectsService(
-      db as never,
-      {} as unknown as ProjectAccessService,
-    );
+    const scope = new ProjectScopeService(db as never);
+    const access = new ProjectAccessService(db as never);
+    const svc = new ProjectsService(db as never, scope, access);
 
     await expect(
-      svc.addMember(admin, "proj-1", { userId: "user-agent" }),
-    ).resolves.toMatchObject({
+      svc.addMember("proj-1", { userId: "user-agent" }),
+    ).resolves.toEqual({
+      projectId: "proj-1",
       userId: "user-agent",
-      role: "Agent",
     });
-    expect(db.insert).toHaveBeenCalled();
   });
 });
 
@@ -183,35 +86,31 @@ describe("ProjectsService CRUD role rules", () => {
   it("list: EndUser gets id+name only (no managerId)", async () => {
     const db = {
       select: vi.fn(() => ({
-        from: vi.fn(() => ({
-          orderBy: vi.fn(async () => [
-            { id: "proj-1", name: "Alpha" },
-            { id: "proj-2", name: "Beta" },
-          ]),
-        })),
+        from: vi.fn(async () => [
+          { id: "proj-1", name: "Alpha" },
+          { id: "proj-2", name: "Beta" },
+        ]),
       })),
     };
-    const access = {
-      listAccessibleProjectIds: vi.fn(),
-      canAccess: vi.fn(),
-    };
+    const listAccessibleProjectIds = vi.fn();
     const svc = new ProjectsService(
       db as never,
-      access as unknown as ProjectAccessService,
+      {} as never,
+      { listAccessibleProjectIds } as unknown as ProjectAccessService,
     );
 
-    const result = await svc.list({
+    const rows = await svc.list({
       userId: "eu-1",
       email: "e@x",
       name: "Eve",
       role: "EndUser",
     });
-    expect(result.data).toEqual([
+    expect(rows).toEqual([
       { id: "proj-1", name: "Alpha" },
       { id: "proj-2", name: "Beta" },
     ]);
-    expect(result.data[0]).not.toHaveProperty("managerId");
-    expect(access.listAccessibleProjectIds).not.toHaveBeenCalled();
+    expect(rows[0]).not.toHaveProperty("managerId");
+    expect(listAccessibleProjectIds).not.toHaveBeenCalled();
   });
 
   it("listModules: EndUser gets picker fields without canAccess", async () => {
@@ -223,18 +122,18 @@ describe("ProjectsService CRUD role rules", () => {
           return {
             from: vi.fn(() => ({
               where: vi.fn(() => ({
-                limit: vi.fn(async () => [{ id: "proj-1" }]),
+                limit: vi.fn(async () => [
+                  { id: "proj-1", name: "P", managerId: "mgr" },
+                ]),
               })),
             })),
           };
         }
         return {
           from: vi.fn(() => ({
-            where: vi.fn(() => ({
-              orderBy: vi.fn(async () => [
-                { id: "mod-1", name: "Core", projectId: "proj-1" },
-              ]),
-            })),
+            where: vi.fn(async () => [
+              { id: "mod-1", name: "Core", projectId: "proj-1" },
+            ]),
           })),
         };
       }),
@@ -245,10 +144,11 @@ describe("ProjectsService CRUD role rules", () => {
     };
     const svc = new ProjectsService(
       db as never,
+      {} as never,
       access as unknown as ProjectAccessService,
     );
 
-    const result = await svc.listModules(
+    const rows = await svc.listModules(
       {
         userId: "eu-1",
         email: "e@x",
@@ -257,7 +157,7 @@ describe("ProjectsService CRUD role rules", () => {
       },
       "proj-1",
     );
-    expect(result.data).toEqual([
+    expect(rows).toEqual([
       { id: "mod-1", name: "Core", projectId: "proj-1" },
     ]);
     expect(access.canAccess).not.toHaveBeenCalled();
@@ -271,48 +171,57 @@ describe("ProjectsService CRUD role rules", () => {
     const db = {
       select: vi.fn(() => ({
         from: vi.fn(() => ({
-          leftJoin: vi.fn(() => ({
-            where: vi.fn(() => ({
-              orderBy: vi.fn(async () => [
-                {
-                  project: {
-                    id: "proj-own",
-                    name: "Mine",
-                    managerId: "mgr-1",
-                    createdAt: new Date(),
-                  },
-                  managerName: "Mgr",
-                },
-              ]),
-            })),
+          where: vi.fn(async () => [
+            { id: "proj-own", name: "Mine", managerId: "mgr-1" },
+          ]),
+        })),
+      })),
+    };
+    const svc = new ProjectsService(
+      db as never,
+      {} as never,
+      access as unknown as ProjectAccessService,
+    );
+
+    const rows = await svc.list({
+      userId: "mgr-1",
+      email: "m@x",
+      name: "Mgr",
+      role: "Manager",
+    });
+    expect(access.listAccessibleProjectIds).toHaveBeenCalled();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.id).toBe("proj-own");
+  });
+
+  it("getById: Manager forbidden on inaccessible project", async () => {
+    const access = {
+      listAccessibleProjectIds: vi.fn(),
+      canAccess: vi.fn(async () => false),
+    };
+    const db = {
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            limit: vi.fn(async () => [
+              { id: "proj-other", name: "Other", managerId: "other" },
+            ]),
           })),
         })),
       })),
     };
     const svc = new ProjectsService(
       db as never,
-      access as unknown as ProjectAccessService,
-    );
-
-    const result = await svc.list(manager);
-    expect(access.listAccessibleProjectIds).toHaveBeenCalled();
-    expect(result.data).toHaveLength(1);
-    expect(result.data[0]?.id).toBe("proj-own");
-  });
-
-  it("get: Manager forbidden on inaccessible project", async () => {
-    const access = {
-      listAccessibleProjectIds: vi.fn(),
-      canAccess: vi.fn(async () => false),
-    };
-    const svc = new ProjectsService(
       {} as never,
       access as unknown as ProjectAccessService,
     );
 
-    await expect(svc.get(manager, "proj-other")).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      svc.getById(
+        { userId: "mgr-1", email: "m@x", name: "Mgr", role: "Manager" },
+        "proj-other",
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it("create rejects non-Manager managerId", async () => {
@@ -320,9 +229,7 @@ describe("ProjectsService CRUD role rules", () => {
       select: vi.fn(() => ({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn(async () => [
-              { id: "agent-1", name: "A", email: "a@x", role: "Agent" },
-            ]),
+            limit: vi.fn(async () => [{ id: "agent-1", role: "Agent" }]),
           })),
         })),
       })),
@@ -330,10 +237,11 @@ describe("ProjectsService CRUD role rules", () => {
     };
     const svc = new ProjectsService(
       db as never,
-      {} as unknown as ProjectAccessService,
+      {} as never,
+      {} as never,
     );
     await expect(
-      svc.create(admin, { name: "X", managerId: "agent-1" }),
+      svc.create({ name: "X", managerId: "agent-1" }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(db.insert).not.toHaveBeenCalled();
   });

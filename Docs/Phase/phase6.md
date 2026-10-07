@@ -1,6 +1,6 @@
 # Phase 6 — Projects, Modules, Manager Role & User Management
 
-**Status:** in progress — Dev D backend Day 30 checkpoint (local); Dev A + Dev B foundation landed (2026-10-07); Dev C projects UI landed; **Admin User Management still missing** (only picker `GET` + `PATCH …/role`); staging/TL migrate deferred to production go-live
+**Status:** in progress — Dev C Admin `/admin/users` CRUD UI and create/get/patch APIs landed (2026-10-07); staging/TL migrate deferred to production go-live
 
 **Prerequisite:** close Phase 5 open gaps first (`Docs/Audit/phase5.md`) — SLA rules API, Admin Knowledge `{ data }` unwrap, kill silent DEV mock write fallbacks. **Do not rebuild Knowledge Base.**
 
@@ -63,9 +63,9 @@ Optional later: project-scoped Knowledge — **out of this phase unless explicit
 
 ---
 
-## User Management (Admin) — **add / still open**
+## User Management (Admin)
 
-Hierarchy already says Admin owns users; Phase 6 only shipped picker + role patch. Finish org user CRUD:
+Hierarchy already says Admin owns users. Org user CRUD:
 
 | Surface | Notes |
 |---------|--------|

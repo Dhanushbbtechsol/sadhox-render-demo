@@ -1,6 +1,6 @@
 # Phase 6 API contract freeze (Dev D → Devs A / B / C)
 
-**Frozen:** 2026-10-07  
+**Frozen:** 2026-10-07 (roles synced to live controllers after Phase 6 audit remediations)  
 **Runtime Swagger UI:** `http://localhost:3000/docs` (`NODE_ENV !== production`)  
 **Handoff narrative:** [Docs/Phase/Dev D/phase6-handoff.md](../Phase/Dev%20D/phase6-handoff.md)  
 **Design authority:** [Docs/Phase/phase6.md](../Phase/phase6.md)
@@ -14,21 +14,21 @@ This document freezes the Phase 6 surfaces for client wiring. Request/response f
 | Admin | all | all (including `projectId = null`) | global Agents when ticket has no project |
 | Manager | `projects.manager_id = self` | only projects they own; **null project → Admin-only** | n/a (Managers are not assignees) |
 | Agent | `project_members` rows | no | ticket `projectId` set → that project's members; else global Agents |
-| EndUser | n/a (own tickets) | no | n/a |
+| EndUser | picker: all project `id`+`name` (no manager identities); own tickets | no | n/a |
 
 ## Projects (`/projects`)
 
 | Method | Path | Roles | Notes |
 | --- | --- | --- | --- |
 | POST | `/projects` | Admin | body: `name`, `managerId` (must be role Manager) |
-| GET | `/projects` | Admin, Manager, Agent, EndUser | Admin: all; Manager/Agent: accessible; EndUser: `{ id, name }` picker only |
-| GET | `/projects/:id` | Admin, Manager | Manager requires access |
+| GET | `/projects` | Admin, Manager, Agent, EndUser | Admin: all full; Manager/Agent: accessible full; EndUser: `{ id, name }` picker only |
+| GET | `/projects/:id` | Admin, Manager, Agent | requires `canAccess` for non-Admin |
 | PATCH | `/projects/:id` | Admin | `name?`, `managerId?` |
 | DELETE | `/projects/:id` | Admin | |
-| GET | `/projects/:id/members` | Admin, Manager | |
+| GET | `/projects/:id/members` | Admin, Manager, Agent | access-checked |
 | POST | `/projects/:id/members` | Admin | body `{ userId }` — **Agent only** |
 | DELETE | `/projects/:id/members/:userId` | Admin | |
-| GET | `/projects/:id/modules` | Admin, Manager, Agent, EndUser | EndUser: existence + `{ id, name, projectId }` picker |
+| GET | `/projects/:id/modules` | Admin, Manager, Agent, EndUser | EndUser: project exists + `{ id, name, projectId }` picker; others access-checked |
 | POST | `/projects/:id/modules` | Admin | body `{ name }` |
 | PATCH | `/projects/:id/modules/:moduleId` | Admin | body `{ name }` |
 | DELETE | `/projects/:id/modules/:moduleId` | Admin | |
@@ -38,9 +38,9 @@ This document freezes the Phase 6 surfaces for client wiring. Request/response f
 | Method | Path | Roles | Status | Notes |
 | --- | --- | --- | --- | --- |
 | GET | `/admin/users` | Admin | landed (pickers) | optional `?role=`; `{ data }` **no** password hashes |
-| POST | `/admin/users` | Admin | **open** | body `name`, `email`, `password`, `role`; unique email → 409 |
-| GET | `/admin/users/:id` | Admin | **open** | same public fields as list row |
-| PATCH | `/admin/users/:id` | Admin | **open** | `name?`, `email?`, `password?`, `role?`; role→Manager clears `project_members` |
+| POST | `/admin/users` | Admin | landed | body `name`, `email`, `password`, `role`; unique email → 409 |
+| GET | `/admin/users/:id` | Admin | landed | same public fields as list row |
+| PATCH | `/admin/users/:id` | Admin | landed | `name?`, `email?`, `password?`, `role?`; role→Manager clears `project_members` |
 | PATCH | `/admin/users/:id/role` | Admin | landed | thin role-only write; prefer folding into PATCH body when clients move |
 
 Non-Admin → 403; unauthenticated → 401. UI: Admin `/admin/users` (Dev C).
@@ -84,10 +84,11 @@ Shared helper: `buildTicketProjectListFilter` + `ProjectAccessService.listAccess
 
 | Helper | Location | Use |
 | --- | --- | --- |
-| `ProjectAccessService.canAccess` | `apps/server/src/projects/project-access.service.ts` | resource ACL (OR of manager_id + membership) |
+| `ProjectAccessService.canAccess` / `assertCanAccess` | `apps/server/src/projects/project-access.service.ts` | resource ACL (OR of manager_id + membership) |
 | `ProjectAccessService.canApprove` / `assertCanApprove` | same | approval ownership (manager_id only) |
 | `listAccessibleProjectIds` | same | list filters |
 | `buildTicketProjectListFilter` | `apps/server/src/projects/project-list-scope.ts` | SQL predicate for ticket lists |
+| `ProjectScopeService.resolveTicketProjectScope` | `apps/server/src/projects/project-scope.service.ts` | module ∈ project validation |
 
 ## Explicitly not frozen / out of scope
 
@@ -96,4 +97,4 @@ Shared helper: `buildTicketProjectListFilter` + `ProjectAccessService.listAccess
 - Org-chart `users.manager_id`  
 - Manager as ticket assignee via membership  
 - Manager/Agent user CRUD; soft-delete / `is_active`  
-- Staging/TL migrate without explicit go-ahead (Day 30)
+- Staging/TL migrate without explicit go-ahead (deferred to production go-live)

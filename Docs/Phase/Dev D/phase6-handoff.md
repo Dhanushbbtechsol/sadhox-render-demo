@@ -31,10 +31,10 @@ DTO field shapes follow the live Swagger document; path/method/role freeze is th
 | Method | Path | Roles |
 | --- | --- | --- |
 | `POST` | `/projects` | Admin — body `{ name, managerId }` (`managerId` must be role Manager) |
-| `GET` | `/projects` | Admin (all), Manager (own/accessible) |
-| `GET` | `/projects/:id` | Admin, Manager (access-checked) |
+| `GET` | `/projects` | Admin (all full); Manager/Agent (accessible full); EndUser (`{ id, name }` picker only) |
+| `GET` | `/projects/:id` | Admin, Manager, Agent (access-checked) |
 | `PATCH` / `DELETE` | `/projects/:id` | Admin |
-| Members / modules CRUD | under `/projects/:id/...` | Admin writes; Admin+Manager reads |
+| Members / modules | under `/projects/:id/...` | Admin writes; Admin+Manager+Agent read members; EndUser may list modules as picker fields |
 
 `project_members` accepts **Agent** users only (service validation). Managers supervise via `projects.manager_id`, not membership.
 
@@ -42,8 +42,9 @@ DTO field shapes follow the live Swagger document; path/method/role freeze is th
 
 ## ProjectAccess helpers
 
-**Service:** `ProjectAccessService` (`canAccess`, `listAccessibleProjectIds`, `canApprove` / `assertCanApprove`)  
-**List SQL helper:** `buildTicketProjectListFilter`
+**Service:** `ProjectAccessService` (`canAccess` / `assertCanAccess`, `listAccessibleProjectIds`, `canApprove` / `assertCanApprove`)  
+**List SQL helper:** `buildTicketProjectListFilter`  
+**Module validation:** `ProjectScopeService.resolveTicketProjectScope`
 
 | Helper | Rule |
 | --- | --- |
@@ -55,10 +56,10 @@ DTO field shapes follow the live Swagger document; path/method/role freeze is th
 
 ## Assignment pool
 
-**Service:** `AssignmentService.assignNextAgent`  
+**Service:** `AssignmentService.assignNextAgent` / `listAgents`  
 - Ticket **with** `projectId` → eligible pool = that project's `project_members` (Agents)  
 - Ticket **without** → global Agent pool (unchanged least-loaded + advisory lock)  
-- `GET /assignment/agents?projectId=` for UI pool preview
+- `GET /assignment/agents?projectId=` for UI pool preview — **requires** `assertCanAccess` when `projectId` is set (Admin/Agent/Manager)
 
 ---
 

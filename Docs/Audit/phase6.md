@@ -3,9 +3,9 @@
 Scope: Projects / `Manager` / resource ACL on `Audit`. Stack: NestJS + Drizzle + Passport JWT + React/Vite.
 
 **Open findings: 0 Critical · 0 High · 0 Medium · 0 Low** (Dev D Phase 6 closed).  
-**Status:** Dev A / B / C / D Phase 6 security findings **CLEAN**. Product gaps (Admin User Management CRUD, go-live) remain in [STATUS.md](../STATUS.md) — not security findings here.  
-**Dev A:** CLEAN — see [Dev A/phase6.md](./Dev%20A/phase6.md).  
-**Dev B:** CLEAN — see [Dev B/phase6.md](./Dev%20B/phase6.md).  
+**Status:** Dev A / B / C / D Phase 6 security findings **CLEAN**. Product gaps (go-live) remain in [STATUS.md](../STATUS.md) — not security findings here. Admin project UI and Manager home landed with Dev-C; Dev D Phase 6 audit remediations included.  
+**Dev A:** CLEAN (pass 2, 2026-10-07) — see [Dev A/phase6.md](./Dev%20A/phase6.md).  
+**Dev B:** CLEAN — High + catalog Low closed — see [Dev B/phase6.md](./Dev%20B/phase6.md).  
 **Dev C:** CLEAN — see [Dev C/phase6.md](./Dev%20C/phase6.md).  
 **Dev D:** CLEAN — see [Dev D/phase6.md](./Dev%20D/phase6.md).
 
@@ -27,15 +27,15 @@ No `.review.yml` (Sonar defaults).
 
 ### [A01] EndUser project list exposes managers — Dev D — **FIXED**
 
-EndUser `list` → `{ id, name }` only.
+EndUser `GET /projects` / `list` → `{ id, name }` only.
 
 ### [A01] EndUser module list IDOR — Dev D — **FIXED**
 
-EndUser `listModules` → existence + picker fields (`id`, `name`, `projectId`).
+EndUser `listModules` → project-exists check + picker fields (`id`, `name`, `projectId`); other roles still access-scoped.
 
 ### [A04] RBAC matrix ≠ resource ACL — Dev D — **FIXED**
 
-`manager-project-acl.matrix.spec.ts` + `AssignmentController` in `rbac-matrix.spec.ts` + agents ACL specs.
+`manager-project-acl.matrix.spec.ts` + `AssignmentController` in `rbac-matrix.spec.ts` + Manager approve × own/other/null + `listAgents` ACL specs.
 
 ## Low / Hardening
 
@@ -65,6 +65,11 @@ EndUser `listModules` → existence + picker fields (`id`, `name`, `projectId`).
 - Seed Manager uses generated/SEED_PASSWORD + bcrypt 12 (not a fixed weak default)
 - Web project hooks unwrap `{ data }`
 
+## Dev C (landed on this branch)
+
+- Admin `/admin/projects` CRUD (members + modules)
+- Manager home KPIs and server-scoped charts (`GET /manager/dashboard/stats` and `/charts`)
+
 ## Review checklist (Sonar)
 
 1. Manager approve other project / null project → 403; own → 200.
@@ -80,7 +85,7 @@ EndUser `listModules` → existence + picker fields (`id`, `name`, `projectId`).
 ## Not checked / out of scope
 
 - Full Playwright Phase 6 walkthrough
-- Admin User Management CRUD (product gap, not ACL finding)
+- Admin User Management product completeness beyond landed CRUD (product gap, not ACL finding)
 - `pnpm-lock.yaml` CVE scan
 - Staging TLS / secret stores
 - Phase 4 Dev D CSRF / throttle carryovers (`Docs/Audit/phase4.md`)

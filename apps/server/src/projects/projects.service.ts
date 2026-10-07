@@ -1,19 +1,20 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { and, asc, count, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import {
   computeSlaComplianceRate,
   resolveChartRange,
   stackOpenClosed,
   type ChartRangePreset,
 } from "../admin/chart-range";
-import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
+import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
@@ -26,384 +27,208 @@ import {
   users,
 } from "../database/schema";
 import { ProjectAccessService } from "./project-access.service";
+import { ProjectScopeService } from "./project-scope.service";
 import type {
   AddProjectMemberDto,
   CreateModuleDto,
   CreateProjectDto,
   UpdateModuleDto,
   UpdateProjectDto,
-} from "./dto/projects.dto";
-
-export type ProjectView = {
-  id: string;
-  name: string;
-  managerId: string;
-  managerName: string | null;
-  createdAt: string;
-};
-
-/** EndUser picker — no manager identities. */
-export type ProjectPickerView = {
-  id: string;
-  name: string;
-};
-
-export type ModuleView = {
-  id: string;
-  projectId: string;
-  name: string;
-};
-
-export type MemberView = {
-  userId: string;
-  name: string;
-  email: string;
-  role: string;
-};
+} from "./dto/project.dto";
 
 @Injectable()
 export class ProjectsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly scope: ProjectScopeService,
     private readonly access: ProjectAccessService,
   ) {}
 
-  async list(
-    user: AuthUser,
-  ): Promise<{ data: ProjectView[] | ProjectPickerView[] }> {
-    // EndUser: all projects as picker DTO only (id + name — no manager leak).
+  async create(dto: CreateProjectDto) {
+    await this.assertManagerUser(dto.managerId);
+    const name = sanitizePlainText(dto.name, 255);
+    if (!name) throw new BadRequestException("Project name is required");
+    const [row] = await this.db
+      .insert(projects)
+      .values({ name, managerId: dto.managerId })
+      .returning();
+    return row;
+  }
+
+  /**
+   * Admin: all projects (full).
+   * Manager/Agent: accessible projects (full).
+   * EndUser: all projects as picker DTO (`id`, `name` only) — no manager identities.
+   */
+  async list(user: AuthUser) {
     if (user.role === "EndUser") {
       const rows = await this.db
         .select({ id: projects.id, name: projects.name })
-        .from(projects)
-        .orderBy(asc(projects.name));
-      return { data: rows };
+        .from(projects);
+      return rows;
     }
-
-    // Admin: all full rows. Manager/Agent: accessible only.
-    const ids =
-      user.role === "Admin"
-        ? null
-        : await this.access.listAccessibleProjectIds(user);
-    const scope =
-      ids === null
-        ? undefined
-        : ids.length === 0
-          ? sql`false`
-          : inArray(projects.id, ids);
-
-    const rows = await this.db
-      .select({
-        project: projects,
-        managerName: users.name,
-      })
-      .from(projects)
-      .leftJoin(users, eq(projects.managerId, users.id))
-      .where(scope)
-      .orderBy(asc(projects.name));
-
-    return {
-      data: rows.map((r) => this.toProjectView(r.project, r.managerName)),
-    };
+    if (user.role === "Admin") {
+      return this.db.select().from(projects);
+    }
+    if (user.role === "Manager" || user.role === "Agent") {
+      const ids = await this.access.listAccessibleProjectIds(user);
+      if (ids.length === 0) return [];
+      return this.db.select().from(projects).where(inArray(projects.id, ids));
+    }
+    throw new ForbiddenException("Insufficient role");
   }
 
-  async get(user: AuthUser, id: string): Promise<ProjectView> {
-    await this.assertCanRead(user, id);
-    return this.loadProject(id);
+  async getById(user: AuthUser, projectId: string) {
+    const row = await this.requireProject(projectId);
+    if (user.role === "Admin") return row;
+    const ok = await this.access.canAccess(user, projectId);
+    if (!ok) {
+      throw new ForbiddenException("No access to this project");
+    }
+    return row;
   }
 
-  async create(user: AuthUser, dto: CreateProjectDto): Promise<ProjectView> {
-    if (user.role !== "Admin") {
-      throw new ForbiddenException("Only Admin can create projects");
+  async update(projectId: string, dto: UpdateProjectDto) {
+    await this.requireProject(projectId);
+    if (dto.managerId !== undefined) {
+      await this.assertManagerUser(dto.managerId);
     }
-    const name = sanitizePlainText(dto.name);
-    if (!name) throw new BadRequestException("Project name is required");
-
-    await this.assertUserRole(dto.managerId, "Manager");
-
-    const [created] = await this.db
-      .insert(projects)
-      .values({
-        name,
-        managerId: dto.managerId,
-      })
-      .returning();
-
-    return this.loadProject(created!.id);
-  }
-
-  async update(
-    user: AuthUser,
-    id: string,
-    dto: UpdateProjectDto,
-  ): Promise<ProjectView> {
-    if (user.role !== "Admin") {
-      throw new ForbiddenException("Only Admin can update projects");
+    if (dto.name === undefined && dto.managerId === undefined) {
+      throw new BadRequestException("No fields to update");
     }
-    await this.loadProject(id);
-
-    if (dto.managerId) {
-      await this.assertUserRole(dto.managerId, "Manager");
-    }
-
     const name =
-      dto.name !== undefined ? sanitizePlainText(dto.name) : undefined;
+      dto.name !== undefined ? sanitizePlainText(dto.name, 255) : undefined;
     if (dto.name !== undefined && !name) {
       throw new BadRequestException("Project name is required");
     }
-
-    await this.db
+    const [row] = await this.db
       .update(projects)
       .set({
         ...(name !== undefined ? { name } : {}),
         ...(dto.managerId !== undefined ? { managerId: dto.managerId } : {}),
       })
-      .where(eq(projects.id, id));
-
-    return this.loadProject(id);
+      .where(eq(projects.id, projectId))
+      .returning();
+    return row;
   }
 
-  async remove(id: string): Promise<{ id: string }> {
-    const [existing] = await this.db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.id, id))
-      .limit(1);
-    if (!existing) throw new NotFoundException("Project not found");
-    await this.db.delete(projects).where(eq(projects.id, id));
-    return { id };
-  }
-
-  async listModules(
-    user: AuthUser,
-    projectId: string,
-  ): Promise<{ data: ModuleView[] }> {
-    if (user.role === "EndUser") {
-      // Attachable projects = all (picker). Existence only; return picker fields.
-      const [project] = await this.db
-        .select({ id: projects.id })
-        .from(projects)
-        .where(eq(projects.id, projectId))
-        .limit(1);
-      if (!project) throw new NotFoundException("Project not found");
-    } else {
-      await this.assertCanRead(user, projectId);
+  async remove(projectId: string) {
+    const deleted = await this.db
+      .delete(projects)
+      .where(eq(projects.id, projectId))
+      .returning({ id: projects.id });
+    if (deleted.length === 0) {
+      throw new NotFoundException("Project not found");
     }
-
-    const rows = await this.db
-      .select({
-        id: modules.id,
-        name: modules.name,
-        projectId: modules.projectId,
-      })
-      .from(modules)
-      .where(eq(modules.projectId, projectId))
-      .orderBy(asc(modules.name));
-    return { data: rows };
+    return { ok: true };
   }
 
-  async createModule(
-    user: AuthUser,
-    projectId: string,
-    dto: CreateModuleDto,
-  ): Promise<ModuleView> {
-    if (user.role !== "Admin") {
-      throw new ForbiddenException("Only Admin can create modules");
-    }
-    await this.loadProject(projectId);
-    const name = sanitizePlainText(dto.name);
-    if (!name) throw new BadRequestException("Module name is required");
+  async addMember(projectId: string, dto: AddProjectMemberDto) {
+    await this.scope.assertProjectExists(projectId);
+    // Design authority: service rejects non-Agent inserts; Managers cannot be members.
+    await this.scope.assertUserIsAgentForMembership(dto.userId);
 
     try {
-      const [created] = await this.db
-        .insert(modules)
-        .values({ projectId, name })
+      const [row] = await this.db
+        .insert(projectMembers)
+        .values({ projectId, userId: dto.userId })
         .returning();
-
-      return {
-        id: created!.id,
-        projectId: created!.projectId,
-        name: created!.name,
-      };
+      return row;
     } catch {
-      throw new BadRequestException(
-        "Module name already exists on this project",
-      );
+      throw new ConflictException("User is already a member of this project");
     }
+  }
+
+  async listMembers(user: AuthUser, projectId: string) {
+    await this.getById(user, projectId);
+    return this.db
+      .select({
+        projectId: projectMembers.projectId,
+        userId: projectMembers.userId,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+      })
+      .from(projectMembers)
+      .innerJoin(users, eq(users.id, projectMembers.userId))
+      .where(eq(projectMembers.projectId, projectId));
+  }
+
+  async removeMember(projectId: string, userId: string) {
+    const deleted = await this.db
+      .delete(projectMembers)
+      .where(
+        and(
+          eq(projectMembers.projectId, projectId),
+          eq(projectMembers.userId, userId),
+        ),
+      )
+      .returning({ userId: projectMembers.userId });
+    if (deleted.length === 0) {
+      throw new NotFoundException("Project member not found");
+    }
+    return { ok: true };
+  }
+
+  async createModule(projectId: string, dto: CreateModuleDto) {
+    await this.scope.assertProjectExists(projectId);
+    const name = sanitizePlainText(dto.name, 255);
+    if (!name) throw new BadRequestException("Module name is required");
+    const [row] = await this.db
+      .insert(modules)
+      .values({ projectId, name })
+      .returning();
+    return row;
+  }
+
+  /**
+   * EndUser: project must exist; return picker fields only (`id`, `name`, `projectId`).
+   * Others: require project access, return full module rows.
+   */
+  async listModules(user: AuthUser, projectId: string) {
+    if (user.role === "EndUser") {
+      await this.requireProject(projectId);
+      return this.db
+        .select({
+          id: modules.id,
+          name: modules.name,
+          projectId: modules.projectId,
+        })
+        .from(modules)
+        .where(eq(modules.projectId, projectId));
+    }
+    await this.getById(user, projectId);
+    return this.db
+      .select()
+      .from(modules)
+      .where(eq(modules.projectId, projectId));
   }
 
   async updateModule(
     projectId: string,
     moduleId: string,
     dto: UpdateModuleDto,
-  ): Promise<ModuleView> {
-    await this.assertProjectExists(projectId);
-    const name = sanitizePlainText(dto.name);
-    if (!name) throw new BadRequestException("Name is required");
-
-    const [existing] = await this.db
-      .select()
-      .from(modules)
+  ) {
+    const name = sanitizePlainText(dto.name, 255);
+    if (!name) throw new BadRequestException("Module name is required");
+    const [row] = await this.db
+      .update(modules)
+      .set({ name })
       .where(and(eq(modules.id, moduleId), eq(modules.projectId, projectId)))
-      .limit(1);
-    if (!existing) throw new NotFoundException("Module not found");
-
-    try {
-      const [row] = await this.db
-        .update(modules)
-        .set({ name })
-        .where(eq(modules.id, moduleId))
-        .returning();
-      return {
-        id: row!.id,
-        projectId: row!.projectId,
-        name: row!.name,
-      };
-    } catch {
-      throw new BadRequestException(
-        "Module name already exists on this project",
-      );
-    }
+      .returning();
+    if (!row) throw new NotFoundException("Module not found");
+    return row;
   }
 
-  async removeModule(
-    projectId: string,
-    moduleId: string,
-  ): Promise<{ id: string }> {
-    const [existing] = await this.db
-      .select({ id: modules.id })
-      .from(modules)
+  async removeModule(projectId: string, moduleId: string) {
+    const deleted = await this.db
+      .delete(modules)
       .where(and(eq(modules.id, moduleId), eq(modules.projectId, projectId)))
-      .limit(1);
-    if (!existing) throw new NotFoundException("Module not found");
-    await this.db.delete(modules).where(eq(modules.id, moduleId));
-    return { id: moduleId };
-  }
-
-  async listMembers(
-    user: AuthUser,
-    projectId: string,
-  ): Promise<{ data: MemberView[] }> {
-    await this.assertCanRead(user, projectId);
-    const rows = await this.db
-      .select({
-        userId: users.id,
-        name: users.name,
-        email: users.email,
-        role: users.role,
-      })
-      .from(projectMembers)
-      .innerJoin(users, eq(projectMembers.userId, users.id))
-      .where(eq(projectMembers.projectId, projectId))
-      .orderBy(asc(users.name));
-    return { data: rows };
-  }
-
-  async addMember(
-    user: AuthUser,
-    projectId: string,
-    dto: AddProjectMemberDto,
-  ): Promise<MemberView> {
-    if (user.role !== "Admin") {
-      throw new ForbiddenException("Only Admin can manage project members");
+      .returning({ id: modules.id });
+    if (deleted.length === 0) {
+      throw new NotFoundException("Module not found");
     }
-    await this.loadProject(projectId);
-    const member = await this.assertUserRole(dto.userId, "Agent");
-
-    await this.db
-      .insert(projectMembers)
-      .values({
-        projectId,
-        userId: dto.userId,
-      })
-      .onConflictDoNothing();
-
-    return {
-      userId: member.id,
-      name: member.name,
-      email: member.email,
-      role: member.role,
-    };
-  }
-
-  async removeMember(
-    user: AuthUser,
-    projectId: string,
-    memberUserId: string,
-  ): Promise<{ projectId: string; userId: string }> {
-    if (user.role !== "Admin") {
-      throw new ForbiddenException("Only Admin can manage project members");
-    }
-    await this.loadProject(projectId);
-    await this.db
-      .delete(projectMembers)
-      .where(
-        and(
-          eq(projectMembers.projectId, projectId),
-          eq(projectMembers.userId, memberUserId),
-        ),
-      );
-    return { projectId, userId: memberUserId };
-  }
-
-  /**
-   * Validate project/module pair for ticket writes.
-   * - Unscoped (null): Admin or EndUser only — Manager/Agent must stamp a project
-   * - project set, module null: OK
-   * - module set without project: reject
-   * - module must belong to project
-   * - actor must canAccess project (unless EndUser creating own ticket)
-   */
-  async resolveTicketProjectFields(
-    user: AuthUser,
-    projectId: string | null | undefined,
-    moduleId: string | null | undefined,
-  ): Promise<{ projectId: string | null; moduleId: string | null }> {
-    const pid = projectId === undefined ? undefined : projectId;
-    const mid = moduleId === undefined ? undefined : moduleId;
-
-    if (pid === undefined && mid === undefined) {
-      this.assertMayStampUnscoped(user);
-      return { projectId: null, moduleId: null };
-    }
-
-    const resolvedProjectId = pid ?? null;
-    const resolvedModuleId = mid ?? null;
-
-    if (resolvedModuleId && !resolvedProjectId) {
-      throw new BadRequestException("moduleId requires projectId");
-    }
-
-    if (!resolvedProjectId) {
-      this.assertMayStampUnscoped(user);
-    } else if (user.role !== "EndUser") {
-      await this.access.assertCanAccess(user, resolvedProjectId);
-    } else {
-      // EndUser may attach to any existing project (portal); existence check only.
-      const [proj] = await this.db
-        .select({ id: projects.id })
-        .from(projects)
-        .where(eq(projects.id, resolvedProjectId))
-        .limit(1);
-      if (!proj) throw new NotFoundException("Project not found");
-    }
-
-    if (resolvedModuleId && resolvedProjectId) {
-      const [mod] = await this.db
-        .select({ id: modules.id, projectId: modules.projectId })
-        .from(modules)
-        .where(eq(modules.id, resolvedModuleId))
-        .limit(1);
-      if (!mod) throw new NotFoundException("Module not found");
-      if (mod.projectId !== resolvedProjectId) {
-        throw new BadRequestException("Module does not belong to project");
-      }
-    }
-
-    return {
-      projectId: resolvedProjectId,
-      moduleId: resolvedModuleId,
-    };
+    return { ok: true };
   }
 
   /** Manager home KPIs scoped to owned projects. */
@@ -569,11 +394,7 @@ export class ProjectsService {
       })
       .from(incidents)
       .where(
-        and(
-          projectScope,
-          gte(incidents.createdAt, from),
-          lte(incidents.createdAt, to),
-        ),
+        and(projectScope, gte(incidents.createdAt, from), lte(incidents.createdAt, to)),
       );
 
     const [srAgg] = await this.db
@@ -645,10 +466,7 @@ export class ProjectsService {
         },
         {
           module: "Service Request",
-          ...stackOpenClosed(
-            Number(srAgg?.open ?? 0),
-            Number(srAgg?.closed ?? 0),
-          ),
+          ...stackOpenClosed(Number(srAgg?.open ?? 0), Number(srAgg?.closed ?? 0)),
         },
         {
           module: "Change",
@@ -662,75 +480,94 @@ export class ProjectsService {
     };
   }
 
+  private async requireProject(projectId: string) {
+    const [row] = await this.db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    if (!row) throw new NotFoundException("Project not found");
+    return row;
+  }
+
+  private async assertManagerUser(managerId: string) {
+    const [user] = await this.db
+      .select({ id: users.id, role: users.role })
+      .from(users)
+      .where(eq(users.id, managerId))
+      .limit(1);
+    if (!user) throw new NotFoundException("Manager user not found");
+    if (user.role !== "Manager") {
+      throw new BadRequestException(
+        "managerId must reference a user with role Manager",
+      );
+    }
+  }
+
+  /**
+   * Validate project/module pair for ticket writes.
+   * - Unscoped (null): Admin or EndUser only — Manager/Agent must stamp a project
+   * - project set, module null: OK
+   * - module set without project: reject
+   * - module must belong to project
+   * - actor must canAccess project (unless EndUser creating own ticket)
+   */
+  async resolveTicketProjectFields(
+    user: AuthUser,
+    projectId: string | null | undefined,
+    moduleId: string | null | undefined,
+  ): Promise<{ projectId: string | null; moduleId: string | null }> {
+    const pid = projectId === undefined ? undefined : projectId;
+    const mid = moduleId === undefined ? undefined : moduleId;
+
+    if (pid === undefined && mid === undefined) {
+      this.assertMayStampUnscoped(user);
+      return { projectId: null, moduleId: null };
+    }
+
+    const resolvedProjectId = pid ?? null;
+    const resolvedModuleId = mid ?? null;
+
+    if (resolvedModuleId && !resolvedProjectId) {
+      throw new BadRequestException("moduleId requires projectId");
+    }
+
+    if (!resolvedProjectId) {
+      this.assertMayStampUnscoped(user);
+    } else if (user.role !== "EndUser") {
+      await this.access.assertCanAccess(user, resolvedProjectId);
+    } else {
+      const [proj] = await this.db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.id, resolvedProjectId))
+        .limit(1);
+      if (!proj) throw new NotFoundException("Project not found");
+    }
+
+    if (resolvedModuleId && resolvedProjectId) {
+      const [mod] = await this.db
+        .select({ id: modules.id, projectId: modules.projectId })
+        .from(modules)
+        .where(eq(modules.id, resolvedModuleId))
+        .limit(1);
+      if (!mod) throw new NotFoundException("Module not found");
+      if (mod.projectId !== resolvedProjectId) {
+        throw new BadRequestException("Module does not belong to project");
+      }
+    }
+
+    return {
+      projectId: resolvedProjectId,
+      moduleId: resolvedModuleId,
+    };
+  }
+
   /** Unscoped tickets are Admin (global pool) or EndUser (own) only. */
   private assertMayStampUnscoped(user: AuthUser): void {
     if (user.role === "Admin" || user.role === "EndUser") return;
     throw new BadRequestException(
       "Only Admin may create or clear unscoped tickets",
     );
-  }
-
-  private async assertCanRead(user: AuthUser, projectId: string) {
-    const ok = await this.access.canAccess(user, projectId);
-    if (!ok) {
-      // Same status for missing and unauthorized so a Manager cannot probe other project ids.
-      throw new NotFoundException("Project not found");
-    }
-  }
-
-  private async assertProjectExists(projectId: string) {
-    const [row] = await this.db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.id, projectId))
-      .limit(1);
-    if (!row) throw new NotFoundException("Project not found");
-  }
-
-  private async loadProject(id: string): Promise<ProjectView> {
-    const [row] = await this.db
-      .select({
-        project: projects,
-        managerName: users.name,
-      })
-      .from(projects)
-      .leftJoin(users, eq(projects.managerId, users.id))
-      .where(eq(projects.id, id))
-      .limit(1);
-    if (!row) throw new NotFoundException("Project not found");
-    return this.toProjectView(row.project, row.managerName);
-  }
-
-  private async assertUserRole(
-    userId: string,
-    expected: "Manager" | "Agent",
-  ) {
-    const [row] = await this.db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-    if (!row) throw new NotFoundException("User not found");
-    if (row.role !== expected) {
-      throw new BadRequestException(
-        expected === "Agent"
-          ? "Project members must be Agents"
-          : "Project manager must have Manager role",
-      );
-    }
-    return row;
-  }
-
-  private toProjectView(
-    row: typeof projects.$inferSelect,
-    managerName: string | null,
-  ): ProjectView {
-    return {
-      id: row.id,
-      name: row.name,
-      managerId: row.managerId,
-      managerName,
-      createdAt: row.createdAt.toISOString(),
-    };
   }
 }
