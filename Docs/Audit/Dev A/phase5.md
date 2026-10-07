@@ -1,6 +1,6 @@
 # Security Audit: Dev A (Phase 5)
 
-Reaudit 2026-10-07. Combined: [phase5.md](../phase5.md). **CLEAN.**
+Reaudit 2026-10-07 (pass 2). Combined: [phase5.md](../phase5.md). **CLEAN.**
 
 ## Open findings assigned to Dev A
 
@@ -9,10 +9,6 @@ Reaudit 2026-10-07. Combined: [phase5.md](../phase5.md). **CLEAN.**
 ## Spot-checked (clean)
 
 - `RelatedArticles` mutate gated Admin/Agent; portal uses `readOnly`
-- Server `assertCanAccessTicket` on list/link/unlink (EndUser own incident/request only)
+- Server `assertCanAccessTicket` on list/link/unlink
 - Draft articles hidden from non-Admin on get/list
-- `use-knowledge.ts` correctly unwraps `{ data }` list envelopes
-
-## Reminder
-
-Keep client `readOnly` as UX only — Nest `@Roles` + `assertCanAccessTicket` remain the control.
+- `use-knowledge.ts` unwraps `{ data }` list envelopes
