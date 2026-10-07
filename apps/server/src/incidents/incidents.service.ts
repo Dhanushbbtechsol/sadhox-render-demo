@@ -201,6 +201,17 @@ export class IncidentsService {
       dto.moduleId,
     );
 
+    let assignee: { id: string; email: string; name: string } | null = null;
+    if (dto.assignedTo) {
+      if (!canAssignIncident(user.role)) {
+        throw new ForbiddenException("End users cannot assign incidents");
+      }
+      assignee = await this.assertAssigneeInPool(
+        dto.assignedTo,
+        scope.projectId,
+      );
+    }
+
     const [created] = await this.db
       .insert(incidents)
       .values({
@@ -210,8 +221,9 @@ export class IncidentsService {
         impact: dto.impact,
         urgency: dto.urgency,
         priority,
-        status: "New",
+        status: assignee ? "Assigned" : "New",
         reporterId: user.userId,
+        assignedTo: assignee?.id ?? null,
         projectId: scope.projectId,
         moduleId: scope.moduleId,
         slaDueAt,
@@ -220,6 +232,18 @@ export class IncidentsService {
         updatedAt: now,
       })
       .returning();
+
+    if (assignee) {
+      try {
+        await this.mail.sendTicketAssigned(assignee.email, {
+          ticketId: created!.id,
+          ticketTitle: dto.title,
+          assigneeName: assignee.name,
+        });
+      } catch {
+        // Assignment succeeded; email is best-effort (same as assign()).
+      }
+    }
 
     return this.get(user, created!.id);
   }

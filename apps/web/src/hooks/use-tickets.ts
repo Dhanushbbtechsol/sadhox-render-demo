@@ -116,12 +116,15 @@ export function useProblem(id: string | undefined) {
   });
 }
 
-export function useAgents(projectId?: string | null) {
+export function useAgents(
+  projectId?: string | null,
+  options?: { enabled?: boolean },
+) {
   const userId = useAuthStore((state) => state.user?.id);
 
   return useQuery({
     queryKey: [...agentsKey, userId, projectId ?? "global"],
-    enabled: Boolean(userId),
+    enabled: Boolean(userId) && (options?.enabled ?? true),
     queryFn: () =>
       apiFetch<AgentSnippet[]>(
         `/assignment/agents${toQuery({

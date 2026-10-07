@@ -81,7 +81,18 @@ export function LinkToProblem({ incidentId }: { incidentId: string }) {
             Attach this incident to an existing problem record for root-cause tracking.
           </DialogDescription>
         </DialogHeader>
-        <Select value={problemId} onValueChange={(v) => setProblemId(v ?? "")}>
+        <Select
+          items={
+            problems.length === 0
+              ? [{ value: "__none", label: "No problems yet" }]
+              : problems.map((problem) => ({
+                  value: problem.id,
+                  label: problem.title,
+                }))
+          }
+          value={problemId}
+          onValueChange={(v) => setProblemId(v ?? "")}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Select problem…" />
           </SelectTrigger>

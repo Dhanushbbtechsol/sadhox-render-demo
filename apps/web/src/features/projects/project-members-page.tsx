@@ -73,6 +73,10 @@ export default function ProjectMembersPage() {
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Select
+          items={available.map((a) => ({
+            value: a.id,
+            label: `${a.name} (${a.email})`,
+          }))}
           value={selected || undefined}
           onValueChange={(value) => setSelected(value ?? "")}
         >

@@ -176,6 +176,85 @@ export default function ProjectsListPage() {
           </TableBody>
         </Table>
       ) : null}
+<<<<<<< Updated upstream
+=======
+
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) resetForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New project</DialogTitle>
+            <DialogDescription>
+              Set a name and assign a Manager. You can add Agents and modules
+              after creating.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="project-name">Name</Label>
+              <Input
+                id="project-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Corporate IT"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void onCreate();
+                  }
+                }}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Manager</Label>
+              <Select
+                items={(managers.data ?? []).map((m) => ({
+                  value: m.id,
+                  label: m.name,
+                }))}
+                value={managerId || undefined}
+                onValueChange={(v) => setManagerId(v ?? "")}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a Manager" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(managers.data ?? []).map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void onCreate()}
+              disabled={createProject.isPending}
+            >
+              {createProject.isPending ? "Creating…" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+>>>>>>> Stashed changes
     </div>
   );
 }

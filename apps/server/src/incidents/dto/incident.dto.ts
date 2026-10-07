@@ -44,6 +44,15 @@ export class CreateIncidentDto extends ProjectScopeFieldsDto {
   @ApiProperty({ enum: IMPACT_URGENCY })
   @IsIn([...IMPACT_URGENCY])
   urgency!: (typeof IMPACT_URGENCY)[number];
+
+  @ApiPropertyOptional({
+    format: "uuid",
+    description:
+      "Optional assignee at create (Admin/Agent/Manager). Sets status to Assigned.",
+  })
+  @IsOptional()
+  @IsUUID()
+  assignedTo?: string;
 }
 
 export class UpdateIncidentDto extends ProjectScopeFieldsDto {
