@@ -1,11 +1,23 @@
 # Active Context
 
-**Current State:**
-- The project has successfully merged Phase 1 development tracks (Dev A, B, C, D).
-- The backend architecture was just migrated from Hono to **NestJS**.
-- The frontend is using mock data and local mock authentication via Zustand.
+**Current focus:** Phase 6 designed (Projects / Manager). **Do not start Phase 6 code until Phase 5 Medium gaps are closed.** Do not rebuild Knowledge Base.
 
-**Next Immediate Steps:**
-- Connect the frontend API client to the real NestJS backend.
-- Replace the mock auth store (`auth-store.ts`) with real JWT/Supabase auth integration.
-- Implement the database schema in `packages/db` using Drizzle ORM and run migrations.
+**Branch:** `Audit` (tracks `origin/Audit`). Tracks: `Dev-A-`, `Dev-B`, `Dev-C`, `Dev-D`.
+
+## What is true now
+- Phases 1–5 feature work merged into `Audit` (KB included).
+- Phase 6 design locked: [Docs/Phase/phase6.md](../Docs/Phase/phase6.md)
+  - Employee = Agent; +`Manager` only
+  - Approvals: Admin **and** Manager (alongside), single-level; null project → Admin-only
+  - Managers **not** in `project_members`; no `users.manager_id`
+  - Resource ACL via `ProjectAccessService` (guards alone insufficient)
+
+## Immediate next steps
+1. **Gate:** SLA rules `GET`/`PATCH` API (Dev D); Admin Knowledge unwrap `{ data }` + kill silent mock writes (Dev C).
+2. Then Phase 6 per track plans (Days 26–30).
+3. Phase 4 Dev D security carryovers still open (scripts / CSRF).
+4. Go-live when TL approves.
+
+## Decision reminders
+- AuthZ = Nest `@Roles` **plus** project resource checks in services.
+- Ponytail minimal diffs; commit/push only when asked.
