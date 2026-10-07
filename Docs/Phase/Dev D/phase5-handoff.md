@@ -10,12 +10,14 @@ Staging / Render migration for Phase 5 schema is **on hold** pending the Phase 4
 
 ## OpenAPI / Swagger
 
+**Frozen Phase 5 path/role contract:** [Docs/contracts/phase5-openapi.md](../../contracts/phase5-openapi.md)
+
 When Nest runs with `NODE_ENV !== production`, Swagger UI is at:
 
 - **UI:** `http://localhost:3000/docs` (or your `PORT`)
 - **Generated from:** Nest decorators on controllers under `apps/server/src/**`
 
-Source of truth for request/response shapes is the live Swagger document (and the DTO classes it reflects), not a checked-in OpenAPI YAML.
+DTO field shapes follow the live Swagger document; path/method/role freeze is the markdown contract above.
 
 ---
 
