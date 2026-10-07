@@ -7,7 +7,7 @@ Sadhox replaces fragmented IT ops with a single ITSM surface:
 | **EndUser** | Eve | Report incidents, browse catalog/KB, submit requests, track status |
 | **Agent** | Alice | Work tickets (“Employee” in product talk = Agent); visibility limited to `project_members` projects (Phase 6) |
 | **Manager** | *(Phase 6)* | Owns projects via `projects.manager_id`; sees/approves only those projects; does **not** work tickets as a member |
-| **Admin** | Ian | Global: users, projects, org settings, assets, KPIs, catalog & KB authoring |
+| **Admin** | Ian | Global: **user management** (create/list/update), projects, org settings, assets, KPIs, catalog & KB authoring |
 
 ## Six confirmed product requirements
 1. Incident Management (lifecycle, priority matrix, assignment, comments, problems)

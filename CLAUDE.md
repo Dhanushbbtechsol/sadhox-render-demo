@@ -43,7 +43,7 @@ sadhox/
 
 Phases **1–5** merged on `Audit` (Dev-C close-out 2026-10-07): JWT/RBAC, full ITIL CRUD modules, Socket.io comments, SLA jobs, Resend, Admin KPIs/audit/queues, Knowledge Base + portal incident detail + Admin catalog CRUD + dashboard CSV + Admin SLA rules API. Phase 5 Medium/Low closed; Phase 4 Dev D carryovers + go-live remain in `Docs/STATUS.md`.
 
-**Phase 6 (designed):** Projects / modules / `Manager` + resource-level project ACL — [Docs/Phase/phase6.md](./Docs/Phase/phase6.md). Merge Phase 5 close-out to `Audit` before coding. Do not rebuild KB.
+**Phase 6:** Projects / modules / `Manager` + project ACL + **Admin User Management** — [Docs/Phase/phase6.md](./Docs/Phase/phase6.md). User CRUD still open (beyond picker + role patch). Do not rebuild KB.
 
 ## Better Fullstack note
 

@@ -16,11 +16,11 @@
   - Resource ACL via `ProjectAccessService` (guards alone insufficient)
 
 ## Immediate next steps
-1. Push local `Audit` (Phase 5 close-out) and `Dev-C` Phase 6 when TL asks.
-2. Human smoke: Admin project CRUD; Manager home shows owned-project KPIs (`Docs/Phase/Dev C/phase6-qa.md`).
-3. Dev A/B/D: ticket project fields, assignment pool, Manager approvals.
-4. Phase 4 Dev D security carryovers still open (CSRF / throttle / Sentry) — verify before go-live.
-5. Go-live when TL approves.
+1. **Phase 6 User Management (open):** Dev D `POST`/`GET`/`PATCH /admin/users`; Dev C Admin `/admin/users` UI — see `Docs/Phase/phase6.md`.
+2. Push local `Audit` / `Dev-C` when TL asks.
+3. Human smoke: Admin project CRUD; Manager home KPIs (`Docs/Phase/Dev C/phase6-qa.md`).
+4. Remaining A/B/D ticket scoping / assignment / approvals wiring.
+5. Phase 4 Dev D security carryovers (CSRF / throttle / Sentry); go-live when TL approves.
 
 ## Decision reminders
 - AuthZ = Nest `@Roles` **plus** project resource checks in services.

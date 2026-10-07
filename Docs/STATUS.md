@@ -89,7 +89,7 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 - Nest `KnowledgeModule` with RBAC (Draft hidden from non-Admin; Published-only links)
 - Ticket ACL on link list/mutate (`assertCanAccessTicket`)
 - Admin `GET`/`PATCH /admin/sla-rules` (response/resolve minutes per priority)
-- **Phase 6:** `projects` / `project_members` / `modules`; `Manager` role; Admin `/admin/projects` (members + `/modules`); `GET /admin/users?role=`; Manager `/manager` KPIs via `GET /manager/dashboard/stats` (owned `project_id`s only)
+- **Phase 6:** `projects` / `project_members` / `modules`; `Manager` role; Admin `/admin/projects` (members + `/modules`); `GET /admin/users?role=` + `PATCH …/role` (pickers only); Manager `/manager` KPIs via `GET /manager/dashboard/stats` (owned `project_id`s only). **Admin User Management CRUD (`POST`/`GET`/`PATCH /admin/users` + `/admin/users` UI) still open** — see [Phase/phase6.md](./Phase/phase6.md)
 
 ### Nest modules present
 `auth`, `assignment`, `events`, `queues`, `mail`, `health`, `observability`, `incidents`, `problems`, `knowledge`, `projects`, `service-catalog`, `service-requests`, `changes`, `comments`, `assets`, `admin`, `database`
@@ -115,7 +115,7 @@ Design: [Phase/phase6.md](./Phase/phase6.md).
 
 **Landed (foundation + Dev A + Dev B + Dev C + Dev D backend):** `Manager` role; `projects` / `project_members` / `modules`; `ProjectAccessService`; Dev A incident/problem project scoping + assignment pool; Dev B optional `projectId`/`moduleId` on service requests & changes, Manager-alongside-Admin approvals (null project = Admin-only), scoped SR/Change lists, catalog/change create pickers, Manager approvals UI; Dev C Admin projects UI + Manager home (KPIs / server-scoped charts); Dev D project-scoped assignment pool, list filters, `PATCH /admin/users/:id/role` clears memberships on promote-to-Manager. Contract/handoff: [phase6-openapi.md](./contracts/phase6-openapi.md) / [phase6-handoff.md](./Phase/Dev%20D/phase6-handoff.md). QA: [Phase/Dev B/phase6-day30-qa.md](./Phase/Dev%20B/phase6-day30-qa.md), [Phase/Dev C/phase6-qa.md](./Phase/Dev%20C/phase6-qa.md).
 
-**Still open:** remaining assignment-pool / incident UI wiring per phase6 plan; full ticket 401/403 matrix; local `0010_phase6_projects_manager` migrate + reseed where not yet applied. **Deferred to production go-live:** staging/TL migrate (`0010`); Phase 5 mail job-ID live verify on TL remains **unconfirmed**.
+**Still open:** **Admin User Management** (create/get/patch users API + `/admin/users` UI); remaining assignment-pool / incident UI wiring per phase6 plan; full ticket 401/403 matrix; local `0010_phase6_projects_manager` migrate + reseed where not yet applied. **Deferred to production go-live:** staging/TL migrate (`0010`); Phase 5 mail job-ID live verify on TL remains **unconfirmed**.
 
 ---
 

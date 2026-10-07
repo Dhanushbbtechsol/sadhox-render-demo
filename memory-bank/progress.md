@@ -13,7 +13,7 @@ Full feature inventory for Claude: **`Docs/STATUS.md`**.
 | 3 | Round-robin, SLA jobs, Resend, approval machines, Admin charts | Done |
 | 4 | Security remediations, load notes, deploy prep, seed hardening | Done (go-live checklist not fully executed) |
 | 5 | Knowledge Base + portal detail + catalog Admin CRUD + CSV + SLA UI/API | **Done** (Medium/Low closed 2026-10-07 on Dev-C) |
-| 6 | Projects / Modules / Manager + project ACL & assignment | Dev C stub in progress (schema, projects API, Admin UI, Manager home). Ticket ACL / assignment / approvals not wired — [Docs/Phase/phase6.md](../Docs/Phase/phase6.md) |
+| 6 | Projects / Modules / Manager + project ACL + **User Management** | In progress; **Admin user CRUD still open** — [Docs/Phase/phase6.md](../Docs/Phase/phase6.md) |
 
 ## Feature checklist (implemented in codebase)
 
@@ -40,13 +40,15 @@ Full feature inventory for Claude: **`Docs/STATUS.md`**.
 - [x] Admin catalog CRUD UI + `POST`/`PATCH /service-catalog`
 - [x] Admin SLA rules `GET`/`PATCH /admin/sla-rules`
 
-## Phase 6 — Dev C stub started
+## Phase 6 — in progress
 - [ ] Merge Phase 5 close-out + Phase 6 stub to `Audit` when TL asks
 - [x] `projects` / `project_members` / `modules`; nullable `project_id`/`module_id` columns on tickets
 - [x] Role `Manager` + seed user; projects + manager dashboard in RBAC matrix
 - [x] `ProjectAccessService` for project reads + Manager KPI scope
-- [ ] Admin+Manager approvals; project-scoped assignment pool; ticket forms (Dev A/B/D)
 - [x] Admin `/admin/projects` CRUD + members/modules; Manager `/manager` home — `Docs/Phase/Dev C/phase6-qa.md`
+- [x] `GET /admin/users?role=` + `PATCH /admin/users/:id/role` (pickers / promote clears memberships)
+- [ ] **Admin User Management** — `POST`/`GET`/`PATCH /admin/users` + `/admin/users` UI
+- [ ] Admin+Manager approvals; project-scoped assignment pool; ticket forms (remaining A/B/D)
 
 ## Open / incomplete
 
