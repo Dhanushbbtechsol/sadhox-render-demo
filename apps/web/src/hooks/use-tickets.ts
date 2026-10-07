@@ -22,6 +22,7 @@ export type IncidentListParams = {
   pageSize?: number;
   status?: string;
   priority?: string;
+  projectId?: string;
   sortBy?: "createdAt" | "priority" | "status" | "slaDueAt";
   sortDir?: "asc" | "desc";
 };
@@ -42,6 +43,7 @@ export function useIncidents(params: IncidentListParams = {}) {
     pageSize = 50,
     status,
     priority,
+    projectId,
     sortBy = "createdAt",
     sortDir = "desc",
   } = params;
@@ -51,7 +53,15 @@ export function useIncidents(params: IncidentListParams = {}) {
     enabled: Boolean(userId),
     queryFn: async () => {
       const result = await apiFetch<{ data: Incident[]; meta: PageMeta }>(
-        `/incidents${toQuery({ page, pageSize, status, priority, sortBy, sortDir })}`,
+        `/incidents${toQuery({
+          page,
+          pageSize,
+          status,
+          priority,
+          projectId,
+          sortBy,
+          sortDir,
+        })}`,
       );
       return result;
     },
@@ -78,16 +88,18 @@ export function useIncidentComments(id: string | undefined) {
   });
 }
 
-export function useProblems(params: { page?: number; pageSize?: number } = {}) {
+export function useProblems(
+  params: { page?: number; pageSize?: number; projectId?: string } = {},
+) {
   const userId = useAuthStore((state) => state.user?.id);
-  const { page = 1, pageSize = 50 } = params;
+  const { page = 1, pageSize = 50, projectId } = params;
 
   return useQuery({
     queryKey: [...problemsKey, userId, params],
     enabled: Boolean(userId),
     queryFn: async () => {
       const result = await apiFetch<{ data: Problem[]; meta: PageMeta }>(
-        `/problems${toQuery({ page, pageSize })}`,
+        `/problems${toQuery({ page, pageSize, projectId })}`,
       );
       return result;
     },

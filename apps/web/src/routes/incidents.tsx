@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useProjects } from "@/hooks/use-projects";
 import { useIncidents } from "@/hooks/use-tickets";
 import { cn } from "@/lib/utils";
 import { INCIDENT_STATUS_LABELS, type IncidentStatus } from "@/types/itsm";
@@ -85,11 +86,13 @@ export default function IncidentsPage() {
   const [sortBy, setSortBy] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
   const [focusIndex, setFocusIndex] = useState(0);
+  const { data: projects = [] } = useProjects();
 
   useEffect(() => {
     setPage(1);
-  }, [sortBy, sortDir, statusFilter]);
+  }, [sortBy, sortDir, statusFilter, projectFilter]);
 
   const { data, isLoading, isError, error } = useIncidents({
     page,
@@ -97,7 +100,13 @@ export default function IncidentsPage() {
     sortBy,
     sortDir,
     status: statusFilter === "all" ? undefined : statusFilter,
+    projectId: projectFilter === "all" ? undefined : projectFilter,
   });
+
+  const projectName = (id: string | null | undefined) => {
+    if (!id) return "Unscoped";
+    return projects.find((p) => p.id === id)?.name ?? id.slice(0, 8);
+  };
 
   const incidents = data?.data;
   const meta = data?.meta;
@@ -148,7 +157,7 @@ export default function IncidentsPage() {
 
   useEffect(() => {
     setFocusIndex(0);
-  }, [page, statusFilter, sortBy, sortDir]);
+  }, [page, statusFilter, projectFilter, sortBy, sortDir]);
 
   return (
     <div className="space-y-6">
@@ -199,6 +208,23 @@ export default function IncidentsPage() {
             {(Object.keys(INCIDENT_STATUS_LABELS) as IncidentStatus[]).map((status) => (
               <SelectItem key={status} value={status}>
                 {INCIDENT_STATUS_LABELS[status]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={projectFilter}
+          onValueChange={(v) => v && setProjectFilter(v)}
+        >
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Project" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All projects</SelectItem>
+            {projects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                {project.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -276,6 +302,7 @@ export default function IncidentsPage() {
                 </div>
                 <p className="text-sm font-semibold tracking-tight">{incident.title}</p>
                 <p className="text-muted-foreground text-xs">
+                  {projectName(incident.projectId)} ·{" "}
                   {incident.assigneeName ?? "Unassigned"} ·{" "}
                   {new Date(incident.createdAt).toLocaleString()}
                 </p>
@@ -292,6 +319,7 @@ export default function IncidentsPage() {
                     <th className="px-4 py-3 font-medium">Ticket</th>
                     <th className="px-4 py-3 font-medium">Priority</th>
                     <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="hidden px-4 py-3 font-medium lg:table-cell">Project</th>
                     <th className="hidden px-4 py-3 font-medium lg:table-cell">Category</th>
                     <th className="px-4 py-3 font-medium">Assignee</th>
                     <th className="hidden px-4 py-3 font-medium xl:table-cell">Created</th>
@@ -326,6 +354,9 @@ export default function IncidentsPage() {
                         <Badge variant={statusVariant(incident.status)}>
                           {INCIDENT_STATUS_LABELS[incident.status]}
                         </Badge>
+                      </td>
+                      <td className="text-muted-foreground hidden px-4 py-3 lg:table-cell">
+                        {projectName(incident.projectId)}
                       </td>
                       <td className="text-muted-foreground hidden px-4 py-3 lg:table-cell">
                         {incident.category}

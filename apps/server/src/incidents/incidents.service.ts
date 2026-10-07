@@ -542,6 +542,13 @@ export class IncidentsService {
       }
     }
 
+    if (query.projectId) {
+      if (user.role !== "EndUser") {
+        await this.projectAccess.assertCanAccess(user, query.projectId);
+      }
+      parts.push(eq(incidents.projectId, query.projectId));
+    }
+
     if (query.status) parts.push(eq(incidents.status, query.status));
     if (query.priority) parts.push(eq(incidents.priority, query.priority));
 

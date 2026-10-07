@@ -5,15 +5,20 @@ import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
 import { RelatedArticles } from "@/components/knowledge/related-articles";
 import { PriorityBadge } from "@/components/priority-badge";
 import { LinkIncidentsModal } from "@/components/problems/link-incidents-modal";
+import { EditTicketProjectScope } from "@/components/projects/edit-ticket-project-scope";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useProblem } from "@/hooks/use-tickets";
+import { useProjectModules, useProjects } from "@/hooks/use-projects";
+import { useProblem, useUpdateProblem } from "@/hooks/use-tickets";
 import { PROBLEM_STATUS_LABELS, type Priority } from "@/types/itsm";
 
 export default function ProblemDetailPage() {
   const { id } = useParams();
   const { data, isLoading, isError, error } = useProblem(id);
+  const update = useUpdateProblem(id ?? "");
+  const { data: projects = [] } = useProjects();
+  const { data: modules = [] } = useProjectModules(data?.projectId);
 
   if (isLoading) return <TicketListSkeleton rows={3} />;
 
@@ -73,6 +78,31 @@ export default function ProblemDetailPage() {
             {data.description}
           </p>
 
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <div className="border-border/80 bg-muted/40 rounded-xl border p-3.5">
+              <dt className="text-muted-foreground text-xs font-medium">
+                Project
+              </dt>
+              <dd className="mt-1 text-sm font-medium">
+                {data.projectId
+                  ? (projects.find((p) => p.id === data.projectId)?.name ??
+                    data.projectId.slice(0, 8))
+                  : "Unscoped"}
+              </dd>
+            </div>
+            <div className="border-border/80 bg-muted/40 rounded-xl border p-3.5">
+              <dt className="text-muted-foreground text-xs font-medium">
+                Module
+              </dt>
+              <dd className="mt-1 text-sm font-medium">
+                {data.moduleId
+                  ? (modules.find((m) => m.id === data.moduleId)?.name ??
+                    data.moduleId.slice(0, 8))
+                  : "—"}
+              </dd>
+            </div>
+          </dl>
+
           {data.rootCause ? (
             <div className="border-border/80 bg-muted/40 rounded-xl border p-3.5">
               <p className="text-muted-foreground text-xs font-medium">
@@ -83,6 +113,15 @@ export default function ProblemDetailPage() {
               </p>
             </div>
           ) : null}
+
+          <EditTicketProjectScope
+            projectId={data.projectId}
+            moduleId={data.moduleId}
+            busy={update.isPending}
+            onSave={async (next) => {
+              await update.mutateAsync(next);
+            }}
+          />
 
           <div className="flex items-center justify-between gap-3">
             <div>

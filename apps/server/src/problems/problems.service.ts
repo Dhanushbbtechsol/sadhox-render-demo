@@ -285,6 +285,11 @@ export class ProblemsService {
     );
     if (projectScope) parts.push(projectScope);
 
+    if (query.projectId) {
+      await this.projectAccess.assertCanAccess(user, query.projectId);
+      parts.push(eq(problems.projectId, query.projectId));
+    }
+
     if (query.status) parts.push(eq(problems.status, query.status));
 
     if (parts.length === 0) return undefined;

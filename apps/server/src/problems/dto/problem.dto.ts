@@ -141,4 +141,12 @@ export class ListProblemsQueryDto {
   @IsOptional()
   @IsIn([...PROBLEM_STATUSES])
   status?: (typeof PROBLEM_STATUSES)[number];
+
+  @ApiPropertyOptional({
+    format: "uuid",
+    description: "Narrow to one project (must be accessible)",
+  })
+  @IsOptional()
+  @IsUUID()
+  projectId?: string;
 }
