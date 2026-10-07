@@ -1,12 +1,12 @@
 # Security Audit: Dev B (Phase 5)
 
-Reaudit 2026-10-06. Combined: [phase5.md](../phase5.md).
+Reaudit 2026-10-07. Combined: [phase5.md](../phase5.md). **CLEAN.**
 
-## Open findings assigned to Dev B
+## Low — Resolved (coord)
 
-### Low — [A03] Catalog free-text trim-only (coord with Dev D)
+### [A03] Catalog free-text trim-only — **FIXED (verified)**
 
-Admin catalog CRUD UI writes through Nest `ServiceCatalogService` which only `.trim()`s strings. Prefer shared sanitize at the service (Dev D) so the UI cannot bypass it.
+Dev D sanitize choke point on `ServiceCatalogService` + DTO option caps. Admin catalog UI no longer needs a separate client sanitize path.
 
 ## Spot-checked (clean)
 

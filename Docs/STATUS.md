@@ -1,7 +1,7 @@
 # Sadhox — Status & Feature Handoff (for Claude / agents)
 
 **Last updated:** 2026-10-07  
-**Integration branch:** `Audit` (Phase 5 merges + Phase 5 audit commit `21677bc`)  
+**Integration branch:** `Audit` (Phase 5 merges + remediations; reaudit docs updated)  
 **Memory bank:** `memory-bank/` (read all six files at task start)
 
 This document is the short “what exists / what doesn’t” brief. Requirements and plans stay in PRD/FRD/Phase docs.
@@ -100,16 +100,16 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 
 ## 5. What is NOT done / known gaps
 
-From **`Docs/Audit/phase5.md`** (2026-10-06):
+From **`Docs/Audit/phase5.md`** (reaudit 2026-10-07):
 
-| Sev | Gap |
-|-----|-----|
-| Medium | **No Nest `GET`/`PATCH /admin/sla-rules`** — UI calls it; breach jobs still use seed/DB values only |
-| Medium | Admin Knowledge hooks treat response as array, not `{ data: [] }` → breaks live list → DEV mock fallback |
-| Medium | DEV catch paths can fake Knowledge/SLA write success via mocks |
-| Low | Catalog create/update needs stronger sanitize / option size caps |
+| Sev | Gap | Owner |
+|-----|-----|-------|
+| Medium | Admin Knowledge hooks treat response as array, not `{ data: [] }` → breaks live list | Dev C |
+| Medium | DEV catch paths can fake Knowledge/SLA success via mocks | Dev C |
 
-Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md`): hardcoded LAN defaults in ops scripts; CSRF gap with `SameSite=None` refresh cookie; minor throttle/Sentry hardening.
+**Closed since 2026-10-06:** Nest Admin SLA rules API; catalog sanitize + option caps; LAN script credential defaults (Dev D).
+
+Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md` / Dev D phase5): CSRF gap with `SameSite=None` refresh cookie; throttle ceiling / logout throttle; Sentry WS auth noise. **LAN script High is closed.**
 
 **Production go-live** checklist incomplete (`Docs/Phase/Dev D/go-live-checklist.md`) — do not assume live Render/Vercel is fully cut over.
 

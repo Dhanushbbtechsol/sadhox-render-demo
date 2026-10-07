@@ -1,41 +1,42 @@
 # Security Audit: Dev D (Phase 5)
 
-Reaudit 2026-10-06. Combined: [phase5.md](../phase5.md). Owner: Knowledge foundation APIs, SLA rules API, catalog writes, ops scripts.
+Reaudit 2026-10-07. Combined: [phase5.md](../phase5.md). Owner: Knowledge foundation APIs, SLA rules API, catalog writes, ops scripts.
 
-## Medium — Open (Phase 5)
+## Medium — Resolved (Phase 5)
 
-### [A04] Missing Admin SLA rules API
+### [A04] Missing Admin SLA rules API — **FIXED (verified)**
 
-Phase 5 Day 23: Admin `GET` / `PATCH` for `sla_rules` (`responseMinutes` / `resolveMinutes` per priority). Dev C UI calls `/admin/sla-rules` (+ path/body PATCH variants). **No route in `apps/server`.**
+`GET /admin/sla-rules`, `PATCH /admin/sla-rules`, `PATCH /admin/sla-rules/:priority` on `AdminController`; `listSlaRules` / `updateSlaRule`; DTO validation; RBAC matrix + `admin.sla-rules.spec.ts`.
 
-**Fix:** Admin-only controller (likely under `AdminModule`), DTO MaxLength/Min validation, sanitize if needed, extend `rbac-matrix.spec.ts`.
+## Low — Resolved (Phase 5)
 
-## Low — Open (Phase 5)
+### [A03] Catalog create/update not sanitized — **FIXED (verified)**
 
-### [A03] Catalog create/update not sanitized
+`ServiceCatalogService` uses `sanitizePlainText` for name/description/department and form field strings.
 
-`ServiceCatalogService.create` / `update` only `.trim()`. Knowledge module already uses `sanitizePlainText` — reuse it for catalog name/description/department and form field strings.
+### [A04] `formFields.options` unbounded — **FIXED (verified)**
 
-### [A04] `formFields.options` unbounded
+`CatalogFormFieldDto`: `@ArrayMaxSize` + `@MaxLength(..., { each: true })`.
 
-`CatalogFormFieldDto.options`: add `@MaxLength` per string and `@ArrayMaxSize`.
+## Phase 4 carryovers
 
-## Phase 4 carryovers (still open)
+### High — [A02 / A05] Hardcoded LAN credentials in scripts — **FIXED (verified)**
 
-### High — [A02 / A05] Hardcoded LAN credentials in scripts
+`requireEnv` on probe/clean/rebaseline; scripts README documents no LAN fallbacks.
 
-`probe-remote-services.mjs`, `clean-sla-failed-jobs.mjs`, `rebaseline-remote-journal.mjs` still default to LAN URLs/creds when env unset.
+### Medium — [A07] `SameSite=None` without CSRF defense — **Still open**
 
-### Medium — [A07] `SameSite=None` without CSRF defense
+Prod refresh cookie remains `HttpOnly` + `Secure` + `SameSite=None`. No CSRF token/custom header on `/auth/refresh` or `/auth/logout`.
 
-### Low — Throttle / logout / Sentry WS auth noise
+### Low — still open
 
-## Spot-checked (clean / inherited)
+- Cap / refuse oversized `THROTTLE_GLOBAL_LIMIT` in production (`validate-env` / `resolveThrottleGlobal`).
+- Throttle `/auth/logout` (login 5/min, refresh 10/min; logout unthrottled).
+- Skip expected `WsException` auth denials in `sentry-exception.filter.ts` (still captures all WS).
 
-- KnowledgeModule RBAC + sanitize on article/category writes (landed via Dev-A foundation on Audit)
+## Spot-checked (clean)
+
+- KnowledgeModule RBAC + sanitize on article/category writes
 - Catalog `POST`/`PATCH` `@Roles("Admin")`; inactive filter Admin-only
 - Ticket link ACL in Knowledge service
-
-## Note on migration
-
-Audit kept `0009_phase5_knowledge_base` (Dev-A). Dev-D’s alternate `0009_knowledge_base.sql` was dropped on merge — do not reintroduce a second `0009_*`.
+- Migration journal keeps single `0009_phase5_knowledge_base`

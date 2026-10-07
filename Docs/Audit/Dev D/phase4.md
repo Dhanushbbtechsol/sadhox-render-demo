@@ -4,13 +4,11 @@ Reaudit 2026-10-01. Combined: [phase4.md](../phase4.md). Owner: auth cookies, th
 
 **Merge status:** Merged. `purchase_cost` kept; asset_tag as `0007_assets_asset_tag`.
 
-## Phase 1 (still open)
+## Phase 1
 
-### [A02 / A05] High — Hardcoded LAN credentials in scripts
+### [A02 / A05] High — Hardcoded LAN credentials in scripts — **FIXED (2026-10-07)**
 
-`probe-remote-services.mjs`, `clean-sla-failed-jobs.mjs`, `rebaseline-remote-journal.mjs` still default to LAN URLs/creds when env unset.
-
-Fix: no defaults; exit if URL env missing; rotate matching passwords.
+Scripts use `requireEnv`; no LAN URL/cred fallbacks. See [phase5.md](./phase5.md).
 
 ### [A07] Medium — `SameSite=None` without CSRF defense
 
