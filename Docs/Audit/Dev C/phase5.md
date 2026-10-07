@@ -1,16 +1,24 @@
 # Security Audit: Dev C (Phase 5)
 
-Reaudit 2026-10-07. Combined: [phase5.md](../phase5.md). **CLEAN.**
+Reaudit 2026-10-07 (pass 2). Combined: [phase5.md](../phase5.md).
 
 ## Medium — Resolved
 
 ### [A04 / A08] Knowledge list hooks ignore API `{ data }` envelope — **FIXED (verified)**
 
-`useKnowledgeCategories` / `useKnowledgeArticles` unwrap `(await apiFetch<{ data: T[] }>(...)).data` — same pattern as portal `use-knowledge.ts` (`f9c6156`).
+`unwrapKnowledgeList` in `features/admin/hooks.ts` for categories + articles (tolerates bare arrays for stale cache). Same pattern as portal `use-knowledge.ts`.
 
 ### [A04 / A07] DEV mock fallback on Knowledge / SLA API errors — **FIXED (verified)**
 
-Mocks only when `useOfflineAdminData()` (DEV + mock access token). Live Knowledge/SLA reads and writes rethrow; no silent in-memory success on 401/403/404/5xx.
+Knowledge/SLA live paths use `useOfflineAdminData()` only for mocks; live failures rethrow (SLA update has alternate-endpoint fallback, not mock).
+
+## Low — Open
+
+### [A04 / A07] Residual DEV `catch → mock` on assets / dashboard / audit / queues
+
+`features/admin/hooks.ts` still returns mocks on live API failure for non-Knowledge admin reads when `import.meta.env.DEV` (outside `useOfflineAdminData()`).
+
+**Fix:** rethrow unless `useOfflineAdminData()`.
 
 ## Spot-checked (clean)
 

@@ -18,8 +18,8 @@ import { relations } from "drizzle-orm";
 export const userRoleEnum = pgEnum("user_role", [
   "Admin",
   "Agent",
-  "Manager",
   "EndUser",
+  "Manager",
 ]);
 export const incidentStatusEnum = pgEnum("incident_status", [
   "New",
@@ -87,6 +87,7 @@ export const ticketTypeEnum = pgEnum("ticket_type", [
   "service_request",
   "change",
 ]);
+/** Knowledge Base article lifecycle (Phase 5). */
 export const knowledgeArticleStatusEnum = pgEnum("knowledge_article_status", [
   "Draft",
   "Published",
@@ -110,62 +111,6 @@ export const users = pgTable(
   (t) => [index("users_email_idx").on(t.email)],
 );
 
-/** Phase 6 — org projects; Managers supervise via manager_id (not project_members). */
-export const projects = pgTable(
-  "projects",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    name: varchar("name", { length: 255 }).notNull(),
-    managerId: uuid("manager_id").references(() => users.id, {
-      onDelete: "set null",
-    }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [
-    index("projects_manager_id_idx").on(t.managerId),
-    index("projects_name_idx").on(t.name),
-  ],
-);
-
-export const projectMembers = pgTable(
-  "project_members",
-  {
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [
-    primaryKey({ columns: [t.projectId, t.userId] }),
-    index("project_members_user_id_idx").on(t.userId),
-  ],
-);
-
-export const modules = pgTable(
-  "modules",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
-    name: varchar("name", { length: 255 }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [
-    index("modules_project_id_idx").on(t.projectId),
-    unique("modules_project_id_name_unique").on(t.projectId, t.name),
-  ],
-);
-
 export const refreshTokens = pgTable(
   "refresh_tokens",
   {
@@ -184,6 +129,58 @@ export const refreshTokens = pgTable(
     index("refresh_tokens_user_id_idx").on(t.userId),
     index("refresh_tokens_token_hash_idx").on(t.tokenHash),
   ],
+);
+
+/** Phase 6 — project owned by a Manager (projects.manager_id). */
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: varchar("name", { length: 255 }).notNull(),
+    managerId: uuid("manager_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("projects_manager_id_idx").on(t.managerId)],
+);
+
+/**
+ * Phase 6 — Agents who work tickets on a project.
+ * Service rejects non-Agent inserts (Managers supervise; Admins are global).
+ */
+export const projectMembers = pgTable(
+  "project_members",
+  {
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({
+      columns: [t.projectId, t.userId],
+      name: "project_members_pk",
+    }),
+    index("project_members_user_id_idx").on(t.userId),
+  ],
+);
+
+/** Phase 6 — modules within a project (tickets may reference both). */
+export const modules = pgTable(
+  "modules",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 255 }).notNull(),
+  },
+  (t) => [index("modules_project_id_idx").on(t.projectId)],
 );
 
 export const auditLog = pgTable(
@@ -463,6 +460,36 @@ export const comments = pgTable(
   (t) => [index("comments_ticket_idx").on(t.ticketType, t.ticketId)],
 );
 
+/** GUESS: response/resolve minute thresholds per priority — FRD only says "SLA threshold definitions per priority level". */
+export const slaRules = pgTable("sla_rules", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  priority: priorityEnum("priority").notNull().unique(),
+  responseMinutes: integer("response_minutes").notNull(),
+  resolveMinutes: integer("resolve_minutes").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/** GUESS: notification payload shape — FRD only says "User notification delivery records". */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 64 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    body: text("body"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("notifications_user_id_idx").on(t.userId)],
+);
+
 export const knowledgeCategories = pgTable(
   "knowledge_categories",
   {
@@ -533,36 +560,6 @@ export const ticketKnowledgeLinks = pgTable(
   ],
 );
 
-/** GUESS: response/resolve minute thresholds per priority — FRD only says "SLA threshold definitions per priority level". */
-export const slaRules = pgTable("sla_rules", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  priority: priorityEnum("priority").notNull().unique(),
-  responseMinutes: integer("response_minutes").notNull(),
-  resolveMinutes: integer("resolve_minutes").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
-
-/** GUESS: notification payload shape — FRD only says "User notification delivery records". */
-export const notifications = pgTable(
-  "notifications",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    type: varchar("type", { length: 64 }).notNull(),
-    title: varchar("title", { length: 255 }).notNull(),
-    body: text("body"),
-    readAt: timestamp("read_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [index("notifications_user_id_idx").on(t.userId)],
-);
-
 export const usersRelations = relations(users, ({ many }) => ({
   refreshTokens: many(refreshTokens),
   reportedIncidents: many(incidents, { relationName: "incidentReporter" }),
@@ -611,9 +608,6 @@ export const problemIncidentsRelations = relations(
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type UserRole = (typeof userRoleEnum.enumValues)[number];
-export type Project = typeof projects.$inferSelect;
-export type ProjectMember = typeof projectMembers.$inferSelect;
-export type ProjectModule = typeof modules.$inferSelect;
 export type Incident = typeof incidents.$inferSelect;
 export type Problem = typeof problems.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
@@ -630,3 +624,6 @@ export type KnowledgeArticle = typeof knowledgeArticles.$inferSelect;
 export type KnowledgeArticleStatus =
   (typeof knowledgeArticleStatusEnum.enumValues)[number];
 export type TicketKnowledgeLink = typeof ticketKnowledgeLinks.$inferSelect;
+export type Project = typeof projects.$inferSelect;
+export type ProjectMember = typeof projectMembers.$inferSelect;
+export type ProjectModule = typeof modules.$inferSelect;

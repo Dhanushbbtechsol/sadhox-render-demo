@@ -1,19 +1,20 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { and, asc, count, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, count, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import {
   computeSlaComplianceRate,
   resolveChartRange,
   stackOpenClosed,
   type ChartRangePreset,
 } from "../admin/chart-range";
-import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
+import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
@@ -26,253 +27,208 @@ import {
   users,
 } from "../database/schema";
 import { ProjectAccessService } from "./project-access.service";
+import { ProjectScopeService } from "./project-scope.service";
 import type {
   AddProjectMemberDto,
   CreateModuleDto,
   CreateProjectDto,
   UpdateModuleDto,
   UpdateProjectDto,
-} from "./dto/projects.dto";
-
-function mapProject(row: typeof projects.$inferSelect) {
-  return {
-    id: row.id,
-    name: row.name,
-    managerId: row.managerId,
-    createdAt: row.createdAt.toISOString(),
-  };
-}
+} from "./dto/project.dto";
 
 @Injectable()
 export class ProjectsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly scope: ProjectScopeService,
     private readonly access: ProjectAccessService,
   ) {}
 
-  async list(user: AuthUser) {
-    const scope = await this.access.listAccessibleProjectIds(user);
-    if (scope !== "all" && scope.length === 0) {
-      return { data: [] as ReturnType<typeof mapProject>[] };
-    }
-
-    const rows =
-      scope === "all"
-        ? await this.db.select().from(projects).orderBy(asc(projects.name))
-        : await this.db
-            .select()
-            .from(projects)
-            .where(inArray(projects.id, scope))
-            .orderBy(asc(projects.name));
-
-    return { data: rows.map(mapProject) };
-  }
-
-  async get(user: AuthUser, id: string) {
-    await this.assertCanRead(user, id);
-    const [row] = await this.db
-      .select()
-      .from(projects)
-      .where(eq(projects.id, id))
-      .limit(1);
-    if (!row) throw new NotFoundException("Project not found");
-    return mapProject(row);
-  }
-
   async create(dto: CreateProjectDto) {
-    const name = sanitizePlainText(dto.name);
-    if (!name) throw new BadRequestException("Name is required");
-
-    if (dto.managerId) {
-      await this.assertUserRole(dto.managerId, "Manager");
-    }
-
+    await this.assertManagerUser(dto.managerId);
+    const name = sanitizePlainText(dto.name, 255);
+    if (!name) throw new BadRequestException("Project name is required");
     const [row] = await this.db
       .insert(projects)
-      .values({
-        name,
-        managerId: dto.managerId ?? null,
-      })
+      .values({ name, managerId: dto.managerId })
       .returning();
-    return mapProject(row!);
+    return row;
   }
 
-  async update(id: string, dto: UpdateProjectDto) {
-    const [existing] = await this.db
-      .select()
-      .from(projects)
-      .where(eq(projects.id, id))
-      .limit(1);
-    if (!existing) throw new NotFoundException("Project not found");
-
-    const patch: Partial<typeof projects.$inferInsert> = {};
-    if (dto.name !== undefined) {
-      const name = sanitizePlainText(dto.name);
-      if (!name) throw new BadRequestException("Name is required");
-      patch.name = name;
+  /**
+   * Admin: all projects (full).
+   * Manager/Agent: accessible projects (full).
+   * EndUser: all projects as picker DTO (`id`, `name` only) — no manager identities.
+   */
+  async list(user: AuthUser) {
+    if (user.role === "EndUser") {
+      const rows = await this.db
+        .select({ id: projects.id, name: projects.name })
+        .from(projects);
+      return rows;
     }
+    if (user.role === "Admin") {
+      return this.db.select().from(projects);
+    }
+    if (user.role === "Manager" || user.role === "Agent") {
+      const ids = await this.access.listAccessibleProjectIds(user);
+      if (ids.length === 0) return [];
+      return this.db.select().from(projects).where(inArray(projects.id, ids));
+    }
+    throw new ForbiddenException("Insufficient role");
+  }
+
+  async getById(user: AuthUser, projectId: string) {
+    const row = await this.requireProject(projectId);
+    if (user.role === "Admin") return row;
+    const ok = await this.access.canAccess(user, projectId);
+    if (!ok) {
+      throw new ForbiddenException("No access to this project");
+    }
+    return row;
+  }
+
+  async update(projectId: string, dto: UpdateProjectDto) {
+    await this.requireProject(projectId);
     if (dto.managerId !== undefined) {
-      if (dto.managerId) {
-        await this.assertUserRole(dto.managerId, "Manager");
-      }
-      patch.managerId = dto.managerId;
+      await this.assertManagerUser(dto.managerId);
     }
-
+    if (dto.name === undefined && dto.managerId === undefined) {
+      throw new BadRequestException("No fields to update");
+    }
+    const name =
+      dto.name !== undefined ? sanitizePlainText(dto.name, 255) : undefined;
+    if (dto.name !== undefined && !name) {
+      throw new BadRequestException("Project name is required");
+    }
     const [row] = await this.db
       .update(projects)
-      .set(patch)
-      .where(eq(projects.id, id))
+      .set({
+        ...(name !== undefined ? { name } : {}),
+        ...(dto.managerId !== undefined ? { managerId: dto.managerId } : {}),
+      })
+      .where(eq(projects.id, projectId))
       .returning();
-    return mapProject(row!);
+    return row;
   }
 
-  async remove(id: string) {
-    const [existing] = await this.db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.id, id))
-      .limit(1);
-    if (!existing) throw new NotFoundException("Project not found");
-    await this.db.delete(projects).where(eq(projects.id, id));
-    return { id };
+  async remove(projectId: string) {
+    const deleted = await this.db
+      .delete(projects)
+      .where(eq(projects.id, projectId))
+      .returning({ id: projects.id });
+    if (deleted.length === 0) {
+      throw new NotFoundException("Project not found");
+    }
+    return { ok: true };
+  }
+
+  async addMember(projectId: string, dto: AddProjectMemberDto) {
+    await this.scope.assertProjectExists(projectId);
+    // Design authority: service rejects non-Agent inserts; Managers cannot be members.
+    await this.scope.assertUserIsAgentForMembership(dto.userId);
+
+    try {
+      const [row] = await this.db
+        .insert(projectMembers)
+        .values({ projectId, userId: dto.userId })
+        .returning();
+      return row;
+    } catch {
+      throw new ConflictException("User is already a member of this project");
+    }
   }
 
   async listMembers(user: AuthUser, projectId: string) {
-    await this.assertCanRead(user, projectId);
-    const rows = await this.db
+    await this.getById(user, projectId);
+    return this.db
       .select({
+        projectId: projectMembers.projectId,
         userId: projectMembers.userId,
         name: users.name,
         email: users.email,
         role: users.role,
-        createdAt: projectMembers.createdAt,
       })
       .from(projectMembers)
       .innerJoin(users, eq(users.id, projectMembers.userId))
-      .where(eq(projectMembers.projectId, projectId))
-      .orderBy(asc(users.name));
-
-    return {
-      data: rows.map((r) => ({
-        userId: r.userId,
-        name: r.name,
-        email: r.email,
-        role: r.role,
-        createdAt: r.createdAt.toISOString(),
-      })),
-    };
-  }
-
-  async addMember(projectId: string, dto: AddProjectMemberDto) {
-    await this.assertProjectExists(projectId);
-    const member = await this.assertUserRole(dto.userId, "Agent");
-    if (member.role !== "Agent") {
-      throw new BadRequestException("Only Agents can be project members");
-    }
-
-    await this.db
-      .insert(projectMembers)
-      .values({ projectId, userId: dto.userId })
-      .onConflictDoNothing();
-
-    return {
-      userId: member.id,
-      name: member.name,
-      email: member.email,
-      role: member.role,
-      createdAt: new Date().toISOString(),
-    };
+      .where(eq(projectMembers.projectId, projectId));
   }
 
   async removeMember(projectId: string, userId: string) {
-    await this.assertProjectExists(projectId);
-    await this.db
+    const deleted = await this.db
       .delete(projectMembers)
       .where(
         and(
           eq(projectMembers.projectId, projectId),
           eq(projectMembers.userId, userId),
         ),
-      );
-    return { projectId, userId };
-  }
-
-  async listModules(user: AuthUser, projectId: string) {
-    await this.assertCanRead(user, projectId);
-    const rows = await this.db
-      .select()
-      .from(modules)
-      .where(eq(modules.projectId, projectId))
-      .orderBy(asc(modules.name));
-    return {
-      data: rows.map((r) => ({
-        id: r.id,
-        projectId: r.projectId,
-        name: r.name,
-        createdAt: r.createdAt.toISOString(),
-      })),
-    };
+      )
+      .returning({ userId: projectMembers.userId });
+    if (deleted.length === 0) {
+      throw new NotFoundException("Project member not found");
+    }
+    return { ok: true };
   }
 
   async createModule(projectId: string, dto: CreateModuleDto) {
-    await this.assertProjectExists(projectId);
-    const name = sanitizePlainText(dto.name);
-    if (!name) throw new BadRequestException("Name is required");
-
-    try {
-      const [row] = await this.db
-        .insert(modules)
-        .values({ projectId, name })
-        .returning();
-      return {
-        id: row!.id,
-        projectId: row!.projectId,
-        name: row!.name,
-        createdAt: row!.createdAt.toISOString(),
-      };
-    } catch {
-      throw new BadRequestException("Module name already exists on this project");
-    }
+    await this.scope.assertProjectExists(projectId);
+    const name = sanitizePlainText(dto.name, 255);
+    if (!name) throw new BadRequestException("Module name is required");
+    const [row] = await this.db
+      .insert(modules)
+      .values({ projectId, name })
+      .returning();
+    return row;
   }
 
-  async updateModule(projectId: string, moduleId: string, dto: UpdateModuleDto) {
-    await this.assertProjectExists(projectId);
-    const name = sanitizePlainText(dto.name);
-    if (!name) throw new BadRequestException("Name is required");
-
-    const [existing] = await this.db
+  /**
+   * EndUser: project must exist; return picker fields only (`id`, `name`, `projectId`).
+   * Others: require project access, return full module rows.
+   */
+  async listModules(user: AuthUser, projectId: string) {
+    if (user.role === "EndUser") {
+      await this.requireProject(projectId);
+      return this.db
+        .select({
+          id: modules.id,
+          name: modules.name,
+          projectId: modules.projectId,
+        })
+        .from(modules)
+        .where(eq(modules.projectId, projectId));
+    }
+    await this.getById(user, projectId);
+    return this.db
       .select()
       .from(modules)
-      .where(and(eq(modules.id, moduleId), eq(modules.projectId, projectId)))
-      .limit(1);
-    if (!existing) throw new NotFoundException("Module not found");
+      .where(eq(modules.projectId, projectId));
+  }
 
-    try {
-      const [row] = await this.db
-        .update(modules)
-        .set({ name })
-        .where(eq(modules.id, moduleId))
-        .returning();
-      return {
-        id: row!.id,
-        projectId: row!.projectId,
-        name: row!.name,
-        createdAt: row!.createdAt.toISOString(),
-      };
-    } catch {
-      throw new BadRequestException("Module name already exists on this project");
-    }
+  async updateModule(
+    projectId: string,
+    moduleId: string,
+    dto: UpdateModuleDto,
+  ) {
+    const name = sanitizePlainText(dto.name, 255);
+    if (!name) throw new BadRequestException("Module name is required");
+    const [row] = await this.db
+      .update(modules)
+      .set({ name })
+      .where(and(eq(modules.id, moduleId), eq(modules.projectId, projectId)))
+      .returning();
+    if (!row) throw new NotFoundException("Module not found");
+    return row;
   }
 
   async removeModule(projectId: string, moduleId: string) {
-    const [existing] = await this.db
-      .select({ id: modules.id })
-      .from(modules)
+    const deleted = await this.db
+      .delete(modules)
       .where(and(eq(modules.id, moduleId), eq(modules.projectId, projectId)))
-      .limit(1);
-    if (!existing) throw new NotFoundException("Module not found");
-    await this.db.delete(modules).where(eq(modules.id, moduleId));
-    return { id: moduleId };
+      .returning({ id: modules.id });
+    if (deleted.length === 0) {
+      throw new NotFoundException("Module not found");
+    }
+    return { ok: true };
   }
 
   /** Manager home KPIs scoped to owned projects. */
@@ -524,37 +480,27 @@ export class ProjectsService {
     };
   }
 
-  private async assertCanRead(user: AuthUser, projectId: string) {
-    const ok = await this.access.canAccess(user, projectId);
-    if (!ok) {
-      // Same status for missing and unauthorized so a Manager cannot probe other project ids.
-      throw new NotFoundException("Project not found");
-    }
-  }
-
-  private async assertProjectExists(projectId: string) {
+  private async requireProject(projectId: string) {
     const [row] = await this.db
-      .select({ id: projects.id })
+      .select()
       .from(projects)
       .where(eq(projects.id, projectId))
       .limit(1);
     if (!row) throw new NotFoundException("Project not found");
+    return row;
   }
 
-  private async assertUserRole(userId: string, expected: "Manager" | "Agent") {
+  private async assertManagerUser(managerId: string) {
     const [user] = await this.db
-      .select()
+      .select({ id: users.id, role: users.role })
       .from(users)
-      .where(eq(users.id, userId))
+      .where(eq(users.id, managerId))
       .limit(1);
-    if (!user) throw new BadRequestException("User not found");
-    if (user.role !== expected) {
+    if (!user) throw new NotFoundException("Manager user not found");
+    if (user.role !== "Manager") {
       throw new BadRequestException(
-        expected === "Manager"
-          ? "managerId must reference a Manager user"
-          : "Only Agents can be project members",
+        "managerId must reference a user with role Manager",
       );
     }
-    return user;
   }
 }

@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { count, desc, eq, inArray, SQL } from "drizzle-orm";
+import { and, count, desc, eq, inArray, SQL } from "drizzle-orm";
+import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
@@ -14,6 +16,9 @@ import {
   users,
   type ProblemStatus,
 } from "../database/schema";
+import { ProjectAccessService } from "../projects/project-access.service";
+import { buildTicketProjectListFilter } from "../projects/project-list-scope";
+import { ProjectScopeService } from "../projects/project-scope.service";
 import type {
   CreateProblemDto,
   ListProblemsQueryDto,
@@ -44,12 +49,20 @@ export type ProblemView = {
 
 @Injectable()
 export class ProblemsService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly projectScope: ProjectScopeService,
+    private readonly projectAccess: ProjectAccessService,
+  ) {}
 
-  async list(query: ListProblemsQueryDto) {
+  async list(user: AuthUser, query: ListProblemsQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const filters = this.buildFilters(query);
+    const accessibleIds =
+      user.role === "Admin"
+        ? null
+        : await this.projectAccess.listAccessibleProjectIds(user);
+    const filters = this.buildFilters(query, user.role, accessibleIds);
 
     const [totalRow] = await this.db
       .select({ total: count() })
@@ -97,7 +110,7 @@ export class ProblemsService {
     };
   }
 
-  async get(id: string): Promise<ProblemView> {
+  async get(user: AuthUser, id: string): Promise<ProblemView> {
     const [row] = await this.db
       .select({
         problem: problems,
@@ -109,6 +122,7 @@ export class ProblemsService {
       .limit(1);
 
     if (!row) throw new NotFoundException("Problem not found");
+    await this.assertCanAccessTicket(user, row.problem.projectId);
 
     const links = await this.loadLinks([id]);
     const linkedIds = links.get(id) ?? [];
@@ -123,11 +137,15 @@ export class ProblemsService {
     );
   }
 
-  async create(dto: CreateProblemDto): Promise<ProblemView> {
+  async create(user: AuthUser, dto: CreateProblemDto): Promise<ProblemView> {
     if (dto.assignedTo) await this.assertUserExists(dto.assignedTo);
     if (dto.linkedIncidentIds?.length) {
       await this.assertIncidentsExist(dto.linkedIncidentIds);
     }
+    const scope = await this.projectScope.resolveTicketProjectScope({
+      projectId: dto.projectId,
+      moduleId: dto.moduleId,
+    });
 
     const now = new Date();
     const [created] = await this.db
@@ -139,6 +157,8 @@ export class ProblemsService {
         knownError: dto.knownError ?? false,
         status: dto.status ?? "Open",
         assignedTo: dto.assignedTo ?? null,
+        projectId: scope.projectId,
+        moduleId: scope.moduleId,
         createdAt: now,
         updatedAt: now,
       })
@@ -148,16 +168,34 @@ export class ProblemsService {
       await this.replaceLinks(created!.id, dto.linkedIncidentIds);
     }
 
-    return this.get(created!.id);
+    return this.get(user, created!.id);
   }
 
-  async update(id: string, dto: UpdateProblemDto): Promise<ProblemView> {
-    const existing = await this.get(id);
+  async update(
+    user: AuthUser,
+    id: string,
+    dto: UpdateProblemDto,
+  ): Promise<ProblemView> {
+    const existing = await this.get(user, id);
 
     if (dto.assignedTo) await this.assertUserExists(dto.assignedTo);
     if (dto.linkedIncidentIds) {
       await this.assertIncidentsExist(dto.linkedIncidentIds);
     }
+    const [existingRow] = await this.db
+      .select({
+        projectId: problems.projectId,
+        moduleId: problems.moduleId,
+      })
+      .from(problems)
+      .where(eq(problems.id, id))
+      .limit(1);
+    const scope = await this.projectScope.resolveTicketProjectScope({
+      projectId: dto.projectId,
+      moduleId: dto.moduleId,
+      existingProjectId: existingRow?.projectId,
+      existingModuleId: existingRow?.moduleId,
+    });
 
     const now = new Date();
     await this.db
@@ -173,6 +211,9 @@ export class ProblemsService {
         ...(dto.assignedTo !== undefined
           ? { assignedTo: dto.assignedTo }
           : {}),
+        ...(dto.projectId !== undefined || dto.moduleId !== undefined
+          ? { projectId: scope.projectId, moduleId: scope.moduleId }
+          : {}),
         updatedAt: now,
       })
       .where(eq(problems.id, id));
@@ -181,7 +222,7 @@ export class ProblemsService {
       await this.replaceLinks(existing.id, dto.linkedIncidentIds);
     }
 
-    return this.get(id);
+    return this.get(user, id);
   }
 
   /**
@@ -189,10 +230,11 @@ export class ProblemsService {
    * Idempotent when already linked to this problem; rejects if linked elsewhere.
    */
   async linkIncident(
+    user: AuthUser,
     problemId: string,
     incidentId: string,
   ): Promise<ProblemView> {
-    await this.get(problemId);
+    await this.get(user, problemId);
     await this.assertIncidentsExist([incidentId]);
 
     const [existingLink] = await this.db
@@ -205,7 +247,7 @@ export class ProblemsService {
 
     if (existingLink) {
       if (existingLink.problemId === problemId) {
-        return this.get(problemId);
+        return this.get(user, problemId);
       }
       throw new BadRequestException(
         "Incident is already linked to another problem",
@@ -217,12 +259,38 @@ export class ProblemsService {
       incidentId,
     });
 
-    return this.get(problemId);
+    return this.get(user, problemId);
   }
 
-  private buildFilters(query: ListProblemsQueryDto): SQL | undefined {
-    if (!query.status) return undefined;
-    return eq(problems.status, query.status);
+  private async assertCanAccessTicket(
+    user: AuthUser,
+    projectId: string | null,
+  ) {
+    if (user.role === "Admin") return;
+    if (user.role === "Agent" && (projectId == null || projectId === "")) {
+      return;
+    }
+    if (!(await this.projectAccess.canAccess(user, projectId))) {
+      throw new ForbiddenException("Cannot access this problem");
+    }
+  }
+
+  private buildFilters(
+    query: ListProblemsQueryDto,
+    role: string,
+    accessibleIds: string[] | null,
+  ): SQL | undefined {
+    const parts: SQL[] = [];
+    if (query.status) parts.push(eq(problems.status, query.status));
+    const projectFilter = buildTicketProjectListFilter(
+      problems.projectId,
+      role,
+      accessibleIds,
+    );
+    if (projectFilter) parts.push(projectFilter);
+    if (parts.length === 0) return undefined;
+    if (parts.length === 1) return parts[0];
+    return and(...parts);
   }
 
   private async loadLinks(problemIds: string[]) {

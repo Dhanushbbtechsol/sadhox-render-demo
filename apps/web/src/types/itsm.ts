@@ -1,6 +1,6 @@
 /** Contract types aligned with Nest incident/problem API. */
 
-export type UserRole = "Admin" | "Agent" | "Manager" | "EndUser";
+export type UserRole = "Admin" | "Agent" | "EndUser" | "Manager";
 
 export type Impact = "Low" | "Medium" | "High";
 export type Urgency = "Low" | "Medium" | "High";
@@ -45,6 +45,8 @@ export interface Incident {
   assigneeName?: string | null;
   reporterId: string;
   reporterName?: string | null;
+  projectId?: string | null;
+  moduleId?: string | null;
   slaDueAt: string | null;
   slaBreached?: boolean;
   resolutionNotes?: string | null;
@@ -55,6 +57,21 @@ export interface Incident {
   reporter?: { id: string; name: string; email: string } | null;
   assignee?: { id: string; name: string; email: string } | null;
   slaTargetMinutes?: number | null;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  managerId: string;
+  managerName: string | null;
+  createdAt: string;
+}
+
+export interface ProjectModule {
+  id: string;
+  projectId: string;
+  name: string;
+  createdAt: string;
 }
 
 export interface AgentSnippet {
@@ -70,6 +87,8 @@ export interface CreateIncidentInput {
   category: string;
   impact: Impact;
   urgency: Urgency;
+  projectId?: string | null;
+  moduleId?: string | null;
 }
 
 export interface UpdateIncidentInput {
@@ -81,6 +100,8 @@ export interface UpdateIncidentInput {
   status?: IncidentStatus;
   assignedTo?: string | null;
   resolutionNotes?: string;
+  projectId?: string | null;
+  moduleId?: string | null;
 }
 
 export interface LinkedIncidentSnippet {
@@ -99,10 +120,22 @@ export interface Problem {
   status: ProblemStatus;
   assignedTo: string | null;
   assigneeName?: string | null;
+  projectId?: string | null;
+  moduleId?: string | null;
   linkedIncidentIds: string[];
   linkedIncidents?: LinkedIncidentSnippet[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CreateProblemInput {
+  title: string;
+  description: string;
+  rootCause?: string;
+  knownError?: boolean;
+  projectId?: string | null;
+  moduleId?: string | null;
+  linkedIncidentIds?: string[];
 }
 
 export type TicketType = "incident" | "problem" | "service_request" | "change";

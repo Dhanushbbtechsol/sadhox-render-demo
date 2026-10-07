@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { PriorityBadge } from "@/components/priority-badge";
+import { ProjectModuleFields } from "@/components/projects/project-module-fields";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -42,6 +43,8 @@ const createIncidentSchema = z.object({
   category: z.enum(INCIDENT_CATEGORIES),
   impact: z.enum(LEVELS),
   urgency: z.enum(LEVELS),
+  projectId: z.string().uuid().optional(),
+  moduleId: z.string().uuid().optional(),
 });
 
 type CreateIncidentForm = z.infer<typeof createIncidentSchema>;
@@ -62,16 +65,23 @@ export function CreateIncidentDialog({
       category: "Software",
       impact: "Medium",
       urgency: "Medium",
+      projectId: undefined,
+      moduleId: undefined,
     },
   });
 
   const impact = useWatch({ control: form.control, name: "impact" }) as Impact;
   const urgency = useWatch({ control: form.control, name: "urgency" }) as Urgency;
+  const projectId = useWatch({ control: form.control, name: "projectId" });
   const previewPriority = calculatePriority(impact, urgency);
 
   async function onSubmit(values: CreateIncidentForm) {
     try {
-      const created = await createIncident.mutateAsync(values);
+      const created = await createIncident.mutateAsync({
+        ...values,
+        projectId: values.projectId ?? null,
+        moduleId: values.projectId ? (values.moduleId ?? null) : null,
+      });
       toast.success(`Incident ${created.id} created`, {
         description: `Priority ${created.priority} assigned automatically.`,
       });
@@ -119,6 +129,14 @@ export function CreateIncidentDialog({
               </p>
             ) : null}
           </div>
+
+          <ProjectModuleFields
+            control={form.control}
+            projectField="projectId"
+            moduleField="moduleId"
+            projectId={projectId}
+            onProjectChange={() => form.setValue("moduleId", undefined)}
+          />
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">

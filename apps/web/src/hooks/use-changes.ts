@@ -41,10 +41,21 @@ export function useCreateChange() {
       scheduledStart: string;
       scheduledEnd: string;
       rollbackPlan: string;
+      projectId?: string | null;
+      moduleId?: string | null;
     }) =>
       apiFetch<ChangeRecord>("/changes", {
         method: "POST",
-        body: input,
+        body: {
+          title: input.title,
+          description: input.description,
+          type: input.type,
+          scheduledStart: input.scheduledStart,
+          scheduledEnd: input.scheduledEnd,
+          rollbackPlan: input.rollbackPlan,
+          ...(input.projectId ? { projectId: input.projectId } : {}),
+          ...(input.moduleId ? { moduleId: input.moduleId } : {}),
+        },
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: CHANGES_KEY });

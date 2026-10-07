@@ -29,9 +29,10 @@ export class ServiceRequestsController {
   constructor(private readonly requests: ServiceRequestsService) {}
 
   @Get()
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "EndUser", "Manager")
   @ApiOperation({
-    summary: "List service requests (EndUser: own only; Admin/Agent: all)",
+    summary:
+      "List service requests (EndUser: own; Admin: all; Agent/Manager: project-scoped)",
   })
   list(@CurrentUser() user: AuthUser) {
     return this.requests.list(user);
@@ -39,7 +40,7 @@ export class ServiceRequestsController {
 
   @Post()
   @HttpCode(201)
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "EndUser", "Manager")
   @ApiOperation({
     summary:
       "Submit a service request (requester taken from JWT; client requesterId rejected)",
@@ -52,9 +53,9 @@ export class ServiceRequestsController {
   }
 
   @Get(":id")
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "EndUser", "Manager")
   @ApiOperation({
-    summary: "Get service request by id (EndUser scoped to own rows)",
+    summary: "Get service request by id (project-scoped for Manager/Agent)",
   })
   get(
     @CurrentUser() user: AuthUser,
@@ -64,8 +65,11 @@ export class ServiceRequestsController {
   }
 
   @Patch(":id/approve")
-  @Roles("Admin")
-  @ApiOperation({ summary: "Approve a submitted service request (Admin)" })
+  @Roles("Admin", "Manager")
+  @ApiOperation({
+    summary:
+      "Approve a submitted service request (Admin any; Manager own project only; null project Admin-only)",
+  })
   approve(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
@@ -74,8 +78,11 @@ export class ServiceRequestsController {
   }
 
   @Patch(":id/reject")
-  @Roles("Admin")
-  @ApiOperation({ summary: "Reject a submitted service request (Admin)" })
+  @Roles("Admin", "Manager")
+  @ApiOperation({
+    summary:
+      "Reject a submitted service request (Admin any; Manager own project only)",
+  })
   reject(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,

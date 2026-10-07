@@ -60,7 +60,7 @@ describe("IncidentsService.update assignee role", () => {
             })),
           };
         }
-        // assertAssigneeIsAgentOrAdmin
+        // assertAssigneeInPool user lookup
         return {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
@@ -83,8 +83,21 @@ describe("IncidentsService.update assignee role", () => {
       db as never,
       { calculate: vi.fn(), resolveDueAt: vi.fn() } as never,
       { emitTicketUpdated: vi.fn() } as never,
-      {} as never,
+      { isInPool: vi.fn().mockResolvedValue(false) } as never,
       { sendTicketAssigned: vi.fn() } as never,
+      {} as never,
+      {
+        resolveTicketProjectScope: vi.fn().mockResolvedValue({
+          projectId: null,
+          moduleId: null,
+        }),
+      } as never,
+      {
+        listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
+        canAccess: vi.fn().mockResolvedValue(true),
+        canApprove: vi.fn(),
+        assertCanApprove: vi.fn(),
+      } as never,
     );
 
     await expect(

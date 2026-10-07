@@ -9,4 +9,4 @@
 - **Day 26–27:** Forms/hooks: `project_id` + `module_id` on request/change create; catalog submit path accepts optional project when provided by API.
 - **Day 28:** Approval inbox — Manager sees/approves only own-project items; Admin sees all (incl. null project). Keep state machine single-level.
 - **Day 29:** Lists scoped; Agent fulfillment still only after Approved; Agent visibility limited to member projects.
-- **Day 30:** Walkthrough + QA notes.
+- **Day 30:** Walkthrough + QA notes — [phase6-day30-qa.md](./phase6-day30-qa.md).

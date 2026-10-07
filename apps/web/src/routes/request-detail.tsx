@@ -77,6 +77,14 @@ export default function RequestDetailPage() {
               <dt className="text-muted-foreground text-xs">Created</dt>
               <dd className="text-sm">{new Date(data.createdAt).toLocaleString()}</dd>
             </div>
+            <div>
+              <dt className="text-muted-foreground text-xs">Project</dt>
+              <dd className="text-sm">{data.projectName ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground text-xs">Module</dt>
+              <dd className="text-sm">{data.moduleName ?? "—"}</dd>
+            </div>
             {data.rejectionReason ? (
               <div className="sm:col-span-2">
                 <dt className="text-muted-foreground text-xs">Rejection reason</dt>

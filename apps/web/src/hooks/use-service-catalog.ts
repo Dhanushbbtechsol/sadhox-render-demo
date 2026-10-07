@@ -99,6 +99,8 @@ export function useCreateServiceRequest() {
       justification: string;
       urgency: Urgency;
       fields: Record<string, string>;
+      projectId?: string | null;
+      moduleId?: string | null;
     }) => {
       if (!userId) throw new Error("Not authenticated");
 
@@ -109,6 +111,8 @@ export function useCreateServiceRequest() {
           justification: input.justification,
           urgency: input.urgency,
           fields: input.fields,
+          ...(input.projectId ? { projectId: input.projectId } : {}),
+          ...(input.moduleId ? { moduleId: input.moduleId } : {}),
         },
       });
     },

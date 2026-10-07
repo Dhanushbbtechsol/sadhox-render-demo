@@ -23,10 +23,10 @@ export function WelcomeEmail({
   return (
     <Html>
       <Head />
-      <Preview>Welcome to sadhox!</Preview>
+      <Preview>Welcome to Yukti!</Preview>
       <Body style={main}>
         <Container style={container}>
-          <Heading style={h1}>Welcome to sadhox!</Heading>
+          <Heading style={h1}>Welcome to Yukti!</Heading>
           <Text style={text}>Hi {username},</Text>
           <Text style={text}>Thanks for signing up! We're excited to have you on board.</Text>
           <Section style={buttonContainer}>

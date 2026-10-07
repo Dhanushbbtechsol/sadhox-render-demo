@@ -5,6 +5,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import type {
   AgentSnippet,
   CreateIncidentInput,
+  CreateProblemInput,
   Incident,
   PageMeta,
   Problem,
@@ -103,13 +104,18 @@ export function useProblem(id: string | undefined) {
   });
 }
 
-export function useAgents() {
+export function useAgents(projectId?: string | null) {
   const userId = useAuthStore((state) => state.user?.id);
 
   return useQuery({
-    queryKey: [...agentsKey, userId],
+    queryKey: [...agentsKey, userId, projectId ?? "global"],
     enabled: Boolean(userId),
-    queryFn: () => apiFetch<AgentSnippet[]>("/assignment/agents"),
+    queryFn: () =>
+      apiFetch<AgentSnippet[]>(
+        `/assignment/agents${toQuery({
+          projectId: projectId ?? undefined,
+        })}`,
+      ),
   });
 }
 
@@ -167,6 +173,21 @@ export function useUpdateIncident(incidentId: string) {
   });
 }
 
+export function useCreateProblem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateProblemInput) =>
+      apiFetch<Problem>("/problems", {
+        method: "POST",
+        body: input,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: problemsKey });
+    },
+  });
+}
+
 export function useUpdateProblem(problemId: string) {
   const queryClient = useQueryClient();
 
@@ -178,6 +199,8 @@ export function useUpdateProblem(problemId: string) {
       description?: string;
       rootCause?: string | null;
       status?: string;
+      projectId?: string | null;
+      moduleId?: string | null;
     }) =>
       apiFetch<Problem>(`/problems/${problemId}`, {
         method: "PATCH",

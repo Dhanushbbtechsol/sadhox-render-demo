@@ -239,7 +239,7 @@ export default function KnowledgeArticlePage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Uncategorized</SelectItem>
-                      {(categories.data ?? []).map((category) => (
+                      {(Array.isArray(categories.data) ? categories.data : []).map((category) => (
                         <SelectItem key={category.id} value={category.id}>
                           {category.name}
                         </SelectItem>

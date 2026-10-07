@@ -4,7 +4,7 @@
 **Owner:** Dev D  
 **Scope:** Knowledge Base API, Admin SLA rules API, Service Catalog write API.
 
-Staging / Render migration for Phase 5 schema is **on hold** pending the Phase 4 Render deployment decision. Consume the contract against local (or shared lab) Nest + Postgres for now.
+Staging / Render migration for Phase 5 schema is **deferred / on hold** pending the Phase 4 Render deployment decision — not required for this handoff. Consume the contract against local (or shared lab) Nest + Postgres for now.
 
 ---
 
@@ -90,7 +90,7 @@ Writes run through `sanitizePlainText` (same choke point as Knowledge). Select `
 ## Explicitly not in this handoff
 
 - Drag-and-drop SLA builder  
-- Staging/Render migrate for `0009_knowledge_base` (blocked on Phase 4 deploy decision)  
+- Staging/Render migrate for `0009_knowledge_base` (deferred / on hold pending Phase 4 deploy decision)  
 - Expanding `knowledge_ticket_type` to include `change`
 
 **Phase plan:** [phase5.md](./phase5.md)

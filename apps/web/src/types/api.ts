@@ -1,4 +1,4 @@
-export type UserRole = "EndUser" | "Agent" | "Manager" | "Admin";
+export type UserRole = "EndUser" | "Agent" | "Admin" | "Manager";
 
 export type Urgency = "Low" | "Medium" | "High";
 
@@ -64,6 +64,21 @@ export interface KnowledgeArticle {
   updatedAt: string;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  managerId: string;
+  managerName: string;
+  createdAt: string;
+}
+
+export interface ProjectModule {
+  id: string;
+  projectId: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface ServiceRequest {
   id: string;
   catalogId: string;
@@ -81,6 +96,10 @@ export interface ServiceRequest {
   assigneeId?: string;
   fulfillmentNotes?: string;
   fulfilledAt?: string;
+  projectId?: string | null;
+  projectName?: string | null;
+  moduleId?: string | null;
+  moduleName?: string | null;
 }
 
 export interface ChangeRecord {
@@ -96,6 +115,10 @@ export interface ChangeRecord {
   createdByName: string;
   approvedById?: string;
   createdAt: string;
+  projectId?: string | null;
+  projectName?: string | null;
+  moduleId?: string | null;
+  moduleName?: string | null;
 }
 
 export interface AuthUser {

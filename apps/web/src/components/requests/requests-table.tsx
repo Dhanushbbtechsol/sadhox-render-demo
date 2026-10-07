@@ -33,6 +33,7 @@ function RequestsDataTable({ rows }: { rows: ServiceRequest[] }) {
           <TableRow className="hover:bg-transparent">
             <TableHead>ID</TableHead>
             <TableHead>Service</TableHead>
+            <TableHead>Project</TableHead>
             <TableHead>Requester</TableHead>
             <TableHead>Urgency</TableHead>
             <TableHead>Status</TableHead>
@@ -60,6 +61,9 @@ function RequestsDataTable({ rows }: { rows: ServiceRequest[] }) {
                 >
                   {request.catalogName}
                 </Link>
+              </TableCell>
+              <TableCell className="text-xs">
+                {request.projectName ?? "—"}
               </TableCell>
               <TableCell>{request.requesterName}</TableCell>
               <TableCell>

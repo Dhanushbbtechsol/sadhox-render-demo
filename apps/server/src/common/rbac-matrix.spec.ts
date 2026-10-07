@@ -37,9 +37,11 @@ import { ServiceCatalogController } from "../service-catalog/service-catalog.con
 import { ServiceCatalogService } from "../service-catalog/service-catalog.service";
 import { ServiceRequestsController } from "../service-requests/service-requests.controller";
 import { ServiceRequestsService } from "../service-requests/service-requests.service";
+import { AssignmentController } from "../assignment/assignment.controller";
+import { AssignmentService } from "../assignment/assignment.service";
 
 const ID = "11111111-1111-4111-8111-111111111111";
-const ALL_ROLES: UserRole[] = ["Admin", "Agent", "Manager", "EndUser"];
+const ALL_ROLES: UserRole[] = ["Admin", "Agent", "EndUser", "Manager"];
 
 type MatrixRow = {
   method: "get" | "post" | "patch" | "delete";
@@ -48,63 +50,95 @@ type MatrixRow = {
 };
 
 const MATRIX: MatrixRow[] = [
-  { method: "get", path: "/incidents", allowed: ["Admin", "Agent", "EndUser"] },
-  { method: "post", path: "/incidents", allowed: ["Admin", "Agent", "EndUser"] },
+  {
+    method: "get",
+    path: "/incidents",
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
+  },
+  {
+    method: "post",
+    path: "/incidents",
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
+  },
   {
     method: "get",
     path: `/incidents/${ID}`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
   },
-  { method: "patch", path: `/incidents/${ID}`, allowed: ["Admin", "Agent"] },
+  {
+    method: "patch",
+    path: `/incidents/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
   {
     method: "get",
     path: `/incidents/${ID}/comments`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
   },
   {
     method: "get",
     path: `/incidents/${ID}/linked-assets`,
-    allowed: ["Admin", "Agent"],
+    allowed: ["Admin", "Agent", "Manager"],
   },
   {
     method: "post",
     path: `/incidents/${ID}/comments`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
   },
-  { method: "get", path: "/problems", allowed: ["Admin", "Agent"] },
-  { method: "post", path: "/problems", allowed: ["Admin", "Agent"] },
-  { method: "get", path: `/problems/${ID}`, allowed: ["Admin", "Agent"] },
-  { method: "patch", path: `/problems/${ID}`, allowed: ["Admin", "Agent"] },
+  { method: "get", path: "/problems", allowed: ["Admin", "Agent", "Manager"] },
+  { method: "post", path: "/problems", allowed: ["Admin", "Agent", "Manager"] },
+  {
+    method: "get",
+    path: `/problems/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  {
+    method: "patch",
+    path: `/problems/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
   {
     method: "get",
     path: "/service-requests",
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     method: "post",
     path: "/service-requests",
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     method: "get",
     path: `/service-requests/${ID}`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     method: "patch",
     path: `/service-requests/${ID}/approve`,
-    allowed: ["Admin"],
+    allowed: ["Admin", "Manager"],
   },
   {
     method: "patch",
     path: `/service-requests/${ID}/reject`,
-    allowed: ["Admin"],
+    allowed: ["Admin", "Manager"],
   },
-  { method: "get", path: "/changes", allowed: ["Admin", "Agent"] },
+  { method: "get", path: "/changes", allowed: ["Admin", "Agent", "Manager"] },
   { method: "post", path: "/changes", allowed: ["Admin", "Agent"] },
-  { method: "get", path: `/changes/${ID}`, allowed: ["Admin", "Agent"] },
-  { method: "patch", path: `/changes/${ID}/approve`, allowed: ["Admin"] },
-  { method: "patch", path: `/changes/${ID}`, allowed: ["Admin", "Agent"] },
+  {
+    method: "get",
+    path: `/changes/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  {
+    method: "patch",
+    path: `/changes/${ID}/approve`,
+    allowed: ["Admin", "Manager"],
+  },
+  {
+    method: "patch",
+    path: `/changes/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
   { method: "get", path: "/assets", allowed: ["Admin"] },
   { method: "post", path: "/assets", allowed: ["Admin"] },
   { method: "get", path: `/assets/${ID}`, allowed: ["Admin"] },
@@ -115,7 +149,12 @@ const MATRIX: MatrixRow[] = [
   {
     method: "get",
     path: "/service-catalog",
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
+  },
+  {
+    method: "get",
+    path: "/assignment/agents",
+    allowed: ["Admin", "Agent", "Manager"],
   },
   { method: "post", path: "/service-catalog", allowed: ["Admin"] },
   {
@@ -188,15 +227,30 @@ const MATRIX: MatrixRow[] = [
   { method: "get", path: "/admin/sla-rules", allowed: ["Admin"] },
   { method: "patch", path: "/admin/sla-rules", allowed: ["Admin"] },
   { method: "patch", path: "/admin/sla-rules/P1", allowed: ["Admin"] },
-  { method: "get", path: "/projects", allowed: ["Admin", "Manager"] },
+  {
+    method: "patch",
+    path: `/admin/users/${ID}/role`,
+    allowed: ["Admin"],
+  },
+  { method: "get", path: "/health/ready", allowed: ["Admin"] },
+  // Phase 6 — projects
+  {
+    method: "get",
+    path: "/projects",
+    allowed: ["Admin", "Manager", "Agent", "EndUser"],
+  },
   { method: "post", path: "/projects", allowed: ["Admin"] },
-  { method: "get", path: `/projects/${ID}`, allowed: ["Admin", "Manager"] },
+  {
+    method: "get",
+    path: `/projects/${ID}`,
+    allowed: ["Admin", "Manager", "Agent"],
+  },
   { method: "patch", path: `/projects/${ID}`, allowed: ["Admin"] },
   { method: "delete", path: `/projects/${ID}`, allowed: ["Admin"] },
   {
     method: "get",
     path: `/projects/${ID}/members`,
-    allowed: ["Admin", "Manager"],
+    allowed: ["Admin", "Manager", "Agent"],
   },
   { method: "post", path: `/projects/${ID}/members`, allowed: ["Admin"] },
   {
@@ -207,7 +261,7 @@ const MATRIX: MatrixRow[] = [
   {
     method: "get",
     path: `/projects/${ID}/modules`,
-    allowed: ["Admin", "Manager"],
+    allowed: ["Admin", "Manager", "Agent", "EndUser"],
   },
   { method: "post", path: `/projects/${ID}/modules`, allowed: ["Admin"] },
   {
@@ -222,7 +276,6 @@ const MATRIX: MatrixRow[] = [
   },
   { method: "get", path: "/manager/dashboard/stats", allowed: ["Manager"] },
   { method: "get", path: "/manager/dashboard/charts", allowed: ["Manager"] },
-  { method: "get", path: "/health/ready", allowed: ["Admin"] },
 ];
 
 function stubService(methods: string[]) {
@@ -276,8 +329,9 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         AssetsController,
         ServiceCatalogController,
         KnowledgeController,
-        AdminController,
         ProjectsController,
+        AssignmentController,
+        AdminController,
         ManagerDashboardController,
       ],
       providers: [
@@ -383,13 +437,14 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "listUsers",
             "listSlaRules",
             "updateSlaRule",
+            "updateUserRole",
           ]),
         },
         {
           provide: ProjectsService,
           useValue: stubService([
             "list",
-            "get",
+            "getById",
             "create",
             "update",
             "remove",
@@ -403,6 +458,10 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "managerDashboardStats",
             "managerCharts",
           ]),
+        },
+        {
+          provide: AssignmentService,
+          useValue: stubService(["listAgents"]),
         },
       ],
     }).compile();

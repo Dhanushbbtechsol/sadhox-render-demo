@@ -1,6 +1,7 @@
 # Phase 6 — Projects, Modules & Manager Role
 
-**Status:** designed / not started  
+**Status:** in progress — Dev D backend Day 30 checkpoint (local); Dev A + Dev B foundation landed (2026-10-07); Dev C UI still open; staging/TL migrate deferred to production go-live
+
 **Prerequisite:** close Phase 5 open gaps first (`Docs/Audit/phase5.md`) — SLA rules API, Admin Knowledge `{ data }` unwrap, kill silent DEV mock write fallbacks. **Do not rebuild Knowledge Base.**
 
 **Decisions locked (2026-10-07):**

@@ -151,7 +151,7 @@ export const router = createBrowserRouter([
           {
             path: "incidents",
             handle: { breadcrumb: "Incidents" },
-            element: <ProtectedRoute roles={["Admin", "Agent"]} />,
+            element: <ProtectedRoute roles={["Admin", "Agent", "Manager"]} />,
             children: [
               { index: true, element: <IncidentsPage /> },
               {
@@ -164,7 +164,7 @@ export const router = createBrowserRouter([
           {
             path: "problems",
             handle: { breadcrumb: "Problems" },
-            element: <ProtectedRoute roles={["Admin", "Agent"]} />,
+            element: <ProtectedRoute roles={["Admin", "Agent", "Manager"]} />,
             children: [
               { index: true, element: <ProblemsPage /> },
               {
@@ -211,7 +211,9 @@ export const router = createBrowserRouter([
           {
             path: "requests",
             handle: { breadcrumb: "Requests" },
-            element: <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />,
+            element: (
+              <ProtectedRoute roles={["Admin", "Agent", "EndUser", "Manager"]} />
+            ),
             children: [
               { index: true, element: <RequestsPage /> },
               {
@@ -224,7 +226,7 @@ export const router = createBrowserRouter([
           {
             path: "changes",
             handle: { breadcrumb: "Changes" },
-            element: <ProtectedRoute roles={["Admin", "Agent"]} />,
+            element: <ProtectedRoute roles={["Admin", "Agent", "Manager"]} />,
             children: [
               { index: true, element: <ChangesPage /> },
               {
@@ -237,7 +239,7 @@ export const router = createBrowserRouter([
           {
             path: "approvals",
             handle: { breadcrumb: "Approvals" },
-            element: <ProtectedRoute roles={["Admin"]} />,
+            element: <ProtectedRoute roles={["Admin", "Manager"]} />,
             children: [{ index: true, element: <ApprovalsPage /> }],
           },
           { path: "*", element: <NotFound /> },

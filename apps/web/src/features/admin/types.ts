@@ -1,4 +1,4 @@
-export type Role = "Admin" | "Agent" | "EndUser";
+export type Role = "Admin" | "Agent" | "EndUser" | "Manager";
 
 export type AssetType = "Hardware" | "Software";
 

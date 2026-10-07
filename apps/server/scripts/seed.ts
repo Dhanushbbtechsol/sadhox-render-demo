@@ -1,7 +1,7 @@
 import "dotenv/config";
 import * as bcrypt from "bcryptjs";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { eq, like, sql } from "drizzle-orm";
+import { and, eq, like, sql } from "drizzle-orm";
 import postgres from "postgres";
 import {
   assertPasswordComplexity,
@@ -28,6 +28,8 @@ import {
 import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
 
 const SHOWCASE_PREFIX = "[Showcase]";
+const PHASE6_PROJECT_ID = "a1000000-0000-4000-8000-000000000001";
+const PHASE6_MODULE_ID = "a1000000-0000-4000-8000-000000000002";
 
 async function seed() {
   const url = process.env.DATABASE_URL;
@@ -72,6 +74,12 @@ async function seed() {
       passwordHash,
       role: "EndUser" as const,
       name: "End User",
+    },
+    {
+      email: "manager@sadhox.local",
+      passwordHash,
+      role: "Manager" as const,
+      name: "Morgan Manager",
     },
   ];
 
@@ -145,7 +153,9 @@ async function seed() {
     console.log(`created catalog ${item.name}`);
   }
 
+  await seedPhase6Projects(db);
   await seedShowcaseData(db);
+  await attachShowcaseIncidentsToProject(db);
   await seedPhase4Assets(db);
   await seedKnowledgeBase(db);
   await seedPhase6Projects(db);
@@ -154,61 +164,29 @@ async function seed() {
   console.log("Seed complete");
 }
 
-const PHASE6_PROJECT_ID = "a1000000-0000-4000-8000-000000000001";
-const PHASE6_MODULE_ID = "a1000000-0000-4000-8000-000000000002";
-
-async function seedPhase6Projects(db: SeedDb) {
-  const [manager] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, "manager@sadhox.local"))
-    .limit(1);
-  const [agent] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, "agent@sadhox.local"))
-    .limit(1);
-
-  if (!manager || !agent) {
-    console.log("skip phase6 projects — manager/agent missing");
-    return;
-  }
-
-  const [existing] = await db
-    .select()
+/** Scope open showcase incidents so Agent/Manager queues are non-empty. */
+async function attachShowcaseIncidentsToProject(db: SeedDb) {
+  const [proj] = await db
+    .select({ id: projects.id })
     .from(projects)
     .where(eq(projects.id, PHASE6_PROJECT_ID))
     .limit(1);
-
-  if (!existing) {
-    await db.insert(projects).values({
-      id: PHASE6_PROJECT_ID,
-      name: "Corporate IT",
-      managerId: manager.id,
-    });
-    console.log("created project Corporate IT");
-  } else {
-    console.log("skip existing project Corporate IT");
-  }
+  if (!proj) return;
 
   await db
-    .insert(projectMembers)
-    .values({ projectId: PHASE6_PROJECT_ID, userId: agent.id })
-    .onConflictDoNothing();
-
-  const [mod] = await db
-    .select()
-    .from(modules)
-    .where(eq(modules.id, PHASE6_MODULE_ID))
-    .limit(1);
-  if (!mod) {
-    await db.insert(modules).values({
-      id: PHASE6_MODULE_ID,
+    .update(incidents)
+    .set({
       projectId: PHASE6_PROJECT_ID,
-      name: "Networking",
-    });
-    console.log("created module Networking");
-  }
+      moduleId: PHASE6_MODULE_ID,
+    })
+    .where(
+      and(
+        like(incidents.title, `${SHOWCASE_PREFIX}%`),
+        sql`${incidents.projectId} is null`,
+        sql`${incidents.status} in ('New','Assigned','InProgress')`,
+      ),
+    );
+  console.log("attached open showcase incidents to phase 6 project");
 }
 
 async function seedKnowledgeBase(db: SeedDb) {
@@ -600,6 +578,89 @@ async function seedPhase4Assets(db: SeedDb) {
   }
 
   console.log(`phase4 assets seeded: ${rows.length} (prefix ${ASSET_SEED_PREFIX})`);
+}
+
+async function seedPhase6Projects(db: SeedDb) {
+  const [manager] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "manager@sadhox.local"))
+    .limit(1);
+  const [agent] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "agent@sadhox.local"))
+    .limit(1);
+  const [admin] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "admin@sadhox.local"))
+    .limit(1);
+
+  if (!manager) {
+    console.log("skip phase6 projects (manager user missing)");
+    return;
+  }
+
+  const PROJECT_ID = "a1000000-0000-4000-8000-000000000001";
+  const MODULE_ID = "a1000000-0000-4000-8000-000000000002";
+  // Second project owned by Admin — Manager/Agent must not see its tickets in scoped lists.
+  const OTHER_PROJECT_ID = "a1000000-0000-4000-8000-000000000003";
+
+  const [existing] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.id, PROJECT_ID))
+    .limit(1);
+
+  if (!existing) {
+    await db.insert(projects).values({
+      id: PROJECT_ID,
+      name: "Platform Ops",
+      managerId: manager.id,
+    });
+    console.log("created project Platform Ops");
+  } else {
+    console.log("skip existing project Platform Ops");
+  }
+
+  const [mod] = await db
+    .select({ id: modules.id })
+    .from(modules)
+    .where(eq(modules.id, MODULE_ID))
+    .limit(1);
+  if (!mod) {
+    await db.insert(modules).values({
+      id: MODULE_ID,
+      projectId: PROJECT_ID,
+      name: "Core Services",
+    });
+    console.log("created module Core Services");
+  }
+
+  if (agent) {
+    await db
+      .insert(projectMembers)
+      .values({ projectId: PROJECT_ID, userId: agent.id })
+      .onConflictDoNothing();
+    console.log("ensured agent membership on Platform Ops");
+  }
+
+  if (admin) {
+    const [other] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(eq(projects.id, OTHER_PROJECT_ID))
+      .limit(1);
+    if (!other) {
+      await db.insert(projects).values({
+        id: OTHER_PROJECT_ID,
+        name: "Shared Infra",
+        managerId: admin.id,
+      });
+      console.log("created project Shared Infra (Admin-owned, for ACL QA)");
+    }
+  }
 }
 
 seed().catch((err) => {

@@ -10,7 +10,7 @@ import {
   RejectServiceRequestDto,
 } from "./dto/service-request.dto";
 
-type Role = "Admin" | "Agent" | "EndUser";
+type Role = "Admin" | "Agent" | "EndUser" | "Manager";
 
 function userFor(role: Role) {
   return {
@@ -65,22 +65,22 @@ function buildApp(svc: {
 
   app.patch("/service-requests/:id/approve", async (req, res) => {
     const role = req.header("x-role");
-    if (!roleGate(["Admin"], role)) {
-      return res.status(403).json({ message: "Admin role required" });
+    if (!roleGate(["Admin", "Manager"], role)) {
+      return res.status(403).json({ message: "Forbidden" });
     }
-    const result = await svc.approve(userFor("Admin"), req.params.id);
+    const result = await svc.approve(userFor(role as Role), req.params.id);
     return res.json(result);
   });
 
   app.patch("/service-requests/:id/reject", async (req, res) => {
     const role = req.header("x-role");
-    if (!roleGate(["Admin"], role)) {
-      return res.status(403).json({ message: "Admin role required" });
+    if (!roleGate(["Admin", "Manager"], role)) {
+      return res.status(403).json({ message: "Forbidden" });
     }
     const parsed = await parseDto(RejectServiceRequestDto, req.body);
     if (!parsed.ok) return res.status(400).json({ message: parsed.messages });
     const result = await svc.reject(
-      userFor("Admin"),
+      userFor(role as Role),
       req.params.id,
       parsed.value,
     );
@@ -149,7 +149,7 @@ describe("Service requests API (supertest) — submit + approval gating", () => 
     expect(svc.create).toHaveBeenCalled();
   });
 
-  it("PATCH approve is Admin-only (Agent and EndUser forbidden)", async () => {
+  it("PATCH approve allows Admin and Manager (Agent and EndUser forbidden)", async () => {
     for (const role of ["Agent", "EndUser"] as const) {
       const denied = await request(app)
         .patch("/service-requests/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/approve")
@@ -160,12 +160,18 @@ describe("Service requests API (supertest) — submit + approval gating", () => 
     expect(svc.approve).not.toHaveBeenCalled();
 
     svc.approve.mockResolvedValue({ status: "Approved" });
-    const ok = await request(app)
+    const okAdmin = await request(app)
       .patch("/service-requests/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/approve")
       .set("x-role", "Admin")
       .send({});
-    expect(ok.status).toBe(200);
-    expect(svc.approve).toHaveBeenCalled();
+    expect(okAdmin.status).toBe(200);
+
+    const okMgr = await request(app)
+      .patch("/service-requests/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/approve")
+      .set("x-role", "Manager")
+      .send({});
+    expect(okMgr.status).toBe(200);
+    expect(svc.approve).toHaveBeenCalledTimes(2);
   });
 
   it("PATCH reject requires Admin and a reason", async () => {

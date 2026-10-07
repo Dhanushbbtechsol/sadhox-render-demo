@@ -11,6 +11,7 @@ import {
   type ValidatorConstraintInterface,
   type ValidationArguments,
 } from "class-validator";
+import { ProjectScopeFieldsDto } from "../../common/dto/project-scope.dto";
 
 const CHANGE_TYPES = ["Standard", "Normal", "Emergency"] as const;
 const CHANGE_STATUSES = [
@@ -39,7 +40,7 @@ class IsAfterScheduledStartConstraint implements ValidatorConstraintInterface {
   }
 }
 
-export class CreateChangeDto {
+export class CreateChangeDto extends ProjectScopeFieldsDto {
   @ApiProperty()
   @IsString()
   @MinLength(1)
@@ -77,7 +78,7 @@ export class CreateChangeDto {
   rollbackPlan!: string;
 }
 
-export class UpdateChangeDto {
+export class UpdateChangeDto extends ProjectScopeFieldsDto {
   @ApiPropertyOptional({ enum: CHANGE_STATUSES })
   @IsOptional()
   @IsIn(CHANGE_STATUSES)

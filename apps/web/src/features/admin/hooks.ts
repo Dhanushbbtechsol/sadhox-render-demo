@@ -467,6 +467,19 @@ function filterMockArticles(filters: KnowledgeArticleFilters) {
   });
 }
 
+/** Nest list endpoints return `{ data: T[] }`; tolerate bare arrays / stale cache envelopes. */
+function unwrapKnowledgeList<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) return payload as T[];
+  if (
+    payload &&
+    typeof payload === "object" &&
+    Array.isArray((payload as { data?: unknown }).data)
+  ) {
+    return (payload as { data: T[] }).data;
+  }
+  return [];
+}
+
 export function useKnowledgeCategories() {
   return useQuery({
     queryKey: ["knowledge", "categories", useOfflineAdminData() ? "mock" : "live"],
@@ -474,9 +487,10 @@ export function useKnowledgeCategories() {
       if (useOfflineAdminData()) {
         return [...mockKnowledgeCategories];
       }
-      const result = await apiFetch<{ data: KnowledgeCategory[] }>("/knowledge/categories");
-      return result.data;
+      const result = await apiFetch<unknown>("/knowledge/categories");
+      return unwrapKnowledgeList<KnowledgeCategory>(result);
     },
+    select: (data) => unwrapKnowledgeList<KnowledgeCategory>(data),
   });
 }
 
@@ -578,15 +592,16 @@ export function useKnowledgeArticles(filters: KnowledgeArticleFilters = {}) {
       if (useOfflineAdminData()) {
         return filterMockArticles(filters);
       }
-      const result = await apiFetch<{ data: KnowledgeArticle[] }>(
+      const result = await apiFetch<unknown>(
         `/knowledge/articles${query ? `?${query}` : ""}`,
       );
-      const data = result.data;
+      const data = unwrapKnowledgeList<KnowledgeArticle>(result);
       if (filters.status && filters.status !== "all") {
         return data.filter((a) => a.status === filters.status);
       }
       return data;
     },
+    select: (data) => unwrapKnowledgeList<KnowledgeArticle>(data),
   });
 }
 

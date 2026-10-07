@@ -70,13 +70,16 @@ export default function KnowledgeListPage() {
   const deleteArticle = useDeleteKnowledgeArticle();
   const deleteCategory = useDeleteKnowledgeCategory();
 
+  const categoryList = Array.isArray(categories.data) ? categories.data : [];
+  const rows = Array.isArray(articles.data) ? articles.data : [];
+
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();
-    for (const category of categories.data ?? []) {
+    for (const category of categoryList) {
       map.set(category.id, category.name);
     }
     return map;
-  }, [categories.data]);
+  }, [categoryList]);
 
   async function handleDeleteArticle(article: KnowledgeArticle) {
     try {
@@ -97,7 +100,6 @@ export default function KnowledgeListPage() {
     }
   }
 
-  const rows = articles.data ?? [];
   const isLoading = articles.isLoading || categories.isLoading;
 
   return (
@@ -151,7 +153,7 @@ export default function KnowledgeListPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
-            {(categories.data ?? []).map((category) => (
+            {categoryList.map((category) => (
               <SelectItem key={category.id} value={category.id}>
                 {category.name}
               </SelectItem>
@@ -177,9 +179,9 @@ export default function KnowledgeListPage() {
         </Select>
       </div>
 
-      {(categories.data?.length ?? 0) > 0 ? (
+      {categoryList.length > 0 ? (
         <div className="flex flex-wrap gap-2">
-          {(categories.data ?? []).map((category) => (
+          {categoryList.map((category) => (
             <div
               key={category.id}
               className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs"
@@ -332,7 +334,7 @@ export default function KnowledgeListPage() {
             </div>
           ) : null}
 
-          {!isLoading && articles.data ? (
+          {!isLoading && articles.isSuccess ? (
             <div className="overflow-x-auto rounded-lg border">
               <Table>
                 <TableHeader>

@@ -62,6 +62,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     IncidentsModule,
     ProblemsModule,
     KnowledgeModule,
+    ProjectsModule,
     ServiceCatalogModule,
     ServiceRequestsModule,
     ChangesModule,

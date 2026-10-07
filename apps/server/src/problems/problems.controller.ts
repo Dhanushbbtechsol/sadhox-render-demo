@@ -10,6 +10,10 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  CurrentUser,
+  type AuthUser,
+} from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import {
   CreateProblemDto,
@@ -25,48 +29,59 @@ export class ProblemsController {
   constructor(private readonly problems: ProblemsService) {}
 
   @Get()
-  @Roles("Admin", "Agent")
-  @ApiOperation({ summary: "Paginated problem list" })
-  list(@Query() query: ListProblemsQueryDto) {
-    return this.problems.list(query);
+  @Roles("Admin", "Agent", "Manager")
+  @ApiOperation({ summary: "Paginated problem list (project-scoped for Agent/Manager)" })
+  list(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ListProblemsQueryDto,
+  ) {
+    return this.problems.list(user, query);
   }
 
   @Post()
   @HttpCode(201)
-  @Roles("Admin", "Agent")
+  @Roles("Admin", "Agent", "Manager")
   @ApiOperation({ summary: "Create problem and optionally link incidents" })
-  create(@Body() dto: CreateProblemDto) {
-    return this.problems.create(dto);
+  create(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateProblemDto,
+  ) {
+    return this.problems.create(user, dto);
   }
 
   @Get(":id")
-  @Roles("Admin", "Agent")
+  @Roles("Admin", "Agent", "Manager")
   @ApiOperation({ summary: "Get problem with linked incidents" })
-  get(@Param("id", ParseUUIDPipe) id: string) {
-    return this.problems.get(id);
+  get(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.problems.get(user, id);
   }
 
   @Post(":id/incidents/:incidentId")
   @HttpCode(200)
-  @Roles("Admin", "Agent")
+  @Roles("Admin", "Agent", "Manager")
   @ApiOperation({
     summary:
       "Add one incident link without replacing existing links (lost-update safe)",
   })
   linkIncident(
+    @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
     @Param("incidentId", ParseUUIDPipe) incidentId: string,
   ) {
-    return this.problems.linkIncident(id, incidentId);
+    return this.problems.linkIncident(user, id, incidentId);
   }
 
   @Patch(":id")
-  @Roles("Admin", "Agent")
+  @Roles("Admin", "Agent", "Manager")
   @ApiOperation({ summary: "Update problem fields and linked incidents" })
   update(
+    @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: UpdateProblemDto,
   ) {
-    return this.problems.update(id, dto);
+    return this.problems.update(user, id, dto);
   }
 }

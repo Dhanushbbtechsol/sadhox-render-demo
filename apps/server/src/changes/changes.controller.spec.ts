@@ -3,7 +3,7 @@ import type { Express } from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-type Role = "Admin" | "Agent";
+type Role = "Admin" | "Agent" | "Manager";
 
 function buildApp(svc: {
   update: ReturnType<typeof vi.fn>;
@@ -14,11 +14,11 @@ function buildApp(svc: {
 
   app.patch("/changes/:id/approve", async (req, res) => {
     const role = req.header("x-role");
-    if (role !== "Admin") {
-      return res.status(403).json({ message: "Admin role required" });
+    if (role !== "Admin" && role !== "Manager") {
+      return res.status(403).json({ message: "Forbidden" });
     }
     const result = await svc.approve(
-      { userId: "admin", role: "Admin" },
+      { userId: "u", role },
       req.params.id,
     );
     return res.json(result);
@@ -58,7 +58,7 @@ describe("Changes API (supertest) — approval / schedule gating", () => {
     vi.clearAllMocks();
   });
 
-  it("PATCH /changes/:id/approve is Admin-only", async () => {
+  it("PATCH /changes/:id/approve allows Admin and Manager", async () => {
     const denied = await request(app)
       .patch(`/changes/${id}/approve`)
       .set("x-role", "Agent")
@@ -71,6 +71,12 @@ describe("Changes API (supertest) — approval / schedule gating", () => {
       .set("x-role", "Admin")
       .send({});
     expect(ok.status).toBe(200);
+
+    const okMgr = await request(app)
+      .patch(`/changes/${id}/approve`)
+      .set("x-role", "Manager")
+      .send({});
+    expect(okMgr.status).toBe(200);
   });
 
   it("Agent cannot PATCH status to Scheduled", async () => {
