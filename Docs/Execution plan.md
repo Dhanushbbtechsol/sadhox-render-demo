@@ -1,5 +1,7 @@
 # Execution Plan — Custom Backend, Production Build (4 Devs, ~4 Weeks)
 
+> **Living status:** Phases 1–5 work is merged on branch `Audit`. For “what is implemented / open gaps,” see [STATUS.md](./STATUS.md). Week 5: [Phase/README.md](./Phase/README.md). **Week 6 (Projects / Manager)** designed in [Phase/phase6.md](./Phase/phase6.md) — close Phase 5 gaps before coding; do not rebuild KB.
+
 ### 1. Module Ownership
 
 | Developer | Ownership | Responsibilities | Track Plan |

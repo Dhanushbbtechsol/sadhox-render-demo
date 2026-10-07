@@ -12,6 +12,11 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 
+/** Per select option label — matches field `label` max. */
+export const CATALOG_OPTION_MAX_LENGTH = 128;
+/** Enough for typical select lists; blocks unbounded payload arrays. */
+export const CATALOG_OPTIONS_MAX_SIZE = 50;
+
 class CatalogFormFieldDto {
   @ApiProperty()
   @IsString()
@@ -34,12 +39,15 @@ class CatalogFormFieldDto {
   @IsBoolean()
   required?: boolean;
 
-  @ApiPropertyOptional({ type: [String] })
+  @ApiPropertyOptional({
+    type: [String],
+    description: `Select options (max ${CATALOG_OPTIONS_MAX_SIZE}, each ≤ ${CATALOG_OPTION_MAX_LENGTH} chars)`,
+  })
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(50)
+  @ArrayMaxSize(CATALOG_OPTIONS_MAX_SIZE)
   @IsString({ each: true })
-  @MaxLength(128, { each: true })
+  @MaxLength(CATALOG_OPTION_MAX_LENGTH, { each: true })
   options?: string[];
 }
 

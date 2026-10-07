@@ -142,5 +142,6 @@ Admin-owned:
 ## Repo map (if you open the code)
 
 - Frontend: [`apps/web`](../apps/web) — React/Vite portals and queues
-- API: [`apps/server`](../apps/server) — Nest modules (`incidents`, `problems`, `service-requests`, `changes`, `assets`, `assignment`, `queues`, `mail`)
-- Related docs: [PRD.md](./PRD.md), [FRD.md](./FRD.md), [Architechture.md](./Architechture.md)
+- API: [`apps/server`](../apps/server) — Nest modules (`incidents`, `problems`, `service-requests`, `changes`, `assets`, `knowledge`, `service-catalog`, `assignment`, `queues`, `mail`, `admin`)
+- Schema: [`apps/server/src/database/schema`](../apps/server/src/database/schema)
+- Related docs: [STATUS.md](./STATUS.md) (what’s built), [PRD.md](./PRD.md), [FRD.md](./FRD.md), [Architechture.md](./Architechture.md)

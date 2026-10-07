@@ -20,6 +20,7 @@ const ADMIN_ROUTES = [
   "/admin/charts/sla-compliance",
   "/admin/audit-logs",
   "/admin/queues",
+  "/admin/sla-rules",
 ] as const;
 
 function rolesGuardFor(_role: Role) {

@@ -1,9 +1,13 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Roles } from "../common/decorators/roles.decorator";
 import { AdminService } from "./admin.service";
 import { ChartRangeQueryDto } from "./dto/chart-range-query.dto";
 import { ListAuditLogsQueryDto } from "./dto/list-audit-logs-query.dto";
+import {
+  UpdateSlaRuleDto,
+  UpdateSlaRulePathBodyDto,
+} from "./dto/sla-rule.dto";
 
 @ApiTags("admin")
 @ApiBearerAuth()
@@ -58,5 +62,36 @@ export class AdminController {
   @ApiOperation({ summary: "BullMQ queue job counts for admin monitor" })
   queues() {
     return this.admin.queueHealth();
+  }
+
+  @Get("sla-rules")
+  @ApiOperation({
+    summary: "List SLA response/resolve thresholds per priority (Admin)",
+  })
+  listSlaRules() {
+    return this.admin.listSlaRules();
+  }
+
+  /**
+   * Body-only PATCH — frontend fallback when path form is unavailable.
+   * Primary client call is PATCH /admin/sla-rules/:priority.
+   */
+  @Patch("sla-rules")
+  @ApiOperation({
+    summary: "Update SLA minutes by priority in body (Admin)",
+  })
+  updateSlaRuleBody(@Body() dto: UpdateSlaRuleDto) {
+    return this.admin.updateSlaRule(dto.priority, dto);
+  }
+
+  @Patch("sla-rules/:priority")
+  @ApiOperation({
+    summary: "Update SLA minutes for a priority (Admin) — preferred by web UI",
+  })
+  updateSlaRuleByPriority(
+    @Param("priority") priority: string,
+    @Body() dto: UpdateSlaRulePathBodyDto,
+  ) {
+    return this.admin.updateSlaRule(priority, dto);
   }
 }
