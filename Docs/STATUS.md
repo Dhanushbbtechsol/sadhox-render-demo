@@ -89,7 +89,7 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 - Nest `KnowledgeModule` with RBAC (Draft hidden from non-Admin; Published-only links)
 - Ticket ACL on link list/mutate (`assertCanAccessTicket`)
 - Admin `GET`/`PATCH /admin/sla-rules` (response/resolve minutes per priority)
-- **Phase 6:** `projects` / `project_members` / `modules`; `Manager` role; Admin `/admin/projects` (members + `/modules`); `GET /admin/users?role=` + `PATCH …/role` (pickers only); Manager `/manager` KPIs via `GET /manager/dashboard/stats` (owned `project_id`s only). **Admin User Management CRUD (`POST`/`GET`/`PATCH /admin/users` + `/admin/users` UI) still open** — see [Phase/phase6.md](./Phase/phase6.md)
+- **Phase 6:** `projects` / `project_members` / `modules`; `Manager` role; Admin `/admin/projects` (members + `/modules`); Admin user APIs `GET`/`POST`/`PATCH /admin/users` (+ `/:id`, `…/role`); Manager `/manager` KPIs via `GET /manager/dashboard/stats` (owned `project_id`s only). **Admin `/admin/users` UI still open (Dev C)** — see [Phase/phase6.md](./Phase/phase6.md)
 
 ### Nest modules present
 `auth`, `assignment`, `events`, `queues`, `mail`, `health`, `observability`, `incidents`, `problems`, `knowledge`, `projects`, `service-catalog`, `service-requests`, `changes`, `comments`, `assets`, `admin`, `database`
@@ -117,7 +117,7 @@ Design: [Phase/phase6.md](./Phase/phase6.md).
 
 **Phase 6 security audit:** CLEAN for Dev A–D ([Docs/Audit/phase6.md](./Audit/phase6.md)) — assignment agents IDOR, EndUser project/module redaction, and ACL matrix coverage closed on Dev D.
 
-**Still open:** **Admin User Management** (create/get/patch users API + `/admin/users` UI); remaining assignment-pool / incident UI wiring per phase6 plan; full ticket 401/403 matrix; local `0010_phase6_projects_manager` migrate + reseed where not yet applied. **Deferred to production go-live:** staging/TL migrate (`0010`); Phase 5 mail job-ID live verify on TL remains **unconfirmed**.
+**Still open:** Admin `/admin/users` UI (Dev C); remaining assignment-pool / incident UI wiring per phase6 plan; local `0010_phase6_projects_manager` migrate + reseed where not yet applied. **Deferred to production go-live:** staging/TL migrate (`0010`); Phase 5 mail job-ID live verify on TL remains **unconfirmed**.
 
 ---
 

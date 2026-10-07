@@ -162,7 +162,9 @@ export default function ProjectsListPage() {
                 </TableCell>
                 <TableCell>{managerName(project.managerId)}</TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {new Date(project.createdAt).toLocaleDateString()}
+                  {project.createdAt
+                    ? new Date(project.createdAt).toLocaleDateString()
+                    : "—"}
                 </TableCell>
               </TableRow>
             ))}

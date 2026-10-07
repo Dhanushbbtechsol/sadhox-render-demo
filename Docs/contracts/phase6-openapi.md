@@ -37,11 +37,11 @@ This document freezes the Phase 6 surfaces for client wiring. Request/response f
 
 | Method | Path | Roles | Status | Notes |
 | --- | --- | --- | --- | --- |
-| GET | `/admin/users` | Admin | landed (pickers) | optional `?role=`; `{ data }` **no** password hashes |
-| POST | `/admin/users` | Admin | **open** | body `name`, `email`, `password`, `role`; unique email → 409 |
-| GET | `/admin/users/:id` | Admin | **open** | same public fields as list row |
-| PATCH | `/admin/users/:id` | Admin | **open** | `name?`, `email?`, `password?`, `role?`; role→Manager clears `project_members` |
-| PATCH | `/admin/users/:id/role` | Admin | landed | thin role-only write; prefer folding into PATCH body when clients move |
+| GET | `/admin/users` | Admin | landed | optional `?role=`; `{ data }` **no** password hashes |
+| POST | `/admin/users` | Admin | landed | body `name`, `email`, `password`, `role`; unique email → 409; password complexity enforced |
+| GET | `/admin/users/:id` | Admin | landed | same public fields as list row (`id`, `name`, `email`, `role`) |
+| PATCH | `/admin/users/:id` | Admin | landed | `name?`, `email?`, `password?`, `role?`; role→Manager clears `project_members` |
+| PATCH | `/admin/users/:id/role` | Admin | landed | thin alias → same as PATCH body `{ role }` |
 
 Non-Admin → 403; unauthenticated → 401. UI: Admin `/admin/users` (Dev C).
 

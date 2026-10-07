@@ -21,13 +21,21 @@ function useOfflineAdminData() {
   return import.meta.env.DEV && isMockAccessToken(getAccessToken());
 }
 
+/** Nest list endpoints use `{ data }`; tolerate a bare array from older servers. */
+function unwrapList<T>(result: { data: T[] } | T[] | null | undefined): T[] {
+  if (Array.isArray(result)) return result;
+  return result?.data ?? [];
+}
+
 export function useProjects() {
   return useQuery({
     queryKey: ["projects", useOfflineAdminData() ? "mock" : "live"],
     queryFn: async (): Promise<Project[]> => {
       if (useOfflineAdminData()) return [...mockProjects];
-      const result = await apiFetch<{ data: Project[] }>("/projects");
-      return result.data;
+      const result = await apiFetch<{ data: Project[] } | Project[]>(
+        "/projects",
+      );
+      return unwrapList(result);
     },
   });
 }
@@ -132,10 +140,10 @@ export function useProjectMembers(projectId: string | undefined) {
     queryFn: async (): Promise<ProjectMember[]> => {
       if (!projectId) return [];
       if (useOfflineAdminData()) return [...mockProjectMembers];
-      const result = await apiFetch<{ data: ProjectMember[] }>(
-        `/projects/${projectId}/members`,
-      );
-      return result.data;
+      const result = await apiFetch<
+        { data: ProjectMember[] } | ProjectMember[]
+      >(`/projects/${projectId}/members`);
+      return unwrapList(result);
     },
   });
 }
@@ -209,10 +217,10 @@ export function useProjectModules(projectId: string | undefined) {
       if (useOfflineAdminData()) {
         return mockProjectModules.filter((m) => m.projectId === projectId);
       }
-      const result = await apiFetch<{ data: ProjectModule[] }>(
-        `/projects/${projectId}/modules`,
-      );
-      return result.data;
+      const result = await apiFetch<
+        { data: ProjectModule[] } | ProjectModule[]
+      >(`/projects/${projectId}/modules`);
+      return unwrapList(result);
     },
   });
 }
@@ -296,10 +304,10 @@ export function useDirectoryUsers(role: "Agent" | "Manager") {
       if (useOfflineAdminData()) {
         return mockDirectoryUsers.filter((u) => u.role === role);
       }
-      const result = await apiFetch<{ data: DirectoryUser[] }>(
-        `/admin/users?role=${role}`,
-      );
-      return result.data;
+      const result = await apiFetch<
+        { data: DirectoryUser[] } | DirectoryUser[]
+      >(`/admin/users?role=${role}`);
+      return unwrapList(result);
     },
   });
 }

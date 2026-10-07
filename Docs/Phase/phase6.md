@@ -1,6 +1,6 @@
 # Phase 6 — Projects, Modules, Manager Role & User Management
 
-**Status:** in progress — Dev D backend Day 30 checkpoint (local); Dev A + Dev B foundation landed (2026-10-07); Dev C projects UI landed; **Admin User Management still missing** (only picker `GET` + `PATCH …/role`); staging/TL migrate deferred to production go-live
+**Status:** in progress — Dev D backend Day 30 + Admin user CRUD APIs landed; Dev A + Dev B foundation landed (2026-10-07); Dev C projects UI landed; **Admin `/admin/users` UI still open**; staging/TL migrate deferred to production go-live
 
 **Prerequisite:** close Phase 5 open gaps first (`Docs/Audit/phase5.md`) — SLA rules API, Admin Knowledge `{ data }` unwrap, kill silent DEV mock write fallbacks. **Do not rebuild Knowledge Base.**
 
@@ -63,22 +63,20 @@ Optional later: project-scoped Knowledge — **out of this phase unless explicit
 
 ---
 
-## User Management (Admin) — **add / still open**
-
-Hierarchy already says Admin owns users; Phase 6 only shipped picker + role patch. Finish org user CRUD:
+## User Management (Admin) — **API landed; UI still open**
 
 | Surface | Notes |
 |---------|--------|
-| `GET /admin/users` | Admin; optional `?role=`; return `{ data }` **without** password hashes (exists for pickers — keep) |
-| `POST /admin/users` | Admin; body `name`, `email`, `password`, `role` ∈ Admin\|Agent\|EndUser\|Manager |
+| `GET /admin/users` | Admin; optional `?role=`; return `{ data }` **without** password hashes |
+| `POST /admin/users` | Admin; body `name`, `email`, `password`, `role` ∈ Admin\|Agent\|EndUser\|Manager; unique email → 409 |
 | `GET /admin/users/:id` | Admin; same fields as list row |
-| `PATCH /admin/users/:id` | Admin; `name?`, `email?`, `password?`, `role?` — role change reuses existing promote-to-Manager → clear `project_members` rule |
-| `PATCH /admin/users/:id/role` | Keep as thin alias or fold into PATCH body (ponytail: one write path preferred) |
-| UI `/admin/users` | Admin table + create/edit dialog; sidebar entry; no Manager access |
+| `PATCH /admin/users/:id` | Admin; `name?`, `email?`, `password?`, `role?` — role→Manager clears `project_members` |
+| `PATCH /admin/users/:id/role` | Thin alias over PATCH body `{ role }` |
+| UI `/admin/users` | **Still open (Dev C)** — Admin table + create/edit dialog; sidebar entry; no Manager access |
 
 No `is_active` / soft-delete this phase (YAGNI — no column today). No self-service signup. Seed stays for demos; Admin can create real users after go-live.
 
-**401/403:** EndUser/Agent/Manager → 403 on all `/admin/users*` writes; unauthenticated → 401.
+**401/403:** EndUser/Agent/Manager → 403 on all `/admin/users*`; unauthenticated → 401.
 
 ---
 

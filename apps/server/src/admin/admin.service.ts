@@ -1,10 +1,12 @@
 import { InjectQueue } from "@nestjs/bullmq";
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import * as bcrypt from "bcryptjs";
 import { and, asc, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 import type { Queue } from "bullmq";
 import {
@@ -13,6 +15,8 @@ import {
   stackOpenClosed,
   type ChartRangePreset,
 } from "./chart-range";
+import { assertPasswordComplexity } from "../common/password-policy";
+import { sanitizePlainText } from "../common/sanitize-plain-text";
 import type { UserRole } from "../common/types/roles";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
@@ -26,17 +30,26 @@ import {
   users,
   type Priority,
 } from "../database/schema";
+import type { CreateUserDto } from "./dto/create-user.dto";
 import type { ListAuditLogsQueryDto } from "./dto/list-audit-logs-query.dto";
 import {
   SLA_PRIORITIES,
   type SlaPriority,
   type UpdateSlaRuleMinutesDto,
 } from "./dto/sla-rule.dto";
+import type { UpdateUserDto } from "./dto/update-user.dto";
 import {
   EMAIL_QUEUE,
   SLA_QUEUE,
   TICKET_LIFECYCLE_QUEUE,
 } from "../queues/queue.constants";
+
+export type AdminUserView = {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+};
 
 @Injectable()
 export class AdminService {
@@ -440,7 +453,9 @@ export class AdminService {
     };
   }
 
-  async listUsers(role?: "Admin" | "Agent" | "Manager" | "EndUser") {
+  async listUsers(
+    role?: "Admin" | "Agent" | "Manager" | "EndUser",
+  ): Promise<{ data: AdminUserView[] }> {
     const rows = role
       ? await this.db
           .select({
@@ -463,6 +478,166 @@ export class AdminService {
           .orderBy(asc(users.name));
 
     return { data: rows };
+  }
+
+  async getUser(userId: string): Promise<AdminUserView> {
+    const [row] = await this.db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!row) throw new NotFoundException("User not found");
+    return row;
+  }
+
+  async createUser(dto: CreateUserDto): Promise<AdminUserView> {
+    const name = sanitizePlainText(dto.name, 255);
+    if (!name) throw new BadRequestException("Name is required");
+    const email = dto.email.trim().toLowerCase();
+    this.assertPasswordOrThrow(dto.password);
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+
+    try {
+      const [created] = await this.db
+        .insert(users)
+        .values({
+          name,
+          email,
+          passwordHash,
+          role: dto.role,
+        })
+        .returning({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          role: users.role,
+        });
+      return created!;
+    } catch (err) {
+      if (this.isUniqueViolation(err)) {
+        throw new ConflictException("Email already in use");
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Full Admin user patch. Promoting to Manager clears project_members
+   * (same rule as updateUserRole).
+   */
+  async updateUser(
+    userId: string,
+    dto: UpdateUserDto,
+  ): Promise<
+    AdminUserView & { previousRole: UserRole; membershipsRemoved: number }
+  > {
+    if (
+      dto.name === undefined &&
+      dto.email === undefined &&
+      dto.password === undefined &&
+      dto.role === undefined
+    ) {
+      throw new BadRequestException("No fields to update");
+    }
+
+    return this.db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      if (!existing) {
+        throw new NotFoundException("User not found");
+      }
+
+      const patch: {
+        name?: string;
+        email?: string;
+        passwordHash?: string;
+        role?: UserRole;
+        updatedAt: Date;
+      } = { updatedAt: new Date() };
+
+      if (dto.name !== undefined) {
+        const name = sanitizePlainText(dto.name, 255);
+        if (!name) throw new BadRequestException("Name is required");
+        patch.name = name;
+      }
+      if (dto.email !== undefined) {
+        patch.email = dto.email.trim().toLowerCase();
+      }
+      if (dto.password !== undefined) {
+        this.assertPasswordOrThrow(dto.password);
+        patch.passwordHash = await bcrypt.hash(dto.password, 12);
+      }
+      if (dto.role !== undefined) {
+        patch.role = dto.role;
+      }
+
+      let updated: AdminUserView;
+      try {
+        const [row] = await tx
+          .update(users)
+          .set(patch)
+          .where(eq(users.id, userId))
+          .returning({
+            id: users.id,
+            email: users.email,
+            name: users.name,
+            role: users.role,
+          });
+        updated = row!;
+      } catch (err) {
+        if (this.isUniqueViolation(err)) {
+          throw new ConflictException("Email already in use");
+        }
+        throw err;
+      }
+
+      let membershipsRemoved = 0;
+      if (dto.role === "Manager") {
+        const removed = await tx
+          .delete(projectMembers)
+          .where(eq(projectMembers.userId, userId))
+          .returning({ projectId: projectMembers.projectId });
+        membershipsRemoved = removed.length;
+      }
+
+      return {
+        ...updated,
+        previousRole: existing.role,
+        membershipsRemoved,
+      };
+    });
+  }
+
+  private assertPasswordOrThrow(password: string): void {
+    try {
+      assertPasswordComplexity(password);
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : "Invalid password",
+      );
+    }
+  }
+
+  private isUniqueViolation(err: unknown): boolean {
+    return (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code?: string }).code === "23505"
+    );
   }
 
   /**
@@ -595,51 +770,11 @@ export class AdminService {
   }
 
   /**
-   * Admin role update. Promoting to Manager clears project_members for that
-   * user in the same transaction (Managers supervise; must not remain workers).
+   * Thin role-only write kept for existing clients.
+   * Prefer PATCH /admin/users/:id with a `role` body field.
    */
   async updateUserRole(userId: string, role: UserRole) {
-    return this.db.transaction(async (tx) => {
-      const [existing] = await tx
-        .select({
-          id: users.id,
-          email: users.email,
-          name: users.name,
-          role: users.role,
-        })
-        .from(users)
-        .where(eq(users.id, userId))
-        .limit(1);
-      if (!existing) {
-        throw new NotFoundException("User not found");
-      }
-
-      const [updated] = await tx
-        .update(users)
-        .set({ role, updatedAt: new Date() })
-        .where(eq(users.id, userId))
-        .returning({
-          id: users.id,
-          email: users.email,
-          name: users.name,
-          role: users.role,
-        });
-
-      let membershipsRemoved = 0;
-      if (role === "Manager") {
-        const removed = await tx
-          .delete(projectMembers)
-          .where(eq(projectMembers.userId, userId))
-          .returning({ projectId: projectMembers.projectId });
-        membershipsRemoved = removed.length;
-      }
-
-      return {
-        ...updated!,
-        previousRole: existing.role,
-        membershipsRemoved,
-      };
-    });
+    return this.updateUser(userId, { role });
   }
 
   /** Count recent failed jobs whose reason indicates a stall (BullMQ has no stalled JobType). */

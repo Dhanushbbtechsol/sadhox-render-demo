@@ -73,13 +73,17 @@ DTO field shapes follow the live Swagger document; path/method/role freeze is th
 
 ---
 
-## Admin users (partial)
+## Admin users
 
 | Path | Roles | Notes |
 | --- | --- | --- |
-| `GET /admin/users?role=` | Admin | landed — pickers |
-| `PATCH /admin/users/:id/role` | Admin | landed — **Promoting to Manager deletes that user's `project_members` in the same DB transaction.** |
-| `POST` / `GET` / `PATCH /admin/users` (+ `/:id`) | Admin | **open — full User Management** (see [../phase6.md](../phase6.md)) |
+| `GET /admin/users?role=` | Admin | landed — `{ data }` without password hashes |
+| `POST /admin/users` | Admin | landed — create; unique email → 409 |
+| `GET /admin/users/:id` | Admin | landed — public fields only |
+| `PATCH /admin/users/:id` | Admin | landed — `name?`/`email?`/`password?`/`role?`; role→Manager clears memberships |
+| `PATCH /admin/users/:id/role` | Admin | landed — thin alias; **Promoting to Manager deletes `project_members` in the same transaction.** |
+
+UI `/admin/users` remains Dev C.
 
 Seed Manager (idempotent): `manager@sadhox.local`.
 

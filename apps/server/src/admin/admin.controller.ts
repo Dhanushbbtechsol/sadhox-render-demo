@@ -2,9 +2,11 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
@@ -13,11 +15,13 @@ import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Roles } from "../common/decorators/roles.decorator";
 import { AdminService } from "./admin.service";
 import { ChartRangeQueryDto } from "./dto/chart-range-query.dto";
+import { CreateUserDto } from "./dto/create-user.dto";
 import { ListAuditLogsQueryDto } from "./dto/list-audit-logs-query.dto";
 import {
   UpdateSlaRuleDto,
   UpdateSlaRulePathBodyDto,
 } from "./dto/sla-rule.dto";
+import { UpdateUserDto } from "./dto/update-user.dto";
 import { UpdateUserRoleDto } from "./dto/update-user-role.dto";
 
 class ListUsersQueryDto {
@@ -84,10 +88,37 @@ export class AdminController {
 
   @Get("users")
   @ApiOperation({
-    summary: "List users filtered by role (Admin) — member/manager pickers",
+    summary: "List users filtered by role (Admin) — no password hashes",
   })
   listUsers(@Query() query: ListUsersQueryDto) {
     return this.admin.listUsers(query.role);
+  }
+
+  @Post("users")
+  @HttpCode(201)
+  @ApiOperation({
+    summary: "Create a user (Admin). Unique email → 409.",
+  })
+  createUser(@Body() dto: CreateUserDto) {
+    return this.admin.createUser(dto);
+  }
+
+  @Get("users/:id")
+  @ApiOperation({ summary: "Get user by id (Admin) — no password hash" })
+  getUser(@Param("id", ParseUUIDPipe) id: string) {
+    return this.admin.getUser(id);
+  }
+
+  @Patch("users/:id")
+  @ApiOperation({
+    summary:
+      "Update user (Admin). Role→Manager clears project_members atomically.",
+  })
+  updateUser(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserDto,
+  ) {
+    return this.admin.updateUser(id, dto);
   }
 
   @Get("sla-rules")
