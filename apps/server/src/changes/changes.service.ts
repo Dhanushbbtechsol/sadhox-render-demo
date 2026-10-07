@@ -24,6 +24,7 @@ import {
 } from "../database/schema";
 import { MailService } from "../mail/mail.service";
 import { ProjectAccessService } from "../projects/project-access.service";
+import { ProjectsService } from "../projects/projects.service";
 import type { CreateChangeDto, UpdateChangeDto } from "./dto/change.dto";
 
 type DbChangeStatus =
@@ -65,6 +66,7 @@ export class ChangesService {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly mail: MailService,
     private readonly projectAccess: ProjectAccessService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   private mapRow(row: {
@@ -150,11 +152,14 @@ export class ChangesService {
       );
     }
 
+    // Agent/Manager must canAccess project; EndUser would existence-check only
+    // (Change create is Admin/Agent today — still enforce membership).
     const { projectId, moduleId } =
-      await this.projectAccess.resolveProjectModule({
-        projectId: dto.projectId,
-        moduleId: dto.moduleId,
-      });
+      await this.projectsService.resolveTicketProjectFields(
+        user,
+        dto.projectId,
+        dto.moduleId,
+      );
 
     const [created] = await this.db
       .insert(changes)

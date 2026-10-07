@@ -33,7 +33,7 @@ export class ServiceCatalogController {
   constructor(private readonly catalog: ServiceCatalogService) {}
 
   @Get()
-  @Roles("Admin", "Agent", "EndUser")
+  @Roles("Admin", "Agent", "EndUser", "Manager")
   @ApiOperation({ summary: "List available service catalog items" })
   @ApiQuery({
     name: "includeInactive",

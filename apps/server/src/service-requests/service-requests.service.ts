@@ -24,6 +24,7 @@ import {
 } from "../database/schema";
 import { MailService } from "../mail/mail.service";
 import { ProjectAccessService } from "../projects/project-access.service";
+import { ProjectsService } from "../projects/projects.service";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
 import type {
   CreateServiceRequestDto,
@@ -44,6 +45,7 @@ export class ServiceRequestsService {
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly mail: MailService,
     private readonly projectAccess: ProjectAccessService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   private async mapRow(row: {
@@ -143,11 +145,13 @@ export class ServiceRequestsService {
       throw new NotFoundException("Catalog item not found");
     }
 
+    // Non-EndUser must canAccess project (Agent member / Manager owner / Admin).
     const { projectId, moduleId } =
-      await this.projectAccess.resolveProjectModule({
-        projectId: dto.projectId,
-        moduleId: dto.moduleId,
-      });
+      await this.projectsService.resolveTicketProjectFields(
+        user,
+        dto.projectId,
+        dto.moduleId,
+      );
 
     const [created] = await this.db
       .insert(serviceRequests)

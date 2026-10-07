@@ -2,7 +2,7 @@
 
 Scope: Projects / `Manager` / resource ACL on `Audit` (committed Dev A + foundation + uncommitted Dev B SR/Change scoping). Stack: NestJS + Drizzle + Passport JWT + React/Vite.
 
-**Open findings: 0 Critical · 3 High · 3 Medium · 2 Low.**  
+**Open findings: 0 Critical · 2 High · 3 Medium · 1 Low.** (Dev B High + catalog Low closed)  
 **Status:** Phase 6 in progress — Dev C Admin project UI / Manager dashboard not started.
 
 **Owners:** [Dev A](./Dev%20A/phase6.md) · [Dev B](./Dev%20B/phase6.md) · [Dev C](./Dev%20C/phase6.md) · [Dev D](./Dev%20D/phase6.md)
@@ -17,13 +17,9 @@ No `.review.yml` (Sonar defaults).
 
 **Fix:** when `projectId` set, `assertCanAccess(user, projectId)` before listing.
 
-### [A01 / A04] SR / Change create stamps any `projectId` — Dev B
+### [A01 / A04] SR / Change create stamps any `projectId` — Dev B — **FIXED**
 
-`resolveProjectModule` only checks existence + module∈project (`project-access.service.ts:163-196`). Used by `service-requests.service.ts` create and `changes.service.ts` create. Incidents/problems correctly use `resolveTicketProjectFields` (non-EndUser → `assertCanAccess`).
-
-**Why:** Agent (or Manager on SRs) can inject tickets into another Manager’s queue without membership/ownership.
-
-**Fix:** for non-EndUser callers, `assertCanAccess` (or reuse `resolveTicketProjectFields`) before insert.
+Was: `resolveProjectModule` existence-only. Now: `ProjectsService.resolveTicketProjectFields` on SR/Change create (non-EndUser → `assertCanAccess`). See [Dev B/phase6.md](./Dev%20B/phase6.md).
 
 ### [A01] Problems assignee ignores project pool — Dev A
 
@@ -55,7 +51,7 @@ No `.review.yml` (Sonar defaults).
 
 | Item | Owner | Fix |
 | --- | --- | --- |
-| Manager missing from catalog `GET` `@Roles` | B/D | Add `"Manager"` if Managers browse catalog to request |
+| Manager missing from catalog `GET` `@Roles` | B/D | **FIXED** — `"Manager"` on catalog list + web route |
 | DEV mock Manager password `"password"` | web | Already `import.meta.env.DEV`-gated — keep it |
 
 ## Still sound (spot-checked)
