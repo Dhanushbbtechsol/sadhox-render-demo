@@ -106,7 +106,7 @@ export default function DashboardPage() {
       slaCompliance: slaRate.data,
     });
     const date = new Date().toISOString().slice(0, 10);
-    downloadDashboardCsv(`sadhox-dashboard-${range}-${date}.csv`, csv);
+    downloadDashboardCsv(`yukti-dashboard-${range}-${date}.csv`, csv);
     toast.success("CSV downloaded");
   }
 

@@ -53,7 +53,7 @@ export function StatusChangedEmail({
               View ticket
             </Button>
           </Section>
-          <Text style={emailStyles.muted}>Sadhox ITSM notification</Text>
+          <Text style={emailStyles.muted}>Yukti ITSM notification</Text>
         </Container>
       </Body>
     </Html>

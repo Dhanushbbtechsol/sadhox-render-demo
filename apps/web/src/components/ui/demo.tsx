@@ -30,8 +30,13 @@ export default function LoginDemoForm({
       )}
       onSubmit={onSubmit}
     >
-      <h1 className="mt-10 text-center text-5xl font-semibold tracking-tight text-gray-900">
-        Sadhox
+      <img
+        src="/yukti-logo.jpg"
+        alt="Yukti"
+        className="mx-auto mt-10 size-16 rounded-2xl object-cover"
+      />
+      <h1 className="mt-4 text-center text-5xl font-semibold tracking-tight text-gray-900">
+        Yukti
       </h1>
       <p className="mt-2 text-sm text-gray-500">Please sign in to continue</p>
 

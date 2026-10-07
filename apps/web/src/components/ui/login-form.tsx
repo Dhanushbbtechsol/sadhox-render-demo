@@ -1,10 +1,11 @@
-import { Eye, EyeOff, Lock, Mail, TicketIcon } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 
 const SIDE_IMAGE =
   "https://images.unsplash.com/photo-1560264280-88b68371db39?auto=format&fit=crop&w=1200&q=80";
+const YUKTI_LOGO = "/yukti-logo.jpg";
 
 export interface LoginFormProps {
   email: string;
@@ -48,10 +49,12 @@ export default function LoginForm({
         />
         <div className="from-sidebar/90 via-sidebar/50 absolute inset-0 bg-gradient-to-t to-transparent" />
         <div className="absolute inset-x-0 bottom-0 space-y-2 p-8 text-white">
-          <div className="bg-sidebar-primary text-sidebar-primary-foreground mb-3 flex size-10 items-center justify-center rounded-xl">
-            <TicketIcon className="size-5" />
-          </div>
-          <p className="text-2xl font-semibold tracking-tight">Sadhox Service Desk</p>
+          <img
+            src={YUKTI_LOGO}
+            alt="Yukti"
+            className="mb-3 size-12 rounded-xl object-cover shadow-soft"
+          />
+          <p className="text-2xl font-semibold tracking-tight">Yukti Service Desk</p>
           <p className="max-w-sm text-sm text-white/75">
             Resolve incidents faster with a clear queue, priorities, and service catalog.
           </p>
@@ -63,8 +66,13 @@ export default function LoginForm({
           className="flex w-full max-w-sm flex-col items-center justify-center"
           onSubmit={onSubmit}
         >
+          <img
+            src={YUKTI_LOGO}
+            alt="Yukti"
+            className="mb-4 size-16 rounded-2xl object-cover shadow-soft"
+          />
           <h1 className="text-foreground text-center text-4xl font-semibold tracking-tight">
-            Sadhox
+            Yukti
           </h1>
           <p className="text-muted-foreground mt-2 text-center text-sm">
             Welcome back — sign in to continue

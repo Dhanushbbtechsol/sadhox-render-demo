@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import {
   AlertTriangleIcon,
   BookOpenIcon,
+  ChevronDownIcon,
   ClipboardListIcon,
   LayoutDashboardIcon,
   GitBranchIcon,
@@ -13,10 +15,9 @@ import {
   ScrollTextIcon,
   ServerIcon,
   Settings2Icon,
-  TicketIcon,
   TimerIcon,
 } from "lucide-react";
-import { NavLink } from "react-router";
+import { NavLink, useLocation } from "react-router";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -24,12 +25,30 @@ import { useAuthStore } from "@/stores/auth-store";
 import type { UserRole } from "@/types/itsm";
 import { cn } from "@/lib/utils";
 
-interface NavItem {
+interface NavLinkItem {
+  kind?: "link";
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   roles: UserRole[];
 }
+
+interface NavChildItem {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface NavGroupItem {
+  kind: "group";
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  roles: UserRole[];
+  children: NavChildItem[];
+}
+
+type NavItem = NavLinkItem | NavGroupItem;
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -75,16 +94,23 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["Admin"],
   },
   {
-    to: "/incidents",
-    label: "Incidents",
+    kind: "group",
+    id: "incident-desk",
+    label: "Incident Desk",
     icon: AlertTriangleIcon,
     roles: ["Admin", "Agent"],
-  },
-  {
-    to: "/problems",
-    label: "Problems",
-    icon: ClipboardListIcon,
-    roles: ["Admin", "Agent"],
+    children: [
+      {
+        to: "/incidents",
+        label: "Incidents",
+        icon: AlertTriangleIcon,
+      },
+      {
+        to: "/problems",
+        label: "Problems",
+        icon: ClipboardListIcon,
+      },
+    ],
   },
   {
     to: "/portal",
@@ -125,6 +151,140 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
+const navItemClass = (isActive: boolean, collapsed: boolean) =>
+  cn(
+    "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-normal transition-all duration-200",
+    "text-sidebar-item-foreground",
+    "hover:bg-sidebar-item-hover hover:text-sidebar-item-hover-foreground hover:font-bold",
+    isActive &&
+      "bg-sidebar-item-active! text-sidebar-item-active-foreground! font-bold shadow-soft",
+    collapsed && "justify-center px-0",
+  );
+
+function SidebarLink({
+  to,
+  label,
+  icon: Icon,
+  collapsed,
+  end,
+}: {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  collapsed: boolean;
+  end?: boolean;
+}) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) => navItemClass(isActive, collapsed)}
+      title={label}
+    >
+      {({ isActive }) => (
+        <>
+          {isActive ? (
+            <span className="bg-sidebar-item-indicator absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-r-full" />
+          ) : null}
+          <Icon
+            className={cn(
+              "size-4 shrink-0 transition-all duration-200 group-hover:scale-110",
+              isActive
+                ? "text-sidebar-item-active-foreground"
+                : "group-hover:text-sidebar-item-hover-foreground",
+            )}
+          />
+          {!collapsed ? <span>{label}</span> : null}
+        </>
+      )}
+    </NavLink>
+  );
+}
+
+function SidebarNavGroup({
+  item,
+  collapsed,
+}: {
+  item: NavGroupItem;
+  collapsed: boolean;
+}) {
+  const location = useLocation();
+  const childActive = item.children.some(
+    (child) =>
+      location.pathname === child.to || location.pathname.startsWith(`${child.to}/`),
+  );
+  const [open, setOpen] = useState(childActive);
+  const Icon = item.icon;
+
+  useEffect(() => {
+    if (childActive) setOpen(true);
+  }, [childActive]);
+
+  // Collapsed: show child links as icon-only (first child as primary shortcut)
+  if (collapsed) {
+    return (
+      <div className="flex flex-col gap-1">
+        {item.children.map((child) => (
+          <SidebarLink
+            key={child.to}
+            to={child.to}
+            label={child.label}
+            icon={child.icon}
+            collapsed
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className={cn(
+          "group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-normal transition-all duration-200",
+          "text-sidebar-item-foreground",
+          "hover:bg-sidebar-item-hover hover:text-sidebar-item-hover-foreground hover:font-bold",
+          childActive && "font-bold",
+        )}
+        aria-expanded={open}
+        title={item.label}
+      >
+        {childActive ? (
+          <span className="bg-sidebar-item-indicator absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-r-full" />
+        ) : null}
+        <Icon
+          className={cn(
+            "size-4 shrink-0 transition-all duration-200 group-hover:scale-110",
+            "group-hover:text-sidebar-item-hover-foreground",
+          )}
+        />
+        <span className="flex-1 text-left">{item.label}</span>
+        <ChevronDownIcon
+          className={cn(
+            "size-3.5 shrink-0 opacity-60 transition-transform duration-200",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open ? (
+        <div className="ml-3 flex flex-col gap-0.5 border-l border-sidebar-border pl-2">
+          {item.children.map((child) => (
+            <SidebarLink
+              key={child.to}
+              to={child.to}
+              label={child.label}
+              icon={child.icon}
+              collapsed={false}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AppSidebar({
   collapsed,
   onToggle,
@@ -154,11 +314,13 @@ export function AppSidebar({
         </Button>
         {!collapsed ? (
           <div className="flex min-w-0 items-center gap-2 animate-in-up">
-            <span className="bg-sidebar-primary text-sidebar-primary-foreground flex size-7 items-center justify-center rounded-lg shadow-soft">
-              <TicketIcon className="size-3.5" />
-            </span>
+            <img
+              src="/yukti-logo.jpg"
+              alt="Yukti"
+              className="size-8 shrink-0 rounded-lg object-cover shadow-soft"
+            />
             <div className="min-w-0 leading-tight">
-              <p className="truncate text-[25px] font-bold tracking-tight leading-none">Sadhox</p>
+              <p className="truncate text-[25px] font-bold tracking-tight leading-none">Yukti</p>
               <p className="text-sidebar-foreground/55 truncate text-[10px]">Service desk</p>
             </div>
           </div>
@@ -166,43 +328,19 @@ export function AppSidebar({
       </div>
       <Separator className="bg-sidebar-border" />
       <nav className="flex flex-1 flex-col gap-1 p-2.5">
-        {items.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
+        {items.map((item) =>
+          item.kind === "group" ? (
+            <SidebarNavGroup key={item.id} item={item} collapsed={collapsed} />
+          ) : (
+            <SidebarLink
               key={`${item.to}-${item.label}`}
               to={item.to}
-              className={({ isActive }) =>
-                cn(
-                  "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm font-normal transition-all duration-200",
-                  "text-sidebar-item-foreground",
-                  "hover:bg-sidebar-item-hover hover:text-sidebar-item-hover-foreground hover:font-bold",
-                  isActive &&
-                    "bg-sidebar-item-active! text-sidebar-item-active-foreground! font-bold shadow-soft",
-                  collapsed && "justify-center px-0",
-                )
-              }
-              title={item.label}
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive ? (
-                    <span className="bg-sidebar-item-indicator absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-r-full" />
-                  ) : null}
-                  <Icon
-                    className={cn(
-                      "size-4 shrink-0 transition-all duration-200 group-hover:scale-110",
-                      isActive
-                        ? "text-sidebar-item-active-foreground"
-                        : "group-hover:text-sidebar-item-hover-foreground",
-                    )}
-                  />
-                  {!collapsed ? <span>{item.label}</span> : null}
-                </>
-              )}
-            </NavLink>
-          );
-        })}
+              label={item.label}
+              icon={item.icon}
+              collapsed={collapsed}
+            />
+          ),
+        )}
       </nav>
     </aside>
   );
