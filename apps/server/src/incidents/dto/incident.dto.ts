@@ -8,6 +8,7 @@ import {
   MinLength,
   ValidateIf,
 } from "class-validator";
+import { ProjectScopeFieldsDto } from "../../common/dto/project-scope.dto";
 
 const IMPACT_URGENCY = ["High", "Medium", "Low"] as const;
 const CATEGORIES = [
@@ -19,7 +20,7 @@ const CATEGORIES = [
   "Other",
 ] as const;
 
-export class CreateIncidentDto {
+export class CreateIncidentDto extends ProjectScopeFieldsDto {
   @ApiProperty({ minLength: 5, maxLength: 255 })
   @IsString()
   @MinLength(5)
@@ -43,29 +44,9 @@ export class CreateIncidentDto {
   @ApiProperty({ enum: IMPACT_URGENCY })
   @IsIn([...IMPACT_URGENCY])
   urgency!: (typeof IMPACT_URGENCY)[number];
-
-  @ApiPropertyOptional({
-    format: "uuid",
-    nullable: true,
-    description: "Optional project scope (module must belong to this project)",
-  })
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsUUID()
-  projectId?: string | null;
-
-  @ApiPropertyOptional({
-    format: "uuid",
-    nullable: true,
-    description: "Optional module; requires projectId",
-  })
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsUUID()
-  moduleId?: string | null;
 }
 
-export class UpdateIncidentDto {
+export class UpdateIncidentDto extends ProjectScopeFieldsDto {
   @ApiPropertyOptional({ minLength: 5, maxLength: 255 })
   @IsOptional()
   @IsString()
@@ -122,18 +103,6 @@ export class UpdateIncidentDto {
   @MinLength(5)
   @MaxLength(10_000)
   resolutionNotes?: string;
-
-  @ApiPropertyOptional({ format: "uuid", nullable: true })
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsUUID()
-  projectId?: string | null;
-
-  @ApiPropertyOptional({ format: "uuid", nullable: true })
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsUUID()
-  moduleId?: string | null;
 }
 
 export class AssignIncidentDto {

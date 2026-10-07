@@ -15,6 +15,7 @@ import {
   MinLength,
   ValidateIf,
 } from "class-validator";
+import { ProjectScopeFieldsDto } from "../../common/dto/project-scope.dto";
 
 const PROBLEM_STATUSES = [
   "Open",
@@ -24,7 +25,7 @@ const PROBLEM_STATUSES = [
   "Closed",
 ] as const;
 
-export class CreateProblemDto {
+export class CreateProblemDto extends ProjectScopeFieldsDto {
   @ApiProperty({ minLength: 5, maxLength: 255 })
   @IsString()
   @MinLength(5)
@@ -70,21 +71,9 @@ export class CreateProblemDto {
   @ArrayUnique()
   @IsUUID("4", { each: true })
   linkedIncidentIds?: string[];
-
-  @ApiPropertyOptional({ format: "uuid", nullable: true })
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsUUID()
-  projectId?: string | null;
-
-  @ApiPropertyOptional({ format: "uuid", nullable: true })
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsUUID()
-  moduleId?: string | null;
 }
 
-export class UpdateProblemDto {
+export class UpdateProblemDto extends ProjectScopeFieldsDto {
   @ApiPropertyOptional({ minLength: 5, maxLength: 255 })
   @IsOptional()
   @IsString()
@@ -130,18 +119,6 @@ export class UpdateProblemDto {
   @ArrayUnique()
   @IsUUID("4", { each: true })
   linkedIncidentIds?: string[];
-
-  @ApiPropertyOptional({ format: "uuid", nullable: true })
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsUUID()
-  projectId?: string | null;
-
-  @ApiPropertyOptional({ format: "uuid", nullable: true })
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsUUID()
-  moduleId?: string | null;
 }
 
 export class ListProblemsQueryDto {

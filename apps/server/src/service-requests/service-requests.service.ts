@@ -48,29 +48,32 @@ export class ServiceRequestsService {
     private readonly projectsService: ProjectsService,
   ) {}
 
-  private async mapRow(row: {
-    id: string;
-    catalogId: string;
-    catalogName: string | null;
-    requesterId: string;
-    requesterName: string | null;
-    status: string;
-    justification: string;
-    urgency: string;
-    fields: Record<string, string> | null;
-    createdAt: Date;
-    approverId: string | null;
-    approvedAt: Date | null;
-    rejectionReason: string | null;
-    assigneeId: string | null;
-    fulfillmentNotes: string | null;
-    fulfilledAt: Date | null;
-    projectId: string | null;
-    projectName: string | null;
-    moduleId: string | null;
-    moduleName: string | null;
-  }) {
-    return {
+  private async mapRow(
+    row: {
+      id: string;
+      catalogId: string;
+      catalogName: string | null;
+      requesterId: string;
+      requesterName: string | null;
+      status: string;
+      justification: string;
+      urgency: string;
+      fields: Record<string, string> | null;
+      createdAt: Date;
+      approverId: string | null;
+      approvedAt: Date | null;
+      rejectionReason: string | null;
+      assigneeId: string | null;
+      fulfillmentNotes: string | null;
+      fulfilledAt: Date | null;
+      projectId: string | null;
+      projectName: string | null;
+      moduleId: string | null;
+      moduleName: string | null;
+    },
+    redactProjectFields: boolean,
+  ) {
+    const base = {
       id: row.id,
       catalogId: row.catalogId,
       catalogName: row.catalogName ?? "Unknown service",
@@ -87,6 +90,12 @@ export class ServiceRequestsService {
       assigneeId: row.assigneeId ?? undefined,
       fulfillmentNotes: row.fulfillmentNotes ?? undefined,
       fulfilledAt: row.fulfilledAt?.toISOString(),
+    };
+    if (redactProjectFields) {
+      return base;
+    }
+    return {
+      ...base,
       projectId: row.projectId ?? null,
       projectName: row.projectName ?? null,
       moduleId: row.moduleId ?? null,
@@ -208,8 +217,9 @@ export class ServiceRequestsService {
             .orderBy(desc(serviceRequests.createdAt))
         : await base.orderBy(desc(serviceRequests.createdAt));
 
+    const redact = user.role === "EndUser";
     return {
-      data: await Promise.all(rows.map((row) => this.mapRow(row))),
+      data: await Promise.all(rows.map((row) => this.mapRow(row, redact))),
     };
   }
 
@@ -225,7 +235,7 @@ export class ServiceRequestsService {
     if (user.role !== "EndUser") {
       await this.projectAccess.assertCanViewTicket(user, row.projectId);
     }
-    return this.mapRow(row);
+    return this.mapRow(row, user.role === "EndUser");
   }
 
   async approve(user: AuthUser, id: string) {

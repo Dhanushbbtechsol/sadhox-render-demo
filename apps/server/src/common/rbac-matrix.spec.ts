@@ -138,6 +138,11 @@ const MATRIX: MatrixRow[] = [
   { method: "get", path: "/manager/dashboard/stats", allowed: ["Manager"] },
   { method: "get", path: "/manager/dashboard/charts", allowed: ["Manager"] },
   {
+    method: "patch",
+    path: `/admin/users/${ID}/role`,
+    allowed: ["Admin"],
+  },
+  {
     method: "get",
     path: "/service-requests",
     allowed: ["Admin", "Agent", "EndUser", "Manager"],
@@ -446,6 +451,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "slaPerformance",
             "listSlaRules",
             "updateSlaRule",
+            "updateUserRole",
           ]),
         },
       ],

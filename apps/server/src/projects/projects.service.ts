@@ -65,9 +65,9 @@ export class ProjectsService {
   ) {}
 
   async list(user: AuthUser): Promise<{ data: ProjectView[] }> {
-    // EndUser: all projects for catalog/request pickers (no workspace ACL).
+    // Admin / EndUser: all projects (EndUser for catalog/request pickers).
     const ids =
-      user.role === "EndUser"
+      user.role === "Admin" || user.role === "EndUser"
         ? null
         : await this.access.listAccessibleProjectIds(user);
     const scope =

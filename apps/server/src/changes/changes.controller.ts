@@ -25,10 +25,7 @@ export class ChangesController {
 
   @Get()
   @Roles("Admin", "Agent", "Manager")
-  @ApiOperation({
-    summary:
-      "List changes (scoped for Manager/Agent; Admin sees all including null project)",
-  })
+  @ApiOperation({ summary: "List changes with optional type/status filters" })
   @ApiQuery({ name: "type", required: false })
   @ApiQuery({ name: "status", required: false })
   list(
@@ -41,14 +38,14 @@ export class ChangesController {
 
   @Post()
   @Roles("Admin", "Agent")
-  @ApiOperation({ summary: "Create a change record (optional project/module)" })
+  @ApiOperation({ summary: "Create a change record" })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateChangeDto) {
     return this.changes.create(user, dto);
   }
 
   @Get(":id")
   @Roles("Admin", "Agent", "Manager")
-  @ApiOperation({ summary: "Get change by id (project-scoped)" })
+  @ApiOperation({ summary: "Get change by id (project-scoped for Manager/Agent)" })
   get(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,

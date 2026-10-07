@@ -59,7 +59,12 @@ function buildApp(problems: {
   app.get("/problems", async (req, res) => {
     const parsed = await parseDto(ListProblemsQueryDto, req.query);
     if (!parsed.ok) return res.status(400).json({ message: parsed.messages });
-    return res.json(await problems.list(parsed.value));
+    return res.json(
+      await problems.list(
+        { userId: "u", email: "a@b.c", name: "Admin", role: "Admin" },
+        parsed.value,
+      ),
+    );
   });
 
   app.post("/problems", async (req, res) => {

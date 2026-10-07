@@ -30,7 +30,7 @@ export class ProblemsController {
 
   @Get()
   @Roles("Admin", "Agent", "Manager")
-  @ApiOperation({ summary: "Paginated problem list (scoped by project access)" })
+  @ApiOperation({ summary: "Paginated problem list (project-scoped for Agent/Manager)" })
   list(
     @CurrentUser() user: AuthUser,
     @Query() query: ListProblemsQueryDto,
@@ -42,7 +42,10 @@ export class ProblemsController {
   @HttpCode(201)
   @Roles("Admin", "Agent", "Manager")
   @ApiOperation({ summary: "Create problem and optionally link incidents" })
-  create(@CurrentUser() user: AuthUser, @Body() dto: CreateProblemDto) {
+  create(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateProblemDto,
+  ) {
     return this.problems.create(user, dto);
   }
 

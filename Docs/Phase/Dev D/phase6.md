@@ -26,7 +26,8 @@
   - Freeze Swagger for A/B/C.
 
 - **Day 30: Checkpoint**
-  - Staging migrate; matrix green; hand off contract.
+  - Matrix green; hand off contract.
+  - Staging/TL migrate: **deferred to production go-live** (2026-10-07) — not required to close Dev D Phase 6 coding.
 
 ## Consumers
 

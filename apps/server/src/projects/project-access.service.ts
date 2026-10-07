@@ -12,47 +12,66 @@ import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import { modules, projectMembers, projects, users } from "../database/schema";
 
+type AccessUser = Pick<AuthUser, "userId" | "role">;
+
 /**
  * Resource-level project ACL (Phase 6).
  * Guards alone are not enough — every ticket list/get must call these helpers.
+ *
+ * Reachable product states are single-role. Manager ownership and Agent
+ * membership paths are still OR'd as defense-in-depth (e.g. stale membership
+ * after Agent→Manager promotion — cleared by AdminService.updateUserRole).
  */
 @Injectable()
 export class ProjectAccessService {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  /** Admin always; Manager owns project; Agent is a member. EndUser N/A. */
-  async canAccess(user: AuthUser, projectId: string): Promise<boolean> {
-    if (user.role === "Admin") return true;
-
-    if (user.role === "Manager") {
-      const [row] = await this.db
-        .select({ id: projects.id })
-        .from(projects)
-        .where(
-          and(eq(projects.id, projectId), eq(projects.managerId, user.userId)),
-        )
-        .limit(1);
-      return Boolean(row);
+  async canAccess(
+    user: AccessUser,
+    projectId: string | null | undefined,
+  ): Promise<boolean> {
+    if (user.role === "Admin") {
+      return true;
+    }
+    if (projectId == null || projectId === "") {
+      return false;
+    }
+    if (user.role === "EndUser") {
+      return false;
     }
 
-    if (user.role === "Agent") {
-      const [row] = await this.db
-        .select({ projectId: projectMembers.projectId })
-        .from(projectMembers)
-        .where(
-          and(
-            eq(projectMembers.projectId, projectId),
-            eq(projectMembers.userId, user.userId),
-          ),
-        )
-        .limit(1);
-      return Boolean(row);
+    // Path 1 — Manager ownership (projects.manager_id = user.id)
+    const [asManager] = await this.db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(
+        and(eq(projects.id, projectId), eq(projects.managerId, user.userId)),
+      )
+      .limit(1);
+    if (asManager) {
+      return true;
     }
 
-    return false;
+    // Path 2 — membership (project_members). Not gated on role === "Agent"
+    // so stale rows after promotion still grant access (documented data-drift).
+    const [asMember] = await this.db
+      .select({ projectId: projectMembers.projectId })
+      .from(projectMembers)
+      .where(
+        and(
+          eq(projectMembers.projectId, projectId),
+          eq(projectMembers.userId, user.userId),
+        ),
+      )
+      .limit(1);
+
+    return Boolean(asMember);
   }
 
-  async assertCanAccess(user: AuthUser, projectId: string): Promise<void> {
+  async assertCanAccess(
+    user: AccessUser,
+    projectId: string | null | undefined,
+  ): Promise<void> {
     const ok = await this.canAccess(user, projectId);
     if (!ok) {
       throw new ForbiddenException("Cannot access this project");
@@ -60,40 +79,78 @@ export class ProjectAccessService {
   }
 
   /**
-   * Project IDs the user may see. `null` means Admin (unrestricted).
-   * Empty array means no project access (Manager/Agent with no assignments).
+   * Approval ACL (phase6.md): Admin always; Manager only when
+   * projects.manager_id = self; null project_id → Admin-only.
+   * Ownership only — membership does not grant approve rights.
    */
-  async listAccessibleProjectIds(user: AuthUser): Promise<string[] | null> {
-    if (user.role === "Admin") return null;
+  async canApprove(
+    user: AccessUser,
+    projectId: string | null | undefined,
+  ): Promise<boolean> {
+    if (user.role === "Admin") return true;
+    if (user.role !== "Manager") return false;
+    if (projectId == null || projectId === "") return false;
 
-    if (user.role === "Manager") {
-      const rows = await this.db
-        .select({ id: projects.id })
-        .from(projects)
-        .where(eq(projects.managerId, user.userId));
+    const [row] = await this.db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(
+        and(eq(projects.id, projectId), eq(projects.managerId, user.userId)),
+      )
+      .limit(1);
+    return Boolean(row);
+  }
+
+  async assertCanApprove(
+    user: AccessUser,
+    projectId: string | null | undefined,
+  ): Promise<void> {
+    if (await this.canApprove(user, projectId)) return;
+    if (user.role === "Manager" && (projectId == null || projectId === "")) {
+      throw new ForbiddenException(
+        "Null-project tickets require Admin approval",
+      );
+    }
+    throw new ForbiddenException("Not allowed to approve for this project");
+  }
+
+  /**
+   * Project IDs the user may see.
+   * Admin: all project ids. EndUser: []. Manager/Agent: owned ∪ memberships.
+   */
+  async listAccessibleProjectIds(user: AccessUser): Promise<string[]> {
+    if (user.role === "Admin") {
+      const rows = await this.db.select({ id: projects.id }).from(projects);
       return rows.map((r) => r.id);
     }
-
-    if (user.role === "Agent") {
-      const rows = await this.db
-        .select({ projectId: projectMembers.projectId })
-        .from(projectMembers)
-        .where(eq(projectMembers.userId, user.userId));
-      return rows.map((r) => r.projectId);
+    if (user.role === "EndUser") {
+      return [];
     }
 
-    return [];
+    const owned = await this.db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(eq(projects.managerId, user.userId));
+
+    const member = await this.db
+      .select({ id: projectMembers.projectId })
+      .from(projectMembers)
+      .where(eq(projectMembers.userId, user.userId));
+
+    return [
+      ...new Set([...owned.map((r) => r.id), ...member.map((r) => r.id)]),
+    ];
   }
 
   /**
    * Ticket list filter:
    * - Admin: no filter
-   * - Manager: owned projects only (null project excluded)
-   * - Agent: member projects OR null project (global pool)
+   * - Manager: accessible projects only (null project excluded)
+   * - Agent: accessible projects OR null project (global pool)
    * - EndUser: callers use ownership filters instead
    */
   async ticketProjectScope(
-    user: AuthUser,
+    user: AccessUser,
     projectIdColumn: AnyPgColumn,
   ): Promise<SQL | undefined> {
     if (user.role === "Admin") return undefined;
@@ -101,12 +158,12 @@ export class ProjectAccessService {
     const ids = await this.listAccessibleProjectIds(user);
 
     if (user.role === "Manager") {
-      if (!ids || ids.length === 0) return sql`false`;
+      if (ids.length === 0) return sql`false`;
       return inArray(projectIdColumn, ids);
     }
 
     if (user.role === "Agent") {
-      if (!ids || ids.length === 0) return isNull(projectIdColumn);
+      if (ids.length === 0) return isNull(projectIdColumn);
       return or(isNull(projectIdColumn), inArray(projectIdColumn, ids));
     }
 
@@ -119,31 +176,14 @@ export class ProjectAccessService {
    * Null project → Admin or Agent (global pool); Manager denied.
    */
   async assertCanAccessTicketProject(
-    user: AuthUser,
+    user: AccessUser,
     projectId: string | null,
   ): Promise<void> {
     await this.assertCanViewTicket(user, projectId);
   }
 
-  /** Manager must own the project; null project → Admin only. */
-  async assertCanApprove(
-    user: AuthUser,
-    projectId: string | null | undefined,
-  ): Promise<void> {
-    if (user.role === "Admin") return;
-    if (user.role !== "Manager") {
-      throw new ForbiddenException("Only Admin or Manager may approve");
-    }
-    if (projectId == null) {
-      throw new ForbiddenException(
-        "Unscoped tickets require Admin approval",
-      );
-    }
-    await this.assertCanAccess(user, projectId);
-  }
-
   async assertCanViewTicket(
-    user: AuthUser,
+    user: AccessUser,
     projectId: string | null | undefined,
   ): Promise<void> {
     if (user.role === "Admin") return;

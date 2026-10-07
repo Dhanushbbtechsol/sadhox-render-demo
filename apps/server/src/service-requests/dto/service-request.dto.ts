@@ -8,8 +8,9 @@ import {
   MaxLength,
   MinLength,
 } from "class-validator";
+import { ProjectScopeFieldsDto } from "../../common/dto/project-scope.dto";
 
-export class CreateServiceRequestDto {
+export class CreateServiceRequestDto extends ProjectScopeFieldsDto {
   @ApiProperty({ format: "uuid" })
   @IsUUID()
   catalogId!: string;
@@ -28,16 +29,6 @@ export class CreateServiceRequestDto {
   @IsOptional()
   @IsObject()
   fields?: Record<string, string>;
-
-  @ApiPropertyOptional({ format: "uuid", nullable: true })
-  @IsOptional()
-  @IsUUID()
-  projectId?: string | null;
-
-  @ApiPropertyOptional({ format: "uuid", nullable: true })
-  @IsOptional()
-  @IsUUID()
-  moduleId?: string | null;
 }
 
 export class RejectServiceRequestDto {

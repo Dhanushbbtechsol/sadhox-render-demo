@@ -32,7 +32,7 @@ export class ServiceRequestsController {
   @Roles("Admin", "Agent", "EndUser", "Manager")
   @ApiOperation({
     summary:
-      "List service requests (EndUser: own; Manager: owned projects; Agent: member + unscoped; Admin: all)",
+      "List service requests (EndUser: own; Admin: all; Agent/Manager: project-scoped)",
   })
   list(@CurrentUser() user: AuthUser) {
     return this.requests.list(user);
@@ -43,7 +43,7 @@ export class ServiceRequestsController {
   @Roles("Admin", "Agent", "EndUser", "Manager")
   @ApiOperation({
     summary:
-      "Submit a service request (optional projectId/moduleId; requester from JWT)",
+      "Submit a service request (requester taken from JWT; client requesterId rejected)",
   })
   create(
     @CurrentUser() user: AuthUser,

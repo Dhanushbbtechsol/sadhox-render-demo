@@ -69,6 +69,9 @@ export function pickRoundRobinCandidate<T>(
  * Round-robin / least-loaded agent picker for incident auto-assignment.
  * Pool = project_members when projectId set; else all Agents (global).
  *
+ * Phase 6: when the ticket has project_id, the eligible pool is that
+ * project's project_members (Agents only). Null project_id → global Agents.
+ *
  * Mail is NOT sent here — `IncidentsService.assign` enqueues
  * `sendTicketAssigned` once after the status write (audit A04).
  */

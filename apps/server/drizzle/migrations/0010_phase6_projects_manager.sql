@@ -1,4 +1,4 @@
--- Phase 6: Manager role, projects / members / modules, ticket project scoping
+-- Phase 6 Day 26 — projects, modules, Manager role, ticket project/module FKs.
 ALTER TYPE "public"."user_role" ADD VALUE IF NOT EXISTS 'Manager';--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "projects" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -9,14 +9,12 @@ CREATE TABLE IF NOT EXISTS "projects" (
 CREATE TABLE IF NOT EXISTS "project_members" (
 	"project_id" uuid NOT NULL,
 	"user_id" uuid NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "project_members_project_id_user_id_pk" PRIMARY KEY("project_id","user_id")
+	CONSTRAINT "project_members_pk" PRIMARY KEY("project_id","user_id")
 );--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "modules" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"project_id" uuid NOT NULL,
-	"name" varchar(255) NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"name" varchar(255) NOT NULL
 );--> statement-breakpoint
 ALTER TABLE "incidents" ADD COLUMN IF NOT EXISTS "project_id" uuid;--> statement-breakpoint
 ALTER TABLE "incidents" ADD COLUMN IF NOT EXISTS "module_id" uuid;--> statement-breakpoint
@@ -43,11 +41,6 @@ EXCEPTION
 END $$;--> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "modules" ADD CONSTRAINT "modules_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE cascade ON UPDATE no action;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;--> statement-breakpoint
-DO $$ BEGIN
- ALTER TABLE "modules" ADD CONSTRAINT "modules_project_name_unique" UNIQUE("project_id","name");
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;--> statement-breakpoint
@@ -92,7 +85,6 @@ EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "projects_manager_id_idx" ON "projects" USING btree ("manager_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "projects_name_idx" ON "projects" USING btree ("name");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "project_members_user_id_idx" ON "project_members" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "modules_project_id_idx" ON "modules" USING btree ("project_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "incidents_project_id_idx" ON "incidents" USING btree ("project_id");--> statement-breakpoint

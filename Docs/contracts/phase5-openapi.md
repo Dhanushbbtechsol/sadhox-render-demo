@@ -45,4 +45,4 @@ This document freezes the Phase 5 surfaces for client wiring. Request/response f
 
 - Drag-and-drop SLA builder  
 - `knowledge_ticket_type` = `change`  
-- Staging/Render migrate for `0009_phase5_knowledge_base` (Phase 4 deploy decision)
+- Staging/Render migrate for `0009_phase5_knowledge_base` (deferred / on hold pending Phase 4 deploy decision)

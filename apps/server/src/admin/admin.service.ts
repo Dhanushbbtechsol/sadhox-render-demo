@@ -13,12 +13,14 @@ import {
   stackOpenClosed,
   type ChartRangePreset,
 } from "./chart-range";
+import type { UserRole } from "../common/types/roles";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
   auditLog,
   changes,
   incidents,
+  projectMembers,
   serviceRequests,
   slaRules,
   users,
@@ -590,6 +592,54 @@ export class AdminService {
       queues: results,
       alert: results.some((q) => q.alert),
     };
+  }
+
+  /**
+   * Admin role update. Promoting to Manager clears project_members for that
+   * user in the same transaction (Managers supervise; must not remain workers).
+   */
+  async updateUserRole(userId: string, role: UserRole) {
+    return this.db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      if (!existing) {
+        throw new NotFoundException("User not found");
+      }
+
+      const [updated] = await tx
+        .update(users)
+        .set({ role, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+        .returning({
+          id: users.id,
+          email: users.email,
+          name: users.name,
+          role: users.role,
+        });
+
+      let membershipsRemoved = 0;
+      if (role === "Manager") {
+        const removed = await tx
+          .delete(projectMembers)
+          .where(eq(projectMembers.userId, userId))
+          .returning({ projectId: projectMembers.projectId });
+        membershipsRemoved = removed.length;
+      }
+
+      return {
+        ...updated!,
+        previousRole: existing.role,
+        membershipsRemoved,
+      };
+    });
   }
 
   /** Count recent failed jobs whose reason indicates a stall (BullMQ has no stalled JobType). */
