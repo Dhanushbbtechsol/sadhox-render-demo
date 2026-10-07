@@ -98,7 +98,7 @@ const NAV_ITEMS: NavItem[] = [
     id: "incident-desk",
     label: "Incident Desk",
     icon: AlertTriangleIcon,
-    roles: ["Admin", "Agent"],
+    roles: ["Admin", "Agent", "Manager"],
     children: [
       {
         to: "/incidents",

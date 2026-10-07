@@ -114,7 +114,7 @@ export const router = createBrowserRouter([
           {
             path: "incidents",
             handle: { breadcrumb: "Incidents" },
-            element: <ProtectedRoute roles={["Admin", "Agent"]} />,
+            element: <ProtectedRoute roles={["Admin", "Agent", "Manager"]} />,
             children: [
               { index: true, element: <IncidentsPage /> },
               {
@@ -127,7 +127,7 @@ export const router = createBrowserRouter([
           {
             path: "problems",
             handle: { breadcrumb: "Problems" },
-            element: <ProtectedRoute roles={["Admin", "Agent"]} />,
+            element: <ProtectedRoute roles={["Admin", "Agent", "Manager"]} />,
             children: [
               { index: true, element: <ProblemsPage /> },
               {

@@ -70,6 +70,18 @@ export class CreateProblemDto {
   @ArrayUnique()
   @IsUUID("4", { each: true })
   linkedIncidentIds?: string[];
+
+  @ApiPropertyOptional({ format: "uuid", nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  projectId?: string | null;
+
+  @ApiPropertyOptional({ format: "uuid", nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  moduleId?: string | null;
 }
 
 export class UpdateProblemDto {
@@ -118,6 +130,18 @@ export class UpdateProblemDto {
   @ArrayUnique()
   @IsUUID("4", { each: true })
   linkedIncidentIds?: string[];
+
+  @ApiPropertyOptional({ format: "uuid", nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  projectId?: string | null;
+
+  @ApiPropertyOptional({ format: "uuid", nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  moduleId?: string | null;
 }
 
 export class ListProblemsQueryDto {

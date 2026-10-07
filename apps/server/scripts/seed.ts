@@ -1,7 +1,7 @@
 import "dotenv/config";
 import * as bcrypt from "bcryptjs";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { eq, like, sql } from "drizzle-orm";
+import { and, eq, like, sql } from "drizzle-orm";
 import postgres from "postgres";
 import {
   assertPasswordComplexity,
@@ -17,6 +17,9 @@ import {
   assets,
   knowledgeCategories,
   knowledgeArticles,
+  projects,
+  projectMembers,
+  modules,
 } from "../src/database/schema";
 import {
   KNOWLEDGE_ARTICLE_SEED,
@@ -25,6 +28,8 @@ import {
 import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
 
 const SHOWCASE_PREFIX = "[Showcase]";
+const PHASE6_PROJECT_ID = "a1000000-0000-4000-8000-000000000001";
+const PHASE6_MODULE_ID = "a1000000-0000-4000-8000-000000000002";
 
 async function seed() {
   const url = process.env.DATABASE_URL;
@@ -63,6 +68,12 @@ async function seed() {
       passwordHash,
       role: "EndUser" as const,
       name: "End User",
+    },
+    {
+      email: "manager@sadhox.local",
+      passwordHash,
+      role: "Manager" as const,
+      name: "Morgan Manager",
     },
   ];
 
@@ -136,12 +147,106 @@ async function seed() {
     console.log(`created catalog ${item.name}`);
   }
 
+  await seedPhase6Projects(db);
   await seedShowcaseData(db);
+  await attachShowcaseIncidentsToProject(db);
   await seedPhase4Assets(db);
   await seedKnowledgeBase(db);
 
   await client.end();
   console.log("Seed complete");
+}
+
+async function seedPhase6Projects(db: SeedDb) {
+  const [manager] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "manager@sadhox.local"))
+    .limit(1);
+  const [agent] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "agent@sadhox.local"))
+    .limit(1);
+
+  if (!manager || !agent) {
+    console.log("skip Phase 6 project seed — manager/agent missing");
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, PHASE6_PROJECT_ID))
+    .limit(1);
+
+  if (!existing) {
+    await db.insert(projects).values({
+      id: PHASE6_PROJECT_ID,
+      name: "Core Platform",
+      managerId: manager.id,
+    });
+    console.log("created project Core Platform");
+  } else {
+    console.log("skip existing project Core Platform");
+  }
+
+  const [member] = await db
+    .select()
+    .from(projectMembers)
+    .where(
+      and(
+        eq(projectMembers.projectId, PHASE6_PROJECT_ID),
+        eq(projectMembers.userId, agent.id),
+      ),
+    )
+    .limit(1);
+  if (!member) {
+    await db.insert(projectMembers).values({
+      projectId: PHASE6_PROJECT_ID,
+      userId: agent.id,
+    });
+    console.log("added Alice Agent to Core Platform");
+  }
+
+  const [mod] = await db
+    .select()
+    .from(modules)
+    .where(eq(modules.id, PHASE6_MODULE_ID))
+    .limit(1);
+  if (!mod) {
+    await db.insert(modules).values({
+      id: PHASE6_MODULE_ID,
+      projectId: PHASE6_PROJECT_ID,
+      name: "API",
+    });
+    console.log("created module API under Core Platform");
+  }
+}
+
+/** Scope open showcase incidents so Agent/Manager queues are non-empty. */
+async function attachShowcaseIncidentsToProject(db: SeedDb) {
+  const [proj] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.id, PHASE6_PROJECT_ID))
+    .limit(1);
+  if (!proj) return;
+
+  await db
+    .update(incidents)
+    .set({
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    })
+    .where(
+      and(
+        like(incidents.title, `${SHOWCASE_PREFIX}%`),
+        sql`${incidents.projectId} is null`,
+        sql`${incidents.status} in ('New','Assigned','InProgress')`,
+      ),
+    );
+  console.log("attached open showcase incidents to Core Platform");
 }
 
 async function seedKnowledgeBase(db: SeedDb) {
