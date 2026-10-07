@@ -5,53 +5,53 @@ import {
   IsString,
   IsUUID,
   MaxLength,
+  MinLength,
 } from "class-validator";
 
 export class CreateProjectDto {
-  @ApiProperty({ example: "Corporate IT" })
+  @ApiProperty({ minLength: 2, maxLength: 255 })
   @IsString()
-  @IsNotEmpty()
+  @MinLength(2)
   @MaxLength(255)
   name!: string;
 
-  @ApiPropertyOptional({ description: "Manager user id" })
-  @IsOptional()
+  @ApiProperty({ format: "uuid", description: "Manager user id" })
   @IsUUID()
-  managerId?: string | null;
+  managerId!: string;
 }
 
 export class UpdateProjectDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ minLength: 2, maxLength: 255 })
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
+  @MinLength(2)
   @MaxLength(255)
   name?: string;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ format: "uuid" })
   @IsOptional()
   @IsUUID()
-  managerId?: string | null;
+  managerId?: string;
 }
 
 export class AddProjectMemberDto {
-  @ApiProperty({ description: "Agent user id" })
+  @ApiProperty({ format: "uuid", description: "Must be an Agent" })
   @IsUUID()
   userId!: string;
 }
 
 export class CreateModuleDto {
-  @ApiProperty({ example: "Networking" })
+  @ApiProperty({ minLength: 2, maxLength: 255 })
   @IsString()
-  @IsNotEmpty()
+  @MinLength(2)
   @MaxLength(255)
   name!: string;
 }
 
 export class UpdateModuleDto {
-  @ApiProperty()
+  @ApiProperty({ minLength: 2, maxLength: 255 })
   @IsString()
-  @IsNotEmpty()
+  @MinLength(2)
   @MaxLength(255)
   name!: string;
 }

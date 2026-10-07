@@ -113,7 +113,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "admin/sla-rules",
-            handle: { breadcrumb: "SLA rules" },
+            handle: { breadcrumb: "SLA" },
             element: <ProtectedRoute roles={["Admin"]} />,
             children: [{ index: true, element: <SlaRulesPage /> }],
           },
@@ -205,7 +205,11 @@ export const router = createBrowserRouter([
           {
             path: "catalog",
             handle: { breadcrumb: "Catalog" },
-            element: <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />,
+            element: (
+              <ProtectedRoute
+                roles={["Admin", "Agent", "EndUser", "Manager"]}
+              />
+            ),
             children: [{ index: true, element: <CatalogPage /> }],
           },
           {

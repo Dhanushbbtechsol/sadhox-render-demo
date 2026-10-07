@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useProjectModules, useProjects } from "@/hooks/use-projects";
+import { useAuthStore } from "@/stores/auth-store";
 
 const NONE = "__none__";
 
@@ -38,6 +39,12 @@ function isRhfProps<T extends FieldValues>(
   return "control" in props && props.control != null;
 }
 
+/** Admin/EndUser may leave tickets unscoped; Manager/Agent must pick a project. */
+function useAllowUnscopedProject() {
+  const role = useAuthStore((s) => s.user?.role);
+  return role === "Admin" || role === "EndUser";
+}
+
 /** Shared project → module cascading selects (RHF or controlled). */
 export function ProjectModuleFields<T extends FieldValues>(
   props: RhfProps<T> | ControlledProps,
@@ -57,6 +64,7 @@ function RhfProjectModuleFields<T extends FieldValues>({
 }: RhfProps<T>) {
   const { data: projects = [] } = useProjects();
   const { data: modules = [] } = useProjectModules(projectId);
+  const allowUnscoped = useAllowUnscopedProject();
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -67,7 +75,13 @@ function RhfProjectModuleFields<T extends FieldValues>({
           name={projectField}
           render={({ field }) => (
             <Select
-              value={field.value ? String(field.value) : NONE}
+              value={
+                field.value
+                  ? String(field.value)
+                  : allowUnscoped
+                    ? NONE
+                    : undefined
+              }
               onValueChange={(value) => {
                 const next = !value || value === NONE ? undefined : value;
                 field.onChange(next);
@@ -75,10 +89,16 @@ function RhfProjectModuleFields<T extends FieldValues>({
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Optional project…" />
+                <SelectValue
+                  placeholder={
+                    allowUnscoped ? "Optional project…" : "Select a project…"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE}>No project (Admin unscoped)</SelectItem>
+                {allowUnscoped ? (
+                  <SelectItem value={NONE}>No project</SelectItem>
+                ) : null}
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
@@ -134,13 +154,14 @@ function ControlledProjectModuleFields({
 }: ControlledProps) {
   const { data: projects = [] } = useProjects();
   const { data: modules = [] } = useProjectModules(projectId || undefined);
+  const allowUnscoped = useAllowUnscopedProject();
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-1.5">
-        <Label>Project (optional)</Label>
+        <Label>{allowUnscoped ? "Project (optional)" : "Project"}</Label>
         <Select
-          value={projectId || NONE}
+          value={projectId || (allowUnscoped ? NONE : undefined)}
           onValueChange={(value) => {
             const next = value === NONE || !value ? "" : value;
             onProjectChange(next);
@@ -148,10 +169,14 @@ function ControlledProjectModuleFields({
           }}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="No project" />
+            <SelectValue
+              placeholder={allowUnscoped ? "No project" : "Select a project…"}
+            />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE}>No project</SelectItem>
+            {allowUnscoped ? (
+              <SelectItem value={NONE}>No project</SelectItem>
+            ) : null}
             {projects.map((project) => (
               <SelectItem key={project.id} value={project.id}>
                 {project.name}

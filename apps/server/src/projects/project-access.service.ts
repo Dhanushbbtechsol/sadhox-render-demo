@@ -1,5 +1,6 @@
 import { ForbiddenException, Inject, Injectable } from "@nestjs/common";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
@@ -135,5 +136,60 @@ export class ProjectAccessService {
         ...member.map((r) => r.id),
       ]),
     ];
+  }
+
+  /**
+   * Ticket list filter:
+   * - Admin: no filter
+   * - Manager: accessible projects only (null project excluded)
+   * - Agent: accessible projects OR null project (global pool)
+   * - EndUser: callers use ownership filters instead
+   */
+  async ticketProjectScope(
+    user: AccessUser,
+    projectIdColumn: AnyPgColumn,
+  ): Promise<SQL | undefined> {
+    if (user.role === "Admin") return undefined;
+
+    const ids = await this.listAccessibleProjectIds(user);
+
+    if (user.role === "Manager") {
+      if (ids.length === 0) return sql`false`;
+      return inArray(projectIdColumn, ids);
+    }
+
+    if (user.role === "Agent") {
+      if (ids.length === 0) return isNull(projectIdColumn);
+      return or(isNull(projectIdColumn), inArray(projectIdColumn, ids));
+    }
+
+    return sql`false`;
+  }
+
+  /**
+   * Detail / mutate ACL for a ticket's nullable project.
+   * EndUser is handled by callers (own-ticket rules).
+   * Null project → Admin or Agent (global pool); Manager denied.
+   */
+  async assertCanAccessTicketProject(
+    user: AccessUser,
+    projectId: string | null,
+  ): Promise<void> {
+    await this.assertCanViewTicket(user, projectId);
+  }
+
+  async assertCanViewTicket(
+    user: AccessUser,
+    projectId: string | null | undefined,
+  ): Promise<void> {
+    if (user.role === "Admin") return;
+    if (user.role === "EndUser") return;
+
+    if (!projectId) {
+      if (user.role === "Agent") return;
+      throw new ForbiddenException("Cannot view this ticket");
+    }
+
+    await this.assertCanAccess(user, projectId);
   }
 }

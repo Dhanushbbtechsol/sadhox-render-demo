@@ -33,11 +33,17 @@ This document freezes the Phase 6 surfaces for client wiring. Request/response f
 | PATCH | `/projects/:id/modules/:moduleId` | Admin | body `{ name }` |
 | DELETE | `/projects/:id/modules/:moduleId` | Admin | |
 
-## Admin user role (`/admin`)
+## Admin users (`/admin/users`) — User Management
 
-| Method | Path | Roles | Notes |
-| --- | --- | --- | --- |
-| PATCH | `/admin/users/:id/role` | Admin | body `{ role }` ∈ Admin\|Agent\|EndUser\|Manager. **Promoting to Manager deletes that user's `project_members` rows in the same transaction.** |
+| Method | Path | Roles | Status | Notes |
+| --- | --- | --- | --- | --- |
+| GET | `/admin/users` | Admin | landed (pickers) | optional `?role=`; `{ data }` **no** password hashes |
+| POST | `/admin/users` | Admin | **open** | body `name`, `email`, `password`, `role`; unique email → 409 |
+| GET | `/admin/users/:id` | Admin | **open** | same public fields as list row |
+| PATCH | `/admin/users/:id` | Admin | **open** | `name?`, `email?`, `password?`, `role?`; role→Manager clears `project_members` |
+| PATCH | `/admin/users/:id/role` | Admin | landed | thin role-only write; prefer folding into PATCH body when clients move |
+
+Non-Admin → 403; unauthenticated → 401. UI: Admin `/admin/users` (Dev C).
 
 ## Ticket project/module fields
 
@@ -90,4 +96,5 @@ Shared helper: `buildTicketProjectListFilter` + `ProjectAccessService.listAccess
 - Rebuilding Knowledge Base  
 - Org-chart `users.manager_id`  
 - Manager as ticket assignee via membership  
+- Manager/Agent user CRUD; soft-delete / `is_active`  
 - Staging/TL migrate without explicit go-ahead (deferred to production go-live)

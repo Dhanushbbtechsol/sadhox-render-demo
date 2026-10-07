@@ -11,10 +11,10 @@ This directory contains the detailed phase-by-phase execution plan for the Sadho
 
 | Track Folder | Developer | Role | Ownership Scope |
 |---|---|---|---|
-| [Dev D](./Dev%20D/plan.md) | **Dev D (Backend Lead)** | Backend Exclusive | Core API, Auth, Drizzle, Socket.io, BullMQ, Infra; Phase 5 Knowledge/SLA/catalog APIs; **Phase 6 projects + Manager + ProjectAccessService**. |
+| [Dev D](./Dev%20D/plan.md) | **Dev D (Backend Lead)** | Backend Exclusive | Core API, Auth, Drizzle, Socket.io, BullMQ, Infra; Phase 5 Knowledge/SLA/catalog APIs; **Phase 6 projects + Manager + ProjectAccessService + Admin user CRUD APIs**. |
 | [Dev A](./Dev%20A/plan.md) | **Dev A** | Full-Stack | Incidents, Problems, assignment/comments; Phase 5 KB links & portal detail; **Phase 6 project-scoped tickets + assignment pool**. |
 | [Dev B](./Dev%20B/plan.md) | **Dev B** | Full-Stack | Catalog, Requests, Changes; Phase 5 KB portal & catalog Admin; **Phase 6 project fields + Manager approvals**. |
-| [Dev C](./Dev%20C/plan.md) | **Dev C** | Full-Stack | Assets, Admin dashboards; Phase 5 KB authoring / SLA UI / CSV; **Phase 6 Admin projects UI + Manager-scoped views**. |
+| [Dev C](./Dev%20C/plan.md) | **Dev C** | Full-Stack | Assets, Admin dashboards; Phase 5 KB authoring / SLA UI / CSV; **Phase 6 Admin projects UI + Manager views + Admin `/admin/users`**. |
 
 ---
 
@@ -26,7 +26,7 @@ Week 2 (Days 6–10):  Core CRUD & Realtime (All Module APIs & UIs, Socket.io, A
 Week 3 (Days 11–15): Workflows & Automation (SLA Workers, Round-Robin, Approvals, Resend Emails)
 Week 4 (Days 16–20): QA, Security Pass, Load Testing, Production Go-Live
 Week 5 (Days 21–25): Knowledge Base + residual gaps (portal detail, catalog CRUD, SLA table, CSV)
-Week 6 (Days 26–30): Projects / Modules / Manager role + project-scoped ACL & assignment
+Week 6 (Days 26–30): Projects / Modules / Manager + project ACL & assignment + Admin User Management
                       (gate: close Phase 5 audit gaps first — do not rebuild KB)
 ```
 

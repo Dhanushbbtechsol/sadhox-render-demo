@@ -69,7 +69,6 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     CommentsModule,
     AssetsModule,
     AdminModule,
-    ProjectsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

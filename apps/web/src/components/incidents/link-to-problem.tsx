@@ -26,7 +26,8 @@ import type { Problem } from "@/types/itsm";
 
 export function LinkToProblem({ incidentId }: { incidentId: string }) {
   const role = useAuthStore((s) => s.user?.role);
-  const canLink = role === "Admin" || role === "Agent";
+  const canLink =
+    role === "Admin" || role === "Agent" || role === "Manager";
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [problemId, setProblemId] = useState("");

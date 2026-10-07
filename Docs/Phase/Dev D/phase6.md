@@ -1,6 +1,6 @@
 # Dev D — Phase 6: Projects Schema, Manager Role & ProjectAccessService
 
-**Goal:** Backend foundation for projects/modules/members + `Manager` role + resource-level project ACL + scoped assignment.  
+**Goal:** Backend foundation for projects/modules/members + `Manager` role + resource-level project ACL + scoped assignment + **Admin user management APIs**.  
 **Prerequisite:** Phase 5 gaps closed (SLA rules API, etc.). **Do not rebuild KB.**  
 **Design authority:** [../phase6.md](../phase6.md)  
 **Status (2026-10-07):** Days 26–30 coding complete on `Dev-D`; Phase 6 audit Dev D items remediations verified; handoff [phase6-handoff.md](./phase6-handoff.md); staging migrate deferred.
@@ -30,6 +30,14 @@
   - Matrix green; hand off contract.
   - Staging/TL migrate: **deferred to production go-live** (2026-10-07) — not required to close Dev D Phase 6 coding.
 
+- **User management (still open — Admin only)**
+  - `POST /admin/users` — create (`name`, `email`, `password`, `role`); hash password; unique email → 409.
+  - `GET /admin/users/:id` — detail without hash.
+  - `PATCH /admin/users/:id` — `name?`, `email?`, `password?`, `role?`; role→Manager clears `project_members` (same rule as today’s `PATCH …/role`).
+  - Prefer one PATCH write path; keep `PATCH …/role` only if clients already depend on it.
+  - Extend 401/403 matrix rows for create/get/patch users.
+  - Document in [contracts/phase6-openapi.md](../../contracts/phase6-openapi.md).
+
 ## Consumers
 
 | Surface | Who |
@@ -38,3 +46,4 @@
 | ProjectAccess helpers | All ticket modules |
 | Assignment pool change | Dev A UI |
 | Approval role + project check | Dev B |
+| Admin user CRUD | Dev C `/admin/users` UI |
