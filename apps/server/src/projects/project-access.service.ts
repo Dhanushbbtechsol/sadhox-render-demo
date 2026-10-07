@@ -63,6 +63,14 @@ export class ProjectAccessService {
     return Boolean(asMember);
   }
 
+  async assertCanAccess(
+    user: AccessUser,
+    projectId: string,
+  ): Promise<void> {
+    if (await this.canAccess(user, projectId)) return;
+    throw new ForbiddenException("Cannot access this project");
+  }
+
   /**
    * Approval ACL (phase6.md): Admin always; Manager only when
    * projects.manager_id = self; null project_id → Admin-only.

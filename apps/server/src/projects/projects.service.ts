@@ -41,13 +41,22 @@ export class ProjectsService {
     return row;
   }
 
+  /**
+   * Admin: all projects (full).
+   * Manager/Agent: accessible projects (full).
+   * EndUser: all projects as picker DTO (`id`, `name` only) — no manager identities.
+   */
   async list(user: AuthUser) {
+    if (user.role === "EndUser") {
+      const rows = await this.db
+        .select({ id: projects.id, name: projects.name })
+        .from(projects);
+      return rows;
+    }
     if (user.role === "Admin") {
       return this.db.select().from(projects);
     }
-    if (user.role === "Manager") {
-      // Manager reads projects they own (manager_id = self).
-      // listAccessibleProjectIds also unions memberships for dual-path ACL.
+    if (user.role === "Manager" || user.role === "Agent") {
       const ids = await this.access.listAccessibleProjectIds(user);
       if (ids.length === 0) return [];
       return this.db.select().from(projects).where(inArray(projects.id, ids));
@@ -154,7 +163,22 @@ export class ProjectsService {
     return row;
   }
 
+  /**
+   * EndUser: project must exist; return picker fields only (`id`, `name`, `projectId`).
+   * Others: require project access, return full module rows.
+   */
   async listModules(user: AuthUser, projectId: string) {
+    if (user.role === "EndUser") {
+      await this.requireProject(projectId);
+      return this.db
+        .select({
+          id: modules.id,
+          name: modules.name,
+          projectId: modules.projectId,
+        })
+        .from(modules)
+        .where(eq(modules.projectId, projectId));
+    }
     await this.getById(user, projectId);
     return this.db
       .select()

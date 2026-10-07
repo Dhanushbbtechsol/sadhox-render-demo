@@ -34,6 +34,8 @@ import { ServiceCatalogController } from "../service-catalog/service-catalog.con
 import { ServiceCatalogService } from "../service-catalog/service-catalog.service";
 import { ServiceRequestsController } from "../service-requests/service-requests.controller";
 import { ServiceRequestsService } from "../service-requests/service-requests.service";
+import { AssignmentController } from "../assignment/assignment.controller";
+import { AssignmentService } from "../assignment/assignment.service";
 import { ProjectsController } from "../projects/projects.controller";
 import { ProjectsService } from "../projects/projects.service";
 
@@ -146,7 +148,12 @@ const MATRIX: MatrixRow[] = [
   {
     method: "get",
     path: "/service-catalog",
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
+  },
+  {
+    method: "get",
+    path: "/assignment/agents",
+    allowed: ["Admin", "Agent", "Manager"],
   },
   { method: "post", path: "/service-catalog", allowed: ["Admin"] },
   {
@@ -225,15 +232,23 @@ const MATRIX: MatrixRow[] = [
   },
   { method: "get", path: "/health/ready", allowed: ["Admin"] },
   // Phase 6 — projects
-  { method: "get", path: "/projects", allowed: ["Admin", "Manager"] },
+  {
+    method: "get",
+    path: "/projects",
+    allowed: ["Admin", "Manager", "Agent", "EndUser"],
+  },
   { method: "post", path: "/projects", allowed: ["Admin"] },
-  { method: "get", path: `/projects/${ID}`, allowed: ["Admin", "Manager"] },
+  {
+    method: "get",
+    path: `/projects/${ID}`,
+    allowed: ["Admin", "Manager", "Agent"],
+  },
   { method: "patch", path: `/projects/${ID}`, allowed: ["Admin"] },
   { method: "delete", path: `/projects/${ID}`, allowed: ["Admin"] },
   {
     method: "get",
     path: `/projects/${ID}/members`,
-    allowed: ["Admin", "Manager"],
+    allowed: ["Admin", "Manager", "Agent"],
   },
   { method: "post", path: `/projects/${ID}/members`, allowed: ["Admin"] },
   {
@@ -244,7 +259,7 @@ const MATRIX: MatrixRow[] = [
   {
     method: "get",
     path: `/projects/${ID}/modules`,
-    allowed: ["Admin", "Manager"],
+    allowed: ["Admin", "Manager", "Agent", "EndUser"],
   },
   { method: "post", path: `/projects/${ID}/modules`, allowed: ["Admin"] },
   {
@@ -311,6 +326,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         ServiceCatalogController,
         KnowledgeController,
         ProjectsController,
+        AssignmentController,
         AdminController,
       ],
       providers: [
@@ -434,6 +450,10 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "updateModule",
             "removeModule",
           ]),
+        },
+        {
+          provide: AssignmentService,
+          useValue: stubService(["listAgents"]),
         },
       ],
     }).compile();

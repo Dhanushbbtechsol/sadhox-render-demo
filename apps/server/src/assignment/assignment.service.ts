@@ -5,6 +5,7 @@ import {
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { and, asc, count, eq, inArray, ne, sql } from "drizzle-orm";
+import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
@@ -13,6 +14,7 @@ import {
   projectMembers,
   users,
 } from "../database/schema";
+import { ProjectAccessService } from "../projects/project-access.service";
 
 /** Incident statuses that count toward agent load. */
 export const OPEN_INCIDENT_STATUSES = [
@@ -77,13 +79,24 @@ export function pickRoundRobinCandidate<T>(
  */
 @Injectable()
 export class AssignmentService {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDB,
+    private readonly projectAccess: ProjectAccessService,
+  ) {}
 
   /**
    * List agents eligible for assignment.
-   * When `projectId` is set, pool is that project's members only.
+   * When `projectId` is set, pool is that project's members only —
+   * caller must canAccess the project (no IDOR across foreign pools).
    */
-  async listAgents(projectId?: string | null): Promise<AgentSnippet[]> {
+  async listAgents(
+    user: AuthUser,
+    projectId?: string | null,
+  ): Promise<AgentSnippet[]> {
+    if (projectId) {
+      await this.projectAccess.assertCanAccess(user, projectId);
+    }
+
     const agentRows = projectId
       ? await this.db
           .select({

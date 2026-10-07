@@ -160,7 +160,9 @@ describe("AssignmentService.assignNextAgent concurrency", () => {
         return fn(tx);
       }),
     };
-    const service = new AssignmentService(db as never);
+    const service = new AssignmentService(db as never, {
+      assertCanAccess: vi.fn(),
+    } as never);
     await expect(service.assignNextAgent("ticket-1", "Email")).rejects.toThrow(
       /No agents available/,
     );

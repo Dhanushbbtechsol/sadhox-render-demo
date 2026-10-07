@@ -5,6 +5,10 @@ import {
   ApiQuery,
   ApiTags,
 } from "@nestjs/swagger";
+import {
+  CurrentUser,
+  type AuthUser,
+} from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { AssignmentService } from "./assignment.service";
 import { ListAgentsQueryDto } from "./dto/list-agents-query.dto";
@@ -24,9 +28,13 @@ export class AssignmentController {
   @ApiQuery({
     name: "projectId",
     required: false,
-    description: "When set, pool = project_members Agents only",
+    description:
+      "When set, pool = project_members Agents only; requires project access",
   })
-  listAgents(@Query() query: ListAgentsQueryDto) {
-    return this.assignment.listAgents(query.projectId);
+  listAgents(
+    @CurrentUser() user: AuthUser,
+    @Query() query: ListAgentsQueryDto,
+  ) {
+    return this.assignment.listAgents(user, query.projectId);
   }
 }

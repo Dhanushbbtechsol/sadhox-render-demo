@@ -39,17 +39,20 @@ export class ProjectsController {
   }
 
   @Get()
-  @Roles("Admin", "Manager")
+  @Roles("Admin", "Manager", "Agent", "EndUser")
   @ApiOperation({
-    summary: "List projects (Admin: all; Manager: accessible/own)",
+    summary:
+      "List projects (Admin: all; Manager/Agent: accessible; EndUser: id+name picker)",
   })
   list(@CurrentUser() user: AuthUser) {
     return this.projects.list(user);
   }
 
   @Get(":id")
-  @Roles("Admin", "Manager")
-  @ApiOperation({ summary: "Get project by id (Admin or accessible Manager)" })
+  @Roles("Admin", "Manager", "Agent")
+  @ApiOperation({
+    summary: "Get project by id (Admin or accessible Manager/Agent)",
+  })
   get(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
@@ -75,7 +78,7 @@ export class ProjectsController {
   }
 
   @Get(":id/members")
-  @Roles("Admin", "Manager")
+  @Roles("Admin", "Manager", "Agent")
   @ApiOperation({ summary: "List project members" })
   listMembers(
     @CurrentUser() user: AuthUser,
@@ -106,8 +109,11 @@ export class ProjectsController {
   }
 
   @Get(":id/modules")
-  @Roles("Admin", "Manager")
-  @ApiOperation({ summary: "List modules in a project" })
+  @Roles("Admin", "Manager", "Agent", "EndUser")
+  @ApiOperation({
+    summary:
+      "List modules in a project (EndUser: id+name picker; others: access-scoped)",
+  })
   listModules(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,

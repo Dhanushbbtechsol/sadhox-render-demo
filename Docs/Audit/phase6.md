@@ -2,8 +2,8 @@
 
 Scope: Projects / `Manager` / resource ACL on `Audit` (committed Dev A + foundation + uncommitted Dev B SR/Change scoping). Stack: NestJS + Drizzle + Passport JWT + React/Vite.
 
-**Open findings: 0 Critical · 3 High · 3 Medium · 2 Low.**  
-**Status:** Phase 6 in progress — Dev C Admin project UI / Manager dashboard not started.
+**Open findings: 0 Critical · 2 High · 0 Medium · 1 Low** (Dev D items closed 2026-10-07).  
+**Status:** Phase 6 in progress — Dev C Admin project UI / Manager dashboard not started. Dev D Phase 6 audit remediations landed on `Dev-D`.
 
 **Owners:** [Dev A](./Dev%20A/phase6.md) · [Dev B](./Dev%20B/phase6.md) · [Dev C](./Dev%20C/phase6.md) · [Dev D](./Dev%20D/phase6.md)
 
@@ -11,19 +11,17 @@ No `.review.yml` (Sonar defaults).
 
 ## High
 
-### [A01] Assignment pool IDOR — Dev D
+### [A01] Assignment pool IDOR — Dev D — **FIXED**
 
-`GET /assignment/agents?projectId=` (`assignment.controller.ts` / `assignment.service.ts:83-108`) returns Agent names + emails for any project. No `ProjectAccessService.assertCanAccess`.
-
-**Fix:** when `projectId` set, `assertCanAccess(user, projectId)` before listing.
+`listAgents(user, projectId)` → `assertCanAccess` when `projectId` set. Specs in `assignment.phase6.spec.ts`.
 
 ### [A01 / A04] SR / Change create stamps any `projectId` — Dev B
 
-`resolveProjectModule` only checks existence + module∈project (`project-access.service.ts:163-196`). Used by `service-requests.service.ts` create and `changes.service.ts` create. Incidents/problems correctly use `resolveTicketProjectFields` (non-EndUser → `assertCanAccess`).
+`resolveProjectModule` only checks existence + module∈project. Used by `service-requests.service.ts` / `changes.service.ts` create. Incidents/problems correctly gate non-EndUser access.
 
 **Why:** Agent (or Manager on SRs) can inject tickets into another Manager’s queue without membership/ownership.
 
-**Fix:** for non-EndUser callers, `assertCanAccess` (or reuse `resolveTicketProjectFields`) before insert.
+**Fix:** for non-EndUser callers, `assertCanAccess` (or reuse project scope resolve + access) before insert.
 
 ### [A01] Problems assignee ignores project pool — Dev A
 
@@ -33,29 +31,23 @@ No `.review.yml` (Sonar defaults).
 
 ## Medium
 
-### [A01] EndUser project list exposes managers — Dev D
+### [A01] EndUser project list exposes managers — Dev D — **FIXED**
 
-`ProjectsService.list` returns all projects for EndUser including `managerId` / `managerName`. Phase 6 doc said EndUser N/A for project lists; code intentionally opens pickers — still over-discloses org structure.
+EndUser `GET /projects` returns `{ id, name }` only.
 
-**Fix:** redacted picker DTO (`id`, `name` only) for EndUser.
+### [A01] EndUser module list IDOR — Dev D — **FIXED**
 
-### [A01] EndUser module list IDOR — Dev D
+EndUser `listModules` returns picker fields after project-exists check; other roles still access-scoped.
 
-`listModules` skips `assertCanAccess` for EndUser (project exists only). With full project UUIDs, modules enumerable org-wide.
+### [A04] RBAC matrix ≠ resource ACL — Dev D — **FIXED**
 
-**Fix:** redact or scope module list the same as attachable projects.
-
-### [A04] RBAC matrix ≠ resource ACL — Dev D
-
-`rbac-matrix.spec.ts` checks `@Roles` metadata only. Phase 6 requires Manager × (own / other / null) for approve + lists. `AssignmentController` not in matrix.
-
-**Fix:** service-level cases for approve/list/agents ACL.
+`AssignmentController` in RBAC matrix; Manager approve × own/other/null + `listAgents` ACL specs.
 
 ## Low / Hardening
 
 | Item | Owner | Fix |
 | --- | --- | --- |
-| Manager missing from catalog `GET` `@Roles` | B/D | Add `"Manager"` if Managers browse catalog to request |
+| Manager missing from catalog `GET` `@Roles` | B/D | **FIXED** — `"Manager"` on catalog list |
 | DEV mock Manager password `"password"` | web | Already `import.meta.env.DEV`-gated — keep it |
 
 ## Still sound (spot-checked)
@@ -74,11 +66,11 @@ No `.review.yml` (Sonar defaults).
 
 ## Review checklist (Sonar)
 
-1. Manager approve other project / null project → 403; own → 200.
-2. Agent `GET /assignment/agents?projectId=<foreign>` → 403 after fix.
-3. Agent create SR/Change with foreign `projectId` → 403 after fix.
-4. Problem assign non-member on project ticket → 400 after fix.
-5. EndUser `GET /projects` does not return manager identities after redact.
+1. Manager approve other project / null project → 403; own → 200. *(covered in manager-project-acl matrix)*
+2. Agent `GET /assignment/agents?projectId=<foreign>` → 403. *(Dev D fixed)*
+3. Agent create SR/Change with foreign `projectId` → 403 after Dev B fix.
+4. Problem assign non-member on project ticket → 400 after Dev A fix.
+5. EndUser `GET /projects` does not return manager identities. *(Dev D fixed)*
 6. Smoke: Manager cannot appear as `project_members` worker.
 
 ## Not checked / out of scope
