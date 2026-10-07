@@ -41,9 +41,9 @@ sadhox/
 
 ## Features delivered (summary)
 
-Phases **1–5** merged on `Audit`: JWT/RBAC, full ITIL CRUD modules, Socket.io comments, SLA jobs, Resend, Admin KPIs/audit/queues, Knowledge Base + portal incident detail + Admin catalog CRUD + dashboard CSV. Open gaps (SLA rules API missing, Admin Knowledge hook/mocks, Phase 4 Dev D security carryovers, go-live) are listed in `Docs/STATUS.md` and `Docs/Audit/phase5.md`.
+Phases **1–5** merged on `Audit` (Dev-C close-out 2026-10-07): JWT/RBAC, full ITIL CRUD modules, Socket.io comments, SLA jobs, Resend, Admin KPIs/audit/queues, Knowledge Base + portal incident detail + Admin catalog CRUD + dashboard CSV + Admin SLA rules API. Phase 5 Medium/Low closed; Phase 4 Dev D carryovers + go-live remain in `Docs/STATUS.md`.
 
-**Phase 6 (designed):** Projects / modules / `Manager` + resource-level project ACL — [Docs/Phase/phase6.md](./Docs/Phase/phase6.md). Close Phase 5 gaps before coding. Do not rebuild KB.
+**Phase 6 (designed):** Projects / modules / `Manager` + resource-level project ACL — [Docs/Phase/phase6.md](./Docs/Phase/phase6.md). Merge Phase 5 close-out to `Audit` before coding. Do not rebuild KB.
 
 ## Better Fullstack note
 

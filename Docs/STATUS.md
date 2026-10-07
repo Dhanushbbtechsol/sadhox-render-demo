@@ -1,12 +1,12 @@
 # Sadhox — Status & Feature Handoff (for Claude / agents)
 
 **Last updated:** 2026-10-07  
-**Integration branch:** `Audit` (Phase 5 merges + Phase 5 audit commit `21677bc`)  
+**Integration branch:** `Audit` (Phase 5 merges); `Dev-C` has Audit merged + Dev C Phase 5 close-out  
 **Memory bank:** `memory-bank/` (read all six files at task start)
 
 This document is the short “what exists / what doesn’t” brief. Requirements and plans stay in PRD/FRD/Phase docs.
 
-**Next phase (designed, not coded):** [Phase 6 — Projects / Manager](./Phase/phase6.md). Close Phase 5 gaps first. Do not rebuild Knowledge Base.
+**Next phase (designed, not coded):** [Phase 6 — Projects / Manager](./Phase/phase6.md). Phase 5 Medium gaps closed on `Dev-C` (2026-10-07); merge close-out back to `Audit` before coding Phase 6. Do not rebuild Knowledge Base.
 
 ---
 
@@ -83,12 +83,13 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 - Asset register CRUD; link/unlink tickets; Admin-only `purchaseCost`
 - Dashboard KPIs + Recharts (volume, status, SLA); audit log viewer; BullMQ queue monitor
 - Dashboard **CSV export** (client-side from aggregates)
-- **Phase 5:** Admin Knowledge authoring (`/admin/knowledge`); SLA rules **page** (`/admin/sla-rules`)
+- **Phase 5:** Admin Knowledge authoring (`/admin/knowledge`); SLA rules **page** (`/admin/sla-rules`); CSV export; Knowledge/SLA hooks unwrap live API (no silent DEV mocks)
 
 ### Knowledge Base (Phase 5 — Dev D API + A/B/C UI)
 - Tables: `knowledge_categories`, `knowledge_articles` (Draft/Published), `ticket_knowledge_links`
 - Nest `KnowledgeModule` with RBAC (Draft hidden from non-Admin; Published-only links)
 - Ticket ACL on link list/mutate (`assertCanAccessTicket`)
+- Admin `GET`/`PATCH /admin/sla-rules` (response/resolve minutes per priority)
 
 ### Nest modules present
 `auth`, `assignment`, `events`, `queues`, `mail`, `health`, `observability`, `incidents`, `problems`, `knowledge`, `service-catalog`, `service-requests`, `changes`, `comments`, `assets`, `admin`, `database`
@@ -100,16 +101,9 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 
 ## 5. What is NOT done / known gaps
 
-From **`Docs/Audit/phase5.md`** (2026-10-06):
+**Phase 5 Medium/Low (2026-10-06 audit):** closed on `Dev-C` 2026-10-07 — SLA rules API, Admin Knowledge `{ data }` unwrap, offline-only mocks, catalog sanitize/option caps. See `Docs/Audit/phase5.md`.
 
-| Sev | Gap |
-|-----|-----|
-| Medium | **No Nest `GET`/`PATCH /admin/sla-rules`** — UI calls it; breach jobs still use seed/DB values only |
-| Medium | Admin Knowledge hooks treat response as array, not `{ data: [] }` → breaks live list → DEV mock fallback |
-| Medium | DEV catch paths can fake Knowledge/SLA write success via mocks |
-| Low | Catalog create/update needs stronger sanitize / option size caps |
-
-Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md`): hardcoded LAN defaults in ops scripts; CSRF gap with `SameSite=None` refresh cookie; minor throttle/Sentry hardening.
+Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md`): hardcoded LAN defaults in ops scripts (verify `require-env.mjs` path); CSRF gap with `SameSite=None` refresh cookie; minor throttle/Sentry hardening.
 
 **Production go-live** checklist incomplete (`Docs/Phase/Dev D/go-live-checklist.md`) — do not assume live Render/Vercel is fully cut over.
 

@@ -91,8 +91,8 @@ AI assistants should suggest updates to this file when they notice relevant chan
 
 - Parallel feature branches commonly used for merge-to-audit are `Dev-A-`, `Dev-B`, `Dev-C`, and `Dev-D` (note the trailing hyphen on `Dev-A-`).
 - The integration/review branch is `Audit` (local/remote); case variant `audit` may appear in docs.
-- Phases 1–5 feature work is merged on `Audit`; open gaps are in `Docs/Audit/phase5.md` and summarized in `Docs/STATUS.md`.
-- Phase 6 (Projects / Manager) is designed in `Docs/Phase/phase6.md`; gate = close Phase 5 Medium gaps; do not rebuild Knowledge Base. Employee = Agent; Managers approve alongside Admin; Managers are not project_members.
+- Phases 1–5 feature work is merged; Dev C Phase 5 close-out on `Dev-C` (2026-10-07) — Phase 5 Medium/Low closed in `Docs/Audit/phase5.md` / `Docs/STATUS.md`. Sync to `Audit` before Phase 6 code.
+- Phase 6 (Projects / Manager) is designed in `Docs/Phase/phase6.md`; do not rebuild Knowledge Base. Employee = Agent; Managers approve alongside Admin; Managers are not project_members.
 - `Docs/Audit` holds phased audit reports (`phase1.md` … `phase5.md`) and per-developer folders (`Dev A` … `Dev D`).
 - `Docs/Phase` holds per-developer implementation plans and phase notes; product docs live under `Docs/` (`PRD.md`, `FRD.md`, `Techstack.md`, `Architechture.md`, `Workflow.md`, `STATUS.md`).
 - Drizzle schema lives under `apps/server`, not `packages/db`.

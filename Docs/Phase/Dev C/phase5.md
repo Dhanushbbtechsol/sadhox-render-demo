@@ -1,8 +1,10 @@
 # Dev C — Phase 5: Admin Knowledge Authoring, SLA Table & CSV Export (Week 5 / Days 21–25)
 
+**Status:** **Complete** on `Dev-C` (2026-10-07). QA: [phase5-qa.md](./phase5-qa.md). Audit: [Docs/Audit/Dev C/phase5.md](../../Audit/Dev%20C/phase5.md).
+
 **Goal:** Admin Knowledge Base authoring UI; simple SLA rules table editor; dashboard CSV export for current aggregates.
 
-**Context:** Phases 1–4 remain historical. Coverage: [coverage-matrix.md](../coverage-matrix.md). Backend contract: [Dev D Phase 5](../Dev%20D/phase5.md).
+**Context:** Phases 1–4 remain historical. Coverage: [coverage-matrix.md](../coverage-matrix.md). Backend contract: [Dev D Phase 5](../Dev%20D/phase5.md) / [handoff](../Dev%20D/phase5-handoff.md).
 
 ---
 

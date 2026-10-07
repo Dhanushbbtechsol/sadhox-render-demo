@@ -2,29 +2,29 @@
 
 Reaudit 2026-10-06. Combined: [phase5.md](../phase5.md). Owner: Knowledge foundation APIs, SLA rules API, catalog writes, ops scripts.
 
-## Medium — Open (Phase 5)
+**Close-out note 2026-10-07:** Phase 5 Medium/Low items below verified fixed in Nest source (present on `Audit` / merged into `Dev-C`).
 
-### [A04] Missing Admin SLA rules API
+## Medium — Resolved (Phase 5)
 
-Phase 5 Day 23: Admin `GET` / `PATCH` for `sla_rules` (`responseMinutes` / `resolveMinutes` per priority). Dev C UI calls `/admin/sla-rules` (+ path/body PATCH variants). **No route in `apps/server`.**
+### [A04] Missing Admin SLA rules API — **FIXED**
 
-**Fix:** Admin-only controller (likely under `AdminModule`), DTO MaxLength/Min validation, sanitize if needed, extend `rbac-matrix.spec.ts`.
+`GET /admin/sla-rules`, `PATCH /admin/sla-rules/:priority`, body `PATCH /admin/sla-rules` in `AdminController` / `AdminService`. DTOs + `admin.sla-rules.spec.ts` + `rbac-matrix.spec.ts`. Handoff: [phase5-handoff.md](../../Phase/Dev%20D/phase5-handoff.md).
 
-## Low — Open (Phase 5)
+## Low — Resolved (Phase 5)
 
-### [A03] Catalog create/update not sanitized
+### [A03] Catalog create/update not sanitized — **FIXED**
 
-`ServiceCatalogService.create` / `update` only `.trim()`. Knowledge module already uses `sanitizePlainText` — reuse it for catalog name/description/department and form field strings.
+`ServiceCatalogService.create` / `update` use `sanitizePlainText` on name/description/department and form field strings.
 
-### [A04] `formFields.options` unbounded
+### [A04] `formFields.options` unbounded — **FIXED**
 
-`CatalogFormFieldDto.options`: add `@MaxLength` per string and `@ArrayMaxSize`.
+`CatalogFormFieldDto.options`: `@MaxLength` per string + `@ArrayMaxSize`.
 
 ## Phase 4 carryovers (still open)
 
 ### High — [A02 / A05] Hardcoded LAN credentials in scripts
 
-`probe-remote-services.mjs`, `clean-sla-failed-jobs.mjs`, `rebaseline-remote-journal.mjs` still default to LAN URLs/creds when env unset.
+`probe-remote-services.mjs`, `clean-sla-failed-jobs.mjs`, `rebaseline-remote-journal.mjs` — require env via `require-env.mjs` when merged; confirm no LAN defaults remain on your branch before go-live.
 
 ### Medium — [A07] `SameSite=None` without CSRF defense
 
@@ -32,7 +32,7 @@ Phase 5 Day 23: Admin `GET` / `PATCH` for `sla_rules` (`responseMinutes` / `reso
 
 ## Spot-checked (clean / inherited)
 
-- KnowledgeModule RBAC + sanitize on article/category writes (landed via Dev-A foundation on Audit)
+- KnowledgeModule RBAC + sanitize on article/category writes
 - Catalog `POST`/`PATCH` `@Roles("Admin")`; inactive filter Admin-only
 - Ticket link ACL in Knowledge service
 

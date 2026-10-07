@@ -24,7 +24,7 @@ Core entities defined as Drizzle schema in `apps/server/src/database/schema` (+ 
 * `GET /admin/dashboard/*` → aggregate queries for ticket counts by status/module/SLA
 * `GET/POST/PATCH/DELETE /knowledge/*` → categories, articles, ticket–article links (Phase 5)
 * `POST/PATCH /service-catalog` → Admin catalog item writes (Phase 5)
-* Admin SLA rules `GET`/`PATCH` — **planned Phase 5; API gap flagged in STATUS/Audit phase5**
+* Admin SLA rules `GET`/`PATCH /admin/sla-rules` (by priority; body fallback) — Phase 5
 * All endpoints behind `@UseGuards(JwtAuthGuard, RolesGuard)`
 
 ### 4. Security & Scalability (updated risk set)

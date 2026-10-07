@@ -1,29 +1,26 @@
 # Security Audit: Dev C (Phase 5)
 
-Reaudit 2026-10-06. Combined: [phase5.md](../phase5.md).
+Reaudit 2026-10-06. Combined: [phase5.md](../phase5.md).  
+**Close-out 2026-10-07 (Dev-C):** Medium findings remediated in source; SLA live path unblocked by Nest `/admin/sla-rules`.
 
-## Medium — Open
+## Medium — Resolved
 
-### [A04 / A08] Knowledge list hooks ignore API `{ data }` envelope — `apps/web/src/features/admin/hooks.ts`
+### [A04 / A08] Knowledge list hooks ignore API `{ data }` envelope — **FIXED**
 
-`GET /knowledge/categories` and `GET /knowledge/articles` return `{ data: T[] }` (see `KnowledgeService`). Admin hooks type/fetch as bare arrays. Portal `use-knowledge.ts` unwraps correctly.
+`useKnowledgeCategories` / `useKnowledgeArticles` unwrap `(await apiFetch<{ data: T[] }>(...)).data` — same pattern as portal `use-knowledge.ts` (`f9c6156` audit fix).
 
-**Impact:** list queries mis-handle the payload; in DEV, `catch` paths often fall through to mocks so authoring looks “live” while not reflecting DB.
+### [A04 / A07] DEV mock fallback on Knowledge / SLA API errors — **FIXED**
 
-**Fix (ponytail):** unwrap once, e.g. `(await apiFetch<{ data: T[] }>(...)).data` — same pattern as `use-knowledge.ts`.
-
-### [A04 / A07] DEV mock fallback on Knowledge / SLA API errors — same file
-
-`catch { if (import.meta.env.DEV) return/update mocks }` on category/article **and** SLA reads/writes. Combined with missing `/admin/sla-rules` (Dev D), Admin SLA edits and some Knowledge list failures silently succeed against in-memory mocks.
-
-**Fix:** only use mocks when `useOfflineAdminData()` is true; otherwise rethrow. Do not swallow live 401/403/404/5xx in authoring flows.
+Mocks only when `useOfflineAdminData()` (DEV + mock access token). Live Knowledge/SLA reads and writes rethrow; no silent in-memory success on 401/403/404/5xx.
 
 ## Spot-checked (clean)
 
 - `/admin/knowledge` and `/admin/sla-rules` behind Admin `ProtectedRoute`
+- Sidebar Knowledge / SLA rules entries are Admin-only
 - `MarkdownPreview` renders React text nodes (no `dangerouslySetInnerHTML`)
 - Dashboard CSV is client-side export of aggregates already authorized for Admin
+- `useSlaRules` / `useUpdateSlaRule` call `GET`/`PATCH /admin/sla-rules` (path + body fallback)
 
-## Blocked on Dev D
+## QA
 
-SLA table editor cannot be verified end-to-end until Admin SLA rules API exists.
+Frontend smoke checklist: [phase5-qa.md](../../Phase/Dev%20C/phase5-qa.md) — code-verified; live smoke ready against Nest Admin JWT.

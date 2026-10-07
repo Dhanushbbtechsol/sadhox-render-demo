@@ -4,9 +4,7 @@ Reaudit 2026-10-06. Combined: [phase5.md](../phase5.md).
 
 ## Open findings assigned to Dev B
 
-### Low — [A03] Catalog free-text trim-only (coord with Dev D)
-
-Admin catalog CRUD UI writes through Nest `ServiceCatalogService` which only `.trim()`s strings. Prefer shared sanitize at the service (Dev D) so the UI cannot bypass it.
+**None.** Low catalog sanitize coordinated with Dev D — **FIXED** in `ServiceCatalogService` (`sanitizePlainText` + option size caps).
 
 ## Spot-checked (clean)
 
