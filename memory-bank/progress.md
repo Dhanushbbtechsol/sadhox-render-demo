@@ -1,6 +1,6 @@
 # Progress
 
-**Branch head (as of 2026-10-07):** `Dev-C` — Audit merged; Dev C Phase 5 closed. Sync close-out to `Audit` next.
+**Branch head (as of 2026-10-07):** `Dev-C` — Phase 5 closed; Phase 6 Dev C stub (projects UI + Manager home) in source. Sync to `Audit` when TL asks.
 
 Full feature inventory for Claude: **`Docs/STATUS.md`**.
 
@@ -13,7 +13,7 @@ Full feature inventory for Claude: **`Docs/STATUS.md`**.
 | 3 | Round-robin, SLA jobs, Resend, approval machines, Admin charts | Done |
 | 4 | Security remediations, load notes, deploy prep, seed hardening | Done (go-live checklist not fully executed) |
 | 5 | Knowledge Base + portal detail + catalog Admin CRUD + CSV + SLA UI/API | **Done** (Medium/Low closed 2026-10-07 on Dev-C) |
-| 6 | Projects / Modules / Manager + project ACL & assignment | Designed only — [Docs/Phase/phase6.md](../Docs/Phase/phase6.md) |
+| 6 | Projects / Modules / Manager + project ACL & assignment | Dev C stub in progress (schema, projects API, Admin UI, Manager home). Ticket ACL / assignment / approvals not wired — [Docs/Phase/phase6.md](../Docs/Phase/phase6.md) |
 
 ## Feature checklist (implemented in codebase)
 
@@ -40,12 +40,13 @@ Full feature inventory for Claude: **`Docs/STATUS.md`**.
 - [x] Admin catalog CRUD UI + `POST`/`PATCH /service-catalog`
 - [x] Admin SLA rules `GET`/`PATCH /admin/sla-rules`
 
-## Planned (Phase 6) — not started
-- [ ] Merge Phase 5 close-out to `Audit` (if not already)
-- [ ] `projects` / `project_members` / `modules`; nullable `project_id`/`module_id` on tickets
-- [ ] Role `Manager` + JWT/`@Roles` + 401/403 matrix
-- [ ] `ProjectAccessService`; scoped lists; Admin+Manager approvals; project-scoped assignment pool
-- [ ] Admin projects UI; Manager-scoped views — see phase6 track plans
+## Phase 6 — Dev C stub started
+- [ ] Merge Phase 5 close-out + Phase 6 stub to `Audit` when TL asks
+- [x] `projects` / `project_members` / `modules`; nullable `project_id`/`module_id` columns on tickets
+- [x] Role `Manager` + seed user; projects + manager dashboard in RBAC matrix
+- [x] `ProjectAccessService` for project reads + Manager KPI scope
+- [ ] Admin+Manager approvals; project-scoped assignment pool; ticket forms (Dev A/B/D)
+- [x] Admin `/admin/projects` CRUD + members/modules; Manager `/manager` home — `Docs/Phase/Dev C/phase6-qa.md`
 
 ## Open / incomplete
 

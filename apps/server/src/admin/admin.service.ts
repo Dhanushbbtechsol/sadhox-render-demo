@@ -438,6 +438,31 @@ export class AdminService {
     };
   }
 
+  async listUsers(role?: "Admin" | "Agent" | "Manager" | "EndUser") {
+    const rows = role
+      ? await this.db
+          .select({
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            role: users.role,
+          })
+          .from(users)
+          .where(eq(users.role, role))
+          .orderBy(asc(users.name))
+      : await this.db
+          .select({
+            id: users.id,
+            name: users.name,
+            email: users.email,
+            role: users.role,
+          })
+          .from(users)
+          .orderBy(asc(users.name));
+
+    return { data: rows };
+  }
+
   /**
    * Admin SLA table editor — matches web `SlaRule` contract
    * (`id`, `priority`, `responseMinutes`, `resolveMinutes`, `createdAt` ISO).

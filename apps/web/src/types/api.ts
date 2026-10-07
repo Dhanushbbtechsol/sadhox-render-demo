@@ -1,4 +1,4 @@
-export type UserRole = "EndUser" | "Agent" | "Admin";
+export type UserRole = "EndUser" | "Agent" | "Manager" | "Admin";
 
 export type Urgency = "Low" | "Medium" | "High";
 

@@ -17,6 +17,9 @@ import {
   assets,
   knowledgeCategories,
   knowledgeArticles,
+  projects,
+  projectMembers,
+  modules,
 } from "../src/database/schema";
 import {
   KNOWLEDGE_ARTICLE_SEED,
@@ -51,6 +54,12 @@ async function seed() {
       passwordHash,
       role: "Agent" as const,
       name: "Alice Agent",
+    },
+    {
+      email: "manager@sadhox.local",
+      passwordHash,
+      role: "Manager" as const,
+      name: "Morgan Manager",
     },
     {
       email: "enduser@sadhox.local",
@@ -139,9 +148,67 @@ async function seed() {
   await seedShowcaseData(db);
   await seedPhase4Assets(db);
   await seedKnowledgeBase(db);
+  await seedPhase6Projects(db);
 
   await client.end();
   console.log("Seed complete");
+}
+
+const PHASE6_PROJECT_ID = "a1000000-0000-4000-8000-000000000001";
+const PHASE6_MODULE_ID = "a1000000-0000-4000-8000-000000000002";
+
+async function seedPhase6Projects(db: SeedDb) {
+  const [manager] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "manager@sadhox.local"))
+    .limit(1);
+  const [agent] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "agent@sadhox.local"))
+    .limit(1);
+
+  if (!manager || !agent) {
+    console.log("skip phase6 projects — manager/agent missing");
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(projects)
+    .where(eq(projects.id, PHASE6_PROJECT_ID))
+    .limit(1);
+
+  if (!existing) {
+    await db.insert(projects).values({
+      id: PHASE6_PROJECT_ID,
+      name: "Corporate IT",
+      managerId: manager.id,
+    });
+    console.log("created project Corporate IT");
+  } else {
+    console.log("skip existing project Corporate IT");
+  }
+
+  await db
+    .insert(projectMembers)
+    .values({ projectId: PHASE6_PROJECT_ID, userId: agent.id })
+    .onConflictDoNothing();
+
+  const [mod] = await db
+    .select()
+    .from(modules)
+    .where(eq(modules.id, PHASE6_MODULE_ID))
+    .limit(1);
+  if (!mod) {
+    await db.insert(modules).values({
+      id: PHASE6_MODULE_ID,
+      projectId: PHASE6_PROJECT_ID,
+      name: "Networking",
+    });
+    console.log("created module Networking");
+  }
 }
 
 async function seedKnowledgeBase(db: SeedDb) {

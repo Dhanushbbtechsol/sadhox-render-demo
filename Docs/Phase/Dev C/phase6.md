@@ -1,11 +1,47 @@
 # Dev C — Phase 6: Projects Admin UI & Manager-Scoped Admin Views
 
-**Goal:** Admin UI for projects / members / modules; Manager navigation + dashboard filters scoped to owned projects. Close remaining Phase 5 Admin hook/mock gaps if not already done **before** starting this work.  
+**Status:** Implemented on `Dev-C` (2026-10-07). QA: [phase6-qa.md](./phase6-qa.md).  
+**Goal:** Admin UI for projects / members / modules; Manager navigation + dashboard charts scoped to owned projects.  
 **Design:** [../phase6.md](../phase6.md)
+
+**Day 26 gate:** Satisfied. SLA rules API live; Knowledge Admin hooks unwrap `{ data }`; mocks only via `useOfflineAdminData()`.
+
+**API contract (Checkpoint 6):** `origin/Dev-D` did not publish projects routes. Dev C ships against the Nest contract in `apps/server/src/projects/` (server-side `ProjectAccessService`; UI does not hide global admin data).
+
+| Method | Path | Roles |
+| --- | --- | --- |
+| `GET` / `POST` | `/projects` | list Admin+Manager; create Admin |
+| `GET` / `PATCH` / `DELETE` | `/projects/:id` | get Admin+Manager; mutate Admin |
+| `GET` / `POST` | `/projects/:id/members` | list Admin+Manager; add Admin (Agent only) |
+| `DELETE` | `/projects/:id/members/:userId` | Admin |
+| `GET` / `POST` | `/projects/:id/modules` | list Admin+Manager; create Admin |
+| `PATCH` / `DELETE` | `/projects/:id/modules/:moduleId` | Admin |
+| `GET` | `/admin/users?role=Agent\|Manager` | Admin pickers |
+| `GET` | `/manager/dashboard/stats` | Manager — owned-project KPIs |
+| `GET` | `/manager/dashboard/charts?range=7d\|30d\|ytd` | Manager — volume + SLA, server-scoped |
+
+Lists return `{ data }`. Live hooks fail loudly; mocks only with a DEV mock access token.
 
 ---
 
-- **Day 26 (gate):** Confirm SLA rules API live + Knowledge Admin hooks unwrap `{ data }` / no silent mock writes.
-- **Day 27–28:** Admin `/admin/projects` CRUD (name, assign Manager, members = Agents only, modules). Block adding Manager role users to members in UI (server also rejects).
-- **Day 29:** Manager role routes — home / dashboard charts filtered to owned projects (use API filters, not client-only hide).
-- **Day 30:** Walkthrough Admin + Manager; QA notes.
+- **Day 26 (gate):** Done — Phase 5 Medium items closed before this UI.
+- **Day 27–28:** Admin `/admin/projects` CRUD (name, assign Manager, members = Agents only, modules). UI picker is Agents only; `ProjectsService.addMember` rejects non-Agents.
+- **Day 29:** Manager `/manager` home. Sidebar entry is Manager-only. Charts call `/manager/dashboard/charts` (owned `projects.manager_id`), not a client filter of `/admin/dashboard`.
+- **Day 30:** Walkthrough notes in [phase6-qa.md](./phase6-qa.md).
+
+## Routes
+
+| Path | Role |
+| --- | --- |
+| `/admin/projects` | Admin list + create |
+| `/admin/projects/:id` | Admin overview (name, manager) |
+| `/admin/projects/:id/members` | Admin Agent members |
+| `/admin/projects/:id/modules` | Admin modules |
+| `/manager` | Manager home (KPIs + charts) |
+
+## Out of scope
+
+- Ticket project/module fields — Dev A / Dev B
+- Manager approval inbox — Dev B
+- Knowledge Base rebuild
+- `users.manager_id`; Manager as `project_members`

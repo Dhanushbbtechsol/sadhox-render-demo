@@ -4,6 +4,7 @@ import {
   ClipboardListIcon,
   LayoutDashboardIcon,
   GitBranchIcon,
+  FolderKanbanIcon,
   InboxIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
@@ -36,6 +37,18 @@ const NAV_ITEMS: NavItem[] = [
     to: "/admin/dashboard",
     label: "Dashboard",
     icon: LayoutDashboardIcon,
+    roles: ["Admin"],
+  },
+  {
+    to: "/manager",
+    label: "Home",
+    icon: LayoutDashboardIcon,
+    roles: ["Manager"],
+  },
+  {
+    to: "/admin/projects",
+    label: "Projects",
+    icon: FolderKanbanIcon,
     roles: ["Admin"],
   },
   {

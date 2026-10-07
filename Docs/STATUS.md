@@ -6,7 +6,7 @@
 
 This document is the short “what exists / what doesn’t” brief. Requirements and plans stay in PRD/FRD/Phase docs.
 
-**Next phase (designed, not coded):** [Phase 6 — Projects / Manager](./Phase/phase6.md). Phase 5 Medium gaps closed on `Dev-C` (2026-10-07); merge close-out back to `Audit` before coding Phase 6. Do not rebuild Knowledge Base.
+**Phase 6 (in progress on `Dev-C`):** projects API + Admin `/admin/projects` CRUD + Manager home (KPIs and server-scoped charts). Ticket project fields, assignment pool, and Manager approvals are still Dev A/B/D. Design: [Phase 6 — Projects / Manager](./Phase/phase6.md). Do not rebuild Knowledge Base. Phase 5 close-out is on local `Audit` (`166cf3f`); `origin/Audit` push still pending.
 
 ---
 
@@ -14,8 +14,8 @@ This document is the short “what exists / what doesn’t” brief. Requirement
 
 Sadhox is an **ITSM** web app: End Users report issues and request services; Agents work queues; Admins approve, inventory assets, and oversee KPIs/audit/automation.
 
-**Roles (today):** `Admin` | `Agent` | `EndUser`  
-**Roles (Phase 6):** + `Manager` — see [Phase/phase6.md](./Phase/phase6.md)  
+**Roles (today):** `Admin` | `Agent` | `Manager` | `EndUser`  
+**Phase 6 rules:** Managers supervise owned projects and are not `project_members` — see [Phase/phase6.md](./Phase/phase6.md)  
 **Personas:** Ian (Admin), Alice (Agent), Eve (EndUser) — see `Docs/PRD.md`  
 **Note:** “Employee” in product talk maps to **Agent**, not a separate role.
 
@@ -90,12 +90,13 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 - Nest `KnowledgeModule` with RBAC (Draft hidden from non-Admin; Published-only links)
 - Ticket ACL on link list/mutate (`assertCanAccessTicket`)
 - Admin `GET`/`PATCH /admin/sla-rules` (response/resolve minutes per priority)
+- **Phase 6 (Dev C stub):** `projects` / `project_members` / `modules`; `Manager` role; Admin `/admin/projects` (members + `/modules`); `GET /admin/users?role=`; Manager `/manager` KPIs via `GET /manager/dashboard/stats` (owned `project_id`s only)
 
 ### Nest modules present
 `auth`, `assignment`, `events`, `queues`, `mail`, `health`, `observability`, `incidents`, `problems`, `knowledge`, `service-catalog`, `service-requests`, `changes`, `comments`, `assets`, `admin`, `database`
 
 ### Key frontend routes (role-gated)
-`/login`, role home, `/incidents`, `/problems`, `/catalog`, `/requests`, `/approvals`, `/changes`, `/portal`, `/portal/incidents/:id`, `/knowledge`, `/assets`, `/admin/dashboard`, `/admin/audit-logs`, `/admin/queues`, `/admin/catalog`, `/admin/knowledge`, `/admin/sla-rules`
+`/login`, role home, `/incidents`, `/problems`, `/catalog`, `/requests`, `/approvals`, `/changes`, `/portal`, `/portal/incidents/:id`, `/knowledge`, `/assets`, `/admin/dashboard`, `/admin/audit-logs`, `/admin/queues`, `/admin/catalog`, `/admin/knowledge`, `/admin/sla-rules`, `/admin/projects`, `/admin/projects/:id/members`, `/admin/projects/:id/modules`, `/manager`
 
 ---
 
@@ -109,9 +110,11 @@ Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md` / Dev D phase5): CSR
 
 **Out of scope (by design):** SSO, multi-tenant billing, drag-drop SLA builder, advanced BI, native apps, CMDB graphs, multi-level approval chains.
 
-### Phase 6 (planned) — not implemented yet
+### Phase 6 — partial (Dev C on `Dev-C`)
 
-Projects + modules + `Manager` role; resource-level `ProjectAccessService`; project-scoped assignment pool; Admin **and** Manager single-level approvals (null `project_id` = Admin-only); Managers are **not** ticket-working `project_members`. Full design: [Phase/phase6.md](./Phase/phase6.md).
+**Done:** schema/migration `0010_phase6_projects_manager`; `ProjectAccessService`; projects/members/modules APIs; Admin users picker; Manager `GET /manager/dashboard/stats` and `/charts` (owned projects only); Admin projects UI; Manager home. QA: [Phase/Dev C/phase6-qa.md](./Phase/Dev%20C/phase6-qa.md).
+
+**Still open (other tracks):** ticket `project_id`/`module_id` forms; assignment pool = project members; Admin **and** Manager approvals (null project → Admin-only); full ticket 401/403 matrix. Design: [Phase/phase6.md](./Phase/phase6.md).
 
 ---
 

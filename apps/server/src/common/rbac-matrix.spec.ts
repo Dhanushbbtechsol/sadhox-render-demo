@@ -23,6 +23,9 @@ import { RolesGuard } from "./guards/roles.guard";
 import type { UserRole } from "./types/roles";
 import { DrizzleHealthIndicator } from "../health/drizzle.health";
 import { HealthController } from "../health/health.controller";
+import { ManagerDashboardController } from "../projects/manager-dashboard.controller";
+import { ProjectsController } from "../projects/projects.controller";
+import { ProjectsService } from "../projects/projects.service";
 import { RedisHealthIndicator } from "../health/redis.health";
 import { IncidentsController } from "../incidents/incidents.controller";
 import { IncidentsService } from "../incidents/incidents.service";
@@ -36,7 +39,7 @@ import { ServiceRequestsController } from "../service-requests/service-requests.
 import { ServiceRequestsService } from "../service-requests/service-requests.service";
 
 const ID = "11111111-1111-4111-8111-111111111111";
-const ALL_ROLES: UserRole[] = ["Admin", "Agent", "EndUser"];
+const ALL_ROLES: UserRole[] = ["Admin", "Agent", "Manager", "EndUser"];
 
 type MatrixRow = {
   method: "get" | "post" | "patch" | "delete";
@@ -181,9 +184,44 @@ const MATRIX: MatrixRow[] = [
     allowed: ["Admin", "Agent"],
   },
   { method: "get", path: "/admin/dashboard/stats", allowed: ["Admin"] },
+  { method: "get", path: "/admin/users", allowed: ["Admin"] },
   { method: "get", path: "/admin/sla-rules", allowed: ["Admin"] },
   { method: "patch", path: "/admin/sla-rules", allowed: ["Admin"] },
   { method: "patch", path: "/admin/sla-rules/P1", allowed: ["Admin"] },
+  { method: "get", path: "/projects", allowed: ["Admin", "Manager"] },
+  { method: "post", path: "/projects", allowed: ["Admin"] },
+  { method: "get", path: `/projects/${ID}`, allowed: ["Admin", "Manager"] },
+  { method: "patch", path: `/projects/${ID}`, allowed: ["Admin"] },
+  { method: "delete", path: `/projects/${ID}`, allowed: ["Admin"] },
+  {
+    method: "get",
+    path: `/projects/${ID}/members`,
+    allowed: ["Admin", "Manager"],
+  },
+  { method: "post", path: `/projects/${ID}/members`, allowed: ["Admin"] },
+  {
+    method: "delete",
+    path: `/projects/${ID}/members/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "get",
+    path: `/projects/${ID}/modules`,
+    allowed: ["Admin", "Manager"],
+  },
+  { method: "post", path: `/projects/${ID}/modules`, allowed: ["Admin"] },
+  {
+    method: "patch",
+    path: `/projects/${ID}/modules/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "delete",
+    path: `/projects/${ID}/modules/${ID}`,
+    allowed: ["Admin"],
+  },
+  { method: "get", path: "/manager/dashboard/stats", allowed: ["Manager"] },
+  { method: "get", path: "/manager/dashboard/charts", allowed: ["Manager"] },
   { method: "get", path: "/health/ready", allowed: ["Admin"] },
 ];
 
@@ -239,6 +277,8 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         ServiceCatalogController,
         KnowledgeController,
         AdminController,
+        ProjectsController,
+        ManagerDashboardController,
       ],
       providers: [
         {
@@ -340,8 +380,28 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "dashboardStats",
             "ticketsByStatus",
             "slaPerformance",
+            "listUsers",
             "listSlaRules",
             "updateSlaRule",
+          ]),
+        },
+        {
+          provide: ProjectsService,
+          useValue: stubService([
+            "list",
+            "get",
+            "create",
+            "update",
+            "remove",
+            "listMembers",
+            "addMember",
+            "removeMember",
+            "listModules",
+            "createModule",
+            "updateModule",
+            "removeModule",
+            "managerDashboardStats",
+            "managerCharts",
           ]),
         },
       ],
