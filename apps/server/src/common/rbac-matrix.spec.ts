@@ -94,7 +94,11 @@ const MATRIX: MatrixRow[] = [
     path: `/problems/${ID}`,
     allowed: ["Admin", "Agent", "Manager"],
   },
-  { method: "get", path: "/projects", allowed: ["Admin", "Agent", "Manager"] },
+  {
+    method: "get",
+    path: "/projects",
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
+  },
   { method: "post", path: "/projects", allowed: ["Admin"] },
   {
     method: "get",
@@ -104,43 +108,57 @@ const MATRIX: MatrixRow[] = [
   {
     method: "get",
     path: `/projects/${ID}/modules`,
-    allowed: ["Admin", "Agent", "Manager"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
+  { method: "post", path: `/projects/${ID}/modules`, allowed: ["Admin"] },
   {
     method: "get",
     path: `/projects/${ID}/members`,
     allowed: ["Admin", "Agent", "Manager"],
   },
+  { method: "post", path: `/projects/${ID}/members`, allowed: ["Admin"] },
   {
     method: "get",
     path: "/service-requests",
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     method: "post",
     path: "/service-requests",
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     method: "get",
     path: `/service-requests/${ID}`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     method: "patch",
     path: `/service-requests/${ID}/approve`,
-    allowed: ["Admin"],
+    allowed: ["Admin", "Manager"],
   },
   {
     method: "patch",
     path: `/service-requests/${ID}/reject`,
-    allowed: ["Admin"],
+    allowed: ["Admin", "Manager"],
   },
-  { method: "get", path: "/changes", allowed: ["Admin", "Agent"] },
+  { method: "get", path: "/changes", allowed: ["Admin", "Agent", "Manager"] },
   { method: "post", path: "/changes", allowed: ["Admin", "Agent"] },
-  { method: "get", path: `/changes/${ID}`, allowed: ["Admin", "Agent"] },
-  { method: "patch", path: `/changes/${ID}/approve`, allowed: ["Admin"] },
-  { method: "patch", path: `/changes/${ID}`, allowed: ["Admin", "Agent"] },
+  {
+    method: "get",
+    path: `/changes/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  {
+    method: "patch",
+    path: `/changes/${ID}/approve`,
+    allowed: ["Admin", "Manager"],
+  },
+  {
+    method: "patch",
+    path: `/changes/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
   { method: "get", path: "/assets", allowed: ["Admin"] },
   { method: "post", path: "/assets", allowed: ["Admin"] },
   { method: "get", path: `/assets/${ID}`, allowed: ["Admin"] },
@@ -279,6 +297,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         ServiceCatalogController,
         KnowledgeController,
         AdminController,
+        ProjectsController,
       ],
       providers: [
         {

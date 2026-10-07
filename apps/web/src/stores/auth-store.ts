@@ -63,6 +63,7 @@ interface AuthState {
 export function homePathForRole(role: UserRole): string {
   if (role === "Admin") return "/admin/dashboard";
   if (role === "EndUser") return "/portal";
+  if (role === "Manager") return "/approvals";
   return "/incidents";
 }
 

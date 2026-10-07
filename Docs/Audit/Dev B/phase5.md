@@ -1,12 +1,14 @@
 # Security Audit: Dev B (Phase 5)
 
-Reaudit 2026-10-07. Combined: [phase5.md](../phase5.md). **CLEAN.**
+Reaudit 2026-10-07. Combined: [phase5.md](../phase5.md). **CLEAN** (Dev B Phase 5 open items closed).
 
-## Low — Resolved (coord)
+## Low — Resolved
 
-### [A03] Catalog free-text trim-only — **FIXED (verified)**
+### [A03] Catalog free-text trim-only — **FIXED**
 
-Dev D sanitize choke point on `ServiceCatalogService` + DTO option caps. Admin catalog UI no longer needs a separate client sanitize path.
+`ServiceCatalogService.create` / `update` now run `sanitizePlainText` on name, description, department, and form field `name` / `label` / `options` (shared choke point; Admin UI cannot bypass). Empty post-sanitize required fields → `400`. Spec: `service-catalog.service.spec.ts`.
+
+Also capped `CatalogFormFieldDto.options` with `@ArrayMaxSize(50)` + `@MaxLength(128, { each: true })` (paired with Dev D [A04] unbounded options).
 
 ## Spot-checked (clean)
 

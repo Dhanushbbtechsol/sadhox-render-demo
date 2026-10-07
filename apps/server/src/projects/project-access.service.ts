@@ -1,14 +1,16 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
+  NotFoundException,
 } from "@nestjs/common";
-import { and, eq, inArray, SQL, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, SQL, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
-import { projectMembers, projects } from "../database/schema";
+import { modules, projectMembers, projects, users } from "../database/schema";
 
 /**
  * Resource-level project ACL (Phase 6).
@@ -84,47 +86,49 @@ export class ProjectAccessService {
   }
 
   /**
-   * Ticket list filter for Agent/Manager:
-   * - accessible `project_id`s only
-   * - null-project tickets are Admin-only (excluded here)
-   * Returns `undefined` for Admin (no extra filter).
-   * Returns a never-match filter when the user has zero projects.
+   * Ticket list filter:
+   * - Admin: no filter
+   * - Manager: owned projects only (null project excluded)
+   * - Agent: member projects OR null project (global pool)
+   * - EndUser: callers use ownership filters instead
    */
   async ticketProjectScope(
     user: AuthUser,
     projectIdColumn: AnyPgColumn,
   ): Promise<SQL | undefined> {
+    if (user.role === "Admin") return undefined;
+
     const ids = await this.listAccessibleProjectIds(user);
-    if (ids === null) return undefined;
-    if (ids.length === 0) return sql`false`;
-    return inArray(projectIdColumn, ids);
+
+    if (user.role === "Manager") {
+      if (!ids || ids.length === 0) return sql`false`;
+      return inArray(projectIdColumn, ids);
+    }
+
+    if (user.role === "Agent") {
+      if (!ids || ids.length === 0) return isNull(projectIdColumn);
+      return or(isNull(projectIdColumn), inArray(projectIdColumn, ids));
+    }
+
+    return sql`false`;
   }
 
   /**
    * Detail / mutate ACL for a ticket's nullable project.
    * EndUser is handled by callers (own-ticket rules).
-   * Null project → Admin only.
+   * Null project → Admin or Agent (global pool); Manager denied.
    */
   async assertCanAccessTicketProject(
     user: AuthUser,
     projectId: string | null,
   ): Promise<void> {
-    if (user.role === "EndUser") return;
-    if (user.role === "Admin") return;
-
-    if (projectId == null) {
-      throw new ForbiddenException(
-        "Unscoped tickets (no project) are Admin-only",
-      );
-    }
-
-    await this.assertCanAccess(user, projectId);
+    await this.assertCanViewTicket(user, projectId);
   }
 
   /** Manager must own the project; null project → Admin only. */
   async assertCanApprove(
     user: AuthUser,
-    projectId: string | null,
+    projectId: string | null | undefined,
   ): Promise<void> {
     if (user.role === "Admin") return;
     if (user.role !== "Manager") {
@@ -138,4 +142,67 @@ export class ProjectAccessService {
     await this.assertCanAccess(user, projectId);
   }
 
+  async assertCanViewTicket(
+    user: AuthUser,
+    projectId: string | null | undefined,
+  ): Promise<void> {
+    if (user.role === "Admin") return;
+    if (user.role === "EndUser") return;
+
+    if (!projectId) {
+      if (user.role === "Agent") return;
+      throw new ForbiddenException("Cannot view this ticket");
+    }
+
+    await this.assertCanAccess(user, projectId);
+  }
+
+  /**
+   * Resolve optional project/module on create. Module must belong to project.
+   */
+  async resolveProjectModule(input: {
+    projectId?: string | null;
+    moduleId?: string | null;
+  }): Promise<{ projectId: string | null; moduleId: string | null }> {
+    const projectId = input.projectId ?? null;
+    const moduleId = input.moduleId ?? null;
+
+    if (!projectId && moduleId) {
+      throw new BadRequestException("moduleId requires projectId");
+    }
+
+    if (projectId) {
+      const [project] = await this.db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+      if (!project) throw new NotFoundException("Project not found");
+    }
+
+    if (moduleId && projectId) {
+      const [mod] = await this.db
+        .select({ id: modules.id, projectId: modules.projectId })
+        .from(modules)
+        .where(eq(modules.id, moduleId))
+        .limit(1);
+      if (!mod) throw new NotFoundException("Module not found");
+      if (mod.projectId !== projectId) {
+        throw new BadRequestException("Module does not belong to project");
+      }
+    }
+
+    return { projectId, moduleId };
+  }
+
+  async assertAgentMember(userId: string): Promise<void> {
+    const [user] = await this.db
+      .select({ role: users.role })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!user || user.role !== "Agent") {
+      throw new BadRequestException("Only Agents can be project members");
+    }
+  }
 }

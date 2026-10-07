@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { ArrowUpRightIcon } from "lucide-react";
+import { useSearchParams } from "react-router";
 
 import {
   Card,
@@ -17,16 +18,24 @@ import type { ServiceCatalogItem } from "@/types/api";
 
 export function CatalogGrid() {
   const { data, isLoading, isError } = useServiceCatalog();
+  const [searchParams] = useSearchParams();
+  const departmentFilter = searchParams.get("department")?.trim() ?? "";
   const [selected, setSelected] = useState<ServiceCatalogItem | null>(null);
 
   const grouped = useMemo(() => {
     const items = data ?? [];
-    return items.reduce<Record<string, ServiceCatalogItem[]>>((acc, item) => {
+    const filtered = departmentFilter
+      ? items.filter(
+          (item) =>
+            item.department.toLowerCase() === departmentFilter.toLowerCase(),
+        )
+      : items;
+    return filtered.reduce<Record<string, ServiceCatalogItem[]>>((acc, item) => {
       acc[item.department] ??= [];
       acc[item.department].push(item);
       return acc;
     }, {});
-  }, [data]);
+  }, [data, departmentFilter]);
 
   if (isLoading) {
     return (
@@ -47,8 +56,21 @@ export function CatalogGrid() {
   if (!data?.length) {
     return (
       <EmptyState
-        title="Catalog is empty"
-        description="No service catalog categories or items are available yet. Check back after seeding."
+        title="No active catalog items"
+        description="There are no active service catalog items to request right now. Check back later or contact an administrator."
+      />
+    );
+  }
+
+  if (Object.keys(grouped).length === 0) {
+    return (
+      <EmptyState
+        title="No items in this department"
+        description={
+          departmentFilter
+            ? `No active catalog items match “${departmentFilter}”. Browse the full catalog or try another department.`
+            : "No active catalog items to show."
+        }
       />
     );
   }

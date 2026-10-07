@@ -13,7 +13,7 @@ Scope: current `Audit` tree after Dev-A/B/C/D Phase 5 merges + Dev D remediation
 | --- | --- |
 | Admin SLA rules API | `GET`/`PATCH /admin/sla-rules` (+ `/:priority`); `AdminService.listSlaRules` / `updateSlaRule`; RBAC matrix + `admin.sla-rules.spec.ts` |
 | Catalog sanitize | `ServiceCatalogService` → `sanitizePlainText` on name/description/department/form fields |
-| Catalog options bounds | `CatalogFormFieldDto` `@ArrayMaxSize` + `@MaxLength(..., { each: true })` |
+| Catalog options bounds | `CatalogFormFieldDto` `@ArrayMaxSize(50)` + `@MaxLength(128, { each: true })` |
 | Hardcoded LAN script defaults | `requireEnv` in probe/clean/rebaseline; no `192.168.*` fallbacks |
 
 ## Medium — still open (Dev C)
@@ -26,9 +26,19 @@ Scope: current `Audit` tree after Dev-A/B/C/D Phase 5 merges + Dev D remediation
 
 ### [A04 / A07] DEV mock fallback on Knowledge / SLA API errors
 
-Same file: `catch { if (import.meta.env.DEV) return/update mocks }` on category/article/SLA reads and writes. SLA API now exists, but failed live calls can still look successful in DEV.
+Same file: `catch { if (import.meta.env.DEV) return/update mocks }` on category/article/SLA reads and writes. SLA API now exists, but failed live calls can still look successful in DEV (including write mutations — false-control risk for local/staging walkthroughs).
 
-**Fix:** mocks only when `useOfflineAdminData()`; otherwise rethrow.
+**Fix:** unwrap `result.data` where needed; mocks only when `useOfflineAdminData()` — otherwise rethrow / fail loudly on API errors.
+
+## Low / Hardening — Resolved (Phase 5 catalog)
+
+### [A03] Catalog writes trim only — Dev D / Dev B — **FIXED**
+
+`ServiceCatalogService.create` / `update` use `sanitizePlainText` on name/description/department and form field label/name/options. Spec: `service-catalog.service.spec.ts`.
+
+### [A04] Catalog `formFields.options` unbounded — Dev D — **FIXED**
+
+`CatalogFormFieldDto.options`: `@ArrayMaxSize(50)` + `@MaxLength(128, { each: true })`.
 
 ## Still open from Phase 4 — Dev D (carryover)
 

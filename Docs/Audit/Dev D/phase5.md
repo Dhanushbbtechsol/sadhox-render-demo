@@ -12,11 +12,11 @@ Reaudit 2026-10-07. Combined: [phase5.md](../phase5.md). Owner: Knowledge founda
 
 ### [A03] Catalog create/update not sanitized — **FIXED (verified)**
 
-`ServiceCatalogService` uses `sanitizePlainText` for name/description/department and form field strings.
+`ServiceCatalogService.create` / `update` use `sanitizePlainText` on name, description, department, and form field `name` / `label` / `options`. Empty post-sanitize required fields → `400`. Spec: `service-catalog.service.spec.ts`.
 
 ### [A04] `formFields.options` unbounded — **FIXED (verified)**
 
-`CatalogFormFieldDto`: `@ArrayMaxSize` + `@MaxLength(..., { each: true })`.
+`CatalogFormFieldDto.options`: `@ArrayMaxSize(50)` + `@MaxLength(128, { each: true })`.
 
 ## Phase 4 carryovers
 

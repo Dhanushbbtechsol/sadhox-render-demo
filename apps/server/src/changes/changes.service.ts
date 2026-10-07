@@ -6,9 +6,8 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, SQL } from "drizzle-orm";
 import {
-  assertAdminRole,
   canTransitionChange,
   CHANGE_API_TO_DB_STATUS,
   requiresAdminForChangeStatus,
@@ -16,8 +15,15 @@ import {
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
-import { changes, users, type UserRole } from "../database/schema";
+import {
+  changes,
+  modules,
+  projects,
+  users,
+  type UserRole,
+} from "../database/schema";
 import { MailService } from "../mail/mail.service";
+import { ProjectAccessService } from "../projects/project-access.service";
 import type { CreateChangeDto, UpdateChangeDto } from "./dto/change.dto";
 
 type DbChangeStatus =
@@ -58,6 +64,7 @@ export class ChangesService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly mail: MailService,
+    private readonly projectAccess: ProjectAccessService,
   ) {}
 
   private mapRow(row: {
@@ -73,6 +80,10 @@ export class ChangesService {
     createdByName: string | null;
     approvedBy: string | null;
     createdAt: Date;
+    projectId: string | null;
+    projectName: string | null;
+    moduleId: string | null;
+    moduleName: string | null;
   }) {
     return {
       id: row.id,
@@ -87,7 +98,41 @@ export class ChangesService {
       createdByName: row.createdByName ?? "Unknown",
       approvedById: row.approvedBy ?? undefined,
       createdAt: row.createdAt.toISOString(),
+      projectId: row.projectId ?? null,
+      projectName: row.projectName ?? null,
+      moduleId: row.moduleId ?? null,
+      moduleName: row.moduleName ?? null,
     };
+  }
+
+  private selectColumns() {
+    return {
+      id: changes.id,
+      title: changes.title,
+      description: changes.description,
+      type: changes.type,
+      status: changes.status,
+      scheduledStart: changes.scheduledStart,
+      scheduledEnd: changes.scheduledEnd,
+      rollbackPlan: changes.rollbackPlan,
+      createdBy: changes.createdBy,
+      createdByName: users.name,
+      approvedBy: changes.approvedBy,
+      createdAt: changes.createdAt,
+      projectId: changes.projectId,
+      projectName: projects.name,
+      moduleId: changes.moduleId,
+      moduleName: modules.name,
+    };
+  }
+
+  private baseQuery() {
+    return this.db
+      .select(this.selectColumns())
+      .from(changes)
+      .leftJoin(users, eq(changes.createdBy, users.id))
+      .leftJoin(projects, eq(changes.projectId, projects.id))
+      .leftJoin(modules, eq(changes.moduleId, modules.id));
   }
 
   async create(user: AuthUser, dto: CreateChangeDto) {
@@ -105,6 +150,12 @@ export class ChangesService {
       );
     }
 
+    const { projectId, moduleId } =
+      await this.projectAccess.resolveProjectModule({
+        projectId: dto.projectId,
+        moduleId: dto.moduleId,
+      });
+
     const [created] = await this.db
       .insert(changes)
       .values({
@@ -116,14 +167,20 @@ export class ChangesService {
         rollbackPlan,
         status: "Submitted",
         createdBy: user.userId,
+        projectId,
+        moduleId,
       })
       .returning();
 
-    await this.notifyAdminsOfSubmission(created.id, user);
-    return this.get(created.id);
+    await this.notifyApproversOfSubmission(created.id, user, projectId);
+    return this.get(user, created.id);
   }
 
-  private async notifyAdminsOfSubmission(changeId: string, submitter: AuthUser) {
+  private async notifyApproversOfSubmission(
+    changeId: string,
+    submitter: AuthUser,
+    projectId: string | null,
+  ) {
     try {
       const [change] = await this.db
         .select({
@@ -135,14 +192,27 @@ export class ChangesService {
         .limit(1);
       if (!change) return;
 
+      const recipients: { email: string }[] = [];
       const admins = await this.db
         .select({ email: users.email })
         .from(users)
         .where(eq(users.role, "Admin"));
+      recipients.push(...admins);
+
+      if (projectId) {
+        const managers = await this.db
+          .select({ email: users.email })
+          .from(projects)
+          .innerJoin(users, eq(projects.managerId, users.id))
+          .where(eq(projects.id, projectId));
+        recipients.push(...managers);
+      }
+
+      const unique = [...new Map(recipients.map((r) => [r.email, r])).values()];
 
       await Promise.all(
-        admins.map((admin) =>
-          this.mail.sendChangeReviewRequest(admin.email, {
+        unique.map((r) =>
+          this.mail.sendChangeReviewRequest(r.email, {
             changeId,
             changeTitle: change.title,
             submitterName: submitter.name ?? submitter.email,
@@ -159,8 +229,11 @@ export class ChangesService {
     }
   }
 
-  async list(filters: { type?: string; status?: string }) {
-    const conditions = [];
+  async list(
+    user: AuthUser,
+    filters: { type?: string; status?: string },
+  ) {
+    const conditions: SQL[] = [];
     if (filters.type) {
       conditions.push(eq(changes.type, filters.type as never));
     }
@@ -169,85 +242,41 @@ export class ChangesService {
       conditions.push(eq(changes.status, dbStatus as never));
     }
 
-    const rows = conditions.length
-      ? await this.db
-          .select({
-            id: changes.id,
-            title: changes.title,
-            description: changes.description,
-            type: changes.type,
-            status: changes.status,
-            scheduledStart: changes.scheduledStart,
-            scheduledEnd: changes.scheduledEnd,
-            rollbackPlan: changes.rollbackPlan,
-            createdBy: changes.createdBy,
-            createdByName: users.name,
-            approvedBy: changes.approvedBy,
-            createdAt: changes.createdAt,
-          })
-          .from(changes)
-          .leftJoin(users, eq(changes.createdBy, users.id))
-          .where(and(...conditions))
-          .orderBy(desc(changes.createdAt))
-      : await this.db
-          .select({
-            id: changes.id,
-            title: changes.title,
-            description: changes.description,
-            type: changes.type,
-            status: changes.status,
-            scheduledStart: changes.scheduledStart,
-            scheduledEnd: changes.scheduledEnd,
-            rollbackPlan: changes.rollbackPlan,
-            createdBy: changes.createdBy,
-            createdByName: users.name,
-            approvedBy: changes.approvedBy,
-            createdAt: changes.createdAt,
-          })
-          .from(changes)
-          .leftJoin(users, eq(changes.createdBy, users.id))
-          .orderBy(desc(changes.createdAt));
+    if (user.role === "Manager" || user.role === "Agent") {
+      const scope = await this.projectAccess.ticketProjectScope(
+        user,
+        changes.projectId,
+      );
+      if (scope) conditions.push(scope);
+    }
+
+    const rows =
+      conditions.length > 0
+        ? await this.baseQuery()
+            .where(and(...conditions))
+            .orderBy(desc(changes.createdAt))
+        : await this.baseQuery().orderBy(desc(changes.createdAt));
 
     return { data: rows.map((row) => this.mapRow(row)) };
   }
 
-  async get(id: string) {
-    const [row] = await this.db
-      .select({
-        id: changes.id,
-        title: changes.title,
-        description: changes.description,
-        type: changes.type,
-        status: changes.status,
-        scheduledStart: changes.scheduledStart,
-        scheduledEnd: changes.scheduledEnd,
-        rollbackPlan: changes.rollbackPlan,
-        createdBy: changes.createdBy,
-        createdByName: users.name,
-        approvedBy: changes.approvedBy,
-        createdAt: changes.createdAt,
-      })
-      .from(changes)
-      .leftJoin(users, eq(changes.createdBy, users.id))
-      .where(eq(changes.id, id))
-      .limit(1);
+  async get(user: AuthUser, id: string) {
+    const [row] = await this.baseQuery().where(eq(changes.id, id)).limit(1);
 
     if (!row) throw new NotFoundException("Change not found");
+    await this.projectAccess.assertCanViewTicket(user, row.projectId);
     return this.mapRow(row);
   }
 
   async approve(user: AuthUser, id: string) {
-    try {
-      assertAdminRole(user.role);
-    } catch {
-      throw new ForbiddenException("Admin role required");
-    }
     const [existing] = await this.db
       .select()
       .from(changes)
       .where(eq(changes.id, id))
       .limit(1);
     if (!existing) throw new NotFoundException("Change not found");
+
+    await this.projectAccess.assertCanApprove(user, existing.projectId);
 
     const apiStatus = DB_TO_API_STATUS[existing.status] ?? existing.status;
     if (apiStatus !== "Submitted" && apiStatus !== "Draft") {
@@ -272,7 +301,7 @@ export class ChangesService {
       outcome: "approved",
     });
 
-    return this.get(id);
+    return this.get(user, id);
   }
 
   private async notifyCreator(
@@ -315,6 +344,7 @@ export class ChangesService {
       .where(eq(changes.id, id))
       .limit(1);
     if (!existing) throw new NotFoundException("Change not found");
+    await this.projectAccess.assertCanViewTicket(user, existing.projectId);
 
     const patch: Partial<typeof changes.$inferInsert> = {
       updatedAt: new Date(),
@@ -341,13 +371,15 @@ export class ChangesService {
           `Invalid transition from ${currentApi} to ${dto.status}`,
         );
       }
-      if (
-        requiresAdminForChangeStatus(dto.status) &&
-        (user.role as UserRole) !== "Admin"
-      ) {
-        throw new ForbiddenException(
-          `Admin role required to set change status to ${dto.status}`,
-        );
+      if (requiresAdminForChangeStatus(dto.status)) {
+        // Approve + reject (Rolled Back) — Admin any; Manager own-project only.
+        if (dto.status === "Approved" || dto.status === "Rolled Back") {
+          await this.projectAccess.assertCanApprove(user, existing.projectId);
+        } else if ((user.role as UserRole) !== "Admin") {
+          throw new ForbiddenException(
+            `Admin role required to set change status to ${dto.status}`,
+          );
+        }
       }
       const dbStatus = API_TO_DB_STATUS[dto.status];
       if (!dbStatus) {
@@ -383,6 +415,6 @@ export class ChangesService {
       });
     }
 
-    return this.get(id);
+    return this.get(user, id);
   }
 }

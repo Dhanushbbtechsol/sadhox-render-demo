@@ -96,7 +96,7 @@ export function AssetFormDialog({
             name: values.name,
             type: values.type as AssetType,
             status: values.status as AssetStatus,
-            purchaseCost: values.purchaseCost?.trim() || null,
+            purchaseCost: values.purchaseCost?.trim() || undefined,
           },
         });
         toast.success(`Updated ${values.assetTag}`);

@@ -28,6 +28,16 @@ export class CreateServiceRequestDto {
   @IsOptional()
   @IsObject()
   fields?: Record<string, string>;
+
+  @ApiPropertyOptional({ format: "uuid", nullable: true })
+  @IsOptional()
+  @IsUUID()
+  projectId?: string | null;
+
+  @ApiPropertyOptional({ format: "uuid", nullable: true })
+  @IsOptional()
+  @IsUUID()
+  moduleId?: string | null;
 }
 
 export class RejectServiceRequestDto {

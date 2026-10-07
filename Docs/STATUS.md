@@ -1,13 +1,12 @@
 # Sadhox — Status & Feature Handoff (for Claude / agents)
 
 **Last updated:** 2026-10-07  
-**Integration branch:** `Audit` (Phase 5 remediations + Phase 6 Dev A foundation; reaudit docs updated)  
+**Integration branch:** `Audit` (Phase 5 remediations + Phase 6 Dev A/B foundation; reaudit docs updated)  
 **Memory bank:** `memory-bank/` (read all six files at task start)
 
 This document is the short “what exists / what doesn’t” brief. Requirements and plans stay in PRD/FRD/Phase docs.
 
-**Phase 6 (in progress):** [Projects / Manager](./Phase/phase6.md) — Dev A incident/problem scoping + foundation (`Manager`, projects APIs, ProjectAccess, assignment pool) landed; Dev B (SR/Change approve) and Dev C (Admin project UI / Manager dashboard) still open. Close remaining Phase 5 Medium gaps. Do not rebuild Knowledge Base.
-
+**Phase 6 (in progress):** [Projects / Manager](./Phase/phase6.md) — shared foundation (`Manager`, projects/modules, `ProjectAccessService`) landed; **Dev A** incident/problem project scoping + assignment pool; **Dev B** SR/Change project scoping + Manager-alongside-Admin approvals landed ([Dev B QA](./Phase/Dev%20B/phase6-day30-qa.md)); **Dev C** Admin project CRUD + Manager dashboard still open. Close remaining Phase 5 Medium gaps (Dev C Knowledge hooks). Do not rebuild Knowledge Base.
 
 ---
 
@@ -15,8 +14,7 @@ This document is the short “what exists / what doesn’t” brief. Requirement
 
 Sadhox is an **ITSM** web app: End Users report issues and request services; Agents work queues; Admins approve, inventory assets, and oversee KPIs/audit/automation.
 
-**Roles (today):** `Admin` | `Agent` | `EndUser`  
-**Roles (Phase 6):** + `Manager` — see [Phase/phase6.md](./Phase/phase6.md)  
+**Roles:** `Admin` | `Agent` | `EndUser` | `Manager` — see [Phase/phase6.md](./Phase/phase6.md)  
 **Personas:** Ian (Admin), Alice (Agent), Eve (EndUser) — see `Docs/PRD.md`  
 **Note:** “Employee” in product talk maps to **Agent**, not a separate role.
 
@@ -92,7 +90,7 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 - Ticket ACL on link list/mutate (`assertCanAccessTicket`)
 
 ### Nest modules present
-`auth`, `assignment`, `events`, `queues`, `mail`, `health`, `observability`, `incidents`, `problems`, `knowledge`, `service-catalog`, `service-requests`, `changes`, `comments`, `assets`, `admin`, `database`
+`auth`, `assignment`, `events`, `queues`, `mail`, `health`, `observability`, `incidents`, `problems`, `knowledge`, `service-catalog`, `service-requests`, `changes`, `projects`, `comments`, `assets`, `admin`, `database`
 
 ### Key frontend routes (role-gated)
 `/login`, role home, `/incidents`, `/problems`, `/catalog`, `/requests`, `/approvals`, `/changes`, `/portal`, `/portal/incidents/:id`, `/knowledge`, `/assets`, `/admin/dashboard`, `/admin/audit-logs`, `/admin/queues`, `/admin/catalog`, `/admin/knowledge`, `/admin/sla-rules`
@@ -116,10 +114,13 @@ Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md` / Dev D phase5): CSR
 
 **Out of scope (by design):** SSO, multi-tenant billing, drag-drop SLA builder, advanced BI, native apps, CMDB graphs, multi-level approval chains.
 
-### Phase 6 — partial
+### Phase 6 — in progress
 
-**Landed (Dev A + foundation):** projects/modules/`Manager`; `ProjectAccessService`; incident/problem project scoping + assignment pool.  
-**Still open:** Dev B SR/Change project + Manager approve; Dev C Admin project CRUD + Manager dashboard. Full design: [Phase/phase6.md](./Phase/phase6.md).
+Design: [Phase/phase6.md](./Phase/phase6.md).
+
+**Landed (foundation + Dev A + Dev B):** `Manager` role; `projects` / `project_members` / `modules`; `ProjectAccessService`; Dev A incident/problem project scoping + assignment pool; Dev B optional `projectId`/`moduleId` on service requests & changes, Manager-alongside-Admin approvals (null project = Admin-only), scoped SR/Change lists, catalog/change create pickers, Manager approvals UI. QA: [Phase/Dev B/phase6-day30-qa.md](./Phase/Dev%20B/phase6-day30-qa.md).
+
+**Still open:** Dev C Admin project CRUD + Manager dashboard; remaining assignment-pool / incident UI wiring per phase6 plan; local `0010_phase6_projects_manager` migrate + reseed where not yet applied.
 
 ---
 

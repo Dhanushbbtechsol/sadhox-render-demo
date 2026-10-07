@@ -115,7 +115,19 @@ export default function KnowledgeDetailPage() {
       </article>
 
       <div className="flex flex-wrap gap-2">
-        <Button render={<Link to="/catalog" />}>Start a catalog request</Button>
+        <Button
+          render={
+            <Link
+              to={
+                data.categoryName
+                  ? `/catalog?department=${encodeURIComponent(data.categoryName)}`
+                  : "/catalog"
+              }
+            />
+          }
+        >
+          Start a catalog request
+        </Button>
         <Button variant="outline" render={<Link to="/portal" />}>
           Report an incident
         </Button>

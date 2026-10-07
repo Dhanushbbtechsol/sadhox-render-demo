@@ -54,7 +54,11 @@ export class ProjectsService {
   ) {}
 
   async list(user: AuthUser): Promise<ProjectView[]> {
-    const ids = await this.access.listAccessibleProjectIds(user);
+    // EndUser: all projects for catalog/request pickers (no workspace ACL).
+    const ids =
+      user.role === "EndUser"
+        ? null
+        : await this.access.listAccessibleProjectIds(user);
     const scope =
       ids === null
         ? undefined
@@ -132,7 +136,16 @@ export class ProjectsService {
   }
 
   async listModules(user: AuthUser, projectId: string): Promise<ModuleView[]> {
-    await this.access.assertCanAccess(user, projectId);
+    if (user.role === "EndUser") {
+      const [project] = await this.db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+      if (!project) throw new NotFoundException("Project not found");
+    } else {
+      await this.access.assertCanAccess(user, projectId);
+    }
     const rows = await this.db
       .select()
       .from(modules)
