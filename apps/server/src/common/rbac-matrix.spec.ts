@@ -94,7 +94,11 @@ const MATRIX: MatrixRow[] = [
     path: `/problems/${ID}`,
     allowed: ["Admin", "Agent", "Manager"],
   },
-  { method: "get", path: "/projects", allowed: ["Admin", "Agent", "Manager"] },
+  {
+    method: "get",
+    path: "/projects",
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
+  },
   { method: "post", path: "/projects", allowed: ["Admin"] },
   {
     method: "get",
@@ -104,43 +108,57 @@ const MATRIX: MatrixRow[] = [
   {
     method: "get",
     path: `/projects/${ID}/modules`,
-    allowed: ["Admin", "Agent", "Manager"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
+  { method: "post", path: `/projects/${ID}/modules`, allowed: ["Admin"] },
   {
     method: "get",
     path: `/projects/${ID}/members`,
     allowed: ["Admin", "Agent", "Manager"],
   },
+  { method: "post", path: `/projects/${ID}/members`, allowed: ["Admin"] },
   {
     method: "get",
     path: "/service-requests",
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     method: "post",
     path: "/service-requests",
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     method: "get",
     path: `/service-requests/${ID}`,
-    allowed: ["Admin", "Agent", "EndUser"],
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     method: "patch",
     path: `/service-requests/${ID}/approve`,
-    allowed: ["Admin"],
+    allowed: ["Admin", "Manager"],
   },
   {
     method: "patch",
     path: `/service-requests/${ID}/reject`,
-    allowed: ["Admin"],
+    allowed: ["Admin", "Manager"],
   },
-  { method: "get", path: "/changes", allowed: ["Admin", "Agent"] },
+  { method: "get", path: "/changes", allowed: ["Admin", "Agent", "Manager"] },
   { method: "post", path: "/changes", allowed: ["Admin", "Agent"] },
-  { method: "get", path: `/changes/${ID}`, allowed: ["Admin", "Agent"] },
-  { method: "patch", path: `/changes/${ID}/approve`, allowed: ["Admin"] },
-  { method: "patch", path: `/changes/${ID}`, allowed: ["Admin", "Agent"] },
+  {
+    method: "get",
+    path: `/changes/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  {
+    method: "patch",
+    path: `/changes/${ID}/approve`,
+    allowed: ["Admin", "Manager"],
+  },
+  {
+    method: "patch",
+    path: `/changes/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
   { method: "get", path: "/assets", allowed: ["Admin"] },
   { method: "post", path: "/assets", allowed: ["Admin"] },
   { method: "get", path: `/assets/${ID}`, allowed: ["Admin"] },
@@ -220,6 +238,9 @@ const MATRIX: MatrixRow[] = [
     allowed: ["Admin", "Agent"],
   },
   { method: "get", path: "/admin/dashboard/stats", allowed: ["Admin"] },
+  { method: "get", path: "/admin/sla-rules", allowed: ["Admin"] },
+  { method: "patch", path: "/admin/sla-rules", allowed: ["Admin"] },
+  { method: "patch", path: "/admin/sla-rules/P1", allowed: ["Admin"] },
   { method: "get", path: "/health/ready", allowed: ["Admin"] },
 ];
 
@@ -276,6 +297,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         ServiceCatalogController,
         KnowledgeController,
         AdminController,
+        ProjectsController,
       ],
       providers: [
         {
@@ -397,6 +419,8 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "dashboardStats",
             "ticketsByStatus",
             "slaPerformance",
+            "listSlaRules",
+            "updateSlaRule",
           ]),
         },
       ],
@@ -418,6 +442,9 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
   it.each([
     { method: "get" as const, path: "/incidents" },
     { method: "get" as const, path: "/admin/dashboard/stats" },
+    { method: "get" as const, path: "/admin/sla-rules" },
+    { method: "patch" as const, path: "/admin/sla-rules" },
+    { method: "patch" as const, path: "/admin/sla-rules/P1" },
     { method: "get" as const, path: "/assets" },
     { method: "get" as const, path: "/problems" },
     { method: "get" as const, path: "/health/ready" },
@@ -428,8 +455,15 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
     },
   ])("unauthenticated $method $path → 401", async ({ method, path }) => {
     const req = request(app.getHttpServer())[method](path);
-    if (method === "post") {
-      await req.send({ articleId: ID }).expect(401);
+    if (method === "post" || method === "patch") {
+      await req
+        .send({
+          priority: "P1",
+          responseMinutes: 15,
+          resolveMinutes: 240,
+          articleId: ID,
+        })
+        .expect(401);
       return;
     }
     await req.expect(401);
@@ -439,6 +473,15 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
     await request(app.getHttpServer())
       .get("/admin/dashboard/stats")
       .set("x-test-role", "EndUser")
+      .expect(403);
+    await request(app.getHttpServer())
+      .get("/admin/sla-rules")
+      .set("x-test-role", "EndUser")
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch("/admin/sla-rules/P1")
+      .set("x-test-role", "EndUser")
+      .send({ responseMinutes: 15, resolveMinutes: 240 })
       .expect(403);
     await request(app.getHttpServer())
       .get("/assets")
@@ -456,6 +499,15 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
       .set("x-test-role", "Agent")
       .expect(403);
     await request(app.getHttpServer())
+      .get("/admin/sla-rules")
+      .set("x-test-role", "Agent")
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch("/admin/sla-rules")
+      .set("x-test-role", "Agent")
+      .send({ priority: "P1", responseMinutes: 15, resolveMinutes: 240 })
+      .expect(403);
+    await request(app.getHttpServer())
       .get("/assets")
       .set("x-test-role", "Agent")
       .expect(403);
@@ -463,6 +515,21 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
       .get("/health/ready")
       .set("x-test-role", "Agent")
       .expect(403);
+  });
+
+  it("Admin succeeds on SLA rules GET/PATCH", async () => {
+    await request(app.getHttpServer())
+      .get("/admin/sla-rules")
+      .set("x-test-role", "Admin")
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch("/admin/sla-rules/P1")
+      .set("x-test-role", "Admin")
+      .send({ responseMinutes: 15, resolveMinutes: 240 })
+      .expect((res) => {
+        expect(res.status).not.toBe(401);
+        expect(res.status).not.toBe(403);
+      });
   });
 
   it.each(

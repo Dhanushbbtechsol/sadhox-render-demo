@@ -1,4 +1,9 @@
-import { Controller, type Control, type FieldValues, type Path } from "react-hook-form";
+import {
+  Controller,
+  type Control,
+  type FieldValues,
+  type Path,
+} from "react-hook-form";
 
 import { Label } from "@/components/ui/label";
 import {
@@ -13,7 +18,7 @@ import { useAuthStore } from "@/stores/auth-store";
 
 const NONE = "__none__";
 
-type ProjectModuleFieldsProps<T extends FieldValues> = {
+type RhfProps<T extends FieldValues> = {
   control: Control<T>;
   projectField: Path<T>;
   moduleField: Path<T>;
@@ -21,10 +26,6 @@ type ProjectModuleFieldsProps<T extends FieldValues> = {
   onProjectChange?: (projectId: string | undefined) => void;
 };
 
-<<<<<<< Updated upstream
-/** Shared project → module cascading selects for ticket create/edit. */
-export function ProjectModuleFields<T extends FieldValues>({
-=======
 type ControlledProps = {
   projectId: string;
   moduleId: string;
@@ -55,13 +56,12 @@ export function ProjectModuleFields<T extends FieldValues>(
 }
 
 function RhfProjectModuleFields<T extends FieldValues>({
->>>>>>> Stashed changes
   control,
   projectField,
   moduleField,
   projectId,
   onProjectChange,
-}: ProjectModuleFieldsProps<T>) {
+}: RhfProps<T>) {
   const { data: projects = [] } = useProjects();
   const { data: modules = [] } = useProjectModules(projectId);
   const allowUnscoped = useAllowUnscopedProject();
@@ -145,8 +145,6 @@ function RhfProjectModuleFields<T extends FieldValues>({
     </div>
   );
 }
-<<<<<<< Updated upstream
-=======
 
 function ControlledProjectModuleFields({
   projectId,
@@ -214,4 +212,3 @@ function ControlledProjectModuleFields({
     </div>
   );
 }
->>>>>>> Stashed changes

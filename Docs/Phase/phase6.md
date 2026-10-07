@@ -1,6 +1,7 @@
 # Phase 6 — Projects, Modules & Manager Role
 
 **Status:** in progress — Dev A + shared foundation landed (2026-10-07); Dev B / Dev C tracks still open  
+
 **Prerequisite:** close Phase 5 open gaps first (`Docs/Audit/phase5.md`) — SLA rules API, Admin Knowledge `{ data }` unwrap, kill silent DEV mock write fallbacks. **Do not rebuild Knowledge Base.**
 
 **Decisions locked (2026-10-07):**

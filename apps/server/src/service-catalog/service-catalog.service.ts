@@ -1,9 +1,11 @@
 import {
+  BadRequestException,
   Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
+import { sanitizePlainText } from "../common/sanitize-plain-text";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import type { CatalogFormField } from "../database/schema";
@@ -22,6 +24,30 @@ const publicSelect = {
   formFields: serviceCatalog.formFields,
   isActive: serviceCatalog.isActive,
 } as const;
+
+function sanitizeFormFields(
+  fields: CreateCatalogItemDto["formFields"],
+): CatalogFormField[] {
+  return fields.map((field) => {
+    const name = sanitizePlainText(field.name, 64);
+    const label = sanitizePlainText(field.label, 128);
+    if (!name || !label) {
+      throw new BadRequestException(
+        "Form field name and label are required after sanitization",
+      );
+    }
+    const options = field.options
+      ?.map((option) => sanitizePlainText(option, 128))
+      .filter((option) => option.length > 0);
+    return {
+      name,
+      label,
+      type: field.type,
+      ...(field.required !== undefined ? { required: field.required } : {}),
+      ...(options !== undefined ? { options } : {}),
+    };
+  });
+}
 
 @Injectable()
 export class ServiceCatalogService {
@@ -42,13 +68,22 @@ export class ServiceCatalogService {
   }
 
   async create(dto: CreateCatalogItemDto) {
+    const name = sanitizePlainText(dto.name, 255);
+    const description = sanitizePlainText(dto.description, 4000);
+    const department = sanitizePlainText(dto.department, 128);
+    if (!name || !description || !department) {
+      throw new BadRequestException(
+        "Catalog name, description, and department are required",
+      );
+    }
+
     const [row] = await this.db
       .insert(serviceCatalog)
       .values({
-        name: dto.name.trim(),
-        description: dto.description.trim(),
-        department: dto.department.trim(),
-        formFields: dto.formFields as CatalogFormField[],
+        name,
+        description,
+        department,
+        formFields: sanitizeFormFields(dto.formFields),
         isActive: dto.isActive ?? true,
       })
       .returning(publicSelect);
@@ -67,22 +102,46 @@ export class ServiceCatalogService {
       throw new NotFoundException("Catalog item not found");
     }
 
+    const patch: {
+      name?: string;
+      description?: string;
+      department?: string;
+      formFields?: CatalogFormField[];
+      isActive?: boolean;
+      updatedAt: Date;
+    } = { updatedAt: new Date() };
+
+    if (dto.name !== undefined) {
+      const name = sanitizePlainText(dto.name, 255);
+      if (!name) {
+        throw new BadRequestException("Catalog name is required");
+      }
+      patch.name = name;
+    }
+    if (dto.description !== undefined) {
+      const description = sanitizePlainText(dto.description, 4000);
+      if (!description) {
+        throw new BadRequestException("Catalog description is required");
+      }
+      patch.description = description;
+    }
+    if (dto.department !== undefined) {
+      const department = sanitizePlainText(dto.department, 128);
+      if (!department) {
+        throw new BadRequestException("Catalog department is required");
+      }
+      patch.department = department;
+    }
+    if (dto.formFields !== undefined) {
+      patch.formFields = sanitizeFormFields(dto.formFields);
+    }
+    if (dto.isActive !== undefined) {
+      patch.isActive = dto.isActive;
+    }
+
     const [row] = await this.db
       .update(serviceCatalog)
-      .set({
-        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-        ...(dto.description !== undefined
-          ? { description: dto.description.trim() }
-          : {}),
-        ...(dto.department !== undefined
-          ? { department: dto.department.trim() }
-          : {}),
-        ...(dto.formFields !== undefined
-          ? { formFields: dto.formFields as CatalogFormField[] }
-          : {}),
-        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
-        updatedAt: new Date(),
-      })
+      .set(patch)
       .where(eq(serviceCatalog.id, id))
       .returning(publicSelect);
 

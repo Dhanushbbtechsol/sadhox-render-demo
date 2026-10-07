@@ -1,8 +1,27 @@
+/**
+ * Show or rebaseline drizzle.__drizzle_migrations on a target Postgres.
+ * Destructive in `rebaseline` mode — local/lab ops only, never CI/deploy.
+ *
+ * Requires DATABASE_URL (or REMOTE_DATABASE_URL alias). No host fallbacks.
+ *
+ * Example:
+ *   DATABASE_URL=postgresql://sadhox:sadhox@127.0.0.1:5437/sadhox \
+ *     node scripts/rebaseline-remote-journal.mjs show
+ *
+ * Or with apps/server/.env loaded:
+ *   node scripts/rebaseline-remote-journal.mjs show
+ */
 import postgres from "postgres";
+import { requireEnv } from "./require-env.mjs";
 
+// dotenv loaded by require-env. Prefer REMOTE_DATABASE_URL, else DATABASE_URL.
 const REMOTE =
-  process.env.REMOTE_DATABASE_URL ??
-  "postgresql://sadhox:sadhox@192.168.68.111:5437/sadhox";
+  process.env.REMOTE_DATABASE_URL?.trim() ||
+  process.env.DATABASE_URL?.trim() ||
+  "";
+if (!REMOTE) {
+  requireEnv(["DATABASE_URL"]);
+}
 
 /** Exact match of local's four applied rows (hash + created_at). */
 const LOCAL_ROWS = [

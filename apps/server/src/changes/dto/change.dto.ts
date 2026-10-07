@@ -4,6 +4,7 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  IsUUID,
   MinLength,
   Validate,
   ValidateIf,
@@ -75,6 +76,16 @@ export class CreateChangeDto {
     message: "Rollback plan is required for Normal and Emergency changes",
   })
   rollbackPlan!: string;
+
+  @ApiPropertyOptional({ format: "uuid", nullable: true })
+  @IsOptional()
+  @IsUUID()
+  projectId?: string | null;
+
+  @ApiPropertyOptional({ format: "uuid", nullable: true })
+  @IsOptional()
+  @IsUUID()
+  moduleId?: string | null;
 }
 
 export class UpdateChangeDto {

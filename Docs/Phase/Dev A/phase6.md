@@ -2,8 +2,7 @@
 
 **Goal:** Wire `project_id` / `module_id` on Incidents & Problems; lists respect ProjectAccess; assignment UI uses project member pool.  
 **Prerequisite:** Dev D contract Days 26–28. **Do not rebuild KB** — only reuse existing ticket↔article UI.  
-**Design:** [../phase6.md](../phase6.md)
-
+**Design:** [../phase6.md](../phase6.md)  
 **Status:** implemented (2026-10-07) — foundation + Dev A surfaces landed together so A could ship without waiting on a separate D merge.
 
 ---

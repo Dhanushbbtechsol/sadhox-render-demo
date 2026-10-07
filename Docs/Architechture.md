@@ -10,10 +10,10 @@
   * *Time-driven:* BullMQ repeatable job (every 5 min) for SLA breach detection + auto-close, backed by Redis.
 
 ### 2. Data Models
-Same core entities as before (`users`, `incidents`, `problems`, `service_requests`, `changes`, `assets`, `comments`), now defined as Drizzle schema + migrations instead of Supabase tables.
-* Add `refresh_tokens` table (id, user_id, token_hash, expires_at, revoked) — needed since we manage our own sessions.
-* Add `audit_log` table (id, actor_id, action, entity_type, entity_id, created_at, diff) — required for production traceability, wasn't in the demo scope.
-* `comments` stays polymorphic (`ticket_id` + `ticket_type`); enforce referential integrity via a Nest service-layer check + cascading soft-delete job, since Postgres can't FK across types.
+Core entities defined as Drizzle schema in `apps/server/src/database/schema` (+ migrations): `users`, `refresh_tokens`, `audit_log`, `incidents`, `problems`, `service_catalog`, `service_requests`, `changes`, `assets`, `comments`, `sla_rules`, `notifications`, plus Phase 5 `knowledge_categories`, `knowledge_articles`, `ticket_knowledge_links`.
+* `refresh_tokens` — own sessions (JWT access + rotating refresh).
+* `audit_log` — production traceability.
+* `comments` / ticket–KB links stay polymorphic (`ticket_id` + `ticket_type`); referential integrity via Nest service-layer checks.
 
 ### 3. Core API Endpoints (replaces Supabase RPC/PostgREST)
 * `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`
@@ -21,7 +21,10 @@ Same core entities as before (`users`, `incidents`, `problems`, `service_request
 * Priority auto-calc: computed in `IncidentsService.create()`/`.update()`, not a DB trigger
 * `GET/POST/PATCH /problems`, `/service-requests`, `/changes`, `/assets`
 * `POST /comments` → persists + emits Socket.io event
-* `GET /admin/dashboard` → aggregate queries for ticket counts by status/module
+* `GET /admin/dashboard/*` → aggregate queries for ticket counts by status/module/SLA
+* `GET/POST/PATCH/DELETE /knowledge/*` → categories, articles, ticket–article links (Phase 5)
+* `POST/PATCH /service-catalog` → Admin catalog item writes (Phase 5)
+* Admin SLA rules `GET`/`PATCH` — **planned Phase 5; API gap flagged in STATUS/Audit phase5**
 * All endpoints behind `@UseGuards(JwtAuthGuard, RolesGuard)`
 
 ### 4. Security & Scalability (updated risk set)

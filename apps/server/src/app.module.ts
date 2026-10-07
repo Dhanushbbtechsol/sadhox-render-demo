@@ -27,6 +27,7 @@ import { ObservabilityModule } from "./observability/observability.module";
 import { ProblemsModule } from "./problems/problems.module";
 import { ProjectsModule } from "./projects/projects.module";
 import { QueuesModule } from "./queues/queues.module";
+import { ProjectsModule } from "./projects/projects.module";
 import { ServiceCatalogModule } from "./service-catalog/service-catalog.module";
 import { ServiceRequestsModule } from "./service-requests/service-requests.module";
 
@@ -66,6 +67,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     ServiceCatalogModule,
     ServiceRequestsModule,
     ChangesModule,
+    ProjectsModule,
     CommentsModule,
     AssetsModule,
     AdminModule,

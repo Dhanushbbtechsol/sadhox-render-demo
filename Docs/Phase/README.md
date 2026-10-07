@@ -2,16 +2,19 @@
 
 This directory contains the detailed phase-by-phase execution plan for the Sadhox ITSM platform.
 
-**Requirements coverage (Phases 1–4 vs Phase 5 gaps):** [coverage-matrix.md](./coverage-matrix.md)
+**Current status (what shipped on `Audit`):** [../STATUS.md](../STATUS.md)  
+**Phase 6 design (Projects / Manager):** [phase6.md](./phase6.md)  
+**Requirements coverage (Phases 1–4 vs Phase 5 gaps):** [coverage-matrix.md](./coverage-matrix.md)  
+**Latest audit:** [../Audit/phase5.md](../Audit/phase5.md)
 
 ## Track Distribution
 
 | Track Folder | Developer | Role | Ownership Scope |
 |---|---|---|---|
-| [Dev D](./Dev%20D/plan.md) | **Dev D (Backend Lead)** | Backend Exclusive | Core API, Auth (Passport JWT/RBAC), Database (Drizzle/Postgres), Realtime (Socket.io), Queues (BullMQ/Redis), Infra (CI/CD, Railway/Render, Sentry), Phase 5 Knowledge/SLA/catalog APIs. |
-| [Dev A](./Dev%20A/plan.md) | **Dev A** | Full-Stack | Incident Management, Priority Auto-Calc, Round-Robin Assignment, Problem Management, Real-Time Comments, Phase 5 ticket–KB links & portal detail. |
-| [Dev B](./Dev%20B/plan.md) | **Dev B** | Full-Stack | Service Catalog, Service Request Fulfillment, Change Management, Phase 5 End User KB portal & catalog Admin CRUD. |
-| [Dev C](./Dev%20C/plan.md) | **Dev C** | Full-Stack | Asset Register, Admin Metrics Dashboard, Resend Templates, Audit Log UI, Phase 5 Admin KB authoring, SLA table, CSV export. |
+| [Dev D](./Dev%20D/plan.md) | **Dev D (Backend Lead)** | Backend Exclusive | Core API, Auth, Drizzle, Socket.io, BullMQ, Infra; Phase 5 Knowledge/SLA/catalog APIs; **Phase 6 projects + Manager + ProjectAccessService**. |
+| [Dev A](./Dev%20A/plan.md) | **Dev A** | Full-Stack | Incidents, Problems, assignment/comments; Phase 5 KB links & portal detail; **Phase 6 project-scoped tickets + assignment pool**. |
+| [Dev B](./Dev%20B/plan.md) | **Dev B** | Full-Stack | Catalog, Requests, Changes; Phase 5 KB portal & catalog Admin; **Phase 6 project fields + Manager approvals**. |
+| [Dev C](./Dev%20C/plan.md) | **Dev C** | Full-Stack | Assets, Admin dashboards; Phase 5 KB authoring / SLA UI / CSV; **Phase 6 Admin projects UI + Manager-scoped views**. |
 
 ---
 
@@ -23,6 +26,8 @@ Week 2 (Days 6–10):  Core CRUD & Realtime (All Module APIs & UIs, Socket.io, A
 Week 3 (Days 11–15): Workflows & Automation (SLA Workers, Round-Robin, Approvals, Resend Emails)
 Week 4 (Days 16–20): QA, Security Pass, Load Testing, Production Go-Live
 Week 5 (Days 21–25): Knowledge Base + residual gaps (portal detail, catalog CRUD, SLA table, CSV)
+Week 6 (Days 26–30): Projects / Modules / Manager role + project-scoped ACL & assignment
+                      (gate: close Phase 5 audit gaps first — do not rebuild KB)
 ```
 
 ## Critical Cross-Track Dependencies (Blockers)
@@ -34,3 +39,5 @@ Week 5 (Days 21–25): Knowledge Base + residual gaps (portal detail, catalog CR
 5. **Day 15 (All Devs):** Green RBAC e2e test suite (401/403 matrix) and background jobs functional (**Checkpoint 3**).
 6. **Day 20 (All Devs):** Production Go-Live on Railway/Render (Backend+DB+Redis) and Vercel (Frontend).
 7. **Day 22–23 (Dev D → Devs A, B, C):** Knowledge Base + SLA rules + catalog write APIs frozen for Phase 5 UI work (**Checkpoint 5**).
+8. **Day 26 (All):** Phase 5 Medium gaps closed before Phase 6 schema lands (**Checkpoint 6 gate**).
+9. **Day 28–29 (Dev D → A, B, C):** `ProjectAccessService` + projects OpenAPI frozen for UI (**Checkpoint 6**).

@@ -104,7 +104,9 @@ export default function AdminCatalogPage() {
 
       {catalog.data && filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No catalog items match this search.
+          {query.trim()
+            ? "No catalog items match this search."
+            : "No catalog items yet. Create one to get started."}
         </p>
       ) : null}
 

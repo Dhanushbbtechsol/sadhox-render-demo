@@ -68,13 +68,14 @@ export function ApprovalInboxTable() {
           {!pendingRequests.length ? (
             <EmptyState
               title="No pending approvals"
-              description="New service requests waiting for Admin review will show up here."
+              description="Service requests waiting for Admin or Manager review will show up here. Managers only see their projects."
             />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Service</TableHead>
+                  <TableHead>Project</TableHead>
                   <TableHead>Requester</TableHead>
                   <TableHead>Urgency</TableHead>
                   <TableHead>Created</TableHead>
@@ -91,6 +92,10 @@ export function ApprovalInboxTable() {
                           {request.justification}
                         </p>
                       </div>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {request.projectName ?? "—"}
+                      {request.moduleName ? ` / ${request.moduleName}` : ""}
                     </TableCell>
                     <TableCell>{request.requesterName}</TableCell>
                     <TableCell>
@@ -142,13 +147,14 @@ export function ApprovalInboxTable() {
           {!pendingChanges.length ? (
             <EmptyState
               title="No pending changes"
-              description="Submitted change requests awaiting Admin approval will appear in this inbox."
+              description="Submitted changes awaiting Admin or Manager approval will appear here. Managers only see their projects."
             />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Title</TableHead>
+                  <TableHead>Project</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Schedule</TableHead>
                   <TableHead>Created by</TableHead>
@@ -165,6 +171,10 @@ export function ApprovalInboxTable() {
                           {change.description}
                         </p>
                       </div>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {change.projectName ?? "—"}
+                      {change.moduleName ? ` / ${change.moduleName}` : ""}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{change.type}</Badge>

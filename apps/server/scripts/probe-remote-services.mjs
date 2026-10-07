@@ -1,10 +1,25 @@
+/**
+ * Probe Postgres + Redis connectivity for local / shared-lab ops.
+ *
+ * Requires DATABASE_URL and REDIS_URL (no hardcoded host fallbacks).
+ * Values may come from the environment or apps/server/.env via dotenv.
+ *
+ * Example (local docker-compose publish ports):
+ *   DATABASE_URL=postgresql://sadhox:sadhox@127.0.0.1:5437/sadhox \
+ *   REDIS_URL=redis://127.0.0.1:16379 \
+ *   node scripts/probe-remote-services.mjs
+ *
+ * Or from apps/server with `.env` already set:
+ *   node scripts/probe-remote-services.mjs
+ */
 import postgres from "postgres";
 import Redis from "ioredis";
+import { requireEnv } from "./require-env.mjs";
 
-const dbUrl =
-  process.env.DATABASE_URL ??
-  "postgresql://sadhox:sadhox@192.168.68.111:5437/sadhox";
-const redisUrl = process.env.REDIS_URL ?? "redis://192.168.68.111:16379";
+const { DATABASE_URL: dbUrl, REDIS_URL: redisUrl } = requireEnv([
+  "DATABASE_URL",
+  "REDIS_URL",
+]);
 
 const sql = postgres(dbUrl, { max: 1, connect_timeout: 8 });
 try {

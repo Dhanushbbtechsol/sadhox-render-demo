@@ -1,6 +1,11 @@
 import { InjectQueue } from "@nestjs/bullmq";
-import { Inject, Injectable } from "@nestjs/common";
-import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { and, asc, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 import type { Queue } from "bullmq";
 import {
   computeSlaComplianceRate,
@@ -15,9 +20,16 @@ import {
   changes,
   incidents,
   serviceRequests,
+  slaRules,
   users,
+  type Priority,
 } from "../database/schema";
 import type { ListAuditLogsQueryDto } from "./dto/list-audit-logs-query.dto";
+import {
+  SLA_PRIORITIES,
+  type SlaPriority,
+  type UpdateSlaRuleMinutesDto,
+} from "./dto/sla-rule.dto";
 import {
   EMAIL_QUEUE,
   SLA_QUEUE,
@@ -423,6 +435,73 @@ export class AdminService {
       page,
       limit,
       total: Number(totalRow[0]?.total ?? 0),
+    };
+  }
+
+  /**
+   * Admin SLA table editor — matches web `SlaRule` contract
+   * (`id`, `priority`, `responseMinutes`, `resolveMinutes`, `createdAt` ISO).
+   */
+  async listSlaRules() {
+    const rows = await this.db
+      .select({
+        id: slaRules.id,
+        priority: slaRules.priority,
+        responseMinutes: slaRules.responseMinutes,
+        resolveMinutes: slaRules.resolveMinutes,
+        createdAt: slaRules.createdAt,
+      })
+      .from(slaRules)
+      .orderBy(asc(slaRules.priority));
+
+    return rows.map((row) => ({
+      id: row.id,
+      priority: row.priority,
+      responseMinutes: row.responseMinutes,
+      resolveMinutes: row.resolveMinutes,
+      createdAt: row.createdAt.toISOString(),
+    }));
+  }
+
+  async updateSlaRule(priority: string, dto: UpdateSlaRuleMinutesDto) {
+    if (!SLA_PRIORITIES.includes(priority as SlaPriority)) {
+      throw new BadRequestException(
+        `priority must be one of ${SLA_PRIORITIES.join(", ")}`,
+      );
+    }
+    const p = priority as Priority;
+
+    const [existing] = await this.db
+      .select({ id: slaRules.id })
+      .from(slaRules)
+      .where(eq(slaRules.priority, p))
+      .limit(1);
+
+    if (!existing) {
+      throw new NotFoundException(`SLA rule not found for priority ${p}`);
+    }
+
+    const [row] = await this.db
+      .update(slaRules)
+      .set({
+        responseMinutes: dto.responseMinutes,
+        resolveMinutes: dto.resolveMinutes,
+      })
+      .where(eq(slaRules.priority, p))
+      .returning({
+        id: slaRules.id,
+        priority: slaRules.priority,
+        responseMinutes: slaRules.responseMinutes,
+        resolveMinutes: slaRules.resolveMinutes,
+        createdAt: slaRules.createdAt,
+      });
+
+    return {
+      id: row.id,
+      priority: row.priority,
+      responseMinutes: row.responseMinutes,
+      resolveMinutes: row.resolveMinutes,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 

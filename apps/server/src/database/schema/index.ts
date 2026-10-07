@@ -160,7 +160,10 @@ export const projects = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("projects_manager_id_idx").on(t.managerId)],
+  (t) => [
+    index("projects_manager_id_idx").on(t.managerId),
+    index("projects_name_idx").on(t.name),
+  ],
 );
 
 export const projectMembers = pgTable(
@@ -194,7 +197,10 @@ export const modules = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("modules_project_id_idx").on(t.projectId)],
+  (t) => [
+    index("modules_project_id_idx").on(t.projectId),
+    unique("modules_project_name_unique").on(t.projectId, t.name),
+  ],
 );
 
 export const incidents = pgTable(

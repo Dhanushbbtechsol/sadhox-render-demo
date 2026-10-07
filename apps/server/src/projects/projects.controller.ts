@@ -30,8 +30,11 @@ export class ProjectsController {
   constructor(private readonly projects: ProjectsService) {}
 
   @Get()
-  @Roles("Admin", "Manager", "Agent")
-  @ApiOperation({ summary: "List projects accessible to the caller" })
+  @Roles("Admin", "Manager", "Agent", "EndUser")
+  @ApiOperation({
+    summary:
+      "List projects (Admin/EndUser: all; Manager: owned; Agent: member)",
+  })
   list(@CurrentUser() user: AuthUser) {
     return this.projects.list(user);
   }
@@ -66,7 +69,7 @@ export class ProjectsController {
   }
 
   @Get(":id/modules")
-  @Roles("Admin", "Manager", "Agent")
+  @Roles("Admin", "Manager", "Agent", "EndUser")
   @ApiOperation({ summary: "List modules for a project" })
   listModules(
     @CurrentUser() user: AuthUser,

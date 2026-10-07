@@ -1,29 +1,27 @@
 # Security Audit: Dev C (Phase 5)
 
-Reaudit 2026-10-06. Combined: [phase5.md](../phase5.md).
+Reaudit 2026-10-07 (pass 2). Combined: [phase5.md](../phase5.md).
 
-## Medium — Open
+## Medium — Resolved
 
-### [A04 / A08] Knowledge list hooks ignore API `{ data }` envelope — `apps/web/src/features/admin/hooks.ts`
+### [A04 / A08] Knowledge list hooks ignore `{ data }` envelope — **FIXED (verified)**
 
-`GET /knowledge/categories` and `GET /knowledge/articles` return `{ data: T[] }` (see `KnowledgeService`). Admin hooks type/fetch as bare arrays. Portal `use-knowledge.ts` unwraps correctly.
+`unwrapKnowledgeList` in `features/admin/hooks.ts` for categories + articles (tolerates bare arrays for stale cache).
 
-**Impact:** list queries mis-handle the payload; in DEV, `catch` paths often fall through to mocks so authoring looks “live” while not reflecting DB.
+### [A04 / A07] DEV mock fallback on Knowledge / SLA API errors — **FIXED (verified)**
 
-**Fix (ponytail):** unwrap once, e.g. `(await apiFetch<{ data: T[] }>(...)).data` — same pattern as `use-knowledge.ts`.
+Knowledge/SLA live paths use `useOfflineAdminData()` only for mocks; live failures rethrow (SLA update has alternate-endpoint fallback, not mock).
 
-### [A04 / A07] DEV mock fallback on Knowledge / SLA API errors — same file
+## Low — Open
 
-`catch { if (import.meta.env.DEV) return/update mocks }` on category/article **and** SLA reads/writes. Combined with missing `/admin/sla-rules` (Dev D), Admin SLA edits and some Knowledge list failures silently succeed against in-memory mocks.
+### [A04 / A07] Residual DEV `catch → mock` on assets / dashboard / audit / queues
 
-**Fix:** only use mocks when `useOfflineAdminData()` is true; otherwise rethrow. Do not swallow live 401/403/404/5xx in authoring flows.
+Same file: live `catch { if (DEV) return mocks }` remains on non-Knowledge admin reads.
+
+**Fix:** rethrow unless `useOfflineAdminData()`.
 
 ## Spot-checked (clean)
 
 - `/admin/knowledge` and `/admin/sla-rules` behind Admin `ProtectedRoute`
-- `MarkdownPreview` renders React text nodes (no `dangerouslySetInnerHTML`)
-- Dashboard CSV is client-side export of aggregates already authorized for Admin
-
-## Blocked on Dev D
-
-SLA table editor cannot be verified end-to-end until Admin SLA rules API exists.
+- `MarkdownPreview` React text nodes (no `dangerouslySetInnerHTML`)
+- Dashboard CSV client-side of Admin-authorized aggregates
