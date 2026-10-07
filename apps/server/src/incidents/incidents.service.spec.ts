@@ -22,6 +22,8 @@ describe("IncidentsService.update assignee role", () => {
     status: "New" as const,
     assignedTo: null,
     reporterId: agentUser.userId,
+    projectId: null,
+    moduleId: null,
     slaDueAt: new Date(),
     slaBreached: false,
     resolutionNotes: null,
@@ -60,7 +62,7 @@ describe("IncidentsService.update assignee role", () => {
             })),
           };
         }
-        // assertAssigneeIsAgentOrAdmin
+        // assertAssigneeInPool user lookup
         return {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
@@ -83,8 +85,11 @@ describe("IncidentsService.update assignee role", () => {
       db as never,
       { calculate: vi.fn(), resolveDueAt: vi.fn() } as never,
       { emitTicketUpdated: vi.fn() } as never,
-      {} as never,
+      { isInPool: vi.fn(async () => false) } as never,
       { sendTicketAssigned: vi.fn() } as never,
+      {} as never,
+      { assertCanAccessTicketProject: vi.fn(async () => undefined) } as never,
+      {} as never,
     );
 
     await expect(

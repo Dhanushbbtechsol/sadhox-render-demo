@@ -395,8 +395,12 @@ export class IncidentsService {
       closedAt = null;
     }
 
-    if (dto.assignedTo !== undefined && dto.assignedTo !== null) {
-      await this.assertAssigneeInPool(dto.assignedTo, nextProjectId);
+    const nextAssignee =
+      dto.assignedTo !== undefined
+        ? dto.assignedTo
+        : existing.incident.assignedTo;
+    if (nextAssignee) {
+      await this.assertAssigneeInPool(nextAssignee, nextProjectId);
     }
 
     // Assigning via PATCH on New auto-moves to Assigned (same lifecycle rule).

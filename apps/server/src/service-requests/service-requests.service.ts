@@ -132,6 +132,7 @@ export class ServiceRequestsService {
       })
       .returning();
 
+<<<<<<< Updated upstream
     const [requester] = await this.db
       .select({ name: users.name })
       .from(users)
@@ -139,6 +140,15 @@ export class ServiceRequestsService {
       .limit(1);
 
     await this.notifyAdminsOfSubmission(created.id, catalog.name, user, dto.urgency);
+=======
+    await this.notifyApproversOfSubmission(
+      created.id,
+      catalog.name,
+      user,
+      dto.urgency,
+      projectId,
+    );
+>>>>>>> Stashed changes
 
     return this.mapRow({
       id: created.id,
