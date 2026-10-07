@@ -8,7 +8,6 @@ describe("AssignmentService project pool (Phase 6 Day 28)", () => {
   it("uses project_members when ticket has project_id", async () => {
     const memberAgent = "agent-in-project";
     const queue: Array<() => unknown> = [
-      // ticket lock
       () => ({
         from: () => ({
           where: () => ({
@@ -20,7 +19,6 @@ describe("AssignmentService project pool (Phase 6 Day 28)", () => {
           }),
         }),
       }),
-      // project_members Agents
       () => ({
         from: () => ({
           innerJoin: () => ({
@@ -32,7 +30,6 @@ describe("AssignmentService project pool (Phase 6 Day 28)", () => {
           }),
         }),
       }),
-      // incident loads
       () => ({
         from: () => ({
           where: () => ({
@@ -40,7 +37,6 @@ describe("AssignmentService project pool (Phase 6 Day 28)", () => {
           }),
         }),
       }),
-      // problem loads
       () => ({
         from: () => ({
           where: () => ({
@@ -48,7 +44,6 @@ describe("AssignmentService project pool (Phase 6 Day 28)", () => {
           }),
         }),
       }),
-      // agent snippet
       () => ({
         from: () => ({
           where: () => ({

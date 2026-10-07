@@ -79,7 +79,7 @@ export class ProjectsController {
 
   @Get(":id/members")
   @Roles("Admin", "Manager", "Agent")
-  @ApiOperation({ summary: "List project members" })
+  @ApiOperation({ summary: "List Agent members of a project" })
   listMembers(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,

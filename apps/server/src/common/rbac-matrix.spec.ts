@@ -39,8 +39,6 @@ import { ServiceCatalogController } from "../service-catalog/service-catalog.con
 import { ServiceCatalogService } from "../service-catalog/service-catalog.service";
 import { ServiceRequestsController } from "../service-requests/service-requests.controller";
 import { ServiceRequestsService } from "../service-requests/service-requests.service";
-import { AssignmentController } from "../assignment/assignment.controller";
-import { AssignmentService } from "../assignment/assignment.service";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const ALL_ROLES: UserRole[] = ["Admin", "Agent", "EndUser", "Manager"];
@@ -209,11 +207,6 @@ const MATRIX: MatrixRow[] = [
     path: "/service-catalog",
     allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
-  {
-    method: "get",
-    path: "/assignment/agents",
-    allowed: ["Admin", "Agent", "Manager"],
-  },
   { method: "post", path: "/service-catalog", allowed: ["Admin"] },
   {
     method: "patch",
@@ -342,7 +335,6 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         KnowledgeController,
         AdminController,
         ManagerDashboardController,
-        AssignmentController,
       ],
       providers: [
         {
@@ -481,10 +473,6 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "getUser",
             "updateUser",
           ]),
-        },
-        {
-          provide: AssignmentService,
-          useValue: stubService(["listAgents"]),
         },
       ],
     }).compile();

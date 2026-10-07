@@ -66,7 +66,7 @@ export class ProjectAccessService {
 
   async assertCanAccess(
     user: AccessUser,
-    projectId: string,
+    projectId: string | null | undefined,
   ): Promise<void> {
     if (await this.canAccess(user, projectId)) return;
     throw new ForbiddenException("Cannot access this project");
