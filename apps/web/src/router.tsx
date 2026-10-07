@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+import { Navigate, createBrowserRouter } from "react-router";
 
 import AppShell from "./app-shell";
 import { GuestRoute, ProtectedRoute } from "@/components/auth/protected-route";
@@ -12,10 +12,6 @@ import AssetRegisterPage from "@/features/assets/asset-register-page";
 import KnowledgeArticlePage from "@/features/knowledge/knowledge-article-page";
 import KnowledgeListPage from "@/features/knowledge/knowledge-list-page";
 import ManagerHomePage from "@/features/manager/manager-home-page";
-import ProjectDetailLayout from "@/features/projects/project-detail-layout";
-import ProjectMembersPage from "@/features/projects/project-members-page";
-import ProjectModulesPage from "@/features/projects/project-modules-page";
-import ProjectOverviewPage from "@/features/projects/project-overview-page";
 import ProjectsListPage from "@/features/projects/projects-list-page";
 import ApprovalsPage from "@/routes/approvals";
 import CatalogPage from "@/routes/catalog";
@@ -130,22 +126,10 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute roles={["Admin"]} />,
             children: [
               { index: true, element: <ProjectsListPage /> },
+              // Legacy detail/tab URLs → list (Edit / Members / Modules are dialogs).
               {
-                path: ":id",
-                element: <ProjectDetailLayout />,
-                children: [
-                  { index: true, element: <ProjectOverviewPage /> },
-                  {
-                    path: "members",
-                    element: <ProjectMembersPage />,
-                    handle: { breadcrumb: "Members" },
-                  },
-                  {
-                    path: "modules",
-                    element: <ProjectModulesPage />,
-                    handle: { breadcrumb: "Modules" },
-                  },
-                ],
+                path: ":id/*",
+                element: <Navigate to="/admin/projects" replace />,
               },
             ],
           },

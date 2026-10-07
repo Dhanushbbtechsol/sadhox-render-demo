@@ -1,6 +1,10 @@
-import { PlusIcon } from "lucide-react";
+import {
+  BoxesIcon,
+  PencilIcon,
+  PlusIcon,
+  UsersIcon,
+} from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -31,43 +35,71 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import {
-  useCreateProject,
-  useDirectoryUsers,
-  useProjects,
-} from "./hooks";
+import { useCreateProject, useDirectoryUsers, useProjects } from "./hooks";
+import { ProjectEditDialog } from "./project-edit-dialog";
+import { ProjectMembersDialog } from "./project-members-dialog";
+import { ProjectModulesDialog } from "./project-modules-dialog";
+import type { Project } from "./types";
+
+type ActiveDialog = "create" | "edit" | "members" | "modules" | null;
 
 export default function ProjectsListPage() {
-  const navigate = useNavigate();
   const projects = useProjects();
   const managers = useDirectoryUsers("Manager");
   const createProject = useCreateProject();
 
   const [query, setQuery] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [name, setName] = useState("");
   const [managerId, setManagerId] = useState("");
+
+  const managerOptions = managers.data ?? [];
+
+  /** Base UI Select.Value shows raw UUID unless Root `items` maps value → label. */
+  const managerSelectItems = useMemo(
+    () =>
+      Object.fromEntries(managerOptions.map((m) => [m.id, m.name])) as Record<
+        string,
+        string
+      >,
+    [managerOptions],
+  );
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const rows = projects.data ?? [];
     if (!needle) return rows;
-    return rows.filter((p) => p.name.toLowerCase().includes(needle));
+    return rows.filter(
+      (p) =>
+        p.name.toLowerCase().includes(needle) ||
+        (p.managerName ?? "").toLowerCase().includes(needle),
+    );
   }, [projects.data, query]);
 
-  const managerName = (id: string | null) => {
+  const resolveManagerLabel = (
+    id: string | null,
+    fallbackName?: string | null,
+  ) => {
+    if (fallbackName) return fallbackName;
     if (!id) return "—";
-    return managers.data?.find((m) => m.id === id)?.name ?? id.slice(0, 8);
+    return managerOptions.find((m) => m.id === id)?.name ?? "—";
   };
 
-  function resetForm() {
+  function resetCreateForm() {
     setName("");
     setManagerId("");
   }
 
-  function openDialog() {
-    resetForm();
-    setDialogOpen(true);
+  function openCreate() {
+    resetCreateForm();
+    setSelectedProject(null);
+    setActiveDialog("create");
+  }
+
+  function openForProject(dialog: Exclude<ActiveDialog, "create" | null>, project: Project) {
+    setSelectedProject(project);
+    setActiveDialog(dialog);
   }
 
   async function onCreate() {
@@ -85,9 +117,8 @@ export default function ProjectsListPage() {
         managerId,
       });
       toast.success(`Created ${created.name}`);
-      setDialogOpen(false);
-      resetForm();
-      navigate(`/admin/projects/${created.id}`);
+      setActiveDialog(null);
+      resetCreateForm();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Create failed");
     }
@@ -99,11 +130,10 @@ export default function ProjectsListPage() {
         <div className="min-w-0">
           <h1 className="text-xl font-semibold">Projects</h1>
           <p className="text-sm text-muted-foreground">
-            Create projects, assign Managers, and manage Agent members and
-            modules.
+            Create a project, then use Edit, Members, or Modules on each row.
           </p>
         </div>
-        <Button className="shrink-0" onClick={openDialog}>
+        <Button className="shrink-0" onClick={openCreate}>
           <PlusIcon />
           New project
         </Button>
@@ -132,29 +162,56 @@ export default function ProjectsListPage() {
               <TableHead>Name</TableHead>
               <TableHead>Manager</TableHead>
               <TableHead>Created</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.map((project) => (
               <TableRow key={project.id}>
+                <TableCell className="font-medium">{project.name}</TableCell>
                 <TableCell>
-                  <Link
-                    to={`/admin/projects/${project.id}`}
-                    className="font-medium underline-offset-4 hover:underline"
-                  >
-                    {project.name}
-                  </Link>
+                  {resolveManagerLabel(project.managerId, project.managerName)}
                 </TableCell>
-                <TableCell>{managerName(project.managerId)}</TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {new Date(project.createdAt).toLocaleDateString()}
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap justify-end gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openForProject("edit", project)}
+                    >
+                      <PencilIcon />
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openForProject("members", project)}
+                    >
+                      <UsersIcon />
+                      Members
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openForProject("modules", project)}
+                    >
+                      <BoxesIcon />
+                      Modules
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="text-muted-foreground">
-                  No projects yet.
+                <TableCell colSpan={4} className="text-muted-foreground">
+                  No projects yet. Create one to get started.
                 </TableCell>
               </TableRow>
             ) : null}
@@ -163,18 +220,20 @@ export default function ProjectsListPage() {
       ) : null}
 
       <Dialog
-        open={dialogOpen}
+        open={activeDialog === "create"}
         onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) resetForm();
+          if (!open) {
+            setActiveDialog(null);
+            resetCreateForm();
+          }
         }}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>New project</DialogTitle>
             <DialogDescription>
-              Set a name and assign a Manager. You can add Agents and modules
-              after creating.
+              Set a name and assign a Manager. Use Members and Modules on the
+              list after creating.
             </DialogDescription>
           </DialogHeader>
 
@@ -198,24 +257,31 @@ export default function ProjectsListPage() {
             <div className="grid gap-1.5">
               <Label>Manager</Label>
               <Select
-                items={(managers.data ?? []).map((m) => ({
-                  value: m.id,
-                  label: m.name,
-                }))}
-                value={managerId || undefined}
+                value={managerId || null}
                 onValueChange={(v) => setManagerId(v ?? "")}
+                items={managerSelectItems}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a Manager" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(managers.data ?? []).map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
+                  {managerOptions.map((m) => (
+                    <SelectItem key={m.id} value={m.id} label={m.name}>
                       {m.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {managers.isLoading ? (
+                <p className="text-muted-foreground text-xs">
+                  Loading managers…
+                </p>
+              ) : null}
+              {!managers.isLoading && managerOptions.length === 0 ? (
+                <p className="text-muted-foreground text-xs">
+                  No Manager users found. Seed `manager@sadhox.local` first.
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -223,7 +289,10 @@ export default function ProjectsListPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setDialogOpen(false)}
+              onClick={() => {
+                setActiveDialog(null);
+                resetCreateForm();
+              }}
             >
               Cancel
             </Button>
@@ -237,6 +306,39 @@ export default function ProjectsListPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ProjectEditDialog
+        open={activeDialog === "edit"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActiveDialog(null);
+            setSelectedProject(null);
+          }
+        }}
+        project={selectedProject}
+      />
+
+      <ProjectMembersDialog
+        open={activeDialog === "members"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActiveDialog(null);
+            setSelectedProject(null);
+          }
+        }}
+        project={selectedProject}
+      />
+
+      <ProjectModulesDialog
+        open={activeDialog === "modules"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActiveDialog(null);
+            setSelectedProject(null);
+          }
+        }}
+        project={selectedProject}
+      />
     </div>
   );
 }

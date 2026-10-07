@@ -77,6 +77,12 @@ async function seed() {
       role: "Manager" as const,
       name: "Morgan Manager",
     },
+    {
+      email: "manager2@sadhox.local",
+      passwordHash,
+      role: "Manager" as const,
+      name: "Casey Manager",
+    },
   ];
 
   let createdAny = false;
@@ -165,15 +171,15 @@ async function seedPhase6Projects(db: SeedDb) {
     .from(users)
     .where(eq(users.email, "manager@sadhox.local"))
     .limit(1);
+  const [manager2] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "manager2@sadhox.local"))
+    .limit(1);
   const [agent] = await db
     .select()
     .from(users)
     .where(eq(users.email, "agent@sadhox.local"))
-    .limit(1);
-  const [admin] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, "admin@sadhox.local"))
     .limit(1);
 
   if (!manager) {
@@ -220,7 +226,8 @@ async function seedPhase6Projects(db: SeedDb) {
     console.log("ensured agent membership on Platform Ops");
   }
 
-  if (admin) {
+  // Second Manager-owned project — appears in Manager select QA as another option owner.
+  if (manager2) {
     const [other] = await db
       .select({ id: projects.id })
       .from(projects)
@@ -230,9 +237,9 @@ async function seedPhase6Projects(db: SeedDb) {
       await db.insert(projects).values({
         id: PHASE6_OTHER_PROJECT_ID,
         name: "Shared Infra",
-        managerId: admin.id,
+        managerId: manager2.id,
       });
-      console.log("created project Shared Infra (Admin-owned, for ACL QA)");
+      console.log("created project Shared Infra (Casey Manager)");
     }
   }
 }

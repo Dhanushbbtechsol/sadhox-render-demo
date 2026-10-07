@@ -2,6 +2,8 @@ export type Project = {
   id: string;
   name: string;
   managerId: string | null;
+  /** Present on Admin/Manager/Agent list/get when joined from users */
+  managerName?: string | null;
   createdAt: string;
 };
 

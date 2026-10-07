@@ -44,6 +44,16 @@ export class ProjectsService {
     private readonly access: ProjectAccessService,
   ) {}
 
+  private projectWithManagerSelect() {
+    return {
+      id: projects.id,
+      name: projects.name,
+      managerId: projects.managerId,
+      managerName: users.name,
+      createdAt: projects.createdAt,
+    } as const;
+  }
+
   async create(dto: CreateProjectDto) {
     await this.assertManagerUser(dto.managerId);
     const name = sanitizePlainText(dto.name, 255);
@@ -52,7 +62,18 @@ export class ProjectsService {
       .insert(projects)
       .values({ name, managerId: dto.managerId })
       .returning();
-    return row;
+    const [manager] = await this.db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.id, dto.managerId))
+      .limit(1);
+    return {
+      id: row.id,
+      name: row.name,
+      managerId: row.managerId,
+      managerName: manager?.name ?? null,
+      createdAt: row.createdAt,
+    };
   }
 
   /**
@@ -68,18 +89,31 @@ export class ProjectsService {
       return rows;
     }
     if (user.role === "Admin") {
-      return this.db.select().from(projects);
+      return this.db
+        .select(this.projectWithManagerSelect())
+        .from(projects)
+        .leftJoin(users, eq(projects.managerId, users.id));
     }
     if (user.role === "Manager" || user.role === "Agent") {
       const ids = await this.access.listAccessibleProjectIds(user);
       if (ids.length === 0) return [];
-      return this.db.select().from(projects).where(inArray(projects.id, ids));
+      return this.db
+        .select(this.projectWithManagerSelect())
+        .from(projects)
+        .leftJoin(users, eq(projects.managerId, users.id))
+        .where(inArray(projects.id, ids));
     }
     throw new ForbiddenException("Insufficient role");
   }
 
   async getById(user: AuthUser, projectId: string) {
-    const row = await this.requireProject(projectId);
+    const [row] = await this.db
+      .select(this.projectWithManagerSelect())
+      .from(projects)
+      .leftJoin(users, eq(projects.managerId, users.id))
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    if (!row) throw new NotFoundException("Project not found");
     if (user.role === "Admin") return row;
     const ok = await this.access.canAccess(user, projectId);
     if (!ok) {
@@ -101,14 +135,19 @@ export class ProjectsService {
     if (dto.name !== undefined && !name) {
       throw new BadRequestException("Project name is required");
     }
-    const [row] = await this.db
+    await this.db
       .update(projects)
       .set({
         ...(name !== undefined ? { name } : {}),
         ...(dto.managerId !== undefined ? { managerId: dto.managerId } : {}),
       })
+      .where(eq(projects.id, projectId));
+    const [row] = await this.db
+      .select(this.projectWithManagerSelect())
+      .from(projects)
+      .leftJoin(users, eq(projects.managerId, users.id))
       .where(eq(projects.id, projectId))
-      .returning();
+      .limit(1);
     return row;
   }
 

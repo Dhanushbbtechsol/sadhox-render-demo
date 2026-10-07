@@ -5,6 +5,14 @@ export const mockProjects: Project[] = [
     id: "proj-corporate-it",
     name: "Corporate IT",
     managerId: "user-manager",
+    managerName: "Morgan Manager",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "proj-field-ops",
+    name: "Field Ops",
+    managerId: "user-manager-2",
+    managerName: "Casey Manager",
     createdAt: new Date().toISOString(),
   },
 ];
@@ -39,6 +47,12 @@ export const mockDirectoryUsers: DirectoryUser[] = [
     id: "user-manager",
     name: "Morgan Manager",
     email: "manager@sadhox.local",
+    role: "Manager",
+  },
+  {
+    id: "user-manager-2",
+    name: "Casey Manager",
+    email: "manager2@sadhox.local",
     role: "Manager",
   },
 ];
