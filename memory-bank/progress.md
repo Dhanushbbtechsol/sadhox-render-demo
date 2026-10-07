@@ -1,6 +1,6 @@
 # Progress
 
-**Branch head (as of 2026-10-07):** `Audit` — Phase 5 merges + Phase 5 audit logged (`21677bc phase 5 Audit`).
+**Branch head (as of 2026-10-07):** `Dev-C` — Phase 5 closed; Phase 6 Dev C stub (projects UI + Manager home) in source. Sync to `Audit` when TL asks.
 
 Full feature inventory for Claude: **`Docs/STATUS.md`**.
 
@@ -12,8 +12,8 @@ Full feature inventory for Claude: **`Docs/STATUS.md`**.
 | 2 | Module CRUD, Socket.io, BullMQ wiring, audit middleware | Done |
 | 3 | Round-robin, SLA jobs, Resend, approval machines, Admin charts | Done |
 | 4 | Security remediations, load notes, deploy prep, seed hardening | Done (go-live checklist not fully executed) |
-| 5 | Knowledge Base + portal detail + catalog Admin CRUD + CSV + SLA UI | Code merged; see open gaps |
-| 6 | Projects / Modules / Manager + project ACL & assignment | Designed only — [Docs/Phase/phase6.md](../Docs/Phase/phase6.md); gate: Phase 5 Medium gaps |
+| 5 | Knowledge Base + portal detail + catalog Admin CRUD + CSV + SLA UI/API | **Done** (Medium/Low closed 2026-10-07 on Dev-C) |
+| 6 | Projects / Modules / Manager + project ACL & assignment | Dev C stub in progress (schema, projects API, Admin UI, Manager home). Ticket ACL / assignment / approvals not wired — [Docs/Phase/phase6.md](../Docs/Phase/phase6.md) |
 
 ## Feature checklist (implemented in codebase)
 
@@ -38,24 +38,23 @@ Full feature inventory for Claude: **`Docs/STATUS.md`**.
 - [x] Knowledge Base: schema/API, Admin authoring, End User browse/search, ticket↔article links
 - [x] Portal incident detail for End Users
 - [x] Admin catalog CRUD UI + `POST`/`PATCH /service-catalog`
+- [x] Admin SLA rules `GET`/`PATCH /admin/sla-rules`
 
-## Planned (Phase 6) — not started
-- [ ] Close Phase 5 Medium gaps first (SLA API, Admin Knowledge hooks/mocks)
-- [ ] `projects` / `project_members` / `modules`; nullable `project_id`/`module_id` on tickets
-- [ ] Role `Manager` + JWT/`@Roles` + 401/403 matrix
-- [ ] `ProjectAccessService`; scoped lists; Admin+Manager approvals; project-scoped assignment pool
-- [ ] Admin projects UI; Manager-scoped views — see phase6 track plans
+## Phase 6 — Dev C stub started
+- [ ] Merge Phase 5 close-out + Phase 6 stub to `Audit` when TL asks
+- [x] `projects` / `project_members` / `modules`; nullable `project_id`/`module_id` columns on tickets
+- [x] Role `Manager` + seed user; projects + manager dashboard in RBAC matrix
+- [x] `ProjectAccessService` for project reads + Manager KPI scope
+- [ ] Admin+Manager approvals; project-scoped assignment pool; ticket forms (Dev A/B/D)
+- [x] Admin `/admin/projects` CRUD + members/modules; Manager `/manager` home — `Docs/Phase/Dev C/phase6-qa.md`
 
 ## Open / incomplete
 
-### Phase 5 audit (2026-10-06) — see `Docs/Audit/phase5.md`
-- [ ] **Medium:** Admin `GET`/`PATCH /admin/sla-rules` Nest routes missing (UI exists)
-- [ ] **Medium:** Admin Knowledge list hooks ignore `{ data }` envelope → DEV mock fallback
-- [ ] **Medium:** DEV mock fallback on live Knowledge/SLA write errors
-- [ ] **Low:** Catalog write sanitize/options bounds
+### Phase 5 audit — closed on Dev-C 2026-10-07
+See `Docs/Audit/phase5.md` (all Phase 5 Medium/Low marked fixed).
 
 ### Phase 4 carryovers (Dev D) — see `Docs/Audit/phase4.md`
-- [ ] **High:** Probe/clean scripts hardcoded LAN DB/Redis defaults
+- [ ] **High:** Probe/clean scripts hardcoded LAN DB/Redis defaults (confirm `require-env.mjs` on all scripts)
 - [ ] **Medium:** `SameSite=None` refresh cookie without CSRF defense
 - [ ] **Low:** Throttle prod ceiling; throttle logout; skip expected WS auth denials in Sentry
 

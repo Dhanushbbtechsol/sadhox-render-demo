@@ -1,12 +1,12 @@
 # Sadhox — Status & Feature Handoff (for Claude / agents)
 
 **Last updated:** 2026-10-07  
-**Integration branch:** `Audit` (Phase 5 remediations + Phase 6 Dev A/B foundation; reaudit docs updated)  
+**Integration branch:** `Audit` (Phase 5 remediations + Phase 6 Dev A/B foundation + Dev C Admin projects UI / Manager home)  
 **Memory bank:** `memory-bank/` (read all six files at task start)
 
 This document is the short “what exists / what doesn’t” brief. Requirements and plans stay in PRD/FRD/Phase docs.
 
-**Phase 6 (in progress):** [Projects / Manager](./Phase/phase6.md) — shared foundation (`Manager`, projects/modules, `ProjectAccessService`) landed; **Dev A** incident/problem project scoping + assignment pool; **Dev B** SR/Change project scoping + Manager-alongside-Admin approvals landed ([Dev B QA](./Phase/Dev%20B/phase6-day30-qa.md)); **Dev C** Admin project CRUD + Manager dashboard still open. Close remaining Phase 5 Medium gaps (Dev C Knowledge hooks). Do not rebuild Knowledge Base.
+**Phase 6 (in progress):** [Projects / Manager](./Phase/phase6.md) — shared foundation (`Manager`, projects/modules, `ProjectAccessService`) landed; **Dev A** incident/problem project scoping + assignment pool; **Dev B** SR/Change project scoping + Manager-alongside-Admin approvals ([Dev B QA](./Phase/Dev%20B/phase6-day30-qa.md)); **Dev C** Admin `/admin/projects` CRUD + Manager home (KPIs and server-scoped charts) ([Dev C QA](./Phase/Dev%20C/phase6-qa.md)). Do not rebuild Knowledge Base. Phase 5 close-out is on local `Audit`; `origin/Audit` push may still be pending.
 
 ---
 
@@ -14,7 +14,7 @@ This document is the short “what exists / what doesn’t” brief. Requirement
 
 Sadhox is an **ITSM** web app: End Users report issues and request services; Agents work queues; Admins approve, inventory assets, and oversee KPIs/audit/automation.
 
-**Roles:** `Admin` | `Agent` | `EndUser` | `Manager` — see [Phase/phase6.md](./Phase/phase6.md)  
+**Roles:** `Admin` | `Agent` | `EndUser` | `Manager` — Managers supervise owned projects and are not `project_members` — see [Phase/phase6.md](./Phase/phase6.md)  
 **Personas:** Ian (Admin), Alice (Agent), Eve (EndUser) — see `Docs/PRD.md`  
 **Note:** “Employee” in product talk maps to **Agent**, not a separate role.
 
@@ -82,31 +82,26 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 - Asset register CRUD; link/unlink tickets; Admin-only `purchaseCost`
 - Dashboard KPIs + Recharts (volume, status, SLA); audit log viewer; BullMQ queue monitor
 - Dashboard **CSV export** (client-side from aggregates)
-- **Phase 5:** Admin Knowledge authoring (`/admin/knowledge`); SLA rules **page** (`/admin/sla-rules`)
+- **Phase 5:** Admin Knowledge authoring (`/admin/knowledge`); SLA rules **page** (`/admin/sla-rules`); CSV export; Knowledge/SLA hooks unwrap live API (no silent DEV mocks)
 
 ### Knowledge Base (Phase 5 — Dev D API + A/B/C UI)
 - Tables: `knowledge_categories`, `knowledge_articles` (Draft/Published), `ticket_knowledge_links`
 - Nest `KnowledgeModule` with RBAC (Draft hidden from non-Admin; Published-only links)
 - Ticket ACL on link list/mutate (`assertCanAccessTicket`)
+- Admin `GET`/`PATCH /admin/sla-rules` (response/resolve minutes per priority)
+- **Phase 6:** `projects` / `project_members` / `modules`; `Manager` role; Admin `/admin/projects` (members + `/modules`); `GET /admin/users?role=`; Manager `/manager` KPIs via `GET /manager/dashboard/stats` (owned `project_id`s only)
 
 ### Nest modules present
 `auth`, `assignment`, `events`, `queues`, `mail`, `health`, `observability`, `incidents`, `problems`, `knowledge`, `service-catalog`, `service-requests`, `changes`, `projects`, `comments`, `assets`, `admin`, `database`
 
 ### Key frontend routes (role-gated)
-`/login`, role home, `/incidents`, `/problems`, `/catalog`, `/requests`, `/approvals`, `/changes`, `/portal`, `/portal/incidents/:id`, `/knowledge`, `/assets`, `/admin/dashboard`, `/admin/audit-logs`, `/admin/queues`, `/admin/catalog`, `/admin/knowledge`, `/admin/sla-rules`
+`/login`, role home, `/incidents`, `/problems`, `/catalog`, `/requests`, `/approvals`, `/changes`, `/portal`, `/portal/incidents/:id`, `/knowledge`, `/assets`, `/admin/dashboard`, `/admin/audit-logs`, `/admin/queues`, `/admin/catalog`, `/admin/knowledge`, `/admin/sla-rules`, `/admin/projects`, `/admin/projects/:id/members`, `/admin/projects/:id/modules`, `/manager`
 
 ---
 
 ## 5. What is NOT done / known gaps
 
-From **`Docs/Audit/phase5.md`** (reaudit 2026-10-07):
-
-| Sev | Gap | Owner |
-|-----|-----|-------|
-| Medium | Admin Knowledge hooks treat response as array, not `{ data: [] }` → breaks live list | Dev C |
-| Medium | DEV catch paths can fake Knowledge/SLA success via mocks | Dev C |
-
-**Closed since 2026-10-06:** Nest Admin SLA rules API; catalog sanitize + option caps; LAN script credential defaults (Dev D).
+**Phase 5 Medium/Low (2026-10-06 audit):** closed on `Dev-C` 2026-10-07 — SLA rules API, Admin Knowledge `{ data }` unwrap, offline-only mocks, catalog sanitize/option caps. Residual Low: other Admin surfaces still `catch → mock` in DEV. See `Docs/Audit/phase5.md`.
 
 Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md` / Dev D phase5): CSRF gap with `SameSite=None` refresh cookie; throttle ceiling / logout throttle; Sentry WS auth noise. **LAN script High is closed.**
 
@@ -118,9 +113,9 @@ Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md` / Dev D phase5): CSR
 
 Design: [Phase/phase6.md](./Phase/phase6.md).
 
-**Landed (foundation + Dev A + Dev B):** `Manager` role; `projects` / `project_members` / `modules`; `ProjectAccessService`; Dev A incident/problem project scoping + assignment pool; Dev B optional `projectId`/`moduleId` on service requests & changes, Manager-alongside-Admin approvals (null project = Admin-only), scoped SR/Change lists, catalog/change create pickers, Manager approvals UI. QA: [Phase/Dev B/phase6-day30-qa.md](./Phase/Dev%20B/phase6-day30-qa.md).
+**Landed (foundation + Dev A + Dev B + Dev C):** `Manager` role; `projects` / `project_members` / `modules`; `ProjectAccessService`; Dev A incident/problem project scoping + assignment pool; Dev B optional `projectId`/`moduleId` on service requests & changes, Manager-alongside-Admin approvals (null project = Admin-only), scoped SR/Change lists, catalog/change create pickers, Manager approvals UI; Dev C Admin projects UI + Manager home (KPIs / server-scoped charts). QA: [Phase/Dev B/phase6-day30-qa.md](./Phase/Dev%20B/phase6-day30-qa.md), [Phase/Dev C/phase6-qa.md](./Phase/Dev%20C/phase6-qa.md).
 
-**Still open:** Dev C Admin project CRUD + Manager dashboard; remaining assignment-pool / incident UI wiring per phase6 plan; local `0010_phase6_projects_manager` migrate + reseed where not yet applied.
+**Still open:** remaining assignment-pool / incident UI wiring per phase6 plan; full ticket 401/403 matrix; local `0010_phase6_projects_manager` migrate + reseed where not yet applied.
 
 ---
 

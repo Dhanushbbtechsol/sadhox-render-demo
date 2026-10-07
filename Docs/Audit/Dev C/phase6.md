@@ -1,14 +1,28 @@
 # Security Audit: Dev C (Phase 6)
 
-Combined: [phase6.md](../phase6.md). Owner: Admin project CRUD UI + Manager dashboard filters.
+**Scope:** Admin project CRUD, Agent-only members, Manager home scoped on the server.  
+**Status:** **CLEAN** for Dev C (2026-10-07). Combined: [phase6.md](../phase6.md).
 
-## Status
+Ticket list filters and Manager approvals are Dev A / Dev B / Dev D. They are not Dev C findings.
 
-**Not started** on UI track — no security findings in Dev C Phase 6 code yet.
+## Low — Resolved
 
-Backend Admin project/module/member APIs exist (`ProjectsController`). Missing:
+### [A01] Project id existence oracle — **FIXED**
 
-- `/admin/projects` (or equivalent) route + CRUD UI
-- Manager-scoped admin dashboard / chart filters
+`assertCanRead` returns **404** when `ProjectAccessService.canAccess` is false. A Manager no longer gets 403 for another manager's project and 404 for a missing id.
 
-When building: do not trust client role gates alone; reuse Nest Admin mutators + `ProjectAccessService` for Manager reads.
+## Spot-checked (clean)
+
+- Project writes `@Roles("Admin")`; reads Admin + Manager with `canAccess` (`projects.manager_id`)
+- `addMember` rejects non-Agent
+- Project/module names use `sanitizePlainText` and `@MaxLength(255)`
+- `/manager/dashboard/stats` and `/charts` scope to owned projects from the JWT
+- `/admin/*` dashboard stays Admin-only
+- Project hooks mock only via `useOfflineAdminData()`
+- `GET /admin/users` is Admin-only and omits password hashes
+- RBAC matrix covers project and manager dashboard routes
+
+## Out of Dev C scope
+
+- Incident / request / change lists filtered by project — Dev A / Dev B / Dev D
+- Manager approvals — Dev B + Dev D

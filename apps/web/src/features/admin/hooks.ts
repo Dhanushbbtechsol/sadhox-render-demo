@@ -717,7 +717,8 @@ export function useSlaRules() {
       if (useOfflineAdminData()) {
         return [...mockSlaRules].sort((a, b) => a.priority.localeCompare(b.priority));
       }
-      const data = await apiFetch<SlaRule[]>("/admin/sla-rules");
+      const result = await apiFetch<{ data: SlaRule[] } | SlaRule[]>("/admin/sla-rules");
+      const data = Array.isArray(result) ? result : result.data;
       return [...data].sort((a, b) => a.priority.localeCompare(b.priority));
     },
   });
@@ -746,7 +747,7 @@ export function useUpdateSlaRule() {
           },
         });
       } catch (error) {
-        // Fallback: some contracts use body-only PATCH without priority in path
+        // Alternate contract: body includes priority (no path param). Still fail loud — no mock.
         try {
           return await apiFetch<SlaRule>("/admin/sla-rules", {
             method: "PATCH",

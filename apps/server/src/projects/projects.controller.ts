@@ -19,8 +19,9 @@ import {
   AddProjectMemberDto,
   CreateModuleDto,
   CreateProjectDto,
+  UpdateModuleDto,
   UpdateProjectDto,
-} from "./dto/project.dto";
+} from "./dto/projects.dto";
 import { ProjectsService } from "./projects.service";
 
 @ApiTags("projects")
@@ -68,26 +69,11 @@ export class ProjectsController {
     return this.projects.update(user, id, dto);
   }
 
-  @Get(":id/modules")
-  @Roles("Admin", "Manager", "Agent", "EndUser")
-  @ApiOperation({ summary: "List modules for a project" })
-  listModules(
-    @CurrentUser() user: AuthUser,
-    @Param("id", ParseUUIDPipe) id: string,
-  ) {
-    return this.projects.listModules(user, id);
-  }
-
-  @Post(":id/modules")
-  @HttpCode(201)
+  @Delete(":id")
   @Roles("Admin")
-  @ApiOperation({ summary: "Create module under a project (Admin)" })
-  createModule(
-    @CurrentUser() user: AuthUser,
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body() dto: CreateModuleDto,
-  ) {
-    return this.projects.createModule(user, id, dto);
+  @ApiOperation({ summary: "Delete project (Admin)" })
+  remove(@Param("id", ParseUUIDPipe) id: string) {
+    return this.projects.remove(id);
   }
 
   @Get(":id/members")
@@ -121,5 +107,48 @@ export class ProjectsController {
     @Param("userId", ParseUUIDPipe) userId: string,
   ) {
     return this.projects.removeMember(user, id, userId);
+  }
+
+  @Get(":id/modules")
+  @Roles("Admin", "Manager", "Agent", "EndUser")
+  @ApiOperation({ summary: "List modules for a project" })
+  listModules(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.projects.listModules(user, id);
+  }
+
+  @Post(":id/modules")
+  @HttpCode(201)
+  @Roles("Admin")
+  @ApiOperation({ summary: "Create module under a project (Admin)" })
+  createModule(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: CreateModuleDto,
+  ) {
+    return this.projects.createModule(user, id, dto);
+  }
+
+  @Patch(":id/modules/:moduleId")
+  @Roles("Admin")
+  @ApiOperation({ summary: "Update module (Admin)" })
+  updateModule(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("moduleId", ParseUUIDPipe) moduleId: string,
+    @Body() dto: UpdateModuleDto,
+  ) {
+    return this.projects.updateModule(id, moduleId, dto);
+  }
+
+  @Delete(":id/modules/:moduleId")
+  @Roles("Admin")
+  @ApiOperation({ summary: "Delete module (Admin)" })
+  removeModule(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("moduleId", ParseUUIDPipe) moduleId: string,
+  ) {
+    return this.projects.removeModule(id, moduleId);
   }
 }

@@ -10,6 +10,12 @@ import SlaRulesPage from "@/features/admin/sla-rules-page";
 import AssetRegisterPage from "@/features/assets/asset-register-page";
 import KnowledgeArticlePage from "@/features/knowledge/knowledge-article-page";
 import KnowledgeListPage from "@/features/knowledge/knowledge-list-page";
+import ManagerHomePage from "@/features/manager/manager-home-page";
+import ProjectDetailLayout from "@/features/projects/project-detail-layout";
+import ProjectMembersPage from "@/features/projects/project-members-page";
+import ProjectModulesPage from "@/features/projects/project-modules-page";
+import ProjectOverviewPage from "@/features/projects/project-overview-page";
+import ProjectsListPage from "@/features/projects/projects-list-page";
 import ApprovalsPage from "@/routes/approvals";
 import CatalogPage from "@/routes/catalog";
 import ChangesPage from "@/routes/changes";
@@ -110,6 +116,37 @@ export const router = createBrowserRouter([
             handle: { breadcrumb: "SLA" },
             element: <ProtectedRoute roles={["Admin"]} />,
             children: [{ index: true, element: <SlaRulesPage /> }],
+          },
+          {
+            path: "admin/projects",
+            handle: { breadcrumb: "Projects" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [
+              { index: true, element: <ProjectsListPage /> },
+              {
+                path: ":id",
+                element: <ProjectDetailLayout />,
+                children: [
+                  { index: true, element: <ProjectOverviewPage /> },
+                  {
+                    path: "members",
+                    element: <ProjectMembersPage />,
+                    handle: { breadcrumb: "Members" },
+                  },
+                  {
+                    path: "modules",
+                    element: <ProjectModulesPage />,
+                    handle: { breadcrumb: "Modules" },
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            path: "manager",
+            handle: { breadcrumb: "Manager home" },
+            element: <ProtectedRoute roles={["Manager"]} />,
+            children: [{ index: true, element: <ManagerHomePage /> }],
           },
           {
             path: "incidents",

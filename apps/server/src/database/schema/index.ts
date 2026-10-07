@@ -1,4 +1,4 @@
-import {
+﻿import {
   pgTable,
   pgEnum,
   uuid,
@@ -507,7 +507,7 @@ export const knowledgeArticles = pgTable(
   ],
 );
 
-/** Polymorphic ticket ↔ Published KB article links (incident | problem | service_request). */
+/** Polymorphic ticket Γåö Published KB article links (incident | problem | service_request). */
 export const ticketKnowledgeLinks = pgTable(
   "ticket_knowledge_links",
   {
@@ -532,7 +532,7 @@ export const ticketKnowledgeLinks = pgTable(
   ],
 );
 
-/** GUESS: response/resolve minute thresholds per priority — FRD only says "SLA threshold definitions per priority level". */
+/** GUESS: response/resolve minute thresholds per priority ΓÇö FRD only says "SLA threshold definitions per priority level". */
 export const slaRules = pgTable("sla_rules", {
   id: uuid("id").defaultRandom().primaryKey(),
   priority: priorityEnum("priority").notNull().unique(),
@@ -543,7 +543,7 @@ export const slaRules = pgTable("sla_rules", {
     .defaultNow(),
 });
 
-/** GUESS: notification payload shape — FRD only says "User notification delivery records". */
+/** GUESS: notification payload shape ΓÇö FRD only says "User notification delivery records". */
 export const notifications = pgTable(
   "notifications",
   {

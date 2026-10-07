@@ -1,6 +1,6 @@
 # Phase 5 reaudit — 2026-10-07 (pass 2)
 
-Scope: current `Audit` tree after Phase 5 remediations + Admin Knowledge hook fixes on working tree. Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT + refresh cookie, Socket.IO, BullMQ/Redis, Resend.
+Scope: current `Audit` tree after Phase 5 remediations + Admin Knowledge hook fixes. Stack: React/Vite + Zustand, NestJS, Drizzle/Postgres, Passport JWT + refresh cookie, Socket.IO, BullMQ/Redis, Resend.
 
 **Open findings (Phase 5): 0 Critical · 0 High · 0 Medium · 1 Low**  
 **Phase 4 carryovers still open (Dev D): 1 Medium · 3 Low** (LAN High closed).
@@ -11,11 +11,33 @@ Scope: current `Audit` tree after Phase 5 remediations + Admin Knowledge hook fi
 
 | Item | Evidence |
 | --- | --- |
+| Knowledge schema + migration | `0009_phase5_knowledge_base` + `knowledge_*` / `ticket_knowledge_links` |
+| KnowledgeModule RBAC | `@Roles` on reads/writes/links; Draft hidden from non-Admin |
+| Ticket–article links + IDOR | `assertCanAccessTicket` on list/link/unlink |
+| Portal incident detail | `/portal/incidents/:id` + `RelatedArticles readOnly` |
+| End User / Agent KB browse | `/knowledge`, `/knowledge/:slug` |
+| Admin catalog CRUD UI + API | `POST`/`PATCH /service-catalog` `@Roles("Admin")` |
+| Admin KB authoring UI | `/admin/knowledge` |
 | Admin SLA rules API | `GET`/`PATCH /admin/sla-rules` (+ `/:priority`); RBAC + `admin.sla-rules.spec.ts` |
+| Dashboard CSV export | client-side from existing admin aggregates |
 | Catalog sanitize + options bounds | `ServiceCatalogService` + `CatalogFormFieldDto` `@ArrayMaxSize(50)` / `@MaxLength(128, { each: true })` |
-| Hardcoded LAN script defaults | `requireEnv` in probe/clean/rebaseline |
+| Hardcoded LAN script defaults | `requireEnv` in probe/clean/rebaseline; no `192.168.*` fallbacks |
 | Admin Knowledge `{ data }` unwrap | `unwrapKnowledgeList` in `features/admin/hooks.ts` (categories + articles) |
 | Knowledge/SLA silent DEV mock on API error | Knowledge/SLA live paths no longer `catch → mocks`; mocks only via `useOfflineAdminData()` |
+
+## Medium — Resolved
+
+### [A04] Missing Admin SLA rules API — Dev D — **FIXED**
+
+Admin-only `GET /admin/sla-rules`, `PATCH /admin/sla-rules/:priority`, body fallback `PATCH /admin/sla-rules`. DTOs + `rbac-matrix.spec.ts` + `admin.sla-rules.spec.ts`.
+
+### [A04 / A08] Admin Knowledge list hooks ignore `{ data }` envelope — Dev C — **FIXED**
+
+Admin hooks unwrap `result.data`; portal pattern matched (`f9c6156`).
+
+### [A04 / A07] DEV mock fallback on live Knowledge / SLA API errors — Dev C — **FIXED**
+
+Mocks only via `useOfflineAdminData()`; live authoring/SLA fail loudly.
 
 ## Low / Hardening — still open (Dev C)
 
@@ -24,6 +46,16 @@ Scope: current `Audit` tree after Phase 5 remediations + Admin Knowledge hook fi
 `features/admin/hooks.ts` still returns mocks on live API failure for assets list, dashboard stats/charts, audit logs, and queues when `import.meta.env.DEV` (outside `useOfflineAdminData()`).
 
 **Fix:** same rule as Knowledge — rethrow unless offline mock token.
+
+## Low / Hardening — Resolved
+
+### [A03] Catalog writes trim only — Dev D / Dev B — **FIXED**
+
+`ServiceCatalogService` uses `sanitizePlainText` on name/description/department + form field strings.
+
+### [A04] Catalog `formFields.options` unbounded — Dev D — **FIXED**
+
+`CatalogFormFieldDto.options`: `@MaxLength` per string + `@ArrayMaxSize`.
 
 ## Still open from Phase 4 — Dev D (carryover)
 
@@ -37,18 +69,25 @@ Scope: current `Audit` tree after Phase 5 remediations + Admin Knowledge hook fi
 
 ## Still sound (spot-checked)
 
-Knowledge Draft visibility; Published-only links; EndUser ticket ACL on links; portal `readOnly`; catalog Admin writes; SLA Admin-only; markdown preview text nodes; Drizzle parameterized search; RBAC matrix covers Knowledge + catalog + SLA.
+Knowledge Draft visibility; Published-only links; EndUser ticket ACL on links; portal `readOnly` + server ACL; catalog Admin writes; `includeInactive` Admin-only; SLA Admin-only; markdown preview text nodes (no HTML injection sink); Drizzle parameterized search; RBAC matrix covers Knowledge + catalog + SLA.
+
+A06 CVE scan / A10 SSRF: nothing new.
 
 ## Review checklist (human)
 
 1. Admin Knowledge list loads against Nest `{ data }` envelope (live JWT, not mock token).
 2. Kill Nest / force API error → Admin Knowledge/SLA fail loudly (no silent mock success).
-3. Admin SLA PATCH persists and is used by breach jobs.
-4. Probe scripts fail without `DATABASE_URL` / `REDIS_URL`.
+3. Admin publishes article → appears in End User `/knowledge` search (live API, not mocks).
+4. EndUser `POST` knowledge article / catalog item → 403.
+5. EndUser cannot list KB links on another user’s incident.
+6. Admin SLA PATCH persists and is used by breach jobs.
+7. Catalog create with hostile `description` / option strings stays plain text in request form UI.
+8. Probe scripts fail without `DATABASE_URL` / `REDIS_URL`.
 
 ## Not checked / out of scope
 
 - Staging TLS and secret stores
-- `pnpm-lock.yaml` CVE scan
+- Full lockfile CVE audit / `pnpm-lock.yaml` CVE scan
+- Phase 6 Projects / Manager
 - Live Render/Vercel cutover
 - Full Playwright Phase 5 walkthrough

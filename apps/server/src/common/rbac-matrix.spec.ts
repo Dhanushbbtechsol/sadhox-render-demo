@@ -23,6 +23,7 @@ import { RolesGuard } from "./guards/roles.guard";
 import type { UserRole } from "./types/roles";
 import { DrizzleHealthIndicator } from "../health/drizzle.health";
 import { HealthController } from "../health/health.controller";
+import { ManagerDashboardController } from "../projects/manager-dashboard.controller";
 import { RedisHealthIndicator } from "../health/redis.health";
 import { IncidentsController } from "../incidents/incidents.controller";
 import { IncidentsService } from "../incidents/incidents.service";
@@ -105,6 +106,19 @@ const MATRIX: MatrixRow[] = [
     path: `/projects/${ID}`,
     allowed: ["Admin", "Agent", "Manager"],
   },
+  { method: "patch", path: `/projects/${ID}`, allowed: ["Admin"] },
+  { method: "delete", path: `/projects/${ID}`, allowed: ["Admin"] },
+  {
+    method: "get",
+    path: `/projects/${ID}/members`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  { method: "post", path: `/projects/${ID}/members`, allowed: ["Admin"] },
+  {
+    method: "delete",
+    path: `/projects/${ID}/members/${ID}`,
+    allowed: ["Admin"],
+  },
   {
     method: "get",
     path: `/projects/${ID}/modules`,
@@ -112,11 +126,17 @@ const MATRIX: MatrixRow[] = [
   },
   { method: "post", path: `/projects/${ID}/modules`, allowed: ["Admin"] },
   {
-    method: "get",
-    path: `/projects/${ID}/members`,
-    allowed: ["Admin", "Agent", "Manager"],
+    method: "patch",
+    path: `/projects/${ID}/modules/${ID}`,
+    allowed: ["Admin"],
   },
-  { method: "post", path: `/projects/${ID}/members`, allowed: ["Admin"] },
+  {
+    method: "delete",
+    path: `/projects/${ID}/modules/${ID}`,
+    allowed: ["Admin"],
+  },
+  { method: "get", path: "/manager/dashboard/stats", allowed: ["Manager"] },
+  { method: "get", path: "/manager/dashboard/charts", allowed: ["Manager"] },
   {
     method: "get",
     path: "/service-requests",
@@ -297,7 +317,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         ServiceCatalogController,
         KnowledgeController,
         AdminController,
-        ProjectsController,
+        ManagerDashboardController,
       ],
       providers: [
         {
@@ -353,11 +373,16 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "get",
             "create",
             "update",
+            "remove",
             "listModules",
             "createModule",
+            "updateModule",
+            "removeModule",
             "listMembers",
             "addMember",
             "removeMember",
+            "managerDashboardStats",
+            "managerCharts",
           ]),
         },
         {

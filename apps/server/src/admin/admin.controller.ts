@@ -1,5 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { IsIn, IsOptional } from "class-validator";
+import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Roles } from "../common/decorators/roles.decorator";
 import { AdminService } from "./admin.service";
 import { ChartRangeQueryDto } from "./dto/chart-range-query.dto";
@@ -8,6 +10,13 @@ import {
   UpdateSlaRuleDto,
   UpdateSlaRulePathBodyDto,
 } from "./dto/sla-rule.dto";
+
+class ListUsersQueryDto {
+  @ApiPropertyOptional({ enum: ["Admin", "Agent", "Manager", "EndUser"] })
+  @IsOptional()
+  @IsIn(["Admin", "Agent", "Manager", "EndUser"])
+  role?: "Admin" | "Agent" | "Manager" | "EndUser";
+}
 
 @ApiTags("admin")
 @ApiBearerAuth()
@@ -62,6 +71,14 @@ export class AdminController {
   @ApiOperation({ summary: "BullMQ queue job counts for admin monitor" })
   queues() {
     return this.admin.queueHealth();
+  }
+
+  @Get("users")
+  @ApiOperation({
+    summary: "List users filtered by role (Admin) — member/manager pickers",
+  })
+  listUsers(@Query() query: ListUsersQueryDto) {
+    return this.admin.listUsers(query.role);
   }
 
   @Get("sla-rules")
