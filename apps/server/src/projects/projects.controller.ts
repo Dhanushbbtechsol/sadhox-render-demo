@@ -21,7 +21,7 @@ import {
   CreateProjectDto,
   UpdateModuleDto,
   UpdateProjectDto,
-} from "./dto/projects.dto";
+} from "./dto/project.dto";
 import { ProjectsService } from "./projects.service";
 
 @ApiTags("projects")
@@ -30,43 +30,44 @@ import { ProjectsService } from "./projects.service";
 export class ProjectsController {
   constructor(private readonly projects: ProjectsService) {}
 
+  @Post()
+  @HttpCode(201)
+  @Roles("Admin")
+  @ApiOperation({ summary: "Create a project (Admin)" })
+  create(@Body() dto: CreateProjectDto) {
+    return this.projects.create(dto);
+  }
+
   @Get()
   @Roles("Admin", "Manager", "Agent", "EndUser")
   @ApiOperation({
     summary:
-      "List projects (Admin/EndUser: all; Manager: owned; Agent: member)",
+      "List projects (Admin: all; Manager/Agent: accessible; EndUser: id+name picker)",
   })
   list(@CurrentUser() user: AuthUser) {
     return this.projects.list(user);
   }
 
-  @Post()
-  @HttpCode(201)
-  @Roles("Admin")
-  @ApiOperation({ summary: "Create a project (Admin)" })
-  create(@CurrentUser() user: AuthUser, @Body() dto: CreateProjectDto) {
-    return this.projects.create(user, dto);
-  }
-
   @Get(":id")
   @Roles("Admin", "Manager", "Agent")
-  @ApiOperation({ summary: "Get project if accessible" })
+  @ApiOperation({
+    summary: "Get project by id (Admin or accessible Manager/Agent)",
+  })
   get(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
   ) {
-    return this.projects.get(user, id);
+    return this.projects.getById(user, id);
   }
 
   @Patch(":id")
   @Roles("Admin")
   @ApiOperation({ summary: "Update project (Admin)" })
   update(
-    @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: UpdateProjectDto,
   ) {
-    return this.projects.update(user, id, dto);
+    return this.projects.update(id, dto);
   }
 
   @Delete(":id")
@@ -89,29 +90,30 @@ export class ProjectsController {
   @Post(":id/members")
   @HttpCode(201)
   @Roles("Admin")
-  @ApiOperation({ summary: "Add an Agent as project member (Admin)" })
+  @ApiOperation({ summary: "Add Agent as project member (Admin)" })
   addMember(
-    @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: AddProjectMemberDto,
   ) {
-    return this.projects.addMember(user, id, dto);
+    return this.projects.addMember(id, dto);
   }
 
   @Delete(":id/members/:userId")
   @Roles("Admin")
-  @ApiOperation({ summary: "Remove a project member (Admin)" })
+  @ApiOperation({ summary: "Remove project member (Admin)" })
   removeMember(
-    @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
     @Param("userId", ParseUUIDPipe) userId: string,
   ) {
-    return this.projects.removeMember(user, id, userId);
+    return this.projects.removeMember(id, userId);
   }
 
   @Get(":id/modules")
   @Roles("Admin", "Manager", "Agent", "EndUser")
-  @ApiOperation({ summary: "List modules for a project" })
+  @ApiOperation({
+    summary:
+      "List modules in a project (EndUser: id+name picker; others: access-scoped)",
+  })
   listModules(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
@@ -122,13 +124,12 @@ export class ProjectsController {
   @Post(":id/modules")
   @HttpCode(201)
   @Roles("Admin")
-  @ApiOperation({ summary: "Create module under a project (Admin)" })
+  @ApiOperation({ summary: "Create module in a project (Admin)" })
   createModule(
-    @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: CreateModuleDto,
   ) {
-    return this.projects.createModule(user, id, dto);
+    return this.projects.createModule(id, dto);
   }
 
   @Patch(":id/modules/:moduleId")

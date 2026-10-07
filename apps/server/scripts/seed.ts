@@ -176,13 +176,13 @@ async function seedPhase6Projects(db: SeedDb) {
     .where(eq(users.email, "admin@sadhox.local"))
     .limit(1);
 
-  if (!manager || !agent) {
-    console.log("skip Phase 6 project seed — manager/agent missing");
+  if (!manager) {
+    console.log("skip phase6 projects (manager user missing)");
     return;
   }
 
   const [existing] = await db
-    .select()
+    .select({ id: projects.id })
     .from(projects)
     .where(eq(projects.id, PHASE6_PROJECT_ID))
     .limit(1);
@@ -190,22 +190,16 @@ async function seedPhase6Projects(db: SeedDb) {
   if (!existing) {
     await db.insert(projects).values({
       id: PHASE6_PROJECT_ID,
-      name: "Core Platform",
+      name: "Platform Ops",
       managerId: manager.id,
     });
-    console.log("created project Core Platform");
+    console.log("created project Platform Ops");
   } else {
-    console.log("skip existing project Core Platform");
+    console.log("skip existing project Platform Ops");
   }
 
-  await db
-    .insert(projectMembers)
-    .values({ projectId: PHASE6_PROJECT_ID, userId: agent.id })
-    .onConflictDoNothing();
-  console.log("ensured agent membership on Core Platform");
-
   const [mod] = await db
-    .select()
+    .select({ id: modules.id })
     .from(modules)
     .where(eq(modules.id, PHASE6_MODULE_ID))
     .limit(1);
@@ -213,9 +207,17 @@ async function seedPhase6Projects(db: SeedDb) {
     await db.insert(modules).values({
       id: PHASE6_MODULE_ID,
       projectId: PHASE6_PROJECT_ID,
-      name: "API",
+      name: "Core Services",
     });
-    console.log("created module API under Core Platform");
+    console.log("created module Core Services");
+  }
+
+  if (agent) {
+    await db
+      .insert(projectMembers)
+      .values({ projectId: PHASE6_PROJECT_ID, userId: agent.id })
+      .onConflictDoNothing();
+    console.log("ensured agent membership on Platform Ops");
   }
 
   if (admin) {
@@ -257,7 +259,7 @@ async function attachShowcaseIncidentsToProject(db: SeedDb) {
         sql`${incidents.status} in ('New','Assigned','InProgress')`,
       ),
     );
-  console.log("attached open showcase incidents to Core Platform");
+  console.log("attached open showcase incidents to phase 6 project");
 }
 
 async function seedKnowledgeBase(db: SeedDb) {

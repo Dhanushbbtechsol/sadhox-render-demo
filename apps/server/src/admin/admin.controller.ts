@@ -9,20 +9,18 @@ import {
   Post,
   Query,
 } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from "@nestjs/swagger";
 import { IsIn, IsOptional } from "class-validator";
-import { ApiPropertyOptional } from "@nestjs/swagger";
 import { Roles } from "../common/decorators/roles.decorator";
 import { AdminService } from "./admin.service";
 import { ChartRangeQueryDto } from "./dto/chart-range-query.dto";
-import { CreateUserDto } from "./dto/create-user.dto";
 import { ListAuditLogsQueryDto } from "./dto/list-audit-logs-query.dto";
 import {
   UpdateSlaRuleDto,
   UpdateSlaRulePathBodyDto,
 } from "./dto/sla-rule.dto";
-import { UpdateUserDto } from "./dto/update-user.dto";
 import { UpdateUserRoleDto } from "./dto/update-user-role.dto";
+import { CreateUserDto, UpdateUserDto } from "./dto/user.dto";
 
 class ListUsersQueryDto {
   @ApiPropertyOptional({ enum: ["Admin", "Agent", "Manager", "EndUser"] })
@@ -112,13 +110,25 @@ export class AdminController {
   @Patch("users/:id")
   @ApiOperation({
     summary:
-      "Update user (Admin). Role→Manager clears project_members atomically.",
+      "Update name, email, password, and/or role (Admin). Promoting to Manager clears project_members.",
   })
   updateUser(
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: UpdateUserDto,
   ) {
     return this.admin.updateUser(id, dto);
+  }
+
+  @Patch("users/:id/role")
+  @ApiOperation({
+    summary:
+      "Update user role (Admin). Promoting to Manager clears project_members atomically.",
+  })
+  updateUserRole(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateUserRoleDto,
+  ) {
+    return this.admin.updateUserRole(id, dto.role);
   }
 
   @Get("sla-rules")
@@ -150,17 +160,5 @@ export class AdminController {
     @Body() dto: UpdateSlaRulePathBodyDto,
   ) {
     return this.admin.updateSlaRule(priority, dto);
-  }
-
-  @Patch("users/:id/role")
-  @ApiOperation({
-    summary:
-      "Update user role (Admin). Promoting to Manager clears project_members atomically.",
-  })
-  updateUserRole(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body() dto: UpdateUserRoleDto,
-  ) {
-    return this.admin.updateUserRole(id, dto.role);
   }
 }

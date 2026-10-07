@@ -218,17 +218,17 @@ export const incidents = pgTable(
     reporterId: uuid("reporter_id")
       .notNull()
       .references(() => users.id),
-    slaDueAt: timestamp("sla_due_at", { withTimezone: true }),
-    slaBreached: boolean("sla_breached").notNull().default(false),
-    resolutionNotes: text("resolution_notes"),
-    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
-    closedAt: timestamp("closed_at", { withTimezone: true }),
     projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "set null",
     }),
     moduleId: uuid("module_id").references(() => modules.id, {
       onDelete: "set null",
     }),
+    slaDueAt: timestamp("sla_due_at", { withTimezone: true }),
+    slaBreached: boolean("sla_breached").notNull().default(false),
+    resolutionNotes: text("resolution_notes"),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

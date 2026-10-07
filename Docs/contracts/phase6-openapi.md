@@ -21,14 +21,14 @@ This document freezes the Phase 6 surfaces for client wiring. Request/response f
 | Method | Path | Roles | Notes |
 | --- | --- | --- | --- |
 | POST | `/projects` | Admin | body: `name`, `managerId` (must be role Manager) |
-| GET | `/projects` | Admin, Manager, Agent, EndUser | Admin: all; Manager/Agent: accessible; EndUser: `{ id, name }` picker only |
-| GET | `/projects/:id` | Admin, Manager | Manager requires access |
+| GET | `/projects` | Admin, Manager, Agent, EndUser | Admin: all full; Manager/Agent: accessible full; EndUser: `{ id, name }` picker only |
+| GET | `/projects/:id` | Admin, Manager, Agent | requires `canAccess` for non-Admin |
 | PATCH | `/projects/:id` | Admin | `name?`, `managerId?` |
 | DELETE | `/projects/:id` | Admin | |
 | GET | `/projects/:id/members` | Admin, Manager | |
 | POST | `/projects/:id/members` | Admin | body `{ userId }` — **Agent only** |
 | DELETE | `/projects/:id/members/:userId` | Admin | |
-| GET | `/projects/:id/modules` | Admin, Manager, Agent, EndUser | EndUser: existence + `{ id, name, projectId }` picker |
+| GET | `/projects/:id/modules` | Admin, Manager, Agent, EndUser | EndUser: project exists + `{ id, name, projectId }` picker; others access-checked |
 | POST | `/projects/:id/modules` | Admin | body `{ name }` |
 | PATCH | `/projects/:id/modules/:moduleId` | Admin | body `{ name }` |
 | DELETE | `/projects/:id/modules/:moduleId` | Admin | |
@@ -96,4 +96,4 @@ Shared helper: `buildTicketProjectListFilter` + `ProjectAccessService.listAccess
 - Org-chart `users.manager_id`  
 - Manager as ticket assignee via membership  
 - Manager/Agent user CRUD; soft-delete / `is_active`  
-- Staging/TL migrate without explicit go-ahead (Day 30)
+- Staging/TL migrate without explicit go-ahead (deferred to production go-live; Day 30)

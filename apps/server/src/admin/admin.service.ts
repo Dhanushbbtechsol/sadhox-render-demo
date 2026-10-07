@@ -30,14 +30,13 @@ import {
   users,
   type Priority,
 } from "../database/schema";
-import type { CreateUserDto } from "./dto/create-user.dto";
 import type { ListAuditLogsQueryDto } from "./dto/list-audit-logs-query.dto";
 import {
   SLA_PRIORITIES,
   type SlaPriority,
   type UpdateSlaRuleMinutesDto,
 } from "./dto/sla-rule.dto";
-import type { UpdateUserDto } from "./dto/update-user.dto";
+import type { CreateUserDto, UpdateUserDto } from "./dto/user.dto";
 import {
   EMAIL_QUEUE,
   SLA_QUEUE,
@@ -641,6 +640,14 @@ export class AdminService {
   }
 
   /**
+   * Thin role-only write kept for existing clients.
+   * Prefer PATCH /admin/users/:id with a `role` body field.
+   */
+  async updateUserRole(userId: string, role: UserRole) {
+    return this.updateUser(userId, { role });
+  }
+
+  /**
    * Admin SLA table editor — matches web `SlaRule` contract
    * (`id`, `priority`, `responseMinutes`, `resolveMinutes`, `createdAt` ISO).
    */
@@ -767,14 +774,6 @@ export class AdminService {
       queues: results,
       alert: results.some((q) => q.alert),
     };
-  }
-
-  /**
-   * Thin role-only write kept for existing clients.
-   * Prefer PATCH /admin/users/:id with a `role` body field.
-   */
-  async updateUserRole(userId: string, role: UserRole) {
-    return this.updateUser(userId, { role });
   }
 
   /** Count recent failed jobs whose reason indicates a stall (BullMQ has no stalled JobType). */

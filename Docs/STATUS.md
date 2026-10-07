@@ -1,12 +1,12 @@
 # Sadhox — Status & Feature Handoff (for Claude / agents)
 
 **Last updated:** 2026-10-07  
-**Integration branch:** `Audit` (Phase 5 remediations + Phase 6 Dev A/B foundation + Dev C Admin projects UI / Manager home + Dev D backend; reaudit docs updated)  
+**Integration branch:** `Audit`. This tree is `Dev-C` after merging `Audit` (Phase 5 close-out + Phase 6 Dev A/B/D backend and Dev C project UI).
 **Memory bank:** `memory-bank/` (read all six files at task start)
 
 This document is the short “what exists / what doesn’t” brief. Requirements and plans stay in PRD/FRD/Phase docs.
 
-**Phase 6 (in progress):** [Projects / Manager](./Phase/phase6.md) — shared foundation (`Manager`, projects/modules, `ProjectAccessService`) landed; **Dev A** incident/problem project scoping + assignment pool; **Dev B** SR/Change project scoping + Manager-alongside-Admin approvals ([Dev B QA](./Phase/Dev%20B/phase6-day30-qa.md)); **Dev C** Admin `/admin/projects` CRUD + Manager home (KPIs and server-scoped charts) ([Dev C QA](./Phase/Dev%20C/phase6-qa.md)); **Dev D** backend Day 30 checkpoint (scoped assignment/approvals/lists, `PATCH /admin/users/:id/role`; contract: [contracts/phase6-openapi.md](./contracts/phase6-openapi.md) · handoff: [Phase/Dev D/phase6-handoff.md](./Phase/Dev%20D/phase6-handoff.md)). Do not rebuild Knowledge Base. Phase 5 close-out is on local `Audit`; `origin/Audit` push may still be pending. Staging/TL migrate deferred where host PG/SSH unreachable.
+**Phase 6 (in progress on `Dev-C`):** [Projects / Manager](./Phase/phase6.md) — shared foundation (`Manager`, projects/modules, `ProjectAccessService`) landed; **Dev A** incident/problem project scoping + assignment pool; **Dev B** SR/Change project scoping + Manager-alongside-Admin approvals ([Dev B QA](./Phase/Dev%20B/phase6-day30-qa.md)); **Dev C** Admin `/admin/projects` CRUD + Manager home (KPIs and server-scoped charts) ([Dev C QA](./Phase/Dev%20C/phase6-qa.md)); **Dev D** backend (scoped assignment/approvals/lists, `PATCH /admin/users/:id/role`; contract: [contracts/phase6-openapi.md](./contracts/phase6-openapi.md) · handoff: [Phase/Dev D/phase6-handoff.md](./Phase/Dev%20D/phase6-handoff.md)). Staging/TL migrate deferred. Do not rebuild Knowledge Base.
 
 ---
 
@@ -14,7 +14,7 @@ This document is the short “what exists / what doesn’t” brief. Requirement
 
 Sadhox is an **ITSM** web app: End Users report issues and request services; Agents work queues; Admins approve, inventory assets, and oversee KPIs/audit/automation.
 
-**Roles:** `Admin` | `Agent` | `EndUser` | `Manager` — Managers supervise owned projects and are not `project_members` — see [Phase/phase6.md](./Phase/phase6.md)  
+**Roles:** `Admin` | `Agent` | `EndUser` | `Manager` — see [Phase/phase6.md](./Phase/phase6.md). Managers supervise owned projects and are not `project_members`.
 **Personas:** Ian (Admin), Alice (Agent), Eve (EndUser) — see `Docs/PRD.md`  
 **Note:** “Employee” in product talk maps to **Agent**, not a separate role.
 
@@ -89,13 +89,13 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 - Nest `KnowledgeModule` with RBAC (Draft hidden from non-Admin; Published-only links)
 - Ticket ACL on link list/mutate (`assertCanAccessTicket`)
 - Admin `GET`/`PATCH /admin/sla-rules` (response/resolve minutes per priority)
-- **Phase 6:** `projects` / `project_members` / `modules`; `Manager` role; Admin `/admin/projects` (members + `/modules`); Admin user APIs `GET`/`POST`/`PATCH /admin/users` (+ `/:id`, `…/role`); Manager `/manager` KPIs via `GET /manager/dashboard/stats` (owned `project_id`s only). **Admin `/admin/users` UI still open (Dev C)** — see [Phase/phase6.md](./Phase/phase6.md)
+- **Phase 6:** `projects` / `project_members` / `modules`; `Manager` role; Admin `/admin/projects` (members + `/modules`); Admin `/admin/users` create/list/update (password + role; promote-to-Manager clears memberships); Manager `/manager` KPIs via `GET /manager/dashboard/stats` (owned `project_id`s only).
 
 ### Nest modules present
 `auth`, `assignment`, `events`, `queues`, `mail`, `health`, `observability`, `incidents`, `problems`, `knowledge`, `projects`, `service-catalog`, `service-requests`, `changes`, `comments`, `assets`, `admin`, `database`
 
 ### Key frontend routes (role-gated)
-`/login`, role home, `/incidents`, `/problems`, `/catalog`, `/requests`, `/approvals`, `/changes`, `/portal`, `/portal/incidents/:id`, `/knowledge`, `/assets`, `/admin/dashboard`, `/admin/audit-logs`, `/admin/queues`, `/admin/catalog`, `/admin/knowledge`, `/admin/sla-rules`, `/admin/projects`, `/admin/projects/:id/members`, `/admin/projects/:id/modules`, `/manager`
+`/login`, role home, `/incidents`, `/problems`, `/catalog`, `/requests`, `/approvals`, `/changes`, `/portal`, `/portal/incidents/:id`, `/knowledge`, `/assets`, `/admin/dashboard`, `/admin/audit-logs`, `/admin/queues`, `/admin/catalog`, `/admin/knowledge`, `/admin/sla-rules`, `/admin/projects`, `/admin/projects/:id/members`, `/admin/projects/:id/modules`, `/admin/users`, `/manager`
 
 ---
 
@@ -109,15 +109,15 @@ Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md` / Dev D phase5): CSR
 
 **Out of scope (by design):** SSO, multi-tenant billing, drag-drop SLA builder, advanced BI, native apps, CMDB graphs, multi-level approval chains.
 
-### Phase 6 — in progress
+### Phase 6 — in progress (`Dev-C` + merged `Audit`)
 
 Design: [Phase/phase6.md](./Phase/phase6.md).
 
-**Landed (foundation + Dev A + Dev B + Dev C + Dev D backend):** `Manager` role; `projects` / `project_members` / `modules`; `ProjectAccessService`; Dev A incident/problem project scoping + assignment pool; Dev B optional `projectId`/`moduleId` on service requests & changes, Manager-alongside-Admin approvals (null project = Admin-only), scoped SR/Change lists, catalog/change create pickers, Manager approvals UI; Dev C Admin projects UI + Manager home (KPIs / server-scoped charts); Dev D project-scoped assignment pool, list filters, `PATCH /admin/users/:id/role` clears memberships on promote-to-Manager. Contract/handoff: [phase6-openapi.md](./contracts/phase6-openapi.md) / [phase6-handoff.md](./Phase/Dev%20D/phase6-handoff.md). QA: [Phase/Dev B/phase6-day30-qa.md](./Phase/Dev%20B/phase6-day30-qa.md), [Phase/Dev C/phase6-qa.md](./Phase/Dev%20C/phase6-qa.md).
+**Landed:** `Manager` role; `projects` / `project_members` / `modules`; `ProjectAccessService`; Dev A incident/problem project scoping + assignment pool; Dev B optional `projectId`/`moduleId` on service requests and changes, Manager-alongside-Admin approvals (null `project_id` = Admin-only), scoped lists, Manager approvals UI; Dev C Admin `/admin/projects`, Manager `GET /manager/dashboard/stats` and `/charts`, and Admin `/admin/users` CRUD; Dev D project-scoped assignment pool, list filters, `POST`/`GET`/`PATCH /admin/users` plus `PATCH …/role` (promote-to-Manager clears memberships). Contract/handoff: [phase6-openapi.md](./contracts/phase6-openapi.md) / [phase6-handoff.md](./Phase/Dev%20D/phase6-handoff.md). QA: [Phase/Dev B/phase6-day30-qa.md](./Phase/Dev%20B/phase6-day30-qa.md), [Phase/Dev C/phase6-qa.md](./Phase/Dev%20C/phase6-qa.md).
 
 **Phase 6 security audit:** CLEAN for Dev A–D ([Docs/Audit/phase6.md](./Audit/phase6.md)) — assignment agents IDOR, EndUser project/module redaction, and ACL matrix coverage closed on Dev D.
 
-**Still open:** Admin `/admin/users` UI (Dev C); remaining assignment-pool / incident UI wiring per phase6 plan; local `0010_phase6_projects_manager` migrate + reseed where not yet applied. **Deferred to production go-live:** staging/TL migrate (`0010`); Phase 5 mail job-ID live verify on TL remains **unconfirmed**.
+**Still open:** remaining assignment-pool / incident UI wiring per phase6 plan; full ticket 401/403 matrix; local `0010_phase6_projects_manager` migrate + reseed where not yet applied. **Deferred to production go-live:** staging/TL migrate (`0010`); Phase 5 mail job-ID live verify on TL remains **unconfirmed**.
 
 ---
 

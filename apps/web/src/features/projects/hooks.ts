@@ -64,7 +64,7 @@ export function useCreateProject() {
         const created: Project = {
           id: `proj-${Date.now()}`,
           name: input.name,
-          managerId: input.managerId ?? null,
+          managerId: input.managerId,
           createdAt: new Date().toISOString(),
         };
         mockProjects.push(created);
