@@ -2,35 +2,34 @@
 
 Combined: [phase6.md](../phase6.md). Owner: schema, `Manager` role, `ProjectAccessService`, projects APIs, assignment pool wiring, RBAC matrix.
 
-## Phase 1 (do first)
+**CLEAN** — assigned High/Medium closed in source (2026-10-07).
 
-### [A01] High — Assignment agents IDOR
+## Phase 1 — Resolved
 
-`GET /assignment/agents?projectId=` has no `assertCanAccess`.
+### [A01] High — Assignment agents IDOR — **FIXED**
 
-**Fix:** inject `ProjectAccessService`; assert before listing.
+`GET /assignment/agents?projectId=` calls `ProjectAccessService.assertCanAccess` before listing. Spec: `assignment.phase6.spec.ts`.
 
-### [A01] Medium — EndUser project list leaks managers
+### [A01] Medium — EndUser project list leaks managers — **FIXED**
 
-`ProjectsService.list` returns `managerId` / `managerName` for EndUser pickers.
+`ProjectsService.list` returns picker DTO (`id`, `name` only) for EndUser. Spec: `projects.service.spec.ts`.
 
-**Fix:** redacted picker DTO (`id`, `name` only).
+### [A01] Medium — EndUser module list IDOR — **FIXED**
 
-### [A01] Medium — EndUser module list IDOR
+`listModules` for EndUser: existence check + picker fields (`id`, `name`, `projectId`); no manager/createdAt leak. Spec: `projects.service.spec.ts`.
 
-`listModules` skips access check for EndUser.
+## Phase 2 — Resolved
 
-**Fix:** same scoping/redaction as attachable projects.
+### [A04] Medium — Extend resource ACL tests — **FIXED**
 
-## Phase 2
-
-### [A04] Medium — Extend resource ACL tests
-
-Add Manager × own/other/null approve + list cases; cover assignment agents ACL.
+- `manager-project-acl.matrix.spec.ts`: Manager × own/other/null for `canAccess` / `assertCanApprove` / list filters; Assignment `@Roles`
+- `rbac-matrix.spec.ts`: `AssignmentController` + `GET /assignment/agents`
+- `assignment.phase6.spec.ts`: agents ACL (assert / skip when no projectId / 403)
 
 ## Spot-checked (clean)
 
-- `canAccess` / `assertCanApprove` / `ticketProjectScope` semantics match Phase 6 decisions
+- `canAccess` / `assertCanApprove` / ticket list filter semantics match Phase 6 decisions
 - `assertAgentMember` / `assertUserRole(..., "Agent")` on addMember
 - Migration `0010_phase6_projects_manager` + role enum `Manager`
 - Seed Manager password via `SEED_PASSWORD` / CSPRNG + bcrypt 12
+- Web `useProjects` / `useProjectModules` unwrap `{ data }` envelope

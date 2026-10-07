@@ -115,6 +115,8 @@ Design: [Phase/phase6.md](./Phase/phase6.md).
 
 **Landed (foundation + Dev A + Dev B + Dev C + Dev D backend):** `Manager` role; `projects` / `project_members` / `modules`; `ProjectAccessService`; Dev A incident/problem project scoping + assignment pool; Dev B optional `projectId`/`moduleId` on service requests & changes, Manager-alongside-Admin approvals (null project = Admin-only), scoped SR/Change lists, catalog/change create pickers, Manager approvals UI; Dev C Admin projects UI + Manager home (KPIs / server-scoped charts); Dev D project-scoped assignment pool, list filters, `PATCH /admin/users/:id/role` clears memberships on promote-to-Manager. Contract/handoff: [phase6-openapi.md](./contracts/phase6-openapi.md) / [phase6-handoff.md](./Phase/Dev%20D/phase6-handoff.md). QA: [Phase/Dev B/phase6-day30-qa.md](./Phase/Dev%20B/phase6-day30-qa.md), [Phase/Dev C/phase6-qa.md](./Phase/Dev%20C/phase6-qa.md).
 
+**Phase 6 security audit:** CLEAN for Dev A–D ([Docs/Audit/phase6.md](./Audit/phase6.md)) — assignment agents IDOR, EndUser project/module redaction, and ACL matrix coverage closed on Dev D.
+
 **Still open:** **Admin User Management** (create/get/patch users API + `/admin/users` UI); remaining assignment-pool / incident UI wiring per phase6 plan; full ticket 401/403 matrix; local `0010_phase6_projects_manager` migrate + reseed where not yet applied. **Deferred to production go-live:** staging/TL migrate (`0010`); Phase 5 mail job-ID live verify on TL remains **unconfirmed**.
 
 ---

@@ -6,6 +6,7 @@ import { RolesGuard } from "./guards/roles.guard";
 import type { UserRole } from "./types/roles";
 import { ProjectAccessService } from "../projects/project-access.service";
 import { buildTicketProjectListFilter } from "../projects/project-list-scope";
+import { AssignmentController } from "../assignment/assignment.controller";
 import { IncidentsController } from "../incidents/incidents.controller";
 import { ProblemsController } from "../problems/problems.controller";
 import { ServiceRequestsController } from "../service-requests/service-requests.controller";
@@ -163,6 +164,14 @@ describe("Phase 6 Day 29 — Manager × own / other / null project ACL", () => {
       ]);
       expect(rolesOf(ChangesController.prototype.approve)).toEqual([
         "Admin",
+        "Manager",
+      ]);
+    });
+
+    it("assignment agents list includes Admin, Agent, Manager", () => {
+      expect(rolesOf(AssignmentController.prototype.listAgents)).toEqual([
+        "Admin",
+        "Agent",
         "Manager",
       ]);
     });

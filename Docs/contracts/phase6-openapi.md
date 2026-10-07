@@ -21,14 +21,14 @@ This document freezes the Phase 6 surfaces for client wiring. Request/response f
 | Method | Path | Roles | Notes |
 | --- | --- | --- | --- |
 | POST | `/projects` | Admin | body: `name`, `managerId` (must be role Manager) |
-| GET | `/projects` | Admin, Manager | Admin: all; Manager: accessible/own |
+| GET | `/projects` | Admin, Manager, Agent, EndUser | Admin: all; Manager/Agent: accessible; EndUser: `{ id, name }` picker only |
 | GET | `/projects/:id` | Admin, Manager | Manager requires access |
 | PATCH | `/projects/:id` | Admin | `name?`, `managerId?` |
 | DELETE | `/projects/:id` | Admin | |
 | GET | `/projects/:id/members` | Admin, Manager | |
 | POST | `/projects/:id/members` | Admin | body `{ userId }` — **Agent only** |
 | DELETE | `/projects/:id/members/:userId` | Admin | |
-| GET | `/projects/:id/modules` | Admin, Manager | |
+| GET | `/projects/:id/modules` | Admin, Manager, Agent, EndUser | EndUser: existence + `{ id, name, projectId }` picker |
 | POST | `/projects/:id/modules` | Admin | body `{ name }` |
 | PATCH | `/projects/:id/modules/:moduleId` | Admin | body `{ name }` |
 | DELETE | `/projects/:id/modules/:moduleId` | Admin | |
@@ -77,7 +77,7 @@ Shared helper: `buildTicketProjectListFilter` + `ProjectAccessService.listAccess
 
 | Method | Path | Roles | Notes |
 | --- | --- | --- | --- |
-| GET | `/assignment/agents` | Admin, Agent | query `projectId?` — when set, pool = project_members Agents only |
+| GET | `/assignment/agents` | Admin, Agent, Manager | query `projectId?` — when set, `assertCanAccess` then pool = project_members Agents only |
 | (internal) | `assignNextAgent(ticketId)` | — | reads incident `projectId`; scoped pool vs global Agents |
 
 ## Helpers for consumers

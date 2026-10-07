@@ -67,16 +67,16 @@ export interface KnowledgeArticle {
 export interface Project {
   id: string;
   name: string;
-  managerId: string;
-  managerName: string;
-  createdAt: string;
+  /** Omitted for EndUser picker responses. */
+  managerId?: string;
+  managerName?: string | null;
+  createdAt?: string;
 }
 
 export interface ProjectModule {
   id: string;
   projectId: string;
   name: string;
-  createdAt: string;
 }
 
 export interface ServiceRequest {

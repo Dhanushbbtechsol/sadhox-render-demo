@@ -10,14 +10,14 @@ export type ProjectMember = {
   name: string;
   email: string;
   role: string;
-  createdAt: string;
+  createdAt?: string;
 };
 
 export type ProjectModule = {
   id: string;
   projectId: string;
   name: string;
-  createdAt: string;
+  createdAt?: string;
 };
 
 export type DirectoryUser = {

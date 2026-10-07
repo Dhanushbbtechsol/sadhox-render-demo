@@ -180,6 +180,89 @@ describe("ProjectsService.addMember (Phase 6)", () => {
 });
 
 describe("ProjectsService CRUD role rules", () => {
+  it("list: EndUser gets id+name only (no managerId)", async () => {
+    const db = {
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          orderBy: vi.fn(async () => [
+            { id: "proj-1", name: "Alpha" },
+            { id: "proj-2", name: "Beta" },
+          ]),
+        })),
+      })),
+    };
+    const access = {
+      listAccessibleProjectIds: vi.fn(),
+      canAccess: vi.fn(),
+    };
+    const svc = new ProjectsService(
+      db as never,
+      access as unknown as ProjectAccessService,
+    );
+
+    const result = await svc.list({
+      userId: "eu-1",
+      email: "e@x",
+      name: "Eve",
+      role: "EndUser",
+    });
+    expect(result.data).toEqual([
+      { id: "proj-1", name: "Alpha" },
+      { id: "proj-2", name: "Beta" },
+    ]);
+    expect(result.data[0]).not.toHaveProperty("managerId");
+    expect(access.listAccessibleProjectIds).not.toHaveBeenCalled();
+  });
+
+  it("listModules: EndUser gets picker fields without canAccess", async () => {
+    let selectCall = 0;
+    const db = {
+      select: vi.fn(() => {
+        selectCall += 1;
+        if (selectCall === 1) {
+          return {
+            from: vi.fn(() => ({
+              where: vi.fn(() => ({
+                limit: vi.fn(async () => [{ id: "proj-1" }]),
+              })),
+            })),
+          };
+        }
+        return {
+          from: vi.fn(() => ({
+            where: vi.fn(() => ({
+              orderBy: vi.fn(async () => [
+                { id: "mod-1", name: "Core", projectId: "proj-1" },
+              ]),
+            })),
+          })),
+        };
+      }),
+    };
+    const access = {
+      canAccess: vi.fn(),
+      listAccessibleProjectIds: vi.fn(),
+    };
+    const svc = new ProjectsService(
+      db as never,
+      access as unknown as ProjectAccessService,
+    );
+
+    const result = await svc.listModules(
+      {
+        userId: "eu-1",
+        email: "e@x",
+        name: "Eve",
+        role: "EndUser",
+      },
+      "proj-1",
+    );
+    expect(result.data).toEqual([
+      { id: "mod-1", name: "Core", projectId: "proj-1" },
+    ]);
+    expect(access.canAccess).not.toHaveBeenCalled();
+  });
+
   it("list: Manager only sees accessible projects", async () => {
     const access = {
       listAccessibleProjectIds: vi.fn(async () => ["proj-own"]),

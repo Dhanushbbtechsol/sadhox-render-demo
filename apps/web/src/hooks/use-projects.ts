@@ -12,7 +12,12 @@ export function useProjects() {
   return useQuery({
     queryKey: [...projectsKey, userId],
     enabled: Boolean(userId),
-    queryFn: () => apiFetch<Project[]>("/projects"),
+    queryFn: async () => {
+      const result = await apiFetch<{ data: Project[] } | Project[]>(
+        "/projects",
+      );
+      return Array.isArray(result) ? result : (result.data ?? []);
+    },
   });
 }
 
@@ -22,7 +27,11 @@ export function useProjectModules(projectId: string | undefined | null) {
   return useQuery({
     queryKey: [...projectsKey, projectId, "modules", userId],
     enabled: Boolean(userId) && Boolean(projectId),
-    queryFn: () =>
-      apiFetch<ProjectModule[]>(`/projects/${projectId}/modules`),
+    queryFn: async () => {
+      const result = await apiFetch<
+        { data: ProjectModule[] } | ProjectModule[]
+      >(`/projects/${projectId}/modules`);
+      return Array.isArray(result) ? result : (result.data ?? []);
+    },
   });
 }

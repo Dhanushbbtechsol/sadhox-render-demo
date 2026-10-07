@@ -31,6 +31,8 @@ import { KnowledgeController } from "../knowledge/knowledge.controller";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { ProblemsController } from "../problems/problems.controller";
 import { ProblemsService } from "../problems/problems.service";
+import { AssignmentController } from "../assignment/assignment.controller";
+import { AssignmentService } from "../assignment/assignment.service";
 import { ProjectsController } from "../projects/projects.controller";
 import { ProjectsService } from "../projects/projects.service";
 import { ServiceCatalogController } from "../service-catalog/service-catalog.controller";
@@ -93,6 +95,11 @@ const MATRIX: MatrixRow[] = [
   {
     method: "patch",
     path: `/problems/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  {
+    method: "get",
+    path: "/assignment/agents",
     allowed: ["Admin", "Agent", "Manager"],
   },
   {
@@ -316,6 +323,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         IncidentsController,
         ProblemsController,
         ProjectsController,
+        AssignmentController,
         ServiceRequestsController,
         ChangesController,
         AssetsController,
@@ -389,6 +397,10 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "managerDashboardStats",
             "managerCharts",
           ]),
+        },
+        {
+          provide: AssignmentService,
+          useValue: stubService(["listAgents"]),
         },
         {
           provide: ServiceRequestsService,

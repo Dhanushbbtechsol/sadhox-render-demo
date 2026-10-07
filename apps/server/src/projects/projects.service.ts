@@ -42,11 +42,16 @@ export type ProjectView = {
   createdAt: string;
 };
 
+/** EndUser picker — no manager identities. */
+export type ProjectPickerView = {
+  id: string;
+  name: string;
+};
+
 export type ModuleView = {
   id: string;
   projectId: string;
   name: string;
-  createdAt: string;
 };
 
 export type MemberView = {
@@ -54,7 +59,6 @@ export type MemberView = {
   name: string;
   email: string;
   role: string;
-  createdAt: string;
 };
 
 @Injectable()
@@ -64,10 +68,21 @@ export class ProjectsService {
     private readonly access: ProjectAccessService,
   ) {}
 
-  async list(user: AuthUser): Promise<{ data: ProjectView[] }> {
-    // Admin / EndUser: all projects (EndUser for catalog/request pickers).
+  async list(
+    user: AuthUser,
+  ): Promise<{ data: ProjectView[] | ProjectPickerView[] }> {
+    // EndUser: all projects as picker DTO only (id + name — no manager leak).
+    if (user.role === "EndUser") {
+      const rows = await this.db
+        .select({ id: projects.id, name: projects.name })
+        .from(projects)
+        .orderBy(asc(projects.name));
+      return { data: rows };
+    }
+
+    // Admin: all full rows. Manager/Agent: accessible only.
     const ids =
-      user.role === "Admin" || user.role === "EndUser"
+      user.role === "Admin"
         ? null
         : await this.access.listAccessibleProjectIds(user);
     const scope =
@@ -164,6 +179,7 @@ export class ProjectsService {
     projectId: string,
   ): Promise<{ data: ModuleView[] }> {
     if (user.role === "EndUser") {
+      // Attachable projects = all (picker). Existence only; return picker fields.
       const [project] = await this.db
         .select({ id: projects.id })
         .from(projects)
@@ -173,19 +189,17 @@ export class ProjectsService {
     } else {
       await this.assertCanRead(user, projectId);
     }
+
     const rows = await this.db
-      .select()
+      .select({
+        id: modules.id,
+        name: modules.name,
+        projectId: modules.projectId,
+      })
       .from(modules)
       .where(eq(modules.projectId, projectId))
       .orderBy(asc(modules.name));
-    return {
-      data: rows.map((r) => ({
-        id: r.id,
-        projectId: r.projectId,
-        name: r.name,
-        createdAt: r.createdAt.toISOString(),
-      })),
-    };
+    return { data: rows };
   }
 
   async createModule(
@@ -210,7 +224,6 @@ export class ProjectsService {
         id: created!.id,
         projectId: created!.projectId,
         name: created!.name,
-        createdAt: created!.createdAt.toISOString(),
       };
     } catch {
       throw new BadRequestException(
@@ -245,7 +258,6 @@ export class ProjectsService {
         id: row!.id,
         projectId: row!.projectId,
         name: row!.name,
-        createdAt: row!.createdAt.toISOString(),
       };
     } catch {
       throw new BadRequestException(
@@ -279,21 +291,12 @@ export class ProjectsService {
         name: users.name,
         email: users.email,
         role: users.role,
-        createdAt: projectMembers.createdAt,
       })
       .from(projectMembers)
       .innerJoin(users, eq(projectMembers.userId, users.id))
       .where(eq(projectMembers.projectId, projectId))
       .orderBy(asc(users.name));
-    return {
-      data: rows.map((r) => ({
-        userId: r.userId,
-        name: r.name,
-        email: r.email,
-        role: r.role,
-        createdAt: r.createdAt.toISOString(),
-      })),
-    };
+    return { data: rows };
   }
 
   async addMember(
@@ -320,7 +323,6 @@ export class ProjectsService {
       name: member.name,
       email: member.email,
       role: member.role,
-      createdAt: new Date().toISOString(),
     };
   }
 
