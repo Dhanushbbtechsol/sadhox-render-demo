@@ -1,64 +1,47 @@
 # sadhox
 
-This file provides context about the project for AI assistants.
+Context for AI assistants. **Canonical status handoff:** [`Docs/STATUS.md`](./Docs/STATUS.md). **Memory bank:** [`memory-bank/`](./memory-bank/).
 
 ## Project Overview
 
-- **Ecosystem**: Typescript
+- **Product:** ITSM (Incidents, Problems, Catalog/Requests, Changes, Assets, Knowledge, Admin)
+- **Ecosystem:** TypeScript
+- **Package Manager:** pnpm
+- **Integration branch:** `Audit`
 
-## Tech Stack
+## Tech Stack (runtime)
 
-- **Runtime**: node
-- **Package Manager**: pnpm
-
-### Frontend
-
-- Framework: react-vite
-- CSS: tailwind
-- UI Library: shadcn-ui
-- State: zustand
-
-### Backend
-
-- Framework: hono
-
-### Database
-
-- Database: postgres
-
-### Authentication
-
-- Provider: supabase-auth
-
-### Additional Features
-
-- Email: resend
+- **Runtime:** node
+- **Frontend:** react-vite, tailwind, shadcn-ui, zustand, react-query — `apps/web`
+- **Backend:** NestJS — `apps/server` (not Hono in practice)
+- **Database:** postgres + Drizzle schema in `apps/server/src/database/schema/`
+- **Authentication:** Passport JWT + refresh cookies (not supabase-auth in practice)
+- **Realtime / jobs / email:** Socket.io, BullMQ+Redis, Resend
 
 ## Project Structure
 
 ```
 sadhox/
 ├── apps/
-│   ├── web/         # Frontend application
-│   └── server/      # Backend API
-├── packages/
-│   ├── auth/        # Authentication
-│   └── db/          # Database schema
+│   ├── web/         # React SPA
+│   └── server/      # NestJS API + Drizzle
+├── packages/        # config/env (scaffold auth/db packages unused)
+├── Docs/            # PRD, FRD, Workflow, Phase, Audit, STATUS.md
+└── memory-bank/
 ```
 
 ## Common Commands
 
-- `pnpm install` - Install dependencies
-- `pnpm dev` - Start development server
-- `pnpm build` - Build for production
-- `pnpm db:push` - Push database schema
-- `pnpm db:studio` - Open database UI
+- `pnpm install` — Install dependencies
+- `pnpm dev` — Start development server
+- `pnpm build` — Build for production
+- Prefer `apps/server` scripts for schema/migrations when changing DB
 
 ## Better Fullstack project context
 
-`bts.jsonc` is the authority for the current Stack Graph. Its `stackParts` array owns role selection and `ownerPartId` bindings. Top-level option fields are a compatibility projection and must not become a second mutation path.
+`bts.jsonc` is the authority for the **generator** Stack Graph (role selection / `ownerPartId`). It still lists Hono + Supabase Auth — that reflects the original scaffold, **not** the current NestJS + Passport JWT application. Do not use `bts.jsonc` labels as the source of truth for how auth or the API work today. Top-level option fields are a compatibility projection and must not become a second mutation path for product code.
 
-### Stack Parts, ownership, and evidence
+### Stack Parts, ownership, and evidence (generator record)
 
 - `backend.auth:typescript:supabase-auth`. It belongs to `backend:typescript:hono`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
 - `backend.email:typescript:resend`. It belongs to `backend:typescript:hono`. Evidence is `listed` with `unverified` freshness. Verification maintainer: @Marve10s.
@@ -88,7 +71,7 @@ User code outside an explicit Better Fullstack managed region is not generator-o
 
 ## Maintenance
 
-Keep AGENTS.md updated when:
+Keep AGENTS.md and `Docs/STATUS.md` updated when:
 
 - Adding/removing dependencies
 - Changing project structure
@@ -107,6 +90,9 @@ AI assistants should suggest updates to this file when they notice relevant chan
 ## Learned Workspace Facts
 
 - Parallel feature branches commonly used for merge-to-audit are `Dev-A-`, `Dev-B`, `Dev-C`, and `Dev-D` (note the trailing hyphen on `Dev-A-`).
-- The integration/review branch is `audit` (case variant `Audit` may also exist remotely).
-- `Docs/Audit` holds phased audit reports (`phase1.md`, `phase2.md`, `phase3.md`) and per-developer folders (`Dev A` … `Dev D`).
-- `Docs/Phase` holds per-developer implementation plans and phase notes; product docs live under `Docs/` (`PRD.md`, `FRD.md`, `Techstack.md`, `Architechture.md`).
+- The integration/review branch is `Audit` (local/remote); case variant `audit` may appear in docs.
+- Phases 1–5 feature work is merged on `Audit`; open gaps are in `Docs/Audit/phase5.md` and summarized in `Docs/STATUS.md`.
+- Phase 6 (Projects / Manager) is designed in `Docs/Phase/phase6.md`; gate = close Phase 5 Medium gaps; do not rebuild Knowledge Base. Employee = Agent; Managers approve alongside Admin; Managers are not project_members.
+- `Docs/Audit` holds phased audit reports (`phase1.md` … `phase5.md`) and per-developer folders (`Dev A` … `Dev D`).
+- `Docs/Phase` holds per-developer implementation plans and phase notes; product docs live under `Docs/` (`PRD.md`, `FRD.md`, `Techstack.md`, `Architechture.md`, `Workflow.md`, `STATUS.md`).
+- Drizzle schema lives under `apps/server`, not `packages/db`.

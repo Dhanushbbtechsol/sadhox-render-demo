@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
+import { sanitizePlainText } from "../common/sanitize-plain-text";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import type { CatalogFormField } from "../database/schema";
@@ -45,10 +46,10 @@ export class ServiceCatalogService {
     const [row] = await this.db
       .insert(serviceCatalog)
       .values({
-        name: dto.name.trim(),
-        description: dto.description.trim(),
-        department: dto.department.trim(),
-        formFields: dto.formFields as CatalogFormField[],
+        name: sanitizePlainText(dto.name, 255),
+        description: sanitizePlainText(dto.description, 4000),
+        department: sanitizePlainText(dto.department, 128),
+        formFields: this.sanitizeFormFields(dto.formFields),
         isActive: dto.isActive ?? true,
       })
       .returning(publicSelect);
@@ -70,15 +71,17 @@ export class ServiceCatalogService {
     const [row] = await this.db
       .update(serviceCatalog)
       .set({
-        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+        ...(dto.name !== undefined
+          ? { name: sanitizePlainText(dto.name, 255) }
+          : {}),
         ...(dto.description !== undefined
-          ? { description: dto.description.trim() }
+          ? { description: sanitizePlainText(dto.description, 4000) }
           : {}),
         ...(dto.department !== undefined
-          ? { department: dto.department.trim() }
+          ? { department: sanitizePlainText(dto.department, 128) }
           : {}),
         ...(dto.formFields !== undefined
-          ? { formFields: dto.formFields as CatalogFormField[] }
+          ? { formFields: this.sanitizeFormFields(dto.formFields) }
           : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
         updatedAt: new Date(),
@@ -87,6 +90,24 @@ export class ServiceCatalogService {
       .returning(publicSelect);
 
     return row;
+  }
+
+  private sanitizeFormFields(
+    fields: CreateCatalogItemDto["formFields"],
+  ): CatalogFormField[] {
+    return fields.map((field) => ({
+      name: sanitizePlainText(field.name, 64),
+      label: sanitizePlainText(field.label, 128),
+      type: field.type,
+      ...(field.required !== undefined ? { required: field.required } : {}),
+      ...(field.options !== undefined
+        ? {
+            options: field.options.map((opt) =>
+              sanitizePlainText(opt, 128),
+            ),
+          }
+        : {}),
+    }));
   }
 
   async ensureSeeded() {

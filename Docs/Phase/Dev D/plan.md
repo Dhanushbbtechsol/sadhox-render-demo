@@ -27,5 +27,6 @@
 | **Phase 3** | Workflows, Automation & Hardening | Days 11–15 (Week 3) | [phase3.md](./phase3.md) |
 | **Phase 4** | Security Pass, Load Testing & Production Deploy | Days 16–20 (Week 4) | [phase4.md](./phase4.md) |
 | **Phase 5** | Knowledge Base API, SLA Rules API & Catalog Writes | Days 21–25 (Week 5) | [phase5.md](./phase5.md) |
+| **Phase 6** | Projects Schema, Manager Role & ProjectAccessService | Days 26–30 (Week 6) | [phase6.md](./phase6.md) |
 
-Coverage of the six confirmed requirements: [coverage-matrix.md](../coverage-matrix.md).
+Coverage: [coverage-matrix.md](../coverage-matrix.md). Phase 6 design: [../phase6.md](../phase6.md).

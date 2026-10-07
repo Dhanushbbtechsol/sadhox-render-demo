@@ -24,6 +24,14 @@ import {
 } from "./mail.types";
 
 /**
+ * BullMQ custom jobId cannot contain `:`.
+ * Join parts with `|` and strip any remaining colons from emails/etc.
+ */
+export function buildEmailJobId(...parts: Array<string | number>): string {
+  return parts.map((p) => String(p).replace(/:/g, "_")).join("|");
+}
+
+/**
  * Typed mail API — only enqueues email-queue jobs.
  * Resend is called exclusively by EmailProcessor.
  */
@@ -46,7 +54,7 @@ export class MailService {
       },
     };
     await this.emailQueue.add(EMAIL_JOB_TICKET_ASSIGNED, payload, {
-      jobId: `${EMAIL_JOB_TICKET_ASSIGNED}:${data.ticketId}:${to}`,
+      jobId: buildEmailJobId(EMAIL_JOB_TICKET_ASSIGNED, data.ticketId, to),
     });
     this.logger.log(
       `enqueued ${EMAIL_JOB_TICKET_ASSIGNED} to=${maskEmail(to)} ticket=${data.ticketId}`,
@@ -67,7 +75,12 @@ export class MailService {
       },
     };
     await this.emailQueue.add(EMAIL_JOB_SLA_BREACH, payload, {
-      jobId: `${EMAIL_JOB_SLA_BREACH}:${data.ticketId}:${data.breachType}:${to}`,
+      jobId: buildEmailJobId(
+        EMAIL_JOB_SLA_BREACH,
+        data.ticketId,
+        data.breachType,
+        to,
+      ),
     });
     this.logger.log(
       `enqueued ${EMAIL_JOB_SLA_BREACH} to=${maskEmail(to)} ticket=${data.ticketId}`,
@@ -89,7 +102,12 @@ export class MailService {
       },
     };
     await this.emailQueue.add(EMAIL_JOB_STATUS_CHANGED, payload, {
-      jobId: `${EMAIL_JOB_STATUS_CHANGED}:${data.ticketId}:${data.newStatus}:${to}`,
+      jobId: buildEmailJobId(
+        EMAIL_JOB_STATUS_CHANGED,
+        data.ticketId,
+        data.newStatus,
+        to,
+      ),
     });
     this.logger.log(
       `enqueued ${EMAIL_JOB_STATUS_CHANGED} to=${maskEmail(to)} ticket=${data.ticketId}`,
@@ -111,7 +129,12 @@ export class MailService {
       },
     };
     await this.emailQueue.add(EMAIL_JOB_REQUEST_DECISION, payload, {
-      jobId: `${EMAIL_JOB_REQUEST_DECISION}:${data.requestId}:${data.decision}:${to}`,
+      jobId: buildEmailJobId(
+        EMAIL_JOB_REQUEST_DECISION,
+        data.requestId,
+        data.decision,
+        to,
+      ),
     });
     this.logger.log(
       `enqueued ${EMAIL_JOB_REQUEST_DECISION} to=${maskEmail(to)} request=${data.requestId}`,
@@ -130,7 +153,7 @@ export class MailService {
       },
     };
     await this.emailQueue.add(EMAIL_JOB_REQUEST_REVIEW, payload, {
-      jobId: `${EMAIL_JOB_REQUEST_REVIEW}:${data.requestId}:${to}`,
+      jobId: buildEmailJobId(EMAIL_JOB_REQUEST_REVIEW, data.requestId, to),
     });
     this.logger.log(
       `enqueued ${EMAIL_JOB_REQUEST_REVIEW} to=${maskEmail(to)} request=${data.requestId}`,
@@ -149,7 +172,7 @@ export class MailService {
       },
     };
     await this.emailQueue.add(EMAIL_JOB_CHANGE_REVIEW, payload, {
-      jobId: `${EMAIL_JOB_CHANGE_REVIEW}:${data.changeId}:${to}`,
+      jobId: buildEmailJobId(EMAIL_JOB_CHANGE_REVIEW, data.changeId, to),
     });
     this.logger.log(
       `enqueued ${EMAIL_JOB_CHANGE_REVIEW} to=${maskEmail(to)} change=${data.changeId}`,
@@ -169,7 +192,13 @@ export class MailService {
       },
     };
     await this.emailQueue.add(EMAIL_JOB_APPROVAL_OUTCOME, payload, {
-      jobId: `${EMAIL_JOB_APPROVAL_OUTCOME}:${data.entityType}:${data.entityId}:${data.outcome}:${to}`,
+      jobId: buildEmailJobId(
+        EMAIL_JOB_APPROVAL_OUTCOME,
+        data.entityType,
+        data.entityId,
+        data.outcome,
+        to,
+      ),
     });
     this.logger.log(
       `enqueued ${EMAIL_JOB_APPROVAL_OUTCOME} to=${maskEmail(to)} ` +
@@ -190,7 +219,12 @@ export class MailService {
       },
     };
     await this.emailQueue.add(EMAIL_JOB_ASSET_NOTIFICATION, payload, {
-      jobId: `${EMAIL_JOB_ASSET_NOTIFICATION}:${data.assetId}:${data.event}:${to}`,
+      jobId: buildEmailJobId(
+        EMAIL_JOB_ASSET_NOTIFICATION,
+        data.assetId,
+        data.event,
+        to,
+      ),
     });
     this.logger.log(
       `enqueued ${EMAIL_JOB_ASSET_NOTIFICATION} to=${maskEmail(to)} ` +

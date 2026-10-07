@@ -1,68 +1,51 @@
-# sadhox
+# Sadhox
 
-This project was created with [Better Fullstack](https://github.com/Marve10s/Better-Fullstack), a modern TypeScript stack that combines React, Vite SPA, Hono, and more.
+IT Service Management (ITSM) platform: Incidents, Problems, Service Catalog/Requests, Changes, Assets, Knowledge Base, and Admin dashboards.
 
-## Features
+**Status for agents/Claude:** [`Docs/STATUS.md`](./Docs/STATUS.md) · **Memory bank:** [`memory-bank/`](./memory-bank/)
 
-- **TypeScript** - For type safety and improved developer experience
-- **React + Vite** - Client-routed React SPA powered by Vite
-- **TailwindCSS** - CSS framework
-- **shadcn/ui** - UI components
-- **Hono** - Lightweight, performant server framework
-- **Node.js** - Runtime environment
-- **ORM** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Supabase Auth
+## Stack
 
-## Getting Started
+| Layer | Tech |
+|-------|------|
+| Frontend | React + Vite, Tailwind, shadcn/ui, React Query, Zustand — `apps/web` |
+| Backend | NestJS — `apps/server` |
+| Database | PostgreSQL + Drizzle (schema under `apps/server`) |
+| Auth | Passport JWT + httpOnly refresh cookies |
+| Realtime / jobs / email | Socket.io, BullMQ + Redis, Resend |
 
-First, install the dependencies:
+(The original Better Fullstack scaffold mentioned Hono/Supabase; the shipped app uses NestJS + Passport JWT.)
+
+## Getting started
 
 ```bash
 pnpm install
+pnpm dev
 ```
 
-## Database Setup
+- Web: [http://localhost:5173](http://localhost:5173)
+- API: [http://localhost:3000](http://localhost:3000) (confirm port in `apps/server` env)
 
-This project uses PostgreSQL with none.
+Configure Postgres (and Redis for jobs) via `apps/server` env. Apply Drizzle migrations using the server package scripts.
 
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/server/.env` file with your PostgreSQL connection details.
-
-3. Apply the schema to your database:
-
-```bash
-pnpm run db:push
-```
-
-Then, run the development server:
-
-```bash
-pnpm run dev
-```
-
-Open [http://localhost:5173](http://localhost:5173) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
-
-## Project Structure
+## Project structure
 
 ```
 sadhox/
-├── apps/
-│   ├── web/         # Frontend application (React + Vite SPA)
-│   └── server/      # Backend API (Hono)
-├── packages/
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
+├── apps/web/       # React SPA
+├── apps/server/    # NestJS API + Drizzle
+├── Docs/           # PRD, FRD, Workflow, Phase plans, Audits, STATUS
+└── memory-bank/    # Agent persistent context
 ```
 
-## Available Scripts
+## Scripts
 
-- `pnpm run dev`: Start all applications in development mode
-- `pnpm run build`: Build all applications
-- `pnpm run dev:web`: Start only the web application
-- `pnpm run dev:server`: Start only the server
-- `pnpm run check-types`: Check TypeScript types across all apps
-- `pnpm run db:push`: Push schema changes to database
-- `pnpm run db:studio`: Open database studio UI
+- `pnpm run dev` — all apps in development
+- `pnpm run build` — production build
+- `pnpm run check-types` — TypeScript check across apps
+
+## Docs
+
+- [Docs/STATUS.md](./Docs/STATUS.md) — features done / open gaps
+- [Docs/Workflow.md](./Docs/Workflow.md) — ITIL workflows in plain language
+- [Docs/PRD.md](./Docs/PRD.md) · [Docs/FRD.md](./Docs/FRD.md)

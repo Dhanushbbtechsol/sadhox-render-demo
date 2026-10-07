@@ -54,16 +54,31 @@ flowchart LR
 
 ---
 
+## Phase 6 (planned) — Projects & Manager
+
+**KB stays as-is.** New work only: projects / modules / members, `Manager` role, resource-level project ACL, scoped assignment & approvals. Authority: [phase6.md](./phase6.md).
+
+| Addition | Status | Owners |
+|----------|--------|--------|
+| Project scoping on tickets | Planned | Dev D schema + A/B UI |
+| Manager role + ProjectAccessService | Planned | Dev D (+ C UI) |
+| Project-scoped round-robin | Planned | Dev D + Dev A |
+| Manager approvals (alongside Admin) | Planned | Dev D + Dev B |
+
+---
+
 ## Still out of scope (unchanged from PRD §4)
 
 - Drag-and-drop SLA policy builder  
 - Advanced BI / custom report builders  
 - Network asset types / multi-ticket asset history (unless separately requested)  
 - Multi-tenant billing, enterprise SSO, native mobile apps  
+- Multi-level approval chains; org-chart `users.manager_id`; Manager as ticket-working member  
 
 ---
 
 ## Related docs
 
 - Track index: [README.md](./README.md)  
+- Phase 6: [phase6.md](./phase6.md)  
 - Product: [PRD.md](../PRD.md), [FRD.md](../FRD.md)  
