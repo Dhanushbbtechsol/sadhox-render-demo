@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { UnrecoverableError } from "bullmq";
 import type { Job } from "bullmq";
-import { MailService } from "./mail.service";
+import { buildEmailJobId, MailService } from "./mail.service";
 import { EmailProcessor, throwFromResendError } from "./email.processor";
 import { escapeHtml } from "./html-escape";
 import {
@@ -85,8 +85,21 @@ describe("MailService enqueue", () => {
     expect(add).toHaveBeenCalledWith(
       EMAIL_JOB_SLA_BREACH,
       expect.objectContaining({ kind: EMAIL_JOB_SLA_BREACH }),
-      expect.any(Object),
+      expect.objectContaining({
+        jobId: expect.not.stringContaining(":"),
+      }),
     );
+  });
+
+  it("buildEmailJobId never emits BullMQ-forbidden colons", () => {
+    const id = buildEmailJobId(
+      EMAIL_JOB_SLA_BREACH,
+      "11111111-1111-1111-1111-111111111111",
+      "resolve",
+      "admin@example.com",
+    );
+    expect(id).not.toContain(":");
+    expect(id).toContain("|");
   });
 
   it("sendRequestDecision enqueues approval/rejection email", async () => {

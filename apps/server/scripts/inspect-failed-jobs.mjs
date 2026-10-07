@@ -1,13 +1,18 @@
 /**
  * Inspect BullMQ failed jobs for sla-queue and email-queue.
- * Usage:
+ * Requires REDIS_URL (no host fallback).
+ *
+ * Example:
  *   REDIS_URL=redis://127.0.0.1:16379 node scripts/inspect-failed-jobs.mjs
- *   REDIS_URL=redis://192.168.68.111:16379 node scripts/inspect-failed-jobs.mjs
+ *
+ * Or with apps/server/.env:
+ *   node scripts/inspect-failed-jobs.mjs
  */
 import { Queue } from "bullmq";
 import IORedis from "ioredis";
+import { requireEnv } from "./require-env.mjs";
 
-const url = process.env.REDIS_URL ?? "redis://127.0.0.1:16379";
+const { REDIS_URL: url } = requireEnv(["REDIS_URL"]);
 const names = ["sla-queue", "email-queue", "ticket-lifecycle-queue"];
 
 console.log("REDIS_URL_HOST", new URL(url).host);
