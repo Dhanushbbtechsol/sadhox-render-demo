@@ -1,4 +1,4 @@
-import {
+﻿import {
   pgTable,
   pgEnum,
   uuid,
@@ -535,7 +535,7 @@ export const knowledgeArticles = pgTable(
   ],
 );
 
-/** Polymorphic ticket ↔ Published KB article links (incident | problem | service_request). */
+/** Polymorphic ticket Γåö Published KB article links (incident | problem | service_request). */
 export const ticketKnowledgeLinks = pgTable(
   "ticket_knowledge_links",
   {
@@ -560,6 +560,7 @@ export const ticketKnowledgeLinks = pgTable(
   ],
 );
 
+/** GUESS: response/resolve minute thresholds per priority ΓÇö FRD only says "SLA threshold definitions per priority level". */
 export const usersRelations = relations(users, ({ many }) => ({
   refreshTokens: many(refreshTokens),
   reportedIncidents: many(incidents, { relationName: "incidentReporter" }),

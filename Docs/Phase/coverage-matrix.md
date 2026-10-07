@@ -60,10 +60,11 @@ flowchart LR
 
 | Addition | Status | Owners |
 |----------|--------|--------|
-| Project scoping on tickets | Planned | Dev D schema + A/B UI |
-| Manager role + ProjectAccessService | Planned | Dev D (+ C UI) |
-| Project-scoped round-robin | Planned | Dev D + Dev A |
-| Manager approvals (alongside Admin) | Planned | Dev D + Dev B |
+| Project scoping on tickets | In progress / partial | Dev D schema + A/B UI |
+| Manager role + ProjectAccessService | Landed (foundation) | Dev D (+ C UI) |
+| Project-scoped round-robin | In progress / partial | Dev D + Dev A |
+| Manager approvals (alongside Admin) | In progress / partial | Dev D + Dev B |
+| Admin User Management (CRUD) | **Open** | Dev D API + Dev C `/admin/users` |
 
 ---
 

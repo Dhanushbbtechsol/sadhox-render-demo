@@ -6,7 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, SQL } from "drizzle-orm";
 import {
   canTransitionChange,
   CHANGE_API_TO_DB_STATUS,
@@ -15,11 +15,16 @@ import {
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
-import { changes, users, type UserRole } from "../database/schema";
+import {
+  changes,
+  modules,
+  projects,
+  users,
+  type UserRole,
+} from "../database/schema";
 import { MailService } from "../mail/mail.service";
 import { ProjectAccessService } from "../projects/project-access.service";
-import { buildTicketProjectListFilter } from "../projects/project-list-scope";
-import { ProjectScopeService } from "../projects/project-scope.service";
+import { ProjectsService } from "../projects/projects.service";
 import type { CreateChangeDto, UpdateChangeDto } from "./dto/change.dto";
 
 type DbChangeStatus =
@@ -60,8 +65,8 @@ export class ChangesService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly mail: MailService,
-    private readonly projectScope: ProjectScopeService,
     private readonly projectAccess: ProjectAccessService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   private mapRow(row: {
@@ -77,6 +82,10 @@ export class ChangesService {
     createdByName: string | null;
     approvedBy: string | null;
     createdAt: Date;
+    projectId: string | null;
+    projectName: string | null;
+    moduleId: string | null;
+    moduleName: string | null;
   }) {
     return {
       id: row.id,
@@ -91,7 +100,41 @@ export class ChangesService {
       createdByName: row.createdByName ?? "Unknown",
       approvedById: row.approvedBy ?? undefined,
       createdAt: row.createdAt.toISOString(),
+      projectId: row.projectId ?? null,
+      projectName: row.projectName ?? null,
+      moduleId: row.moduleId ?? null,
+      moduleName: row.moduleName ?? null,
     };
+  }
+
+  private selectColumns() {
+    return {
+      id: changes.id,
+      title: changes.title,
+      description: changes.description,
+      type: changes.type,
+      status: changes.status,
+      scheduledStart: changes.scheduledStart,
+      scheduledEnd: changes.scheduledEnd,
+      rollbackPlan: changes.rollbackPlan,
+      createdBy: changes.createdBy,
+      createdByName: users.name,
+      approvedBy: changes.approvedBy,
+      createdAt: changes.createdAt,
+      projectId: changes.projectId,
+      projectName: projects.name,
+      moduleId: changes.moduleId,
+      moduleName: modules.name,
+    };
+  }
+
+  private baseQuery() {
+    return this.db
+      .select(this.selectColumns())
+      .from(changes)
+      .leftJoin(users, eq(changes.createdBy, users.id))
+      .leftJoin(projects, eq(changes.projectId, projects.id))
+      .leftJoin(modules, eq(changes.moduleId, modules.id));
   }
 
   async create(user: AuthUser, dto: CreateChangeDto) {
@@ -109,10 +152,14 @@ export class ChangesService {
       );
     }
 
-    const scope = await this.projectScope.resolveTicketProjectScope({
-      projectId: dto.projectId,
-      moduleId: dto.moduleId,
-    });
+    // Agent/Manager must canAccess project; EndUser would existence-check only
+    // (Change create is Admin/Agent today — still enforce membership).
+    const { projectId, moduleId } =
+      await this.projectsService.resolveTicketProjectFields(
+        user,
+        dto.projectId,
+        dto.moduleId,
+      );
 
     const [created] = await this.db
       .insert(changes)
@@ -125,16 +172,20 @@ export class ChangesService {
         rollbackPlan,
         status: "Submitted",
         createdBy: user.userId,
-        projectId: scope.projectId,
-        moduleId: scope.moduleId,
+        projectId,
+        moduleId,
       })
       .returning();
 
-    await this.notifyAdminsOfSubmission(created.id, user);
+    await this.notifyApproversOfSubmission(created.id, user, projectId);
     return this.get(user, created.id);
   }
 
-  private async notifyAdminsOfSubmission(changeId: string, submitter: AuthUser) {
+  private async notifyApproversOfSubmission(
+    changeId: string,
+    submitter: AuthUser,
+    projectId: string | null,
+  ) {
     try {
       const [change] = await this.db
         .select({
@@ -146,14 +197,27 @@ export class ChangesService {
         .limit(1);
       if (!change) return;
 
+      const recipients: { email: string }[] = [];
       const admins = await this.db
         .select({ email: users.email })
         .from(users)
         .where(eq(users.role, "Admin"));
+      recipients.push(...admins);
+
+      if (projectId) {
+        const managers = await this.db
+          .select({ email: users.email })
+          .from(projects)
+          .innerJoin(users, eq(projects.managerId, users.id))
+          .where(eq(projects.id, projectId));
+        recipients.push(...managers);
+      }
+
+      const unique = [...new Map(recipients.map((r) => [r.email, r])).values()];
 
       await Promise.all(
-        admins.map((admin) =>
-          this.mail.sendChangeReviewRequest(admin.email, {
+        unique.map((r) =>
+          this.mail.sendChangeReviewRequest(r.email, {
             changeId,
             changeTitle: change.title,
             submitterName: submitter.name ?? submitter.email,
@@ -174,7 +238,7 @@ export class ChangesService {
     user: AuthUser,
     filters: { type?: string; status?: string },
   ) {
-    const conditions = [];
+    const conditions: SQL[] = [];
     if (filters.type) {
       conditions.push(eq(changes.type, filters.type as never));
     }
@@ -183,83 +247,29 @@ export class ChangesService {
       conditions.push(eq(changes.status, dbStatus as never));
     }
 
-    const accessibleIds =
-      user.role === "Admin"
-        ? null
-        : await this.projectAccess.listAccessibleProjectIds(user);
-    const projectFilter = buildTicketProjectListFilter(
-      changes.projectId,
-      user.role,
-      accessibleIds,
-    );
-    if (projectFilter) conditions.push(projectFilter);
+    if (user.role === "Manager" || user.role === "Agent") {
+      const scope = await this.projectAccess.ticketProjectScope(
+        user,
+        changes.projectId,
+      );
+      if (scope) conditions.push(scope);
+    }
 
-    const rows = conditions.length
-      ? await this.db
-          .select({
-            id: changes.id,
-            title: changes.title,
-            description: changes.description,
-            type: changes.type,
-            status: changes.status,
-            scheduledStart: changes.scheduledStart,
-            scheduledEnd: changes.scheduledEnd,
-            rollbackPlan: changes.rollbackPlan,
-            createdBy: changes.createdBy,
-            createdByName: users.name,
-            approvedBy: changes.approvedBy,
-            createdAt: changes.createdAt,
-          })
-          .from(changes)
-          .leftJoin(users, eq(changes.createdBy, users.id))
-          .where(and(...conditions))
-          .orderBy(desc(changes.createdAt))
-      : await this.db
-          .select({
-            id: changes.id,
-            title: changes.title,
-            description: changes.description,
-            type: changes.type,
-            status: changes.status,
-            scheduledStart: changes.scheduledStart,
-            scheduledEnd: changes.scheduledEnd,
-            rollbackPlan: changes.rollbackPlan,
-            createdBy: changes.createdBy,
-            createdByName: users.name,
-            approvedBy: changes.approvedBy,
-            createdAt: changes.createdAt,
-          })
-          .from(changes)
-          .leftJoin(users, eq(changes.createdBy, users.id))
-          .orderBy(desc(changes.createdAt));
+    const rows =
+      conditions.length > 0
+        ? await this.baseQuery()
+            .where(and(...conditions))
+            .orderBy(desc(changes.createdAt))
+        : await this.baseQuery().orderBy(desc(changes.createdAt));
 
     return { data: rows.map((row) => this.mapRow(row)) };
   }
 
   async get(user: AuthUser, id: string) {
-    const [row] = await this.db
-      .select({
-        id: changes.id,
-        title: changes.title,
-        description: changes.description,
-        type: changes.type,
-        status: changes.status,
-        scheduledStart: changes.scheduledStart,
-        scheduledEnd: changes.scheduledEnd,
-        rollbackPlan: changes.rollbackPlan,
-        createdBy: changes.createdBy,
-        createdByName: users.name,
-        approvedBy: changes.approvedBy,
-        createdAt: changes.createdAt,
-        projectId: changes.projectId,
-      })
-      .from(changes)
-      .leftJoin(users, eq(changes.createdBy, users.id))
-      .where(eq(changes.id, id))
-      .limit(1);
+    const [row] = await this.baseQuery().where(eq(changes.id, id)).limit(1);
 
     if (!row) throw new NotFoundException("Change not found");
-    await this.assertCanAccessTicket(user, row.projectId);
+    await this.projectAccess.assertCanViewTicket(user, row.projectId);
     return this.mapRow(row);
   }
 
@@ -270,6 +280,7 @@ export class ChangesService {
       .where(eq(changes.id, id))
       .limit(1);
     if (!existing) throw new NotFoundException("Change not found");
+
     await this.projectAccess.assertCanApprove(user, existing.projectId);
 
     const apiStatus = DB_TO_API_STATUS[existing.status] ?? existing.status;
@@ -338,7 +349,7 @@ export class ChangesService {
       .where(eq(changes.id, id))
       .limit(1);
     if (!existing) throw new NotFoundException("Change not found");
-    await this.assertCanAccessTicket(user, existing.projectId);
+    await this.projectAccess.assertCanViewTicket(user, existing.projectId);
 
     const patch: Partial<typeof changes.$inferInsert> = {
       updatedAt: new Date(),
@@ -392,17 +403,6 @@ export class ChangesService {
       throw new BadRequestException("scheduledEnd must be after scheduledStart");
     }
 
-    if (dto.projectId !== undefined || dto.moduleId !== undefined) {
-      const scope = await this.projectScope.resolveTicketProjectScope({
-        projectId: dto.projectId,
-        moduleId: dto.moduleId,
-        existingProjectId: existing.projectId,
-        existingModuleId: existing.moduleId,
-      });
-      patch.projectId = scope.projectId;
-      patch.moduleId = scope.moduleId;
-    }
-
     await this.db.update(changes).set(patch).where(eq(changes.id, id));
 
     if (dto.status === "Approved") {
@@ -421,18 +421,5 @@ export class ChangesService {
     }
 
     return this.get(user, id);
-  }
-
-  private async assertCanAccessTicket(
-    user: AuthUser,
-    projectId: string | null,
-  ) {
-    if (user.role === "Admin") return;
-    if (user.role === "Agent" && (projectId == null || projectId === "")) {
-      return;
-    }
-    if (!(await this.projectAccess.canAccess(user, projectId))) {
-      throw new ForbiddenException("Cannot access this change");
-    }
   }
 }

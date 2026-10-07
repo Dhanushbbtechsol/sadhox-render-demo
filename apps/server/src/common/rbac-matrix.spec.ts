@@ -23,6 +23,7 @@ import { RolesGuard } from "./guards/roles.guard";
 import type { UserRole } from "./types/roles";
 import { DrizzleHealthIndicator } from "../health/drizzle.health";
 import { HealthController } from "../health/health.controller";
+import { ManagerDashboardController } from "../projects/manager-dashboard.controller";
 import { RedisHealthIndicator } from "../health/redis.health";
 import { IncidentsController } from "../incidents/incidents.controller";
 import { IncidentsService } from "../incidents/incidents.service";
@@ -30,14 +31,14 @@ import { KnowledgeController } from "../knowledge/knowledge.controller";
 import { KnowledgeService } from "../knowledge/knowledge.service";
 import { ProblemsController } from "../problems/problems.controller";
 import { ProblemsService } from "../problems/problems.service";
-import { ServiceCatalogController } from "../service-catalog/service-catalog.controller";
-import { ServiceCatalogService } from "../service-catalog/service-catalog.service";
-import { ServiceRequestsController } from "../service-requests/service-requests.controller";
-import { ServiceRequestsService } from "../service-requests/service-requests.service";
 import { AssignmentController } from "../assignment/assignment.controller";
 import { AssignmentService } from "../assignment/assignment.service";
 import { ProjectsController } from "../projects/projects.controller";
 import { ProjectsService } from "../projects/projects.service";
+import { ServiceCatalogController } from "../service-catalog/service-catalog.controller";
+import { ServiceCatalogService } from "../service-catalog/service-catalog.service";
+import { ServiceRequestsController } from "../service-requests/service-requests.controller";
+import { ServiceRequestsService } from "../service-requests/service-requests.service";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const ALL_ROLES: UserRole[] = ["Admin", "Agent", "EndUser", "Manager"];
@@ -98,6 +99,58 @@ const MATRIX: MatrixRow[] = [
   },
   {
     method: "get",
+    path: "/assignment/agents",
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  {
+    method: "get",
+    path: "/projects",
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
+  },
+  { method: "post", path: "/projects", allowed: ["Admin"] },
+  {
+    method: "get",
+    path: `/projects/${ID}`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  { method: "patch", path: `/projects/${ID}`, allowed: ["Admin"] },
+  { method: "delete", path: `/projects/${ID}`, allowed: ["Admin"] },
+  {
+    method: "get",
+    path: `/projects/${ID}/members`,
+    allowed: ["Admin", "Agent", "Manager"],
+  },
+  { method: "post", path: `/projects/${ID}/members`, allowed: ["Admin"] },
+  {
+    method: "delete",
+    path: `/projects/${ID}/members/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "get",
+    path: `/projects/${ID}/modules`,
+    allowed: ["Admin", "Agent", "EndUser", "Manager"],
+  },
+  { method: "post", path: `/projects/${ID}/modules`, allowed: ["Admin"] },
+  {
+    method: "patch",
+    path: `/projects/${ID}/modules/${ID}`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "delete",
+    path: `/projects/${ID}/modules/${ID}`,
+    allowed: ["Admin"],
+  },
+  { method: "get", path: "/manager/dashboard/stats", allowed: ["Manager"] },
+  { method: "get", path: "/manager/dashboard/charts", allowed: ["Manager"] },
+  {
+    method: "patch",
+    path: `/admin/users/${ID}/role`,
+    allowed: ["Admin"],
+  },
+  {
+    method: "get",
     path: "/service-requests",
     allowed: ["Admin", "Agent", "EndUser", "Manager"],
   },
@@ -149,11 +202,6 @@ const MATRIX: MatrixRow[] = [
     method: "get",
     path: "/service-catalog",
     allowed: ["Admin", "Agent", "EndUser", "Manager"],
-  },
-  {
-    method: "get",
-    path: "/assignment/agents",
-    allowed: ["Admin", "Agent", "Manager"],
   },
   { method: "post", path: "/service-catalog", allowed: ["Admin"] },
   {
@@ -225,53 +273,7 @@ const MATRIX: MatrixRow[] = [
   { method: "get", path: "/admin/sla-rules", allowed: ["Admin"] },
   { method: "patch", path: "/admin/sla-rules", allowed: ["Admin"] },
   { method: "patch", path: "/admin/sla-rules/P1", allowed: ["Admin"] },
-  {
-    method: "patch",
-    path: `/admin/users/${ID}/role`,
-    allowed: ["Admin"],
-  },
   { method: "get", path: "/health/ready", allowed: ["Admin"] },
-  // Phase 6 — projects
-  {
-    method: "get",
-    path: "/projects",
-    allowed: ["Admin", "Manager", "Agent", "EndUser"],
-  },
-  { method: "post", path: "/projects", allowed: ["Admin"] },
-  {
-    method: "get",
-    path: `/projects/${ID}`,
-    allowed: ["Admin", "Manager", "Agent"],
-  },
-  { method: "patch", path: `/projects/${ID}`, allowed: ["Admin"] },
-  { method: "delete", path: `/projects/${ID}`, allowed: ["Admin"] },
-  {
-    method: "get",
-    path: `/projects/${ID}/members`,
-    allowed: ["Admin", "Manager", "Agent"],
-  },
-  { method: "post", path: `/projects/${ID}/members`, allowed: ["Admin"] },
-  {
-    method: "delete",
-    path: `/projects/${ID}/members/${ID}`,
-    allowed: ["Admin"],
-  },
-  {
-    method: "get",
-    path: `/projects/${ID}/modules`,
-    allowed: ["Admin", "Manager", "Agent", "EndUser"],
-  },
-  { method: "post", path: `/projects/${ID}/modules`, allowed: ["Admin"] },
-  {
-    method: "patch",
-    path: `/projects/${ID}/modules/${ID}`,
-    allowed: ["Admin"],
-  },
-  {
-    method: "delete",
-    path: `/projects/${ID}/modules/${ID}`,
-    allowed: ["Admin"],
-  },
 ];
 
 function stubService(methods: string[]) {
@@ -320,14 +322,15 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         HealthController,
         IncidentsController,
         ProblemsController,
+        ProjectsController,
+        AssignmentController,
         ServiceRequestsController,
         ChangesController,
         AssetsController,
         ServiceCatalogController,
         KnowledgeController,
-        ProjectsController,
-        AssignmentController,
         AdminController,
+        ManagerDashboardController,
       ],
       providers: [
         {
@@ -368,7 +371,36 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         },
         {
           provide: ProblemsService,
-          useValue: stubService(["list", "get", "create", "update"]),
+          useValue: stubService([
+            "list",
+            "get",
+            "create",
+            "update",
+            "linkIncident",
+          ]),
+        },
+        {
+          provide: ProjectsService,
+          useValue: stubService([
+            "list",
+            "get",
+            "create",
+            "update",
+            "remove",
+            "listModules",
+            "createModule",
+            "updateModule",
+            "removeModule",
+            "listMembers",
+            "addMember",
+            "removeMember",
+            "managerDashboardStats",
+            "managerCharts",
+          ]),
+        },
+        {
+          provide: AssignmentService,
+          useValue: stubService(["listAgents"]),
         },
         {
           provide: ServiceRequestsService,
@@ -433,27 +465,6 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "updateSlaRule",
             "updateUserRole",
           ]),
-        },
-        {
-          provide: ProjectsService,
-          useValue: stubService([
-            "list",
-            "getById",
-            "create",
-            "update",
-            "remove",
-            "listMembers",
-            "addMember",
-            "removeMember",
-            "listModules",
-            "createModule",
-            "updateModule",
-            "removeModule",
-          ]),
-        },
-        {
-          provide: AssignmentService,
-          useValue: stubService(["listAgents"]),
         },
       ],
     }).compile();

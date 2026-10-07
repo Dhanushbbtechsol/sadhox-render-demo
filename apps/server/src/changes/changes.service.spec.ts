@@ -45,6 +45,27 @@ function createDbMock(existing: Record<string, unknown>) {
   };
 }
 
+function createProjectAccessMock() {
+  return {
+    assertCanViewTicket: vi.fn().mockResolvedValue(undefined),
+    assertCanApprove: vi.fn().mockImplementation(async (user: { role: string }) => {
+      if (user.role !== "Admin" && user.role !== "Manager") {
+        throw new ForbiddenException("Admin or Manager role required");
+      }
+    }),
+    ticketProjectScope: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+function createProjectsServiceMock() {
+  return {
+    resolveTicketProjectFields: vi.fn().mockResolvedValue({
+      projectId: null,
+      moduleId: null,
+    }),
+  };
+}
+
 describe("ChangesService.update Admin gates", () => {
   const agent = {
     userId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -70,6 +91,8 @@ describe("ChangesService.update Admin gates", () => {
     rollbackPlan: "rollback",
     createdBy: agent.userId,
     approvedBy: null,
+    projectId: null,
+    moduleId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -82,18 +105,11 @@ describe("ChangesService.update Admin gates", () => {
 
   it("rejects Submitted → Scheduled as invalid transition (no approval skip)", async () => {
     const db = createDbMock(submitted);
-    const projectScope = {
-      resolveTicketProjectScope: vi.fn(),
-    };
     const service = new ChangesService(
       db as never,
       { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      projectScope as never,
-      {
-        listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
-        canAccess: vi.fn().mockResolvedValue(true),
-        assertCanApprove: vi.fn().mockResolvedValue(undefined),
-      } as never,
+      createProjectAccessMock() as never,
+      createProjectsServiceMock() as never,
     );
     await expect(
       service.update(agent, submitted.id as string, { status: "Scheduled" }),
@@ -105,12 +121,8 @@ describe("ChangesService.update Admin gates", () => {
     const service = new ChangesService(
       db as never,
       { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      { resolveTicketProjectScope: vi.fn() } as never,
-      {
-        listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
-        canAccess: vi.fn().mockResolvedValue(true),
-        assertCanApprove: vi.fn().mockResolvedValue(undefined),
-      } as never,
+      createProjectAccessMock() as never,
+      createProjectsServiceMock() as never,
     );
     await expect(
       service.update(agent, approved.id as string, { status: "Scheduled" }),
@@ -122,14 +134,8 @@ describe("ChangesService.update Admin gates", () => {
     const service = new ChangesService(
       db as never,
       { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      { resolveTicketProjectScope: vi.fn() } as never,
-      {
-        listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
-        canAccess: vi.fn().mockResolvedValue(true),
-        assertCanApprove: vi.fn().mockRejectedValue(
-          new ForbiddenException("Not allowed to approve for this project"),
-        ),
-      } as never,
+      createProjectAccessMock() as never,
+      createProjectsServiceMock() as never,
     );
     await expect(
       service.update(agent, submitted.id as string, { status: "Approved" }),
@@ -141,14 +147,8 @@ describe("ChangesService.update Admin gates", () => {
     const service = new ChangesService(
       db as never,
       { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      { resolveTicketProjectScope: vi.fn() } as never,
-      {
-        listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
-        canAccess: vi.fn().mockResolvedValue(true),
-        assertCanApprove: vi.fn().mockRejectedValue(
-          new ForbiddenException("Not allowed to approve for this project"),
-        ),
-      } as never,
+      createProjectAccessMock() as never,
+      createProjectsServiceMock() as never,
     );
     await expect(
       service.update(agent, submitted.id as string, { status: "Rolled Back" }),
@@ -170,22 +170,30 @@ describe("ChangesService.update Admin gates", () => {
           })),
         };
       }
+      const mapped = {
+        ...approved,
+        status: "Scheduled",
+        createdByName: "Admin",
+        description: "d",
+        rollbackPlan: "rollback",
+        scheduledStart: approved.scheduledStart,
+        scheduledEnd: approved.scheduledEnd,
+        createdAt: approved.createdAt,
+        projectId: null,
+        projectName: null,
+        moduleId: null,
+        moduleName: null,
+      };
+      const afterJoins = {
+        where: vi.fn(() => ({
+          limit: vi.fn(async () => [mapped]),
+        })),
+      };
       return {
         from: vi.fn(() => ({
           leftJoin: vi.fn(() => ({
-            where: vi.fn(() => ({
-              limit: vi.fn(async () => [
-                {
-                  ...approved,
-                  status: "Scheduled",
-                  createdByName: "Admin",
-                  description: "d",
-                  rollbackPlan: "rollback",
-                  scheduledStart: approved.scheduledStart,
-                  scheduledEnd: approved.scheduledEnd,
-                  createdAt: approved.createdAt,
-                },
-              ]),
+            leftJoin: vi.fn(() => ({
+              leftJoin: vi.fn(() => afterJoins),
             })),
           })),
         })),
@@ -195,17 +203,39 @@ describe("ChangesService.update Admin gates", () => {
     const service = new ChangesService(
       db as never,
       { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      { resolveTicketProjectScope: vi.fn() } as never,
-      {
-        listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
-        canAccess: vi.fn().mockResolvedValue(true),
-        assertCanApprove: vi.fn().mockResolvedValue(undefined),
-      } as never,
+      createProjectAccessMock() as never,
+      createProjectsServiceMock() as never,
     );
     const result = await service.update(admin, approved.id as string, {
       status: "Scheduled",
     });
     expect(result.status).toBe("Scheduled");
     expect(db.update).toHaveBeenCalled();
+  });
+
+  it("rejects Agent create with foreign projectId (A01/A04)", async () => {
+    const projectsService = {
+      resolveTicketProjectFields: vi.fn().mockRejectedValue(
+        new ForbiddenException("Cannot access this project"),
+      ),
+    };
+    const service = new ChangesService(
+      {} as never,
+      { sendApprovalOutcome: vi.fn() } as never,
+      createProjectAccessMock() as never,
+      projectsService as never,
+    );
+    await expect(
+      service.create(agent, {
+        title: "x",
+        description: "y",
+        type: "Standard",
+        scheduledStart: "2030-01-01T10:00:00.000Z",
+        scheduledEnd: "2030-01-01T12:00:00.000Z",
+        rollbackPlan: "",
+        projectId: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(projectsService.resolveTicketProjectFields).toHaveBeenCalled();
   });
 });

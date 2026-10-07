@@ -1,12 +1,13 @@
-import { ServiceUnavailableException } from "@nestjs/common";
+import { ForbiddenException, ServiceUnavailableException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { AssignmentService } from "./assignment.service";
+
+const accessStub = { assertCanAccess: vi.fn().mockResolvedValue(undefined) };
 
 describe("AssignmentService project pool (Phase 6 Day 28)", () => {
   it("uses project_members when ticket has project_id", async () => {
     const memberAgent = "agent-in-project";
     const queue: Array<() => unknown> = [
-      // ticket lock
       () => ({
         from: () => ({
           where: () => ({
@@ -18,7 +19,6 @@ describe("AssignmentService project pool (Phase 6 Day 28)", () => {
           }),
         }),
       }),
-      // project_members Agents
       () => ({
         from: () => ({
           innerJoin: () => ({
@@ -30,7 +30,6 @@ describe("AssignmentService project pool (Phase 6 Day 28)", () => {
           }),
         }),
       }),
-      // incident loads
       () => ({
         from: () => ({
           where: () => ({
@@ -38,7 +37,6 @@ describe("AssignmentService project pool (Phase 6 Day 28)", () => {
           }),
         }),
       }),
-      // problem loads
       () => ({
         from: () => ({
           where: () => ({
@@ -46,7 +44,6 @@ describe("AssignmentService project pool (Phase 6 Day 28)", () => {
           }),
         }),
       }),
-      // agent snippet
       () => ({
         from: () => ({
           where: () => ({
@@ -77,9 +74,7 @@ describe("AssignmentService project pool (Phase 6 Day 28)", () => {
       }),
     };
 
-    const service = new AssignmentService(db as never, {
-      assertCanAccess: vi.fn(),
-    } as never);
+    const service = new AssignmentService(db as never, accessStub as never);
     const result = await service.assignNextAgent("t1");
     expect(result.id).toBe(memberAgent);
   });
@@ -123,13 +118,15 @@ describe("AssignmentService project pool (Phase 6 Day 28)", () => {
       }),
     });
 
-    const access = { assertCanAccess: vi.fn() } as never;
-    const service = new AssignmentService(makeDb() as never, access);
+    const service = new AssignmentService(makeDb() as never, accessStub as never);
     await expect(service.assignNextAgent("t1")).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
 
-    const service2 = new AssignmentService(makeDb() as never, access);
+    const service2 = new AssignmentService(
+      makeDb() as never,
+      accessStub as never,
+    );
     await expect(service2.assignNextAgent("t1")).rejects.toThrow(
       /No project members available/,
     );
@@ -196,7 +193,6 @@ describe("AssignmentService.listAgents project ACL (Phase 6 audit)", () => {
   });
 
   it("propagates 403 when assertCanAccess denies foreign project", async () => {
-    const { ForbiddenException } = await import("@nestjs/common");
     const assertCanAccess = vi
       .fn()
       .mockRejectedValue(new ForbiddenException("Cannot access this project"));
@@ -204,8 +200,8 @@ describe("AssignmentService.listAgents project ACL (Phase 6 audit)", () => {
       assertCanAccess,
     } as never);
 
-    await expect(service.listAgents(agent, "proj-foreign")).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    await expect(
+      service.listAgents(agent, "proj-foreign"),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

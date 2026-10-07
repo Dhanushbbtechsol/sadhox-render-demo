@@ -24,8 +24,7 @@ import {
 import { EventsService } from "../events/events.service";
 import { MailService } from "../mail/mail.service";
 import { ProjectAccessService } from "../projects/project-access.service";
-import { buildTicketProjectListFilter } from "../projects/project-list-scope";
-import { ProjectScopeService } from "../projects/project-scope.service";
+import { ProjectsService } from "../projects/projects.service";
 import type {
   AssignIncidentDto,
   CreateCommentDto,
@@ -59,6 +58,8 @@ export type IncidentListItem = {
   assigneeName: string | null;
   reporterId: string;
   reporterName: string | null;
+  projectId: string | null;
+  moduleId: string | null;
   slaDueAt: string | null;
   slaBreached: boolean;
   resolutionNotes: string | null;
@@ -93,18 +94,14 @@ export class IncidentsService {
     private readonly assignment: AssignmentService,
     private readonly mail: MailService,
     private readonly assets: AssetsService,
-    private readonly projectScope: ProjectScopeService,
     private readonly projectAccess: ProjectAccessService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async list(user: AuthUser, query: ListIncidentsQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const accessibleIds =
-      user.role === "Admin" || user.role === "EndUser"
-        ? null
-        : await this.projectAccess.listAccessibleProjectIds(user);
-    const filters = this.buildFilters(user, query, accessibleIds);
+    const filters = await this.buildFilters(user, query);
 
     const [totalRow] = await this.db
       .select({ total: count() })
@@ -197,10 +194,12 @@ export class IncidentsService {
       now,
       resolveMinutes,
     );
-    const scope = await this.projectScope.resolveTicketProjectScope({
-      projectId: dto.projectId,
-      moduleId: dto.moduleId,
-    });
+
+    const scope = await this.projectsService.resolveTicketProjectFields(
+      user,
+      dto.projectId,
+      dto.moduleId,
+    );
 
     const [created] = await this.db
       .insert(incidents)
@@ -213,10 +212,10 @@ export class IncidentsService {
         priority,
         status: "New",
         reporterId: user.userId,
-        slaDueAt,
-        slaBreached: false,
         projectId: scope.projectId,
         moduleId: scope.moduleId,
+        slaDueAt,
+        slaBreached: false,
         createdAt: now,
         updatedAt: now,
       })
@@ -232,9 +231,8 @@ export class IncidentsService {
 
     const existing = await this.loadIncidentRow(id);
     if (!existing) throw new NotFoundException("Incident not found");
-    await this.assertCanRead(
+    await this.projectAccess.assertCanAccessTicketProject(
       user,
-      existing.incident.reporterId,
       existing.incident.projectId,
     );
 
@@ -314,11 +312,26 @@ export class IncidentsService {
 
     const existing = await this.loadIncidentRow(id);
     if (!existing) throw new NotFoundException("Incident not found");
-    await this.assertCanRead(
+    await this.projectAccess.assertCanAccessTicketProject(
       user,
-      existing.incident.reporterId,
       existing.incident.projectId,
     );
+
+    let nextProjectId = existing.incident.projectId;
+    let nextModuleId = existing.incident.moduleId;
+    if (dto.projectId !== undefined || dto.moduleId !== undefined) {
+      const scope = await this.projectsService.resolveTicketProjectFields(
+        user,
+        dto.projectId !== undefined
+          ? dto.projectId
+          : existing.incident.projectId,
+        dto.moduleId !== undefined
+          ? dto.moduleId
+          : existing.incident.moduleId,
+      );
+      nextProjectId = scope.projectId;
+      nextModuleId = scope.moduleId;
+    }
 
     const impact = dto.impact ?? existing.incident.impact;
     const urgency = dto.urgency ?? existing.incident.urgency;
@@ -382,15 +395,12 @@ export class IncidentsService {
       closedAt = null;
     }
 
-    const scope = await this.projectScope.resolveTicketProjectScope({
-      projectId: dto.projectId,
-      moduleId: dto.moduleId,
-      existingProjectId: existing.incident.projectId,
-      existingModuleId: existing.incident.moduleId,
-    });
-
-    if (dto.assignedTo !== undefined && dto.assignedTo !== null) {
-      await this.assertAssigneeInPool(dto.assignedTo, scope.projectId);
+    const nextAssignee =
+      dto.assignedTo !== undefined
+        ? dto.assignedTo
+        : existing.incident.assignedTo;
+    if (nextAssignee) {
+      await this.assertAssigneeInPool(nextAssignee, nextProjectId);
     }
 
     // Assigning via PATCH on New auto-moves to Assigned (same lifecycle rule).
@@ -418,7 +428,7 @@ export class IncidentsService {
           ? { assignedTo: dto.assignedTo }
           : {}),
         ...(dto.projectId !== undefined || dto.moduleId !== undefined
-          ? { projectId: scope.projectId, moduleId: scope.moduleId }
+          ? { projectId: nextProjectId, moduleId: nextModuleId }
           : {}),
         resolutionNotes,
         priority,
@@ -509,16 +519,21 @@ export class IncidentsService {
     return view;
   }
 
-  private buildFilters(
+  private async buildFilters(
     user: AuthUser,
     query: ListIncidentsQueryDto,
-    accessibleIds: string[] | null,
-  ): SQL | undefined {
+  ): Promise<SQL | undefined> {
     const parts: SQL[] = [];
 
     if (user.role === "EndUser") {
       parts.push(eq(incidents.reporterId, user.userId));
     } else {
+      const projectScope = await this.projectAccess.ticketProjectScope(
+        user,
+        incidents.projectId,
+      );
+      if (projectScope) parts.push(projectScope);
+
       if (query.reporterId) {
         parts.push(eq(incidents.reporterId, query.reporterId));
       }
@@ -529,13 +544,6 @@ export class IncidentsService {
 
     if (query.status) parts.push(eq(incidents.status, query.status));
     if (query.priority) parts.push(eq(incidents.priority, query.priority));
-
-    const projectFilter = buildTicketProjectListFilter(
-      incidents.projectId,
-      user.role,
-      accessibleIds,
-    );
-    if (projectFilter) parts.push(projectFilter);
 
     if (parts.length === 0) return undefined;
     if (parts.length === 1) return parts[0];
@@ -615,6 +623,8 @@ export class IncidentsService {
       assigneeName,
       reporterId: row.reporterId,
       reporterName,
+      projectId: row.projectId,
+      moduleId: row.moduleId,
       slaDueAt: row.slaDueAt?.toISOString() ?? null,
       slaBreached: row.slaBreached,
       resolutionNotes: row.resolutionNotes,
@@ -636,14 +646,7 @@ export class IncidentsService {
       }
       return;
     }
-    if (user.role === "Admin") return;
-    // Agent may access null-project (global) tickets — matches list filter.
-    if (user.role === "Agent" && (projectId == null || projectId === "")) {
-      return;
-    }
-    if (!(await this.projectAccess.canAccess(user, projectId))) {
-      throw new ForbiddenException("Cannot access this incident");
-    }
+    await this.projectAccess.assertCanAccessTicketProject(user, projectId);
   }
 
   private async lookupResolveMinutes(priority: Priority) {

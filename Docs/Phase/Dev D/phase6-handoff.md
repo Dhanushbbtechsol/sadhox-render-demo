@@ -73,11 +73,13 @@ DTO field shapes follow the live Swagger document; path/method/role freeze is th
 
 ---
 
-## Admin role update (promotion cleanup)
+## Admin users (partial)
 
 | Path | Roles | Notes |
 | --- | --- | --- |
-| `PATCH /admin/users/:id/role` | Admin | body `{ role }`. **Promoting to Manager deletes that user's `project_members` in the same DB transaction.** |
+| `GET /admin/users?role=` | Admin | landed — pickers |
+| `PATCH /admin/users/:id/role` | Admin | landed — **Promoting to Manager deletes that user's `project_members` in the same DB transaction.** |
+| `POST` / `GET` / `PATCH /admin/users` (+ `/:id`) | Admin | **open — full User Management** (see [../phase6.md](../phase6.md)) |
 
 Seed Manager (idempotent): `manager@sadhox.local`.
 
@@ -95,7 +97,7 @@ Optional on create/update: `projectId`, `moduleId` (module must belong to projec
 | --- | --- |
 | **A** | Incident/Problem `projectId`/`moduleId` + scoped lists; assignment UI uses `?projectId=` / project pool |
 | **B** | Request/Change project fields; Manager-alongside-Admin approve UX |
-| **C** | Admin project CRUD; Manager home/scoped dashboard filters; role gates |
+| **C** | Admin project CRUD; Manager home; **Admin `/admin/users` UI** (after user CRUD APIs) |
 
 ---
 

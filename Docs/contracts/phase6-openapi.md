@@ -1,6 +1,6 @@
 # Phase 6 API contract freeze (Dev D → Devs A / B / C)
 
-**Frozen:** 2026-10-07 (roles synced to live controllers after Phase 6 audit remediations)  
+**Frozen:** 2026-10-07  
 **Runtime Swagger UI:** `http://localhost:3000/docs` (`NODE_ENV !== production`)  
 **Handoff narrative:** [Docs/Phase/Dev D/phase6-handoff.md](../Phase/Dev%20D/phase6-handoff.md)  
 **Design authority:** [Docs/Phase/phase6.md](../Phase/phase6.md)
@@ -14,30 +14,36 @@ This document freezes the Phase 6 surfaces for client wiring. Request/response f
 | Admin | all | all (including `projectId = null`) | global Agents when ticket has no project |
 | Manager | `projects.manager_id = self` | only projects they own; **null project → Admin-only** | n/a (Managers are not assignees) |
 | Agent | `project_members` rows | no | ticket `projectId` set → that project's members; else global Agents |
-| EndUser | picker: all project `id`+`name` (no manager identities); own tickets | no | n/a |
+| EndUser | n/a (own tickets) | no | n/a |
 
 ## Projects (`/projects`)
 
 | Method | Path | Roles | Notes |
 | --- | --- | --- | --- |
 | POST | `/projects` | Admin | body: `name`, `managerId` (must be role Manager) |
-| GET | `/projects` | Admin, Manager, Agent, EndUser | Admin: all full; Manager/Agent: accessible full; EndUser: `{ id, name }` only |
-| GET | `/projects/:id` | Admin, Manager, Agent | requires `canAccess` for non-Admin |
+| GET | `/projects` | Admin, Manager, Agent, EndUser | Admin: all; Manager/Agent: accessible; EndUser: `{ id, name }` picker only |
+| GET | `/projects/:id` | Admin, Manager | Manager requires access |
 | PATCH | `/projects/:id` | Admin | `name?`, `managerId?` |
 | DELETE | `/projects/:id` | Admin | |
-| GET | `/projects/:id/members` | Admin, Manager, Agent | access-checked |
+| GET | `/projects/:id/members` | Admin, Manager | |
 | POST | `/projects/:id/members` | Admin | body `{ userId }` — **Agent only** |
 | DELETE | `/projects/:id/members/:userId` | Admin | |
-| GET | `/projects/:id/modules` | Admin, Manager, Agent, EndUser | EndUser: project exists + `{ id, name, projectId }`; others access-checked |
+| GET | `/projects/:id/modules` | Admin, Manager, Agent, EndUser | EndUser: existence + `{ id, name, projectId }` picker |
 | POST | `/projects/:id/modules` | Admin | body `{ name }` |
 | PATCH | `/projects/:id/modules/:moduleId` | Admin | body `{ name }` |
 | DELETE | `/projects/:id/modules/:moduleId` | Admin | |
 
-## Admin user role (`/admin`)
+## Admin users (`/admin/users`) — User Management
 
-| Method | Path | Roles | Notes |
-| --- | --- | --- | --- |
-| PATCH | `/admin/users/:id/role` | Admin | body `{ role }` ∈ Admin\|Agent\|EndUser\|Manager. **Promoting to Manager deletes that user's `project_members` rows in the same transaction.** |
+| Method | Path | Roles | Status | Notes |
+| --- | --- | --- | --- | --- |
+| GET | `/admin/users` | Admin | landed (pickers) | optional `?role=`; `{ data }` **no** password hashes |
+| POST | `/admin/users` | Admin | **open** | body `name`, `email`, `password`, `role`; unique email → 409 |
+| GET | `/admin/users/:id` | Admin | **open** | same public fields as list row |
+| PATCH | `/admin/users/:id` | Admin | **open** | `name?`, `email?`, `password?`, `role?`; role→Manager clears `project_members` |
+| PATCH | `/admin/users/:id/role` | Admin | landed | thin role-only write; prefer folding into PATCH body when clients move |
+
+Non-Admin → 403; unauthenticated → 401. UI: Admin `/admin/users` (Dev C).
 
 ## Ticket project/module fields
 
@@ -71,18 +77,17 @@ Shared helper: `buildTicketProjectListFilter` + `ProjectAccessService.listAccess
 
 | Method | Path | Roles | Notes |
 | --- | --- | --- | --- |
-| GET | `/assignment/agents` | Admin, Agent, Manager | query `projectId?` — when set, pool = project_members Agents **and** caller must `assertCanAccess` that project |
+| GET | `/assignment/agents` | Admin, Agent, Manager | query `projectId?` — when set, `assertCanAccess` then pool = project_members Agents only |
 | (internal) | `assignNextAgent(ticketId)` | — | reads incident `projectId`; scoped pool vs global Agents |
 
 ## Helpers for consumers
 
 | Helper | Location | Use |
 | --- | --- | --- |
-| `ProjectAccessService.canAccess` / `assertCanAccess` | `apps/server/src/projects/project-access.service.ts` | resource ACL (OR of manager_id + membership) |
+| `ProjectAccessService.canAccess` | `apps/server/src/projects/project-access.service.ts` | resource ACL (OR of manager_id + membership) |
 | `ProjectAccessService.canApprove` / `assertCanApprove` | same | approval ownership (manager_id only) |
 | `listAccessibleProjectIds` | same | list filters |
 | `buildTicketProjectListFilter` | `apps/server/src/projects/project-list-scope.ts` | SQL predicate for ticket lists |
-| `ProjectScopeService.resolveTicketProjectScope` | `apps/server/src/projects/project-scope.service.ts` | module ∈ project validation |
 
 ## Explicitly not frozen / out of scope
 
@@ -90,4 +95,5 @@ Shared helper: `buildTicketProjectListFilter` + `ProjectAccessService.listAccess
 - Rebuilding Knowledge Base  
 - Org-chart `users.manager_id`  
 - Manager as ticket assignee via membership  
-- Staging/TL migrate without explicit go-ahead (deferred to production go-live)
+- Manager/Agent user CRUD; soft-delete / `is_active`  
+- Staging/TL migrate without explicit go-ahead (Day 30)

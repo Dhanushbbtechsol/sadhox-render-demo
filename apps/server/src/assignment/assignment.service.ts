@@ -87,7 +87,7 @@ export class AssignmentService {
   /**
    * List agents eligible for assignment.
    * When `projectId` is set, pool is that project's members only —
-   * caller must canAccess the project (no IDOR across foreign pools).
+   * caller must canAccess the project (no foreign-pool IDOR).
    */
   async listAgents(
     user: AuthUser,

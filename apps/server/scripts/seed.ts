@@ -30,6 +30,8 @@ import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
 const SHOWCASE_PREFIX = "[Showcase]";
 const PHASE6_PROJECT_ID = "a1000000-0000-4000-8000-000000000001";
 const PHASE6_MODULE_ID = "a1000000-0000-4000-8000-000000000002";
+// Second project owned by Admin — Manager/Agent must not see its tickets in scoped lists.
+const PHASE6_OTHER_PROJECT_ID = "a1000000-0000-4000-8000-000000000003";
 
 async function seed() {
   const url = process.env.DATABASE_URL;
@@ -152,7 +154,6 @@ async function seed() {
   await attachShowcaseIncidentsToProject(db);
   await seedPhase4Assets(db);
   await seedKnowledgeBase(db);
-  await seedPhase6Projects(db);
 
   await client.end();
   console.log("Seed complete");
@@ -168,6 +169,11 @@ async function seedPhase6Projects(db: SeedDb) {
     .select()
     .from(users)
     .where(eq(users.email, "agent@sadhox.local"))
+    .limit(1);
+  const [admin] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "admin@sadhox.local"))
     .limit(1);
 
   if (!manager || !agent) {
@@ -192,23 +198,11 @@ async function seedPhase6Projects(db: SeedDb) {
     console.log("skip existing project Core Platform");
   }
 
-  const [member] = await db
-    .select()
-    .from(projectMembers)
-    .where(
-      and(
-        eq(projectMembers.projectId, PHASE6_PROJECT_ID),
-        eq(projectMembers.userId, agent.id),
-      ),
-    )
-    .limit(1);
-  if (!member) {
-    await db.insert(projectMembers).values({
-      projectId: PHASE6_PROJECT_ID,
-      userId: agent.id,
-    });
-    console.log("added Alice Agent to Core Platform");
-  }
+  await db
+    .insert(projectMembers)
+    .values({ projectId: PHASE6_PROJECT_ID, userId: agent.id })
+    .onConflictDoNothing();
+  console.log("ensured agent membership on Core Platform");
 
   const [mod] = await db
     .select()
@@ -222,6 +216,22 @@ async function seedPhase6Projects(db: SeedDb) {
       name: "API",
     });
     console.log("created module API under Core Platform");
+  }
+
+  if (admin) {
+    const [other] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(eq(projects.id, PHASE6_OTHER_PROJECT_ID))
+      .limit(1);
+    if (!other) {
+      await db.insert(projects).values({
+        id: PHASE6_OTHER_PROJECT_ID,
+        name: "Shared Infra",
+        managerId: admin.id,
+      });
+      console.log("created project Shared Infra (Admin-owned, for ACL QA)");
+    }
   }
 }
 
@@ -639,89 +649,6 @@ async function seedPhase4Assets(db: SeedDb) {
   }
 
   console.log(`phase4 assets seeded: ${rows.length} (prefix ${ASSET_SEED_PREFIX})`);
-}
-
-async function seedPhase6Projects(db: SeedDb) {
-  const [manager] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, "manager@sadhox.local"))
-    .limit(1);
-  const [agent] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, "agent@sadhox.local"))
-    .limit(1);
-  const [admin] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, "admin@sadhox.local"))
-    .limit(1);
-
-  if (!manager) {
-    console.log("skip phase6 projects (manager user missing)");
-    return;
-  }
-
-  const PROJECT_ID = "a1000000-0000-4000-8000-000000000001";
-  const MODULE_ID = "a1000000-0000-4000-8000-000000000002";
-  // Second project owned by Admin — Manager/Agent must not see its tickets in scoped lists.
-  const OTHER_PROJECT_ID = "a1000000-0000-4000-8000-000000000003";
-
-  const [existing] = await db
-    .select({ id: projects.id })
-    .from(projects)
-    .where(eq(projects.id, PROJECT_ID))
-    .limit(1);
-
-  if (!existing) {
-    await db.insert(projects).values({
-      id: PROJECT_ID,
-      name: "Platform Ops",
-      managerId: manager.id,
-    });
-    console.log("created project Platform Ops");
-  } else {
-    console.log("skip existing project Platform Ops");
-  }
-
-  const [mod] = await db
-    .select({ id: modules.id })
-    .from(modules)
-    .where(eq(modules.id, MODULE_ID))
-    .limit(1);
-  if (!mod) {
-    await db.insert(modules).values({
-      id: MODULE_ID,
-      projectId: PROJECT_ID,
-      name: "Core Services",
-    });
-    console.log("created module Core Services");
-  }
-
-  if (agent) {
-    await db
-      .insert(projectMembers)
-      .values({ projectId: PROJECT_ID, userId: agent.id })
-      .onConflictDoNothing();
-    console.log("ensured agent membership on Platform Ops");
-  }
-
-  if (admin) {
-    const [other] = await db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.id, OTHER_PROJECT_ID))
-      .limit(1);
-    if (!other) {
-      await db.insert(projects).values({
-        id: OTHER_PROJECT_ID,
-        name: "Shared Infra",
-        managerId: admin.id,
-      });
-      console.log("created project Shared Infra (Admin-owned, for ACL QA)");
-    }
-  }
 }
 
 seed().catch((err) => {

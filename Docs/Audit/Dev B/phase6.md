@@ -4,19 +4,17 @@ Combined: [phase6.md](../phase6.md). Owner: SR/Change project scoping + Manager-
 
 ## Phase 1 (do first)
 
-### [A01 / A04] High — Create stamps any `projectId`
+### [A01 / A04] High — Create stamps any `projectId` — **FIXED**
 
-`service-requests.service.ts` / `changes.service.ts` call `resolveProjectModule` (existence only). Non-EndUser can attach foreign projects.
+`service-requests.service.ts` / `changes.service.ts` now call `ProjectsService.resolveTicketProjectFields` (same as incidents): non-EndUser → `assertCanAccess` before insert; EndUser existence-only for catalog submit.
 
-**Fix:** reuse `resolveTicketProjectFields` / `assertCanAccess` for Agent (and Manager on SR create) before insert.
+Specs: `service-requests.create-acl.spec.ts`, `changes.service.spec.ts` (foreign project create).
 
 ## Phase 2
 
-### Low — Catalog list Roles omit Manager
+### Low — Catalog list Roles omit Manager — **FIXED**
 
-`service-catalog.controller.ts` list `@Roles("Admin", "Agent", "EndUser")` while SR create allows Manager.
-
-**Fix:** add `"Manager"` to catalog list if product needs it.
+`service-catalog.controller.ts` list `@Roles` includes `"Manager"`; RBAC matrix + web `/catalog` route/sidebar updated.
 
 ## Spot-checked (clean)
 

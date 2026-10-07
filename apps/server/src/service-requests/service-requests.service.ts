@@ -6,7 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, SQL } from "drizzle-orm";
 import {
   assertAgentOrAdminRole,
   canTransitionRequestFulfillment,
@@ -16,14 +16,15 @@ import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
+  modules,
+  projects,
   serviceCatalog,
   serviceRequests,
   users,
 } from "../database/schema";
 import { MailService } from "../mail/mail.service";
 import { ProjectAccessService } from "../projects/project-access.service";
-import { buildTicketProjectListFilter } from "../projects/project-list-scope";
-import { ProjectScopeService } from "../projects/project-scope.service";
+import { ProjectsService } from "../projects/projects.service";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
 import type {
   CreateServiceRequestDto,
@@ -43,29 +44,36 @@ export class ServiceRequestsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly mail: MailService,
-    private readonly projectScope: ProjectScopeService,
     private readonly projectAccess: ProjectAccessService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
-  private async mapRow(row: {
-    id: string;
-    catalogId: string;
-    catalogName: string | null;
-    requesterId: string;
-    requesterName: string | null;
-    status: string;
-    justification: string;
-    urgency: string;
-    fields: Record<string, string> | null;
-    createdAt: Date;
-    approverId: string | null;
-    approvedAt: Date | null;
-    rejectionReason: string | null;
-    assigneeId: string | null;
-    fulfillmentNotes: string | null;
-    fulfilledAt: Date | null;
-  }) {
-    return {
+  private async mapRow(
+    row: {
+      id: string;
+      catalogId: string;
+      catalogName: string | null;
+      requesterId: string;
+      requesterName: string | null;
+      status: string;
+      justification: string;
+      urgency: string;
+      fields: Record<string, string> | null;
+      createdAt: Date;
+      approverId: string | null;
+      approvedAt: Date | null;
+      rejectionReason: string | null;
+      assigneeId: string | null;
+      fulfillmentNotes: string | null;
+      fulfilledAt: Date | null;
+      projectId: string | null;
+      projectName: string | null;
+      moduleId: string | null;
+      moduleName: string | null;
+    },
+    redactProjectFields: boolean,
+  ) {
+    const base = {
       id: row.id,
       catalogId: row.catalogId,
       catalogName: row.catalogName ?? "Unknown service",
@@ -82,6 +90,16 @@ export class ServiceRequestsService {
       assigneeId: row.assigneeId ?? undefined,
       fulfillmentNotes: row.fulfillmentNotes ?? undefined,
       fulfilledAt: row.fulfilledAt?.toISOString(),
+    };
+    if (redactProjectFields) {
+      return base;
+    }
+    return {
+      ...base,
+      projectId: row.projectId ?? null,
+      projectName: row.projectName ?? null,
+      moduleId: row.moduleId ?? null,
+      moduleName: row.moduleName ?? null,
     };
   }
 
@@ -103,7 +121,21 @@ export class ServiceRequestsService {
       assigneeId: serviceRequests.assigneeId,
       fulfillmentNotes: serviceRequests.fulfillmentNotes,
       fulfilledAt: serviceRequests.fulfilledAt,
+      projectId: serviceRequests.projectId,
+      projectName: projects.name,
+      moduleId: serviceRequests.moduleId,
+      moduleName: modules.name,
     };
+  }
+
+  private listQuery() {
+    return this.db
+      .select(this.selectListColumns())
+      .from(serviceRequests)
+      .leftJoin(serviceCatalog, eq(serviceRequests.catalogId, serviceCatalog.id))
+      .leftJoin(users, eq(serviceRequests.requesterId, users.id))
+      .leftJoin(projects, eq(serviceRequests.projectId, projects.id))
+      .leftJoin(modules, eq(serviceRequests.moduleId, modules.id));
   }
 
   async create(user: AuthUser, dto: CreateServiceRequestDto) {
@@ -122,10 +154,13 @@ export class ServiceRequestsService {
       throw new NotFoundException("Catalog item not found");
     }
 
-    const scope = await this.projectScope.resolveTicketProjectScope({
-      projectId: dto.projectId,
-      moduleId: dto.moduleId,
-    });
+    // Non-EndUser must canAccess project (Agent member / Manager owner / Admin).
+    const { projectId, moduleId } =
+      await this.projectsService.resolveTicketProjectFields(
+        user,
+        dto.projectId,
+        dto.moduleId,
+      );
 
     const [created] = await this.db
       .insert(serviceRequests)
@@ -138,83 +173,58 @@ export class ServiceRequestsService {
         urgency: dto.urgency,
         fields: dto.fields ?? {},
         status: "Submitted",
-        projectId: scope.projectId,
-        moduleId: scope.moduleId,
+        projectId,
+        moduleId,
       })
       .returning();
 
-    const [requester] = await this.db
-      .select({ name: users.name })
-      .from(users)
-      .where(eq(users.id, user.userId))
-      .limit(1);
+    await this.notifyApproversOfSubmission(
+      created.id,
+      catalog.name,
+      user,
+      dto.urgency,
+      projectId,
+    );
 
-    await this.notifyAdminsOfSubmission(created.id, catalog.name, user, dto.urgency);
-
-    return this.mapRow({
-      id: created.id,
-      catalogId: created.catalogId,
-      catalogName: catalog.name,
-      requesterId: created.requesterId,
-      requesterName: requester?.name ?? null,
-      status: created.status,
-      justification: created.justification,
-      urgency: created.urgency,
-      fields: created.fields,
-      createdAt: created.createdAt,
-      approverId: created.approverId,
-      approvedAt: created.approvedAt,
-      rejectionReason: created.rejectionReason,
-      assigneeId: created.assigneeId,
-      fulfillmentNotes: created.fulfillmentNotes,
-      fulfilledAt: created.fulfilledAt,
-    });
+    return this.get(user, created.id);
   }
 
   async list(user: AuthUser) {
-    const base = this.db
-      .select(this.selectListColumns())
-      .from(serviceRequests)
-      .leftJoin(serviceCatalog, eq(serviceRequests.catalogId, serviceCatalog.id))
-      .leftJoin(users, eq(serviceRequests.requesterId, users.id));
+    const conditions: SQL[] = [];
 
-    const accessibleIds =
-      user.role === "Admin" || user.role === "EndUser"
-        ? null
-        : await this.projectAccess.listAccessibleProjectIds(user);
-    const projectFilter = buildTicketProjectListFilter(
-      serviceRequests.projectId,
-      user.role,
-      accessibleIds,
-    );
-
-    let rows;
     if (user.role === "EndUser") {
-      rows = await base
-        .where(eq(serviceRequests.requesterId, user.userId))
-        .orderBy(desc(serviceRequests.createdAt));
-    } else if (projectFilter) {
-      rows = await base
-        .where(projectFilter)
-        .orderBy(desc(serviceRequests.createdAt));
-    } else {
-      rows = await base.orderBy(desc(serviceRequests.createdAt));
+      conditions.push(eq(serviceRequests.requesterId, user.userId));
+    } else if (user.role === "Manager") {
+      const scope = await this.projectAccess.ticketProjectScope(
+        user,
+        serviceRequests.projectId,
+      );
+      if (scope) conditions.push(scope);
+    } else if (user.role === "Agent") {
+      const scope = await this.projectAccess.ticketProjectScope(
+        user,
+        serviceRequests.projectId,
+      );
+      if (scope) conditions.push(scope);
     }
+    // Admin: no project filter; Manager also sees Approvals via scoped list
 
+    const base = this.listQuery();
+    const rows =
+      conditions.length > 0
+        ? await base
+            .where(and(...conditions))
+            .orderBy(desc(serviceRequests.createdAt))
+        : await base.orderBy(desc(serviceRequests.createdAt));
+
+    const redact = user.role === "EndUser";
     return {
-      data: await Promise.all(rows.map((row) => this.mapRow(row))),
+      data: await Promise.all(rows.map((row) => this.mapRow(row, redact))),
     };
   }
 
   async get(user: AuthUser, id: string) {
-    const [row] = await this.db
-      .select({
-        ...this.selectListColumns(),
-        projectId: serviceRequests.projectId,
-      })
-      .from(serviceRequests)
-      .leftJoin(serviceCatalog, eq(serviceRequests.catalogId, serviceCatalog.id))
-      .leftJoin(users, eq(serviceRequests.requesterId, users.id))
+    const [row] = await this.listQuery()
       .where(eq(serviceRequests.id, id))
       .limit(1);
 
@@ -222,9 +232,10 @@ export class ServiceRequestsService {
     if (user.role === "EndUser" && row.requesterId !== user.userId) {
       throw new ForbiddenException("Cannot view this service request");
     }
-    await this.assertCanAccessTicket(user, row.projectId);
-    const { projectId: _projectId, ...listRow } = row;
-    return this.mapRow(listRow);
+    if (user.role !== "EndUser") {
+      await this.projectAccess.assertCanViewTicket(user, row.projectId);
+    }
+    return this.mapRow(row, user.role === "EndUser");
   }
 
   async approve(user: AuthUser, id: string) {
@@ -279,10 +290,11 @@ export class ServiceRequestsService {
     }
 
     const existing = await this.requireExisting(id);
-    await this.assertCanAccessTicket(user, existing.projectId);
+    await this.projectAccess.assertCanViewTicket(user, existing.projectId);
+
     if (!canTransitionRequestFulfillment(existing.status, "InFulfillment")) {
       throw new BadRequestException(
-        `Cannot start fulfillment from status ${existing.status}. Admin approval is required first.`,
+        `Cannot start fulfillment from status ${existing.status}. Approval is required first.`,
       );
     }
 
@@ -311,7 +323,8 @@ export class ServiceRequestsService {
     }
 
     const existing = await this.requireExisting(id);
-    await this.assertCanAccessTicket(user, existing.projectId);
+    await this.projectAccess.assertCanViewTicket(user, existing.projectId);
+
     if (!canTransitionRequestFulfillment(existing.status, "Fulfilled")) {
       throw new BadRequestException(
         `Cannot fulfill a request in status ${existing.status}. Start fulfillment after approval first.`,
@@ -354,34 +367,36 @@ export class ServiceRequestsService {
     return existing;
   }
 
-  private async assertCanAccessTicket(
-    user: AuthUser,
-    projectId: string | null,
-  ) {
-    if (user.role === "Admin" || user.role === "EndUser") return;
-    if (user.role === "Agent" && (projectId == null || projectId === "")) {
-      return;
-    }
-    if (!(await this.projectAccess.canAccess(user, projectId))) {
-      throw new ForbiddenException("Cannot view this service request");
-    }
-  }
-
-  private async notifyAdminsOfSubmission(
+  private async notifyApproversOfSubmission(
     requestId: string,
     requestTitle: string,
     submitter: AuthUser,
     urgency: string,
+    projectId: string | null,
   ) {
     try {
+      const recipients: { email: string }[] = [];
+
       const admins = await this.db
         .select({ email: users.email })
         .from(users)
         .where(eq(users.role, "Admin"));
+      recipients.push(...admins);
+
+      if (projectId) {
+        const managers = await this.db
+          .select({ email: users.email })
+          .from(projects)
+          .innerJoin(users, eq(projects.managerId, users.id))
+          .where(eq(projects.id, projectId));
+        recipients.push(...managers);
+      }
+
+      const unique = [...new Map(recipients.map((r) => [r.email, r])).values()];
 
       await Promise.all(
-        admins.map((admin) =>
-          this.mail.sendRequestReviewRequest(admin.email, {
+        unique.map((r) =>
+          this.mail.sendRequestReviewRequest(r.email, {
             requestId,
             requestTitle,
             submitterName: submitter.name ?? submitter.email,

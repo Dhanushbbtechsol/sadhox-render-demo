@@ -1,6 +1,6 @@
-# Phase 6 — Projects, Modules & Manager Role
+# Phase 6 — Projects, Modules, Manager Role & User Management
 
-**Status:** in progress — Dev D backend Day 30 checkpoint (local); Dev A + Dev B foundation landed (2026-10-07); Dev C UI still open; staging/TL migrate deferred to production go-live
+**Status:** in progress — Dev D backend Day 30 checkpoint (local); Dev A + Dev B foundation landed (2026-10-07); Dev C projects UI landed; **Admin User Management still missing** (only picker `GET` + `PATCH …/role`); staging/TL migrate deferred to production go-live
 
 **Prerequisite:** close Phase 5 open gaps first (`Docs/Audit/phase5.md`) — SLA rules API, Admin Knowledge `{ data }` unwrap, kill silent DEV mock write fallbacks. **Do not rebuild Knowledge Base.**
 
@@ -12,6 +12,7 @@
 | Who approves SRs / Changes? | **Admin and Manager** (alongside), still **single-level**. Manager must own the ticket’s project. `project_id = null` → **Admin-only** |
 | Can Manager also be a `project_members` worker? | **No** — Managers supervise; Agents work tickets |
 | `users.manager_id`? | **Dropped** — project ownership is only `projects.manager_id`; multi-project Agents would drift under a single user FK |
+| Who manages users? | **Admin only** — create / list / update (incl. role + password reset). Not Manager. |
 
 ---
 
@@ -62,14 +63,33 @@ Optional later: project-scoped Knowledge — **out of this phase unless explicit
 
 ---
 
+## User Management (Admin) — **add / still open**
+
+Hierarchy already says Admin owns users; Phase 6 only shipped picker + role patch. Finish org user CRUD:
+
+| Surface | Notes |
+|---------|--------|
+| `GET /admin/users` | Admin; optional `?role=`; return `{ data }` **without** password hashes (exists for pickers — keep) |
+| `POST /admin/users` | Admin; body `name`, `email`, `password`, `role` ∈ Admin\|Agent\|EndUser\|Manager |
+| `GET /admin/users/:id` | Admin; same fields as list row |
+| `PATCH /admin/users/:id` | Admin; `name?`, `email?`, `password?`, `role?` — role change reuses existing promote-to-Manager → clear `project_members` rule |
+| `PATCH /admin/users/:id/role` | Keep as thin alias or fold into PATCH body (ponytail: one write path preferred) |
+| UI `/admin/users` | Admin table + create/edit dialog; sidebar entry; no Manager access |
+
+No `is_active` / soft-delete this phase (YAGNI — no column today). No self-service signup. Seed stays for demos; Admin can create real users after go-live.
+
+**401/403:** EndUser/Agent/Manager → 403 on all `/admin/users*` writes; unauthenticated → 401.
+
+---
+
 ## Track ownership (Days 26–30 sketch)
 
 | Dev | Focus | Plan |
 |-----|--------|------|
-| **D** | Schema/migration, `Manager` role + JWT, `ProjectAccessService`, projects/members/modules APIs, assignment pool, approval ACL, 401/403 matrix, seed | [Dev D/phase6.md](./Dev%20D/phase6.md) |
+| **D** | Schema/migration, `Manager` role + JWT, `ProjectAccessService`, projects/members/modules APIs, assignment pool, approval ACL, 401/403 matrix, seed, **Admin user CRUD APIs** | [Dev D/phase6.md](./Dev%20D/phase6.md) |
 | **A** | Incident/Problem create/list/detail: project/module fields + scoped lists; assignment UI uses project pool | [Dev A/phase6.md](./Dev%20A/phase6.md) |
 | **B** | Request/Change project/module + Manager-alongside-Admin approve | [Dev B/phase6.md](./Dev%20B/phase6.md) |
-| **C** | Admin project CRUD UI; Manager home/scoped dashboard filters; role gates | [Dev C/phase6.md](./Dev%20C/phase6.md) |
+| **C** | Admin project CRUD UI; Manager home/scoped dashboard filters; **Admin `/admin/users` UI** | [Dev C/phase6.md](./Dev%20C/phase6.md) |
 
 ---
 
@@ -79,3 +99,4 @@ Optional later: project-scoped Knowledge — **out of this phase unless explicit
 - Rebuilding Knowledge Base  
 - Org-chart / HR `users.manager_id`  
 - Manager acting as ticket assignee via membership  
+- Manager (or Agent) user CRUD; SSO/invite flows; soft-delete / `is_active` column  

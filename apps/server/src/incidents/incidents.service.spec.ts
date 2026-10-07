@@ -22,6 +22,8 @@ describe("IncidentsService.update assignee role", () => {
     status: "New" as const,
     assignedTo: null,
     reporterId: agentUser.userId,
+    projectId: null,
+    moduleId: null,
     slaDueAt: new Date(),
     slaBreached: false,
     resolutionNotes: null,
@@ -83,21 +85,11 @@ describe("IncidentsService.update assignee role", () => {
       db as never,
       { calculate: vi.fn(), resolveDueAt: vi.fn() } as never,
       { emitTicketUpdated: vi.fn() } as never,
-      { isInPool: vi.fn().mockResolvedValue(false) } as never,
+      { isInPool: vi.fn(async () => false) } as never,
       { sendTicketAssigned: vi.fn() } as never,
       {} as never,
-      {
-        resolveTicketProjectScope: vi.fn().mockResolvedValue({
-          projectId: null,
-          moduleId: null,
-        }),
-      } as never,
-      {
-        listAccessibleProjectIds: vi.fn().mockResolvedValue([]),
-        canAccess: vi.fn().mockResolvedValue(true),
-        canApprove: vi.fn(),
-        assertCanApprove: vi.fn(),
-      } as never,
+      { assertCanAccessTicketProject: vi.fn(async () => undefined) } as never,
+      {} as never,
     );
 
     await expect(

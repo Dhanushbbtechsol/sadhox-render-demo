@@ -1,11 +1,11 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 import { and, count, desc, eq, inArray, SQL } from "drizzle-orm";
+import { AssignmentService } from "../assignment/assignment.service";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
@@ -17,8 +17,7 @@ import {
   type ProblemStatus,
 } from "../database/schema";
 import { ProjectAccessService } from "../projects/project-access.service";
-import { buildTicketProjectListFilter } from "../projects/project-list-scope";
-import { ProjectScopeService } from "../projects/project-scope.service";
+import { ProjectsService } from "../projects/projects.service";
 import type {
   CreateProblemDto,
   ListProblemsQueryDto,
@@ -41,6 +40,8 @@ export type ProblemView = {
   status: ProblemStatus;
   assignedTo: string | null;
   assigneeName: string | null;
+  projectId: string | null;
+  moduleId: string | null;
   linkedIncidentIds: string[];
   linkedIncidents: LinkedIncidentSnippet[];
   createdAt: string;
@@ -51,18 +52,15 @@ export type ProblemView = {
 export class ProblemsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
-    private readonly projectScope: ProjectScopeService,
+    private readonly assignment: AssignmentService,
     private readonly projectAccess: ProjectAccessService,
+    private readonly projectsService: ProjectsService,
   ) {}
 
   async list(user: AuthUser, query: ListProblemsQueryDto) {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
-    const accessibleIds =
-      user.role === "Admin"
-        ? null
-        : await this.projectAccess.listAccessibleProjectIds(user);
-    const filters = this.buildFilters(query, user.role, accessibleIds);
+    const filters = await this.buildFilters(user, query);
 
     const [totalRow] = await this.db
       .select({ total: count() })
@@ -86,12 +84,15 @@ export class ProblemsService {
     const ids = rows.map((r) => r.problem.id);
     const links = await this.loadLinks(ids);
     const snippets = await this.loadIncidentSnippets(
+      user,
       [...links.values()].flat(),
     );
 
     return {
       data: rows.map((row) => {
-        const linkedIds = links.get(row.problem.id) ?? [];
+        const linkedIds = (links.get(row.problem.id) ?? []).filter((id) =>
+          snippets.has(id),
+        );
         return this.toView(
           row.problem,
           row.assigneeName,
@@ -122,11 +123,15 @@ export class ProblemsService {
       .limit(1);
 
     if (!row) throw new NotFoundException("Problem not found");
-    await this.assertCanAccessTicket(user, row.problem.projectId);
+    await this.projectAccess.assertCanAccessTicketProject(
+      user,
+      row.problem.projectId,
+    );
 
     const links = await this.loadLinks([id]);
-    const linkedIds = links.get(id) ?? [];
-    const snippets = await this.loadIncidentSnippets(linkedIds);
+    const rawLinkedIds = links.get(id) ?? [];
+    const snippets = await this.loadIncidentSnippets(user, rawLinkedIds);
+    const linkedIds = rawLinkedIds.filter((lid) => snippets.has(lid));
     return this.toView(
       row.problem,
       row.assigneeName,
@@ -138,14 +143,18 @@ export class ProblemsService {
   }
 
   async create(user: AuthUser, dto: CreateProblemDto): Promise<ProblemView> {
-    if (dto.assignedTo) await this.assertUserExists(dto.assignedTo);
-    if (dto.linkedIncidentIds?.length) {
-      await this.assertIncidentsExist(dto.linkedIncidentIds);
+    const scope = await this.projectsService.resolveTicketProjectFields(
+      user,
+      dto.projectId,
+      dto.moduleId,
+    );
+
+    if (dto.assignedTo) {
+      await this.assertAssigneeInPool(dto.assignedTo, scope.projectId);
     }
-    const scope = await this.projectScope.resolveTicketProjectScope({
-      projectId: dto.projectId,
-      moduleId: dto.moduleId,
-    });
+    if (dto.linkedIncidentIds?.length) {
+      await this.assertCanLinkIncidents(user, dto.linkedIncidentIds);
+    }
 
     const now = new Date();
     const [created] = await this.db
@@ -178,24 +187,26 @@ export class ProblemsService {
   ): Promise<ProblemView> {
     const existing = await this.get(user, id);
 
-    if (dto.assignedTo) await this.assertUserExists(dto.assignedTo);
-    if (dto.linkedIncidentIds) {
-      await this.assertIncidentsExist(dto.linkedIncidentIds);
+    let nextProjectId = existing.projectId;
+    let nextModuleId = existing.moduleId;
+    if (dto.projectId !== undefined || dto.moduleId !== undefined) {
+      const scope = await this.projectsService.resolveTicketProjectFields(
+        user,
+        dto.projectId !== undefined ? dto.projectId : existing.projectId,
+        dto.moduleId !== undefined ? dto.moduleId : existing.moduleId,
+      );
+      nextProjectId = scope.projectId;
+      nextModuleId = scope.moduleId;
     }
-    const [existingRow] = await this.db
-      .select({
-        projectId: problems.projectId,
-        moduleId: problems.moduleId,
-      })
-      .from(problems)
-      .where(eq(problems.id, id))
-      .limit(1);
-    const scope = await this.projectScope.resolveTicketProjectScope({
-      projectId: dto.projectId,
-      moduleId: dto.moduleId,
-      existingProjectId: existingRow?.projectId,
-      existingModuleId: existingRow?.moduleId,
-    });
+
+    const nextAssignee =
+      dto.assignedTo !== undefined ? dto.assignedTo : existing.assignedTo;
+    if (nextAssignee) {
+      await this.assertAssigneeInPool(nextAssignee, nextProjectId);
+    }
+    if (dto.linkedIncidentIds) {
+      await this.assertCanLinkIncidents(user, dto.linkedIncidentIds);
+    }
 
     const now = new Date();
     await this.db
@@ -212,7 +223,7 @@ export class ProblemsService {
           ? { assignedTo: dto.assignedTo }
           : {}),
         ...(dto.projectId !== undefined || dto.moduleId !== undefined
-          ? { projectId: scope.projectId, moduleId: scope.moduleId }
+          ? { projectId: nextProjectId, moduleId: nextModuleId }
           : {}),
         updatedAt: now,
       })
@@ -235,7 +246,7 @@ export class ProblemsService {
     incidentId: string,
   ): Promise<ProblemView> {
     await this.get(user, problemId);
-    await this.assertIncidentsExist([incidentId]);
+    await this.assertCanLinkIncidents(user, [incidentId]);
 
     const [existingLink] = await this.db
       .select({
@@ -262,32 +273,20 @@ export class ProblemsService {
     return this.get(user, problemId);
   }
 
-  private async assertCanAccessTicket(
+  private async buildFilters(
     user: AuthUser,
-    projectId: string | null,
-  ) {
-    if (user.role === "Admin") return;
-    if (user.role === "Agent" && (projectId == null || projectId === "")) {
-      return;
-    }
-    if (!(await this.projectAccess.canAccess(user, projectId))) {
-      throw new ForbiddenException("Cannot access this problem");
-    }
-  }
-
-  private buildFilters(
     query: ListProblemsQueryDto,
-    role: string,
-    accessibleIds: string[] | null,
-  ): SQL | undefined {
+  ): Promise<SQL | undefined> {
     const parts: SQL[] = [];
-    if (query.status) parts.push(eq(problems.status, query.status));
-    const projectFilter = buildTicketProjectListFilter(
+
+    const projectScope = await this.projectAccess.ticketProjectScope(
+      user,
       problems.projectId,
-      role,
-      accessibleIds,
     );
-    if (projectFilter) parts.push(projectFilter);
+    if (projectScope) parts.push(projectScope);
+
+    if (query.status) parts.push(eq(problems.status, query.status));
+
     if (parts.length === 0) return undefined;
     if (parts.length === 1) return parts[0];
     return and(...parts);
@@ -328,7 +327,10 @@ export class ProblemsService {
     );
   }
 
-  private async loadIncidentSnippets(incidentIds: string[]) {
+  private async loadIncidentSnippets(
+    user: AuthUser,
+    incidentIds: string[],
+  ) {
     const map = new Map<string, LinkedIncidentSnippet>();
     if (incidentIds.length === 0) return map;
 
@@ -338,34 +340,76 @@ export class ProblemsService {
         title: incidents.title,
         status: incidents.status,
         priority: incidents.priority,
+        projectId: incidents.projectId,
       })
       .from(incidents)
       .where(inArray(incidents.id, incidentIds));
 
     for (const row of rows) {
-      map.set(row.id, row);
+      if (!(await this.canViewIncidentProject(user, row.projectId))) continue;
+      map.set(row.id, {
+        id: row.id,
+        title: row.title,
+        status: row.status,
+        priority: row.priority,
+      });
     }
     return map;
   }
 
-  private async assertIncidentsExist(ids: string[]) {
+  /** Link only incidents the actor can already view (blocks cross-project probe). */
+  private async assertCanLinkIncidents(user: AuthUser, ids: string[]) {
+    if (ids.length === 0) return;
+
     const rows = await this.db
-      .select({ id: incidents.id })
+      .select({ id: incidents.id, projectId: incidents.projectId })
       .from(incidents)
       .where(inArray(incidents.id, ids));
 
     if (rows.length !== ids.length) {
       throw new BadRequestException("One or more incident IDs are invalid");
     }
+
+    for (const row of rows) {
+      await this.projectAccess.assertCanViewTicket(user, row.projectId);
+    }
   }
 
-  private async assertUserExists(userId: string) {
-    const [row] = await this.db
+  private async canViewIncidentProject(
+    user: AuthUser,
+    projectId: string | null,
+  ): Promise<boolean> {
+    try {
+      await this.projectAccess.assertCanViewTicket(user, projectId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Project tickets: assignee must be a project member Agent.
+   * Unscoped tickets: Agent or Admin (legacy global pool).
+   */
+  private async assertAssigneeInPool(
+    userId: string,
+    projectId: string | null,
+  ) {
+    const [agent] = await this.db
       .select({ id: users.id })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
-    if (!row) throw new NotFoundException("Assignee not found");
+    if (!agent) throw new NotFoundException("Assignee not found");
+
+    const inPool = await this.assignment.isInPool(userId, projectId);
+    if (!inPool) {
+      throw new BadRequestException(
+        projectId
+          ? "Assignee must be a member of this project"
+          : "Assignee must be an Agent or Admin",
+      );
+    }
   }
 
   private toView(
@@ -383,6 +427,8 @@ export class ProblemsService {
       status: row.status,
       assignedTo: row.assignedTo,
       assigneeName,
+      projectId: row.projectId,
+      moduleId: row.moduleId,
       linkedIncidentIds,
       linkedIncidents,
       createdAt: row.createdAt.toISOString(),

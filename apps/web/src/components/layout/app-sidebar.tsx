@@ -6,6 +6,7 @@ import {
   ClipboardListIcon,
   LayoutDashboardIcon,
   GitBranchIcon,
+  FolderKanbanIcon,
   InboxIcon,
   LayoutGridIcon,
   LifeBuoyIcon,
@@ -58,39 +59,21 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["Admin"],
   },
   {
+    to: "/manager",
+    label: "Home",
+    icon: LayoutDashboardIcon,
+    roles: ["Manager"],
+  },
+  {
+    to: "/admin/projects",
+    label: "Projects",
+    icon: FolderKanbanIcon,
+    roles: ["Admin"],
+  },
+  {
     to: "/assets",
     label: "Assets",
     icon: PackageIcon,
-    roles: ["Admin"],
-  },
-  {
-    to: "/admin/knowledge",
-    label: "Knowledge",
-    icon: BookOpenIcon,
-    roles: ["Admin"],
-  },
-  {
-    to: "/admin/sla-rules",
-    label: "SLA rules",
-    icon: TimerIcon,
-    roles: ["Admin"],
-  },
-  {
-    to: "/admin/audit-logs",
-    label: "Audit logs",
-    icon: ScrollTextIcon,
-    roles: ["Admin"],
-  },
-  {
-    to: "/admin/queues",
-    label: "Queues",
-    icon: ServerIcon,
-    roles: ["Admin"],
-  },
-  {
-    to: "/admin/catalog",
-    label: "Catalog admin",
-    icon: Settings2Icon,
     roles: ["Admin"],
   },
   {
@@ -113,6 +96,36 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
+    to: "/requests",
+    label: "Requests",
+    icon: ListTodoIcon,
+    roles: ["Admin", "Agent", "EndUser", "Manager"],
+  },
+  {
+    to: "/admin/knowledge",
+    label: "Knowledge",
+    icon: BookOpenIcon,
+    roles: ["Admin"],
+  },
+  {
+    to: "/admin/sla-rules",
+    label: "SLA",
+    icon: TimerIcon,
+    roles: ["Admin"],
+  },
+  {
+    to: "/admin/queues",
+    label: "Queues",
+    icon: ServerIcon,
+    roles: ["Admin"],
+  },
+  {
+    to: "/admin/catalog",
+    label: "Catalog admin",
+    icon: Settings2Icon,
+    roles: ["Admin"],
+  },
+  {
     to: "/portal",
     label: "My Portal",
     icon: LifeBuoyIcon,
@@ -129,12 +142,6 @@ const NAV_ITEMS: NavItem[] = [
     to: "/catalog",
     label: "Catalog",
     icon: LayoutGridIcon,
-    roles: ["Admin", "Agent", "EndUser"],
-  },
-  {
-    to: "/requests",
-    label: "Requests",
-    icon: ListTodoIcon,
     roles: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
@@ -148,6 +155,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Approvals",
     icon: InboxIcon,
     roles: ["Admin", "Manager"],
+  },
+  {
+    to: "/admin/audit-logs",
+    label: "Audit logs",
+    icon: ScrollTextIcon,
+    roles: ["Admin"],
   },
 ];
 

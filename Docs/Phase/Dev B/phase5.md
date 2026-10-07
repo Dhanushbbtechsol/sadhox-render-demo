@@ -1,4 +1,4 @@
-# Dev B — Phase 5: End User Knowledge Portal & Catalog Admin CRUD (Week 5 / Days 21–25)
+ # Dev B — Phase 5: End User Knowledge Portal & Catalog Admin CRUD (Week 5 / Days 21–25)
 
 **Goal:** End User / Agent Knowledge Base browse and search; Admin Service Catalog item CRUD UI; optional related help from catalog items.
 
