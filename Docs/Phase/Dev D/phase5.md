@@ -28,13 +28,13 @@
 
 - **Day 24: Seed + contract freeze**
   - Seed sample categories and Published articles (and optional Draft for Admin demos).
-  - Freeze OpenAPI for A/B/C consumption.
+  - Freeze OpenAPI for A/B/C consumption → [phase5-openapi.md](../../contracts/phase5-openapi.md) + live `/docs`.
   - Unit/e2e API tests for Knowledge, SLA rules PATCH, catalog POST/PATCH.
 
 - **Day 25: Checkpoint**
-  - Migrate staging (or TL remote when approved) with new migrations.
+  - Staging / remote migrate: **deferred to future** (not required to close Phase 5).
   - `/health` + RBAC matrix green including Knowledge routes.
-  - Hand off Swagger/contract to Devs A–C.
+  - Hand off Swagger/contract to Devs A–C → [phase5-handoff.md](./phase5-handoff.md).
 
 ---
 
@@ -57,6 +57,7 @@
 
 - Drag-and-drop SLA builder  
 - Advanced BI / custom report builders  
-- Render prod cutover (Phase 4 Day 18–20)
+- Render prod cutover (Phase 4 Day 18–20)  
+- Staging / cloud migrate (pushed to future)
 
 **← Previous:** [Phase 4](./phase4.md)
