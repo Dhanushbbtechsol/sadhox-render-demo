@@ -29,5 +29,6 @@
 | **Phase 4** | QA, Security Pass & Deploy | Days 16–20 (Week 4) | [phase4.md](./phase4.md) |
 | **Phase 5** | Ticket–Knowledge Links & Portal Detail | Days 21–25 (Week 5) | [phase5.md](./phase5.md) |
 | **Phase 6** | Project-scoped Incidents/Problems & assignment | Days 26–30 (Week 6) | [phase6.md](./phase6.md) |
+| **Phase 7** | EndUser Incidents replaces My Portal | — | [phase7.md](./phase7.md) |
 
 Coverage: [coverage-matrix.md](../coverage-matrix.md). Phase 6 design: [../phase6.md](../phase6.md).

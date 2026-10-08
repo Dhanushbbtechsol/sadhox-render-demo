@@ -14,6 +14,8 @@ Full feature inventory for Claude: **`Docs/STATUS.md`**.
 | 4 | Security remediations, load notes, deploy prep, seed hardening | Done (go-live checklist not fully executed) |
 | 5 | Knowledge Base + portal detail + catalog Admin CRUD + CSV + SLA UI/API | **Done** (Medium/Low closed 2026-10-07 on Dev-C) |
 | 6 | Projects / Modules / Manager + project ACL + Admin User Management | **Landed** (audit CLEAN). Staging migrate deferred — [Docs/Phase/phase6.md](../Docs/Phase/phase6.md) |
+| 7 | EndUser desk (Incidents nav, catalog labels, subcategory, seed) | Designed only — [Docs/Phase/phase7.md](../Docs/Phase/phase7.md) |
+| 8 | Approval chain (Manager then Admin) + server dashboard CSV | Designed only — [Docs/Phase/phase8.md](../Docs/Phase/phase8.md) |
 
 ## Feature checklist (implemented in codebase)
 

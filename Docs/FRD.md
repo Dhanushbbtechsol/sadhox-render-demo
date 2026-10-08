@@ -12,6 +12,7 @@
 - **In-Scope:** Core ITIL workflows (Incident, Problem, Service Request, Change, Asset), JWT authentication with rotating refresh tokens, granular RBAC route guards, real-time comment streams via WebSockets, time & event-driven automations (BullMQ + Redis), transactional emails (Resend), audit logging, and automated CI/CD with full e2e test verification.
 - **Phase 5 (Week 5) in-scope add-on:** Knowledge Base (categories, articles, search, ticket links), Admin Service Catalog CRUD, Admin SLA rules table editor, portal incident detail, dashboard CSV export. See [Docs/Phase/coverage-matrix.md](./Phase/coverage-matrix.md). **KB is built — do not rebuild in later phases.**
 - **Phase 6 (Week 6) in-scope add-on:** Projects / modules / `project_members`, `Manager` role, resource-level project ACL, project-scoped assignment, Admin+Manager single-level approvals, **Admin User Management** (create/list/update users). Gate: close Phase 5 audit gaps first. Design: [Docs/Phase/phase6.md](./Phase/phase6.md).
+- **Phase 7 (designed):** EndUser nav — Incidents replaces My Portal; labels Service Catalog and Service Requests; incident subcategory; catalog subcategory; expanded KB/catalog seed. Design: [Docs/Phase/phase7.md](./Phase/phase7.md). Do not rebuild KB.
 - **Out-of-Scope:** Multi-tenant billing architectures, SSO / Active Directory / SAML integrations, advanced BI / drag-and-drop report builders, native mobile applications, visual CMDB dependency node graphs, multi-level approval chains, org-chart `users.manager_id`.
 
 ## 2. Modules & Developer Split
@@ -84,6 +85,8 @@
 | **Week 4** | QA, Security Pass & Deploy | Cross-module QA walkthrough, full 401/403 security matrix audit, endpoint load testing, seed data loaded, production deployment to Railway/Render and Vercel. **Checkpoint (Day 20):** Production go-live with active monitoring. |
 | **Week 5** | Knowledge Base & residual gaps | KB schema/API + Admin authoring + End User search; ticket–article links; portal incident detail; catalog Admin CRUD; SLA rules table editor; dashboard CSV. **Checkpoint (Day 25):** Phase 5 acceptance per [coverage-matrix.md](./Phase/coverage-matrix.md). |
 | **Week 6** | Projects, Manager & User Management | Schema + `Manager` + `ProjectAccessService` + scoped assignment/approvals/UI + Admin user CRUD. **Gate:** Phase 5 Medium gaps closed. **Checkpoint (Day 30):** per [phase6.md](./Phase/phase6.md). |
+| **Week 7** | EndUser desk | Incidents replaces `/portal`; Service Catalog / Service Requests labels; subcategory + seed. Per [phase7.md](./Phase/phase7.md). |
+| **Week 8** | Approval chain & report | Manager then Admin on requests/changes; server dashboard CSV. Per [phase8.md](./Phase/phase8.md). |
 
 ## 6. Out-of-Scope Follow-ups
 - Multi-tenant tenant isolation and billing management.

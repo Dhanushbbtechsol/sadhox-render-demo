@@ -68,6 +68,10 @@ flowchart LR
 
 ---
 
+## Phase 7 (designed) — EndUser desk
+
+Nav and seed only. Authority: [phase7.md](./phase7.md). Knowledge Base module stays; seed gains five Published articles.
+
 ## Still out of scope (unchanged from PRD §4)
 
 - Drag-and-drop SLA policy builder  
