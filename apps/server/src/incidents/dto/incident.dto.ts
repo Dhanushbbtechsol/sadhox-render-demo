@@ -7,18 +7,33 @@ import {
   MaxLength,
   MinLength,
   ValidateIf,
+  Validate,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  ValidationArguments,
 } from "class-validator";
 import { ProjectScopeFieldsDto } from "../../common/dto/project-scope.dto";
+import {
+  INCIDENT_CATEGORIES,
+  isValidIncidentCategoryPair,
+} from "../incident-categories";
 
 const IMPACT_URGENCY = ["High", "Medium", "Low"] as const;
-const CATEGORIES = [
-  "Hardware",
-  "Software",
-  "Network",
-  "Access",
-  "Email",
-  "Other",
-] as const;
+
+@ValidatorConstraint({ name: "incidentCategorySubcategory", async: false })
+export class IncidentCategorySubcategoryConstraint
+  implements ValidatorConstraintInterface
+{
+  validate(_value: unknown, args: ValidationArguments): boolean {
+    const obj = args.object as { category?: string; subcategory?: string };
+    if (!obj.category || !obj.subcategory) return true;
+    return isValidIncidentCategoryPair(obj.category, obj.subcategory);
+  }
+
+  defaultMessage(): string {
+    return "subcategory must belong to the selected category";
+  }
+}
 
 export class CreateIncidentDto extends ProjectScopeFieldsDto {
   @ApiProperty({ minLength: 5, maxLength: 255 })
@@ -33,9 +48,18 @@ export class CreateIncidentDto extends ProjectScopeFieldsDto {
   @MaxLength(10_000)
   description!: string;
 
-  @ApiProperty({ enum: CATEGORIES })
-  @IsIn([...CATEGORIES])
-  category!: (typeof CATEGORIES)[number];
+  @ApiProperty({ enum: INCIDENT_CATEGORIES })
+  @IsIn([...INCIDENT_CATEGORIES])
+  category!: (typeof INCIDENT_CATEGORIES)[number];
+
+  @ApiProperty({
+    description: "Must belong to the selected category (see Phase 7 map)",
+  })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  @Validate(IncidentCategorySubcategoryConstraint)
+  subcategory!: string;
 
   @ApiProperty({ enum: IMPACT_URGENCY })
   @IsIn([...IMPACT_URGENCY])
@@ -70,10 +94,20 @@ export class UpdateIncidentDto extends ProjectScopeFieldsDto {
   @MaxLength(10_000)
   description?: string;
 
-  @ApiPropertyOptional({ enum: CATEGORIES })
+  @ApiPropertyOptional({ enum: INCIDENT_CATEGORIES })
   @IsOptional()
-  @IsIn([...CATEGORIES])
-  category?: (typeof CATEGORIES)[number];
+  @IsIn([...INCIDENT_CATEGORIES])
+  category?: (typeof INCIDENT_CATEGORIES)[number];
+
+  @ApiPropertyOptional({
+    description: "Must belong to category when both are sent",
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  @Validate(IncidentCategorySubcategoryConstraint)
+  subcategory?: string;
 
   @ApiPropertyOptional({ enum: IMPACT_URGENCY })
   @IsOptional()

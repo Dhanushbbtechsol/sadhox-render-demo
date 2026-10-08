@@ -69,6 +69,9 @@ export default function IncidentDetailPage() {
               {INCIDENT_STATUS_LABELS[data.status]}
             </Badge>
             <Badge variant="secondary">{data.category}</Badge>
+            {data.subcategory ? (
+              <Badge variant="outline">{data.subcategory}</Badge>
+            ) : null}
           </div>
           <CardTitle className="text-xl font-semibold tracking-tight">{data.title}</CardTitle>
         </CardHeader>

@@ -37,6 +37,7 @@ import {
   requiresResolutionNotes,
 } from "./incident-transitions";
 import { canAssignIncident, canMutateIncident } from "./incident-rbac";
+import { isValidIncidentCategoryPair } from "./incident-categories";
 import { PriorityCalculationService } from "./priority-calculation.service";
 
 type UserSnippet = {
@@ -50,6 +51,7 @@ export type IncidentListItem = {
   title: string;
   description: string;
   category: string;
+  subcategory: string;
   impact: string;
   urgency: string;
   priority: Priority;
@@ -212,12 +214,19 @@ export class IncidentsService {
       );
     }
 
+    if (!isValidIncidentCategoryPair(dto.category, dto.subcategory)) {
+      throw new BadRequestException(
+        "subcategory must belong to the selected category",
+      );
+    }
+
     const [created] = await this.db
       .insert(incidents)
       .values({
         title: dto.title,
         description: dto.description,
         category: dto.category,
+        subcategory: dto.subcategory,
         impact: dto.impact,
         urgency: dto.urgency,
         priority,
@@ -437,6 +446,18 @@ export class IncidentsService {
       status = "Assigned";
     }
 
+    const nextCategory = dto.category ?? existing.incident.category;
+    const nextSubcategory =
+      dto.subcategory ?? existing.incident.subcategory;
+    if (
+      (dto.category !== undefined || dto.subcategory !== undefined) &&
+      !isValidIncidentCategoryPair(nextCategory, nextSubcategory)
+    ) {
+      throw new BadRequestException(
+        "subcategory must belong to the selected category",
+      );
+    }
+
     const [updated] = await this.db
       .update(incidents)
       .set({
@@ -445,6 +466,9 @@ export class IncidentsService {
           ? { description: dto.description }
           : {}),
         ...(dto.category !== undefined ? { category: dto.category } : {}),
+        ...(dto.subcategory !== undefined
+          ? { subcategory: dto.subcategory }
+          : {}),
         ...(dto.impact !== undefined ? { impact: dto.impact } : {}),
         ...(dto.urgency !== undefined ? { urgency: dto.urgency } : {}),
         status,
@@ -646,6 +670,7 @@ export class IncidentsService {
       title: row.title,
       description: row.description,
       category: row.category,
+      subcategory: row.subcategory,
       impact: row.impact,
       urgency: row.urgency,
       priority: row.priority,

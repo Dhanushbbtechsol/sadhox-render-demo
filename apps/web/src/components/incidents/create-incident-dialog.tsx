@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -31,24 +31,43 @@ import { useAgents, useCreateIncident } from "@/hooks/use-tickets";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   INCIDENT_CATEGORIES,
+  INCIDENT_CATEGORY_MAP,
   calculatePriority,
+  subcategoriesFor,
   type Impact,
+  type IncidentCategory,
   type Urgency,
 } from "@/types/itsm";
 
 const LEVELS = ["Low", "Medium", "High"] as const;
 const NONE = "__none__";
+const DEFAULT_CATEGORY = INCIDENT_CATEGORIES[0] as IncidentCategory;
+const DEFAULT_SUBCATEGORY = INCIDENT_CATEGORY_MAP[DEFAULT_CATEGORY][0];
 
-const createIncidentSchema = z.object({
-  title: z.string().min(5, "Title must be at least 5 characters").max(120),
-  description: z.string().min(10, "Description must be at least 10 characters"),
-  category: z.enum(INCIDENT_CATEGORIES),
-  impact: z.enum(LEVELS),
-  urgency: z.enum(LEVELS),
-  projectId: z.string().uuid().optional(),
-  moduleId: z.string().uuid().optional(),
-  assignedTo: z.string().uuid().optional(),
-});
+const createIncidentSchema = z
+  .object({
+    title: z.string().min(5, "Title must be at least 5 characters").max(120),
+    description: z.string().min(10, "Description must be at least 10 characters"),
+    category: z.enum(
+      INCIDENT_CATEGORIES as [IncidentCategory, ...IncidentCategory[]],
+    ),
+    subcategory: z.string().min(1, "Subcategory is required"),
+    impact: z.enum(LEVELS),
+    urgency: z.enum(LEVELS),
+    projectId: z.string().uuid().optional(),
+    moduleId: z.string().uuid().optional(),
+    assignedTo: z.string().uuid().optional(),
+  })
+  .superRefine((values, ctx) => {
+    const allowed = subcategoriesFor(values.category);
+    if (!allowed.includes(values.subcategory)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["subcategory"],
+        message: "Subcategory must match the selected category",
+      });
+    }
+  });
 
 type CreateIncidentForm = z.infer<typeof createIncidentSchema>;
 
@@ -68,7 +87,8 @@ export function CreateIncidentDialog({
     defaultValues: {
       title: "",
       description: "",
-      category: "Software",
+      category: DEFAULT_CATEGORY,
+      subcategory: DEFAULT_SUBCATEGORY,
       impact: "Medium",
       urgency: "Medium",
       projectId: undefined,
@@ -79,9 +99,21 @@ export function CreateIncidentDialog({
 
   const impact = useWatch({ control: form.control, name: "impact" }) as Impact;
   const urgency = useWatch({ control: form.control, name: "urgency" }) as Urgency;
+  const category = useWatch({
+    control: form.control,
+    name: "category",
+  }) as IncidentCategory;
   const projectId = useWatch({ control: form.control, name: "projectId" });
   const { data: agents = [] } = useAgents(projectId, { enabled: canAssign });
   const previewPriority = calculatePriority(impact, urgency);
+  const subcategoryOptions = subcategoriesFor(category);
+
+  useEffect(() => {
+    const current = form.getValues("subcategory");
+    if (!subcategoryOptions.includes(current)) {
+      form.setValue("subcategory", subcategoryOptions[0]);
+    }
+  }, [category, subcategoryOptions, form]);
 
   async function onSubmit(values: CreateIncidentForm) {
     try {
@@ -89,6 +121,7 @@ export function CreateIncidentDialog({
         title: values.title,
         description: values.description,
         category: values.category,
+        subcategory: values.subcategory,
         impact: values.impact,
         urgency: values.urgency,
         projectId: values.projectId ?? null,
@@ -115,7 +148,9 @@ export function CreateIncidentDialog({
       </DialogTrigger>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Create incident</DialogTitle>
+          <DialogTitle>
+            {role === "EndUser" ? "Report incident" : "Create incident"}
+          </DialogTitle>
           <DialogDescription>
             Priority is calculated from Impact × Urgency as you fill the form.
           </DialogDescription>
@@ -145,70 +180,72 @@ export function CreateIncidentDialog({
             ) : null}
           </div>
 
-          <ProjectModuleFields
-            control={form.control}
-            projectField="projectId"
-            moduleField="moduleId"
-            projectId={projectId}
-            onProjectChange={() => {
-              form.setValue("moduleId", undefined);
-              form.setValue("assignedTo", undefined);
-            }}
-          />
-
           {canAssign ? (
-            <div className="space-y-2">
-              <Label htmlFor="agents-select">Agents</Label>
-              <Controller
+            <>
+              <ProjectModuleFields
                 control={form.control}
-                name="assignedTo"
-                render={({ field }) => (
-                  <Select
-                    items={[
-                      { value: NONE, label: "Unassigned" },
-                      ...agents.map((agent) => ({
-                        value: agent.id,
-                        label: `${agent.name} (${agent.openTicketCount} open)`,
-                      })),
-                    ]}
-                    value={field.value ?? NONE}
-                    onValueChange={(value) => {
-                      field.onChange(
-                        !value || value === NONE ? undefined : value,
-                      );
-                    }}
-                  >
-                    <SelectTrigger id="agents-select">
-                      <SelectValue
-                        placeholder={
-                          agents.length === 0
-                            ? projectId
-                              ? "No project members"
-                              : "No agents"
-                            : "Unassigned"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>Unassigned</SelectItem>
-                      {agents.map((agent) => (
-                        <SelectItem key={agent.id} value={agent.id}>
-                          {agent.name} ({agent.openTicketCount} open)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                projectField="projectId"
+                moduleField="moduleId"
+                projectId={projectId}
+                onProjectChange={() => {
+                  form.setValue("moduleId", undefined);
+                  form.setValue("assignedTo", undefined);
+                }}
               />
-              <p className="text-muted-foreground text-xs">
-                {projectId
-                  ? "Pool is this project's Agent members."
-                  : "Global Agent pool (unscoped ticket)."}
-              </p>
-            </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="agents-select">Agents</Label>
+                <Controller
+                  control={form.control}
+                  name="assignedTo"
+                  render={({ field }) => (
+                    <Select
+                      items={[
+                        { value: NONE, label: "Unassigned" },
+                        ...agents.map((agent) => ({
+                          value: agent.id,
+                          label: `${agent.name} (${agent.openTicketCount} open)`,
+                        })),
+                      ]}
+                      value={field.value ?? NONE}
+                      onValueChange={(value) => {
+                        field.onChange(
+                          !value || value === NONE ? undefined : value,
+                        );
+                      }}
+                    >
+                      <SelectTrigger id="agents-select">
+                        <SelectValue
+                          placeholder={
+                            agents.length === 0
+                              ? projectId
+                                ? "No project members"
+                                : "No agents"
+                              : "Unassigned"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE}>Unassigned</SelectItem>
+                        {agents.map((agent) => (
+                          <SelectItem key={agent.id} value={agent.id}>
+                            {agent.name} ({agent.openTicketCount} open)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                <p className="text-muted-foreground text-xs">
+                  {projectId
+                    ? "Pool is this project's Agent members."
+                    : "Global Agent pool (unscoped ticket)."}
+                </p>
+              </div>
+            </>
           ) : null}
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Category</Label>
               <Controller
@@ -225,9 +262,9 @@ export function CreateIncidentDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {INCIDENT_CATEGORIES.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
+                      {INCIDENT_CATEGORIES.map((cat) => (
+                        <SelectItem key={cat} value={cat}>
+                          {cat}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -236,6 +273,40 @@ export function CreateIncidentDialog({
               />
             </div>
 
+            <div className="space-y-2">
+              <Label>Subcategory</Label>
+              <Controller
+                control={form.control}
+                name="subcategory"
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => {
+                      if (value) field.onChange(value);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subcategoryOptions.map((sub) => (
+                        <SelectItem key={sub} value={sub}>
+                          {sub}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {form.formState.errors.subcategory ? (
+                <p className="text-destructive text-xs">
+                  {form.formState.errors.subcategory.message}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Impact</Label>
               <Controller
@@ -306,7 +377,11 @@ export function CreateIncidentDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={createIncident.isPending}>
-              {createIncident.isPending ? "Creating…" : "Create incident"}
+              {createIncident.isPending
+                ? "Submitting…"
+                : role === "EndUser"
+                  ? "Report incident"
+                  : "Create incident"}
             </Button>
           </DialogFooter>
         </form>

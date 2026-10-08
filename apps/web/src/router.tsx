@@ -16,13 +16,15 @@ import ProjectsListPage from "@/features/projects/projects-list-page";
 import ApprovalsPage from "@/routes/approvals";
 import CatalogPage from "@/routes/catalog";
 import ChangesPage from "@/routes/changes";
-import IncidentDetailPage from "@/routes/incident-detail";
 import IncidentsPage from "@/routes/incidents";
+import IncidentDetailGate from "@/routes/incident-detail-gate";
 import KnowledgePage from "@/routes/knowledge";
 import KnowledgeDetailPage from "@/routes/knowledge-detail";
 import LoginPage from "@/routes/login";
-import PortalPage from "@/routes/portal";
-import PortalIncidentDetailPage from "@/routes/portal-incident-detail";
+import {
+  PortalIndexRedirect,
+  PortalIncidentRedirect,
+} from "@/routes/portal-redirects";
 import ProblemsPage from "@/routes/problems";
 import ProblemDetailPage from "@/routes/problem-detail";
 import RequestsPage from "@/routes/requests";
@@ -142,12 +144,16 @@ export const router = createBrowserRouter([
           {
             path: "incidents",
             handle: { breadcrumb: "Incidents" },
-            element: <ProtectedRoute roles={["Admin", "Agent", "Manager"]} />,
+            element: (
+              <ProtectedRoute
+                roles={["Admin", "Agent", "Manager", "EndUser"]}
+              />
+            ),
             children: [
               { index: true, element: <IncidentsPage /> },
               {
                 path: ":id",
-                element: <IncidentDetailPage />,
+                element: <IncidentDetailGate />,
                 handle: { breadcrumb: "Detail" },
               },
             ],
@@ -170,10 +176,10 @@ export const router = createBrowserRouter([
             handle: { breadcrumb: "Portal" },
             element: <ProtectedRoute roles={["EndUser", "Admin"]} />,
             children: [
-              { index: true, element: <PortalPage /> },
+              { index: true, element: <PortalIndexRedirect /> },
               {
                 path: "incidents/:id",
-                element: <PortalIncidentDetailPage />,
+                element: <PortalIncidentRedirect />,
                 handle: { breadcrumb: "Incident" },
               },
             ],

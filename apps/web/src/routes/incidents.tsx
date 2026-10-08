@@ -22,7 +22,10 @@ import {
 import { useProjects } from "@/hooks/use-projects";
 import { useIncidents } from "@/hooks/use-tickets";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
 import { INCIDENT_STATUS_LABELS, type IncidentStatus } from "@/types/itsm";
+
+import EndUserIncidentsPage from "./end-user-incidents";
 
 const PAGE_SIZE = 20;
 
@@ -82,6 +85,15 @@ function StatCard({
 type SortKey = "createdAt" | "priority" | "status" | "slaDueAt";
 
 export default function IncidentsPage() {
+  const role = useAuthStore((s) => s.user?.role);
+  if (role === "EndUser") {
+    return <EndUserIncidentsPage />;
+  }
+
+  return <AgentIncidentsPage />;
+}
+
+function AgentIncidentsPage() {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");

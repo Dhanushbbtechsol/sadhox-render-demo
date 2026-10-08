@@ -128,7 +128,7 @@ export default function KnowledgeDetailPage() {
         >
           Start a catalog request
         </Button>
-        <Button variant="outline" render={<Link to="/portal" />}>
+        <Button variant="outline" render={<Link to="/incidents" />}>
           Report an incident
         </Button>
       </div>

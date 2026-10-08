@@ -22,7 +22,8 @@ const sampleIncident = {
   id: "22222222-2222-4222-8222-222222222222",
   title: "Email outage",
   description: "Users cannot send mail from Outlook.",
-  category: "Email",
+  category: "Collaboration",
+  subcategory: "Email & Calendar",
   impact: "High",
   urgency: "High",
   priority: "P1",
@@ -154,7 +155,8 @@ describe("Incidents API (supertest)", () => {
       .send({
         title: "Email outage",
         description: "Users cannot send mail from Outlook.",
-        category: "Email",
+        category: "Collaboration",
+        subcategory: "Email & Calendar",
         impact: "High",
         urgency: "High",
       })
@@ -163,14 +165,38 @@ describe("Incidents API (supertest)", () => {
     expect(res.body.priority).toBe("P1");
     expect(incidents.create).toHaveBeenCalledWith(
       mockUser,
-      expect.objectContaining({ category: "Email", impact: "High" }),
+      expect.objectContaining({
+        category: "Collaboration",
+        subcategory: "Email & Calendar",
+        impact: "High",
+      }),
     );
   });
 
   it("POST /incidents rejects invalid DTO", async () => {
     await request(app)
       .post("/incidents")
-      .send({ title: "x", description: "short", category: "Email" })
+      .send({
+        title: "x",
+        description: "short",
+        category: "Collaboration",
+        subcategory: "Email & Calendar",
+      })
+      .expect(400);
+    expect(incidents.create).not.toHaveBeenCalled();
+  });
+
+  it("POST /incidents rejects subcategory outside category", async () => {
+    await request(app)
+      .post("/incidents")
+      .send({
+        title: "Email outage",
+        description: "Users cannot send mail from Outlook.",
+        category: "Hardware",
+        subcategory: "Email & Calendar",
+        impact: "High",
+        urgency: "High",
+      })
       .expect(400);
     expect(incidents.create).not.toHaveBeenCalled();
   });
