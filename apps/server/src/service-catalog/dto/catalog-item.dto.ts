@@ -17,6 +17,8 @@ import { Type } from "class-transformer";
 export const CATALOG_OPTION_MAX_LENGTH = 128;
 /** Enough for typical select lists; blocks unbounded payload arrays. */
 export const CATALOG_OPTIONS_MAX_SIZE = 50;
+/** Concrete service label (free text); matches `department` max / column. */
+export const CATALOG_SUBCATEGORY_MAX_LENGTH = 128;
 
 class CatalogFormFieldDto {
   @ApiProperty()
@@ -65,7 +67,7 @@ export class CreateCatalogItemDto {
   @MaxLength(4000)
   description!: string;
 
-  @ApiProperty({ example: "IT Hardware" })
+  @ApiProperty({ example: "Hardware" })
   @IsString()
   @MinLength(1)
   @MaxLength(128)
@@ -73,13 +75,15 @@ export class CreateCatalogItemDto {
 
   @ApiPropertyOptional({
     example: "Laptop request",
-    description: "Optional grouping under department (Phase 7)",
+    maxLength: CATALOG_SUBCATEGORY_MAX_LENGTH,
     nullable: true,
+    description:
+      "Optional grouping under department (Phase 7). Free-text service label, not validated against the incident category map. Catalog category remains department.",
   })
   @IsOptional()
-  @ValidateIf((_, value) => value !== null)
+  @ValidateIf((_, value) => value !== null && value !== undefined)
   @IsString()
-  @MaxLength(128)
+  @MaxLength(CATALOG_SUBCATEGORY_MAX_LENGTH)
   subcategory?: string | null;
 
   @ApiProperty({ type: [CatalogFormFieldDto] })
@@ -118,13 +122,15 @@ export class UpdateCatalogItemDto {
 
   @ApiPropertyOptional({
     example: "Laptop request",
-    description: "Optional grouping under department (Phase 7). Null clears.",
+    maxLength: CATALOG_SUBCATEGORY_MAX_LENGTH,
     nullable: true,
+    description:
+      "Optional grouping under department (Phase 7). Free-text service label, not validated against the incident category map. Pass null to clear.",
   })
   @IsOptional()
-  @ValidateIf((_, value) => value !== null)
+  @ValidateIf((_, value) => value !== null && value !== undefined)
   @IsString()
-  @MaxLength(128)
+  @MaxLength(CATALOG_SUBCATEGORY_MAX_LENGTH)
   subcategory?: string | null;
 
   @ApiPropertyOptional({ type: [CatalogFormFieldDto] })

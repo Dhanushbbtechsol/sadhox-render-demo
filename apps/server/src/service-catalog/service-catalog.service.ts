@@ -26,6 +26,7 @@ const publicSelect = {
   isActive: serviceCatalog.isActive,
 } as const;
 
+/** Free-text concrete service label under department — not validated against the incident map. */
 function sanitizeOptionalSubcategory(
   value: string | null | undefined,
 ): string | null | undefined {
@@ -86,8 +87,7 @@ export class ServiceCatalogService {
         "Catalog name, description, and department are required",
       );
     }
-
-    const subcategory = sanitizeOptionalSubcategory(dto.subcategory);
+    const subcategory = sanitizeOptionalSubcategory(dto.subcategory) ?? null;
 
     const [row] = await this.db
       .insert(serviceCatalog)
@@ -95,7 +95,7 @@ export class ServiceCatalogService {
         name,
         description,
         department,
-        ...(subcategory !== undefined ? { subcategory } : {}),
+        subcategory,
         formFields: sanitizeFormFields(dto.formFields),
         isActive: dto.isActive ?? true,
       })
@@ -168,18 +168,38 @@ export class ServiceCatalogService {
   async ensureSeeded() {
     for (const item of CATALOG_SEED) {
       const [existing] = await this.db
-        .select({ id: serviceCatalog.id })
+        .select({
+          id: serviceCatalog.id,
+          department: serviceCatalog.department,
+          subcategory: serviceCatalog.subcategory,
+        })
         .from(serviceCatalog)
         .where(eq(serviceCatalog.id, item.id))
         .limit(1);
-      if (existing) continue;
-      await this.db.insert(serviceCatalog).values({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        department: item.department,
-        formFields: item.formFields,
-      });
+      if (!existing) {
+        await this.db.insert(serviceCatalog).values({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          department: item.department,
+          subcategory: item.subcategory,
+          formFields: item.formFields,
+        });
+        continue;
+      }
+      if (
+        existing.department !== item.department ||
+        existing.subcategory !== item.subcategory
+      ) {
+        await this.db
+          .update(serviceCatalog)
+          .set({
+            department: item.department,
+            subcategory: item.subcategory,
+            updatedAt: new Date(),
+          })
+          .where(eq(serviceCatalog.id, item.id));
+      }
     }
   }
 }

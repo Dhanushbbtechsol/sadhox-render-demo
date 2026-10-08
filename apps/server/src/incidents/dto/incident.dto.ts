@@ -6,32 +6,39 @@ import {
   IsUUID,
   MaxLength,
   MinLength,
-  ValidateIf,
   Validate,
+  ValidateIf,
   ValidatorConstraint,
-  ValidatorConstraintInterface,
-  ValidationArguments,
+  type ValidationArguments,
+  type ValidatorConstraintInterface,
 } from "class-validator";
 import { ProjectScopeFieldsDto } from "../../common/dto/project-scope.dto";
 import {
   INCIDENT_CATEGORIES,
-  isValidIncidentCategoryPair,
-} from "../incident-categories";
+  isValidIncidentCategorySubcategory,
+  subcategoriesForCategory,
+} from "../incident-category-map";
 
 const IMPACT_URGENCY = ["High", "Medium", "Low"] as const;
 
-@ValidatorConstraint({ name: "incidentCategorySubcategory", async: false })
-export class IncidentCategorySubcategoryConstraint
+@ValidatorConstraint({ name: "isIncidentCategorySubcategoryPair", async: false })
+class IsIncidentCategorySubcategoryPairConstraint
   implements ValidatorConstraintInterface
 {
-  validate(_value: unknown, args: ValidationArguments): boolean {
-    const obj = args.object as { category?: string; subcategory?: string };
-    if (!obj.category || !obj.subcategory) return true;
-    return isValidIncidentCategoryPair(obj.category, obj.subcategory);
+  validate(subcategory: string, args: ValidationArguments) {
+    const obj = args.object as { category?: string };
+    if (!obj.category || typeof subcategory !== "string") return false;
+    return isValidIncidentCategorySubcategory(obj.category, subcategory);
   }
 
-  defaultMessage(): string {
-    return "subcategory must belong to the selected category";
+  defaultMessage(args: ValidationArguments) {
+    const obj = args.object as { category?: string };
+    const category = obj.category ?? "";
+    const allowed = subcategoriesForCategory(category);
+    if (!allowed) {
+      return `category must be one of: ${INCIDENT_CATEGORIES.join(", ")}`;
+    }
+    return `subcategory must be one of: ${allowed.join(", ")} for category "${category}"`;
   }
 }
 
@@ -48,17 +55,22 @@ export class CreateIncidentDto extends ProjectScopeFieldsDto {
   @MaxLength(10_000)
   description!: string;
 
-  @ApiProperty({ enum: INCIDENT_CATEGORIES })
+  @ApiProperty({
+    enum: INCIDENT_CATEGORIES,
+    description: "Phase 7 incident category (see INCIDENT_CATEGORY_SUBCATEGORY_MAP)",
+  })
   @IsIn([...INCIDENT_CATEGORIES])
   category!: (typeof INCIDENT_CATEGORIES)[number];
 
   @ApiProperty({
-    description: "Must belong to the selected category (see Phase 7 map)",
+    example: "Laptop/Desktop",
+    description:
+      "Required subcategory belonging to the selected category (INCIDENT_CATEGORY_SUBCATEGORY_MAP)",
   })
   @IsString()
   @MinLength(1)
   @MaxLength(128)
-  @Validate(IncidentCategorySubcategoryConstraint)
+  @Validate(IsIncidentCategorySubcategoryPairConstraint)
   subcategory!: string;
 
   @ApiProperty({ enum: IMPACT_URGENCY })
@@ -94,19 +106,30 @@ export class UpdateIncidentDto extends ProjectScopeFieldsDto {
   @MaxLength(10_000)
   description?: string;
 
-  @ApiPropertyOptional({ enum: INCIDENT_CATEGORIES })
+  /**
+   * Optional. Pair validation against the Phase 7 map runs in the service on
+   * the effective values only when category or subcategory actually changes
+   * vs the stored row (legacy category / "Other" re-sends are allowed).
+   */
+  @ApiPropertyOptional({
+    enum: INCIDENT_CATEGORIES,
+    description:
+      "When changed, effective (category, subcategory) must be a valid map pair",
+  })
   @IsOptional()
-  @IsIn([...INCIDENT_CATEGORIES])
-  category?: (typeof INCIDENT_CATEGORIES)[number];
+  @IsString()
+  @MaxLength(64)
+  category?: string;
 
   @ApiPropertyOptional({
-    description: "Must belong to category when both are sent",
+    example: "Laptop/Desktop",
+    description:
+      "When changed, effective (category, subcategory) must be a valid map pair. Must belong to category when both are sent.",
   })
   @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(128)
-  @Validate(IncidentCategorySubcategoryConstraint)
   subcategory?: string;
 
   @ApiPropertyOptional({ enum: IMPACT_URGENCY })
