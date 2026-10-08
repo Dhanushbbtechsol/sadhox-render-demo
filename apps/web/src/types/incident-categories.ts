@@ -1,4 +1,8 @@
-/** Phase 7 incident category → subcategory map (mirrors server incident-categories). */
+/**
+ * Phase 7 incident category → subcategory map.
+ * Mirrors `apps/server/src/incidents/incident-category-map.ts`
+ * (`INCIDENT_CATEGORY_SUBCATEGORY_MAP`). Keep in sync deliberately.
+ */
 export const INCIDENT_CATEGORY_MAP = {
   Hardware: [
     "Laptop/Desktop",
