@@ -1,8 +1,8 @@
-# Phase 7 audit — 2026-10-08 (post merge-to-audit)
+# Phase 7 reaudit — 2026-10-08 (after twin-map fix)
 
-Scope: `Audit` after `Dev-A-`, `Dev-B`, and `Dev-D` (EndUser `/incidents`, catalog subcategory, category map, seed retag). Diff base: `102d522`. Stack: NestJS + Drizzle + Passport JWT + React/Vite. No `.review.yml` (Sonar defaults). Dev C had no Phase 7 diff.
+Scope: `Audit` at `4ec5e48` (`Dev-A-`, `Dev-B`, `Dev-D`). Diff base: `102d522`. Delta since the first Phase 7 audit: delete `incident-categories.ts`, create/update use `incident-category-map.ts` only. Stack: NestJS + Drizzle + Passport JWT + React/Vite. No `.review.yml` (Sonar defaults). Dev C had no Phase 7 diff.
 
-**Open findings (Phase 7): 0 Critical · 0 High · 0 Medium · 0 Low** ([A08] twin maps closed 2026-10-08).
+**Open findings (Phase 7): 0 Critical · 0 High · 0 Medium · 0 Low.**
 **Pass/fail:** Dev A **PASS** · Dev B **PASS** · Dev C **PASS** · Dev D **PASS**.
 
 **Owners:** [Dev A](./Dev%20A/phase7.md) · [Dev B](./Dev%20B/phase7.md) · [Dev C](./Dev%20C/phase7.md) · [Dev D](./Dev%20D/phase7.md)

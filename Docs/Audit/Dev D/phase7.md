@@ -1,6 +1,6 @@
 # Security Audit: Dev D (Phase 7)
 
-Audit 2026-10-08 (post merge-to-audit). Combined: [phase7.md](../phase7.md). **PASS / CLEAN.**
+Reaudit 2026-10-08. Combined: [phase7.md](../phase7.md). **PASS / CLEAN.**
 
 Category/subcategory columns, DTO map check, catalog subcategory column, and Phase 7 seed (catalog retag + five Published articles). Create rejects pairs outside the map. Update validates only when category or subcategory actually changes, so a stored legacy value can be re-sent. Drizzle parameters only. KB seed is plain text.
 
