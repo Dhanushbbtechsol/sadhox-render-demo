@@ -165,7 +165,7 @@ export class ProjectsService {
   async addMember(projectId: string, dto: AddProjectMemberDto) {
     await this.scope.assertProjectExists(projectId);
     // Design authority: service rejects non-Agent inserts; Managers cannot be members.
-    await this.scope.assertUserIsAgentForMembership(dto.userId);
+    await this.scope.assertUserEligibleForMembership(dto.userId);
 
     try {
       const [row] = await this.db

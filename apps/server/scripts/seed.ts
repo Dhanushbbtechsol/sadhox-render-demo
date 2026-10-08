@@ -61,6 +61,48 @@ const SCENARIO_PROBLEM_IDS = {
   wifiKnown: "c2000000-0000-4000-8000-000000000003",
 } as const;
 
+/** Idempotent desk/portal fixtures — safe to re-run when showcase/scenario skipped. */
+const DEMO_PREFIX = "[Demo]";
+const DEMO_INCIDENT_IDS = {
+  endOpen1: "d1000000-0000-4000-8000-000000000001",
+  endOpen2: "d1000000-0000-4000-8000-000000000002",
+  endAssigned: "d1000000-0000-4000-8000-000000000003",
+  endProgress: "d1000000-0000-4000-8000-000000000004",
+  endResolved: "d1000000-0000-4000-8000-000000000005",
+  endUnscoped: "d1000000-0000-4000-8000-000000000006",
+  patOpen1: "d1000000-0000-4000-8000-000000000011",
+  patOpen2: "d1000000-0000-4000-8000-000000000012",
+  patAssigned: "d1000000-0000-4000-8000-000000000013",
+  patProgress: "d1000000-0000-4000-8000-000000000014",
+  patResolved: "d1000000-0000-4000-8000-000000000015",
+  patUnscoped: "d1000000-0000-4000-8000-000000000016",
+} as const;
+const DEMO_PROBLEM_IDS = {
+  agentQueue: "d2000000-0000-4000-8000-000000000001",
+  agentKnown: "d2000000-0000-4000-8000-000000000002",
+} as const;
+const DEMO_SR_IDS = {
+  endSubmitted: "d3000000-0000-4000-8000-000000000001",
+  endPending: "d3000000-0000-4000-8000-000000000002",
+  endApproved: "d3000000-0000-4000-8000-000000000003",
+  endFulfilled: "d3000000-0000-4000-8000-000000000004",
+  patSubmitted: "d3000000-0000-4000-8000-000000000011",
+  patPending: "d3000000-0000-4000-8000-000000000012",
+  patInFulfillment: "d3000000-0000-4000-8000-000000000013",
+  patClosed: "d3000000-0000-4000-8000-000000000014",
+} as const;
+const DEMO_CHANGE_IDS = {
+  submitted: "d4000000-0000-4000-8000-000000000001",
+  approved: "d4000000-0000-4000-8000-000000000002",
+  scheduled: "d4000000-0000-4000-8000-000000000003",
+  closed: "d4000000-0000-4000-8000-000000000004",
+} as const;
+const DEMO_NOTIFICATION_IDS = {
+  agentAssigned: "d5000000-0000-4000-8000-000000000001",
+  endComment: "d5000000-0000-4000-8000-000000000002",
+  patFulfilled: "d5000000-0000-4000-8000-000000000003",
+} as const;
+
 async function seed() {
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -198,7 +240,16 @@ async function seed() {
   await attachShowcaseIncidentsToProject(db);
   await seedPhase4Assets(db);
   await seedKnowledgeBase(db);
-  await seedScenarioNarrative(db);
+  try {
+    await seedScenarioNarrative(db);
+  } catch (err) {
+    console.warn(
+      "scenario narrative failed (continuing role-visible demo):",
+      err instanceof Error ? err.message : err,
+    );
+  }
+  // Always top-up Agent + EndUser portal/desk queues (idempotent fixed IDs).
+  await seedRoleVisibleDemo(db);
 
   await client.end();
   console.log("Seed complete");
@@ -403,6 +454,11 @@ async function seedShowcaseData(db: SeedDb) {
     .from(users)
     .where(eq(users.email, "enduser@sadhox.local"))
     .limit(1);
+  const [portalUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "user@sadhox.local"))
+    .limit(1);
 
   if (!admin || !agent || !endUser) {
     console.log("skip showcase data — seed users missing");
@@ -414,6 +470,16 @@ async function seedShowcaseData(db: SeedDb) {
     console.log("skip showcase data — catalog seed empty");
     return;
   }
+
+  // Prefer Platform Ops for Agent-visible queues when phase6 project exists.
+  const [platformOps] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.id, PHASE6_PROJECT_ID))
+    .limit(1);
+  const showcaseProjectId = platformOps?.id ?? null;
+  const showcaseModuleId = platformOps ? PHASE6_MODULE_ID : null;
+  const altReporter = portalUser?.id ?? endUser.id;
 
   const now = Date.now();
   const day = 24 * 60 * 60 * 1000;
@@ -518,7 +584,7 @@ async function seedShowcaseData(db: SeedDb) {
     });
   }
 
-  for (const row of openShowcase) {
+  for (const [i, row] of openShowcase.entries()) {
     await db.insert(incidents).values({
       title: row.title,
       description: "Dashboard showcase seed — open ticket.",
@@ -528,12 +594,15 @@ async function seedShowcaseData(db: SeedDb) {
       urgency: row.urgency,
       status: row.status,
       assignedTo: row.status === "New" ? null : agent.id,
-      reporterId: endUser.id,
+      // Split reporters so both EndUser logins see portal tickets.
+      reporterId: i % 2 === 0 ? endUser.id : altReporter,
+      projectId: showcaseProjectId,
+      moduleId: showcaseModuleId,
       slaDueAt: new Date(now + 2 * day),
     });
   }
 
-  for (const row of lifecycleMatrix) {
+  for (const [i, row] of lifecycleMatrix.entries()) {
     const resolvedAt =
       row.status === "Resolved" || row.status === "Closed"
         ? new Date(now - day)
@@ -549,7 +618,9 @@ async function seedShowcaseData(db: SeedDb) {
       urgency: row.urgency,
       status: row.status,
       assignedTo: row.status === "New" ? null : agent.id,
-      reporterId: endUser.id,
+      reporterId: i % 3 === 0 ? altReporter : endUser.id,
+      projectId: showcaseProjectId,
+      moduleId: showcaseModuleId,
       slaDueAt: new Date(now + 2 * day),
       resolutionNotes:
         row.status === "Resolved" || row.status === "Closed"
@@ -570,9 +641,10 @@ async function seedShowcaseData(db: SeedDb) {
   ] as const;
   for (const [i, status] of srStatuses.entries()) {
     for (let n = 0; n < 2 + (i % 2); n++) {
+      const requesterId = n % 2 === 0 ? endUser.id : altReporter;
       await db.insert(serviceRequests).values({
         catalogId,
-        requesterId: endUser.id,
+        requesterId,
         approverId: status === "Submitted" || status === "PendingApproval" ? null : admin.id,
         title: `${SHOWCASE_PREFIX} SR ${status} #${n + 1}`,
         description: "Showcase service request",
@@ -584,6 +656,8 @@ async function seedShowcaseData(db: SeedDb) {
           status === "Approved" || status === "InFulfillment" || status === "Fulfilled" || status === "Closed"
             ? new Date(now - i * day)
             : null,
+        projectId: showcaseProjectId,
+        moduleId: showcaseModuleId,
       });
     }
   }
@@ -1204,23 +1278,33 @@ async function seedScenarioNarrative(db: SeedDb) {
     KNOWLEDGE_ARTICLE_SEED.find((a) => a.slug === "vpn-access-checklist")?.id ??
     publishedArticleId;
   if (publishedArticleId && vpnArticleId) {
-    await db.insert(ticketKnowledgeLinks).values([
-      {
-        ticketId: SCENARIO_INCIDENT_IDS.laptopBroken,
-        ticketType: "incident",
-        articleId: publishedArticleId,
-      },
-      {
-        ticketId: SCENARIO_INCIDENT_IDS.accessDenied,
-        ticketType: "incident",
-        articleId: vpnArticleId,
-      },
-      {
-        ticketId: SCENARIO_PROBLEM_IDS.wifiKnown,
-        ticketType: "problem",
-        articleId: publishedArticleId,
-      },
-    ]);
+    try {
+      await db
+        .insert(ticketKnowledgeLinks)
+        .values([
+          {
+            ticketId: SCENARIO_INCIDENT_IDS.laptopBroken,
+            ticketType: "incident",
+            articleId: publishedArticleId,
+          },
+          {
+            ticketId: SCENARIO_INCIDENT_IDS.accessDenied,
+            ticketType: "incident",
+            articleId: vpnArticleId,
+          },
+          {
+            ticketId: SCENARIO_PROBLEM_IDS.wifiKnown,
+            ticketType: "problem",
+            articleId: publishedArticleId,
+          },
+        ])
+        .onConflictDoNothing();
+    } catch (err) {
+      console.warn(
+        "skip scenario KB links (schema mismatch?):",
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 
   await db.insert(notifications).values([
@@ -1295,6 +1379,504 @@ async function seedScenarioNarrative(db: SeedDb) {
 
   console.log(
     `scenario seeded: ${incidentRows.length} incidents, 3 problems, ${srStatuses.length} SRs, ${changeRows.length} changes, comments, notifications, KB links, SCEN- assets`,
+  );
+}
+
+/**
+ * Guarantees Agent desk + both EndUser portals have visible rows after login.
+ * Uses fixed UUIDs + onConflictDoNothing so re-seed tops up empty DBs safely.
+ */
+async function seedRoleVisibleDemo(db: SeedDb) {
+  const [admin] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "admin@sadhox.local"))
+    .limit(1);
+  const [agent] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "agent@sadhox.local"))
+    .limit(1);
+  const [endUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "enduser@sadhox.local"))
+    .limit(1);
+  const [portalUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "user@sadhox.local"))
+    .limit(1);
+  const [manager] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "manager@sadhox.local"))
+    .limit(1);
+
+  if (!admin || !agent || !endUser || !portalUser || !manager) {
+    console.log("skip role-visible demo — required users missing");
+    return;
+  }
+
+  const catalogId = CATALOG_SEED[0]?.id;
+  if (!catalogId) {
+    console.log("skip role-visible demo — catalog empty");
+    return;
+  }
+
+  const [proj] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.id, PHASE6_PROJECT_ID))
+    .limit(1);
+  if (!proj) {
+    console.log("skip role-visible demo — Platform Ops missing (run phase6 seed)");
+    return;
+  }
+
+  await db
+    .insert(projectMembers)
+    .values({ projectId: PHASE6_PROJECT_ID, userId: agent.id })
+    .onConflictDoNothing();
+
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+
+  type DemoInc = {
+    id: string;
+    title: string;
+    status: "New" | "Assigned" | "InProgress" | "Resolved" | "Closed";
+    priority: "P1" | "P2" | "P3" | "P4";
+    reporterId: string;
+    assignedTo: string | null;
+    projectId: string | null;
+    moduleId: string | null;
+    resolvedAt?: Date | null;
+  };
+
+  const demoIncidents: DemoInc[] = [
+    {
+      id: DEMO_INCIDENT_IDS.endOpen1,
+      title: `${DEMO_PREFIX} Cannot print from home office`,
+      status: "New",
+      priority: "P3",
+      reporterId: endUser.id,
+      assignedTo: null,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+    },
+    {
+      id: DEMO_INCIDENT_IDS.endOpen2,
+      title: `${DEMO_PREFIX} Password reset portal times out`,
+      status: "New",
+      priority: "P2",
+      reporterId: endUser.id,
+      assignedTo: null,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+    {
+      id: DEMO_INCIDENT_IDS.endAssigned,
+      title: `${DEMO_PREFIX} Headset mic not detected`,
+      status: "Assigned",
+      priority: "P3",
+      reporterId: endUser.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+    },
+    {
+      id: DEMO_INCIDENT_IDS.endProgress,
+      title: `${DEMO_PREFIX} Shared drive permission missing`,
+      status: "InProgress",
+      priority: "P2",
+      reporterId: endUser.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+    {
+      id: DEMO_INCIDENT_IDS.endResolved,
+      title: `${DEMO_PREFIX} Outlook search index rebuild`,
+      status: "Resolved",
+      priority: "P4",
+      reporterId: endUser.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+      resolvedAt: new Date(now - day),
+    },
+    {
+      id: DEMO_INCIDENT_IDS.endUnscoped,
+      title: `${DEMO_PREFIX} Guest Wi-Fi captive portal stuck`,
+      status: "Assigned",
+      priority: "P3",
+      reporterId: endUser.id,
+      assignedTo: agent.id,
+      projectId: null,
+      moduleId: null,
+    },
+    {
+      id: DEMO_INCIDENT_IDS.patOpen1,
+      title: `${DEMO_PREFIX} Monitor arm loose at desk`,
+      status: "New",
+      priority: "P4",
+      reporterId: portalUser.id,
+      assignedTo: null,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+    },
+    {
+      id: DEMO_INCIDENT_IDS.patOpen2,
+      title: `${DEMO_PREFIX} Calendar invites arrive late`,
+      status: "New",
+      priority: "P2",
+      reporterId: portalUser.id,
+      assignedTo: null,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+    {
+      id: DEMO_INCIDENT_IDS.patAssigned,
+      title: `${DEMO_PREFIX} MFA push not arriving`,
+      status: "Assigned",
+      priority: "P1",
+      reporterId: portalUser.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_ID,
+    },
+    {
+      id: DEMO_INCIDENT_IDS.patProgress,
+      title: `${DEMO_PREFIX} Dock firmware update failed`,
+      status: "InProgress",
+      priority: "P2",
+      reporterId: portalUser.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+    },
+    {
+      id: DEMO_INCIDENT_IDS.patResolved,
+      title: `${DEMO_PREFIX} Teams camera black screen`,
+      status: "Resolved",
+      priority: "P3",
+      reporterId: portalUser.id,
+      assignedTo: agent.id,
+      projectId: PHASE6_PROJECT_ID,
+      moduleId: PHASE6_MODULE_2_ID,
+      resolvedAt: new Date(now - 2 * day),
+    },
+    {
+      id: DEMO_INCIDENT_IDS.patUnscoped,
+      title: `${DEMO_PREFIX} Spam filter quarantined invoice`,
+      status: "InProgress",
+      priority: "P2",
+      reporterId: portalUser.id,
+      assignedTo: agent.id,
+      projectId: null,
+      moduleId: null,
+    },
+  ];
+
+  for (const row of demoIncidents) {
+    await db
+      .insert(incidents)
+      .values({
+        id: row.id,
+        title: row.title,
+        description:
+          "Demo seed for Agent / EndUser tab visibility after login. Safe to delete.",
+        category: "Other",
+        priority: row.priority,
+        impact: row.priority === "P1" || row.priority === "P2" ? "High" : "Medium",
+        urgency: row.priority === "P1" ? "High" : "Medium",
+        status: row.status,
+        assignedTo: row.assignedTo,
+        reporterId: row.reporterId,
+        projectId: row.projectId,
+        moduleId: row.moduleId,
+        slaDueAt: new Date(now + 2 * day),
+        resolutionNotes:
+          row.status === "Resolved" ? "Demo resolution — issue cleared." : null,
+        resolvedAt: row.resolvedAt ?? null,
+      })
+      .onConflictDoNothing();
+  }
+
+  await db
+    .insert(problems)
+    .values([
+      {
+        id: DEMO_PROBLEM_IDS.agentQueue,
+        title: `${DEMO_PREFIX} Recurring MFA delivery failures`,
+        description:
+          "Multiple Platform Ops incidents report delayed MFA pushes during peak hours.",
+        rootCause: null,
+        knownError: false,
+        status: "Investigating",
+        assignedTo: agent.id,
+        projectId: PHASE6_PROJECT_ID,
+        moduleId: PHASE6_MODULE_ID,
+      },
+      {
+        id: DEMO_PROBLEM_IDS.agentKnown,
+        title: `${DEMO_PREFIX} Known error — dock firmware 2.1.4 black screen`,
+        description: "Documented workaround: force DisplayPort preferred path.",
+        rootCause: "Dock firmware regression on dual-HDMI hubs.",
+        knownError: true,
+        status: "KnownError",
+        assignedTo: agent.id,
+        projectId: PHASE6_PROJECT_ID,
+        moduleId: PHASE6_MODULE_2_ID,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(problemIncidents)
+    .values([
+      {
+        problemId: DEMO_PROBLEM_IDS.agentQueue,
+        incidentId: DEMO_INCIDENT_IDS.patAssigned,
+      },
+      {
+        problemId: DEMO_PROBLEM_IDS.agentKnown,
+        incidentId: DEMO_INCIDENT_IDS.patProgress,
+      },
+    ])
+    .onConflictDoNothing();
+
+  type DemoSr = {
+    id: string;
+    title: string;
+    status:
+      | "Submitted"
+      | "PendingApproval"
+      | "Approved"
+      | "InFulfillment"
+      | "Fulfilled"
+      | "Closed";
+    requesterId: string;
+    assigneeId: string | null;
+  };
+
+  const demoSrs: DemoSr[] = [
+    {
+      id: DEMO_SR_IDS.endSubmitted,
+      title: `${DEMO_PREFIX} Request extra monitor`,
+      status: "Submitted",
+      requesterId: endUser.id,
+      assigneeId: null,
+    },
+    {
+      id: DEMO_SR_IDS.endPending,
+      title: `${DEMO_PREFIX} VPN token replacement`,
+      status: "PendingApproval",
+      requesterId: endUser.id,
+      assigneeId: null,
+    },
+    {
+      id: DEMO_SR_IDS.endApproved,
+      title: `${DEMO_PREFIX} Software license — Visio`,
+      status: "Approved",
+      requesterId: endUser.id,
+      assigneeId: null,
+    },
+    {
+      id: DEMO_SR_IDS.endFulfilled,
+      title: `${DEMO_PREFIX} Keyboard replacement fulfilled`,
+      status: "Fulfilled",
+      requesterId: endUser.id,
+      assigneeId: agent.id,
+    },
+    {
+      id: DEMO_SR_IDS.patSubmitted,
+      title: `${DEMO_PREFIX} Request standing desk mat`,
+      status: "Submitted",
+      requesterId: portalUser.id,
+      assigneeId: null,
+    },
+    {
+      id: DEMO_SR_IDS.patPending,
+      title: `${DEMO_PREFIX} Database access for reporting`,
+      status: "PendingApproval",
+      requesterId: portalUser.id,
+      assigneeId: null,
+    },
+    {
+      id: DEMO_SR_IDS.patInFulfillment,
+      title: `${DEMO_PREFIX} Laptop accessories kit`,
+      status: "InFulfillment",
+      requesterId: portalUser.id,
+      assigneeId: agent.id,
+    },
+    {
+      id: DEMO_SR_IDS.patClosed,
+      title: `${DEMO_PREFIX} Softphone headset — closed`,
+      status: "Closed",
+      requesterId: portalUser.id,
+      assigneeId: agent.id,
+    },
+  ];
+
+  for (const row of demoSrs) {
+    const needsApprover =
+      row.status !== "Submitted" && row.status !== "PendingApproval";
+    await db
+      .insert(serviceRequests)
+      .values({
+        id: row.id,
+        catalogId,
+        requesterId: row.requesterId,
+        approverId: needsApprover ? manager.id : null,
+        title: row.title,
+        description: "Demo service request for EndUser Requests tab + Agent queue.",
+        justification: "Seeded for local walkthroughs after login.",
+        urgency: "Medium",
+        fields: { demo: "true" },
+        status: row.status,
+        assigneeId: row.assigneeId,
+        approvedAt: needsApprover ? new Date(now - day) : null,
+        fulfillmentNotes:
+          row.status === "Fulfilled" || row.status === "Closed"
+            ? "Demo fulfillment complete."
+            : null,
+        fulfilledAt:
+          row.status === "Fulfilled" || row.status === "Closed"
+            ? new Date(now - day / 2)
+            : null,
+        projectId: PHASE6_PROJECT_ID,
+        moduleId: PHASE6_MODULE_2_ID,
+      })
+      .onConflictDoNothing();
+  }
+
+  await db
+    .insert(changes)
+    .values([
+      {
+        id: DEMO_CHANGE_IDS.submitted,
+        title: `${DEMO_PREFIX} Patch VPN clients on Ops laptops`,
+        description: "Demo change for Agent Changes tab.",
+        type: "Normal",
+        status: "Submitted",
+        createdBy: agent.id,
+        approvedBy: null,
+        approvedAt: null,
+        scheduledStart: new Date(now + day),
+        scheduledEnd: new Date(now + 2 * day),
+        rollbackPlan: "Revert client package via Intune.",
+        projectId: PHASE6_PROJECT_ID,
+        moduleId: PHASE6_MODULE_ID,
+      },
+      {
+        id: DEMO_CHANGE_IDS.approved,
+        title: `${DEMO_PREFIX} Enable SSO for softphone`,
+        description: "Demo approved change.",
+        type: "Normal",
+        status: "Approved",
+        createdBy: agent.id,
+        approvedBy: manager.id,
+        approvedAt: new Date(now - day),
+        scheduledStart: new Date(now + day),
+        scheduledEnd: new Date(now + 2 * day),
+        rollbackPlan: "Disable SSO flag.",
+        projectId: PHASE6_PROJECT_ID,
+        moduleId: PHASE6_MODULE_2_ID,
+      },
+      {
+        id: DEMO_CHANGE_IDS.scheduled,
+        title: `${DEMO_PREFIX} AP channel rebalance floor 3`,
+        description: "Demo scheduled change.",
+        type: "Standard",
+        status: "Scheduled",
+        createdBy: agent.id,
+        approvedBy: admin.id,
+        approvedAt: new Date(now - 2 * day),
+        scheduledStart: new Date(now + day),
+        scheduledEnd: new Date(now + 2 * day),
+        rollbackPlan: "Restore previous channel plan.",
+        projectId: PHASE6_PROJECT_ID,
+        moduleId: PHASE6_MODULE_ID,
+      },
+      {
+        id: DEMO_CHANGE_IDS.closed,
+        title: `${DEMO_PREFIX} Mail archive window shift — done`,
+        description: "Demo closed change.",
+        type: "Normal",
+        status: "Closed",
+        createdBy: agent.id,
+        approvedBy: manager.id,
+        approvedAt: new Date(now - 5 * day),
+        scheduledStart: new Date(now - 3 * day),
+        scheduledEnd: new Date(now - 2 * day),
+        rollbackPlan: "Restore previous cron.",
+        projectId: PHASE6_PROJECT_ID,
+        moduleId: PHASE6_MODULE_ID,
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(comments)
+    .values([
+      {
+        id: "d6000000-0000-4000-8000-000000000001",
+        ticketId: DEMO_INCIDENT_IDS.endProgress,
+        ticketType: "incident",
+        authorId: agent.id,
+        content: "Checking group membership — will update shortly.",
+      },
+      {
+        id: "d6000000-0000-4000-8000-000000000002",
+        ticketId: DEMO_INCIDENT_IDS.patAssigned,
+        ticketType: "incident",
+        authorId: portalUser.id,
+        content: "Still not receiving MFA pushes on the phone.",
+      },
+      {
+        id: "d6000000-0000-4000-8000-000000000003",
+        ticketId: DEMO_INCIDENT_IDS.patAssigned,
+        ticketType: "incident",
+        authorId: agent.id,
+        content: "Escalating to IdP vendor; temporary TOTP enabled.",
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(notifications)
+    .values([
+      {
+        id: DEMO_NOTIFICATION_IDS.agentAssigned,
+        userId: agent.id,
+        type: "ticket.assigned",
+        title: `${DEMO_PREFIX} Assigned: MFA push not arriving`,
+        body: "P1 incident from Pat Portal needs attention.",
+        readAt: null,
+      },
+      {
+        id: DEMO_NOTIFICATION_IDS.endComment,
+        userId: endUser.id,
+        type: "ticket.comment",
+        title: `${DEMO_PREFIX} Agent updated your shared drive ticket`,
+        body: "Alice Agent is checking group membership.",
+        readAt: null,
+      },
+      {
+        id: DEMO_NOTIFICATION_IDS.patFulfilled,
+        userId: portalUser.id,
+        type: "request.fulfilled",
+        title: `${DEMO_PREFIX} Your accessories kit is in fulfillment`,
+        body: "Alice Agent is preparing the laptop accessories kit.",
+        readAt: null,
+      },
+    ])
+    .onConflictDoNothing();
+
+  console.log(
+    `role-visible demo ensured: ${demoIncidents.length} incidents, 2 problems, ${demoSrs.length} SRs, 4 changes (Agent + enduser@ + user@)`,
   );
 }
 

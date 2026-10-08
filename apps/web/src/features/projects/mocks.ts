@@ -38,10 +38,28 @@ export const mockProjectModules: ProjectModule[] = [
 
 export const mockDirectoryUsers: DirectoryUser[] = [
   {
+    id: "user-admin",
+    name: "Ian Admin",
+    email: "admin@sadhox.local",
+    role: "Admin",
+  },
+  {
     id: "user-agent",
     name: "Support Agent",
     email: "agent@sadhox.local",
     role: "Agent",
+  },
+  {
+    id: "user-enduser",
+    name: "End User",
+    email: "enduser@sadhox.local",
+    role: "EndUser",
+  },
+  {
+    id: "user-portal",
+    name: "Pat Portal",
+    email: "user@sadhox.local",
+    role: "EndUser",
   },
   {
     id: "user-manager",

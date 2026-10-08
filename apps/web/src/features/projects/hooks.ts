@@ -172,9 +172,7 @@ export function useAddProjectMember(projectId: string) {
     mutationFn: async (userId: string) => {
       if (useOfflineAdminData()) {
         const user = mockDirectoryUsers.find((u) => u.id === userId);
-        if (!user || user.role !== "Agent") {
-          throw new Error("Only Agents can be project members");
-        }
+        if (!user) throw new Error("User not found");
         if (!mockProjectMembers.some((m) => m.userId === userId)) {
           mockProjectMembers.push({
             userId: user.id,
@@ -315,16 +313,24 @@ export function useDeleteProjectModule(projectId: string) {
   });
 }
 
-export function useDirectoryUsers(role: "Agent" | "Manager") {
+export function useDirectoryUsers(role?: "Agent" | "Manager" | "Admin" | "EndUser") {
   return useQuery({
-    queryKey: ["admin", "users", role, useOfflineAdminData() ? "mock" : "live"],
+    queryKey: [
+      "admin",
+      "users",
+      role ?? "all",
+      useOfflineAdminData() ? "mock" : "live",
+    ],
     queryFn: async (): Promise<DirectoryUser[]> => {
       if (useOfflineAdminData()) {
-        return mockDirectoryUsers.filter((u) => u.role === role);
+        return role
+          ? mockDirectoryUsers.filter((u) => u.role === role)
+          : [...mockDirectoryUsers];
       }
+      const query = role ? `?role=${role}` : "";
       const result = await apiFetch<
         { data: DirectoryUser[] } | DirectoryUser[]
-      >(`/admin/users?role=${role}`);
+      >(`/admin/users${query}`);
       return unwrapList(result);
     },
   });

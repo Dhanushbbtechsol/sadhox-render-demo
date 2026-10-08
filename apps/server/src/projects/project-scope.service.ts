@@ -58,19 +58,19 @@ export class ProjectScopeService {
     if (!row) throw new NotFoundException("Project not found");
   }
 
-  /** project_members may only reference Agent users (Managers supervise; not workers). */
-  async assertUserIsAgentForMembership(userId: string): Promise<void> {
+  /** project_members may reference any existing user (any role). */
+  async assertUserEligibleForMembership(userId: string): Promise<void> {
     const [user] = await this.db
-      .select({ id: users.id, role: users.role })
+      .select({ id: users.id })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
     if (!user) throw new NotFoundException("User not found");
-    if (user.role !== "Agent") {
-      throw new BadRequestException(
-        "Only Agent users can be project members (Managers supervise; Admins are global)",
-      );
-    }
+  }
+
+  /** @deprecated Use assertUserEligibleForMembership */
+  async assertUserIsAgentForMembership(userId: string): Promise<void> {
+    return this.assertUserEligibleForMembership(userId);
   }
 
   async resolveTicketProjectScope(input: {
