@@ -36,7 +36,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-import { buildDashboardCsv, downloadDashboardCsv } from "./export-dashboard-csv";
+import { downloadDashboardReport } from "./export-dashboard-csv";
 import {
   useAdminStats,
   useChartSlaCompliance,
@@ -90,24 +90,24 @@ const DONUT_COLORS = [
 
 export default function DashboardPage() {
   const [range, setRange] = useState<ChartRange>("30d");
+  const [reportLoading, setReportLoading] = useState(false);
   const stats = useAdminStats();
   const volume = useChartVolumeByModule(range);
   const statusDist = useChartStatusDistribution(range);
   const slaRate = useChartSlaCompliance(range);
 
-  function handleExportCsv() {
-    if (!stats.data || !slaRate.data) {
-      toast.error("Dashboard data is still loading");
-      return;
+  async function handleGenerateReport() {
+    setReportLoading(true);
+    try {
+      await downloadDashboardReport(range);
+      toast.success("Report downloaded");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to generate report",
+      );
+    } finally {
+      setReportLoading(false);
     }
-    const csv = buildDashboardCsv({
-      range,
-      stats: stats.data,
-      slaCompliance: slaRate.data,
-    });
-    const date = new Date().toISOString().slice(0, 10);
-    downloadDashboardCsv(`yukti-dashboard-${range}-${date}.csv`, csv);
-    toast.success("CSV downloaded");
   }
 
   return (
@@ -137,11 +137,11 @@ export default function DashboardPage() {
             type="button"
             size="sm"
             variant="outline"
-            onClick={handleExportCsv}
-            disabled={!stats.data || !slaRate.data}
+            onClick={handleGenerateReport}
+            disabled={reportLoading}
           >
             <DownloadIcon />
-            Export CSV
+            {reportLoading ? "Generating…" : "Generate report"}
           </Button>
         </div>
       </div>
