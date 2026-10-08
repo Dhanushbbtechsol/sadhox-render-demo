@@ -5,7 +5,7 @@ import { ProjectScopeService } from "./project-scope.service";
 import { ProjectsService } from "./projects.service";
 
 describe("ProjectsService.addMember (Phase 6)", () => {
-  it("rejects Manager as project member", async () => {
+  it("allows Manager as project member", async () => {
     const db = {
       select: vi.fn(() => ({
         from: vi.fn(() => ({
@@ -14,7 +14,13 @@ describe("ProjectsService.addMember (Phase 6)", () => {
           })),
         })),
       })),
-      insert: vi.fn(),
+      insert: vi.fn(() => ({
+        values: vi.fn(() => ({
+          returning: vi.fn(async () => [
+            { projectId: "proj-1", userId: "user-mgr" },
+          ]),
+        })),
+      })),
       _queue: [
         [{ id: "proj-1" }],
         [{ id: "user-mgr", role: "Manager" }],
@@ -26,11 +32,13 @@ describe("ProjectsService.addMember (Phase 6)", () => {
 
     await expect(
       svc.addMember("proj-1", { userId: "user-mgr" }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(db.insert).not.toHaveBeenCalled();
+    ).resolves.toEqual({
+      projectId: "proj-1",
+      userId: "user-mgr",
+    });
   });
 
-  it("rejects Admin as project member", async () => {
+  it("allows Admin as project member", async () => {
     const db = {
       select: vi.fn(() => ({
         from: vi.fn(() => ({
@@ -39,7 +47,13 @@ describe("ProjectsService.addMember (Phase 6)", () => {
           })),
         })),
       })),
-      insert: vi.fn(),
+      insert: vi.fn(() => ({
+        values: vi.fn(() => ({
+          returning: vi.fn(async () => [
+            { projectId: "proj-1", userId: "user-admin" },
+          ]),
+        })),
+      })),
       _queue: [[{ id: "proj-1" }], [{ id: "user-admin", role: "Admin" }]],
     };
     const scope = new ProjectScopeService(db as never);
@@ -48,7 +62,10 @@ describe("ProjectsService.addMember (Phase 6)", () => {
 
     await expect(
       svc.addMember("proj-1", { userId: "user-admin" }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).resolves.toEqual({
+      projectId: "proj-1",
+      userId: "user-admin",
+    });
   });
 
   it("allows Agent membership insert", async () => {
