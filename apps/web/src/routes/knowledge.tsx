@@ -43,7 +43,7 @@ export default function KnowledgePage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1 animate-in-up">
-        <h1 className="text-2xl font-semibold tracking-tight">Knowledge base</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Knowledge Base</h1>
         <p className="text-muted-foreground text-sm">
           Browse how-to articles by category or search by keyword. Showing
           published articles.

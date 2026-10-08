@@ -116,7 +116,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Executive dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            Interactive charts from Nest admin aggregates with date-range filters.
+            Charts of tickets, response times, and activity. Change the date range to see a different period.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -172,7 +172,7 @@ export default function DashboardPage() {
         <section className="bg-card ring-foreground/10 flex min-w-0 flex-col gap-4 overflow-hidden rounded-xl p-5 ring-1 xl:col-span-2">
           <div>
             <h2 className="text-base font-semibold tracking-tight">Ticket volume by module</h2>
-            <p className="text-muted-foreground text-sm">Stacked open vs closed for {rangeLabel(range)}</p>
+            <p className="text-muted-foreground text-sm">Open and closed tickets for {rangeLabel(range)}</p>
           </div>
           {volume.isLoading ? <Skeleton className="h-72" /> : null}
           {volume.data ? (
@@ -211,7 +211,7 @@ export default function DashboardPage() {
         <section className="bg-card ring-foreground/10 flex min-w-0 flex-col gap-4 overflow-hidden rounded-xl p-5 ring-1">
           <div>
             <h2 className="text-base font-semibold tracking-tight">SLA performance</h2>
-            <p className="text-muted-foreground text-sm">Weekly met vs breached (all time sample)</p>
+            <p className="text-muted-foreground text-sm">Tickets that met or missed the deadline, by week</p>
           </div>
           {stats.isLoading ? <Skeleton className="h-72" /> : null}
           {stats.data && stats.data.slaPerformance.length > 0 ? (
@@ -260,7 +260,7 @@ export default function DashboardPage() {
               </AreaChart>
             </ChartContainer>
           ) : stats.data ? (
-            <p className="text-muted-foreground text-sm">No resolved SLA samples yet.</p>
+            <p className="text-muted-foreground text-sm">No resolved tickets with a deadline yet.</p>
           ) : null}
           <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
             <TrendingUp className="size-3.5" />
@@ -358,7 +358,7 @@ function StatusDistributionCard({
         <div className="min-w-0">
           <h2 className="text-base font-semibold tracking-tight">Status distribution</h2>
           <p className="text-muted-foreground text-sm">
-            Donut of ticket statuses in {rangeLabel(range)}
+            How tickets are split by status for {rangeLabel(range)}
           </p>
         </div>
         {rows && rows.length > 0 ? (

@@ -92,7 +92,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "admin/knowledge",
-            handle: { breadcrumb: "Knowledge" },
+            handle: { breadcrumb: "Knowledge Base" },
             element: <ProtectedRoute roles={["Admin"]} />,
             children: [
               { index: true, element: <KnowledgeListPage /> },
@@ -180,7 +180,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "knowledge",
-            handle: { breadcrumb: "Knowledge" },
+            handle: { breadcrumb: "Knowledge Base" },
             element: (
               <ProtectedRoute roles={["Admin", "Agent", "EndUser"]} />
             ),

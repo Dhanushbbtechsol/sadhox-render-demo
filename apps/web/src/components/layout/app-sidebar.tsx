@@ -1,25 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  AlertTriangleIcon,
-  BookOpenIcon,
-  BriefcaseIcon,
-  ChevronDownIcon,
-  ClipboardListIcon,
-  LayoutDashboardIcon,
-  GitBranchIcon,
-  FolderKanbanIcon,
-  UsersIcon,
-  InboxIcon,
-  LayoutGridIcon,
-  LifeBuoyIcon,
-  ListTodoIcon,
-  PackageIcon,
-  PanelLeftIcon,
-  ScrollTextIcon,
-  ServerIcon,
-  Settings2Icon,
-  TimerIcon,
-} from "lucide-react";
+import { ChevronDownIcon, PanelLeftIcon } from "lucide-react";
 import { NavLink, useLocation } from "react-router";
 
 import { Button } from "@/components/ui/button";
@@ -32,7 +12,6 @@ interface NavLinkItem {
   kind?: "link";
   to: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
   roles: UserRole[];
 }
 
@@ -40,7 +19,6 @@ interface NavChildLink {
   kind?: "link";
   to: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
   roles?: UserRole[];
 }
 
@@ -48,7 +26,6 @@ interface NavChildGroup {
   kind: "group";
   id: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
   roles?: UserRole[];
   children: NavChildLink[];
 }
@@ -59,7 +36,6 @@ interface NavGroupItem {
   kind: "group";
   id: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
   roles: UserRole[];
   children: NavGroupChild[];
 }
@@ -105,126 +81,106 @@ const NAV_ITEMS: NavItem[] = [
   {
     to: "/admin/dashboard",
     label: "Dashboard",
-    icon: LayoutDashboardIcon,
     roles: ["Admin"],
   },
   {
     to: "/manager",
     label: "Home",
-    icon: LayoutDashboardIcon,
     roles: ["Manager"],
   },
   {
     to: "/admin/users",
     label: "Users",
-    icon: UsersIcon,
     roles: ["Admin"],
   },
   {
     kind: "group",
     id: "workspace",
     label: "Workspace",
-    icon: BriefcaseIcon,
     roles: ["Admin", "Agent", "Manager", "EndUser"],
     children: [
       {
         to: "/admin/projects",
         label: "Projects",
-        icon: FolderKanbanIcon,
         roles: ["Admin"],
       },
       {
         kind: "group",
         id: "incident-desk",
         label: "Incident Desk",
-        icon: AlertTriangleIcon,
         roles: ["Admin", "Agent", "Manager"],
         children: [
           {
             to: "/incidents",
             label: "Incidents",
-            icon: AlertTriangleIcon,
           },
           {
             to: "/problems",
             label: "Problems",
-            icon: ClipboardListIcon,
           },
         ],
       },
       {
         to: "/requests",
         label: "Requests",
-        icon: ListTodoIcon,
         roles: ["Admin", "Agent", "EndUser", "Manager"],
       },
       {
         to: "/changes",
         label: "Changes",
-        icon: GitBranchIcon,
         roles: ["Admin", "Agent", "Manager"],
       },
       {
         to: "/assets",
         label: "Assets",
-        icon: PackageIcon,
         roles: ["Admin"],
       },
     ],
   },
   {
     to: "/admin/knowledge",
-    label: "Knowledge",
-    icon: BookOpenIcon,
+    label: "Knowledge Base",
     roles: ["Admin"],
   },
   {
     to: "/admin/sla-rules",
     label: "SLA",
-    icon: TimerIcon,
     roles: ["Admin"],
   },
   {
     to: "/admin/queues",
     label: "Queues",
-    icon: ServerIcon,
     roles: ["Admin"],
   },
   {
     to: "/admin/catalog",
     label: "Catalog admin",
-    icon: Settings2Icon,
     roles: ["Admin"],
   },
   {
     to: "/catalog",
     label: "Catalog",
-    icon: LayoutGridIcon,
     roles: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
     to: "/portal",
     label: "My Portal",
-    icon: LifeBuoyIcon,
     roles: ["EndUser", "Admin"],
   },
   {
     to: "/knowledge",
-    label: "Knowledge",
-    icon: BookOpenIcon,
+    label: "Knowledge Base",
     // Admin uses the merged /admin/knowledge browse + authoring page
     roles: ["Agent", "EndUser"],
   },
   {
     to: "/approvals",
     label: "Approvals",
-    icon: InboxIcon,
     roles: ["Admin", "Manager"],
   },
   {
     to: "/admin/audit-logs",
     label: "Audit logs",
-    icon: ScrollTextIcon,
     roles: ["Admin"],
   },
 ];
@@ -236,19 +192,17 @@ const navItemClass = (isActive: boolean, collapsed: boolean) =>
     "hover:bg-sidebar-item-hover hover:text-sidebar-item-hover-foreground hover:font-bold",
     isActive &&
       "bg-sidebar-item-active! text-sidebar-item-active-foreground! font-bold shadow-soft",
-    collapsed && "justify-center px-0",
+    collapsed && "justify-center px-1",
   );
 
 function SidebarLink({
   to,
   label,
-  icon: Icon,
   collapsed,
   end,
 }: {
   to: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
   collapsed: boolean;
   end?: boolean;
 }) {
@@ -264,15 +218,14 @@ function SidebarLink({
           {isActive ? (
             <span className="bg-sidebar-item-indicator absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-r-full" />
           ) : null}
-          <Icon
+          <span
             className={cn(
-              "size-4 shrink-0 transition-all duration-200 group-hover:scale-110",
-              isActive
-                ? "text-sidebar-item-active-foreground"
-                : "group-hover:text-sidebar-item-hover-foreground",
+              "truncate",
+              collapsed && "text-center text-[10px] leading-tight",
             )}
-          />
-          {!collapsed ? <span>{label}</span> : null}
+          >
+            {label}
+          </span>
         </>
       )}
     </NavLink>
@@ -291,13 +244,12 @@ function SidebarNavGroup({
   const location = useLocation();
   const childActive = groupHasActivePath(item.children, location.pathname);
   const [open, setOpen] = useState(childActive);
-  const Icon = item.icon;
 
   useEffect(() => {
     if (childActive) setOpen(true);
   }, [childActive]);
 
-  // Collapsed: flatten to leaf link icons
+  // Collapsed: flatten to leaf text links
   if (collapsed) {
     return (
       <div className="flex flex-col gap-1">
@@ -306,7 +258,6 @@ function SidebarNavGroup({
             key={child.to}
             to={child.to}
             label={child.label}
-            icon={child.icon}
             collapsed
           />
         ))}
@@ -332,13 +283,7 @@ function SidebarNavGroup({
         {childActive ? (
           <span className="bg-sidebar-item-indicator absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-r-full" />
         ) : null}
-        <Icon
-          className={cn(
-            "size-4 shrink-0 transition-all duration-200 group-hover:scale-110",
-            "group-hover:text-sidebar-item-hover-foreground",
-          )}
-        />
-        <span className="flex-1 text-left">{item.label}</span>
+        <span className="flex-1 truncate text-left">{item.label}</span>
         <ChevronDownIcon
           className={cn(
             "size-3.5 shrink-0 opacity-60 transition-transform duration-200",
@@ -366,7 +311,6 @@ function SidebarNavGroup({
                 key={child.to}
                 to={child.to}
                 label={child.label}
-                icon={child.icon}
                 collapsed={false}
               />
             ),
@@ -436,7 +380,6 @@ export function AppSidebar({
               key={`${item.to}-${item.label}`}
               to={item.to}
               label={item.label}
-              icon={item.icon}
               collapsed={collapsed}
             />
           ),

@@ -108,7 +108,7 @@ export default function KnowledgeListPage() {
         <div className="min-w-0 space-y-1">
           <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
             <BookOpenIcon className="size-5" />
-            Knowledge
+            Knowledge Base
           </h1>
           <p className="text-muted-foreground text-sm">
             Browse how-to articles and manage drafts, categories, and publishing.

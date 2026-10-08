@@ -101,7 +101,7 @@ export default function SlaRulesPage() {
             SLA
           </h1>
           <p className="text-sm text-muted-foreground">
-            Per-priority response and resolve targets. Not a drag-and-drop policy builder.
+            Set how quickly each priority should get a first reply and a resolution.
           </p>
         </div>
         <Button type="button" onClick={() => void saveAll()} disabled={updateRule.isPending}>

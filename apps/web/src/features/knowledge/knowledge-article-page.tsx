@@ -157,7 +157,7 @@ export default function KnowledgeArticlePage() {
             render={<Link to="/admin/knowledge" />}
           >
             <ArrowLeftIcon />
-            Back to Knowledge
+            Back to Knowledge Base
           </Button>
           <h1 className="text-xl font-semibold">
             {isNew ? "New article" : "Edit article"}

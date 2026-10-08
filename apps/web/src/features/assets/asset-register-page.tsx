@@ -74,7 +74,7 @@ export default function AssetRegisterPage() {
         <div className="min-w-0">
           <h1 className="text-xl font-semibold">Asset register</h1>
           <p className="text-sm text-muted-foreground">
-            Hardware and software inventory backed by the Nest assets API.
+            Hardware and software in your inventory.
           </p>
         </div>
         <Button

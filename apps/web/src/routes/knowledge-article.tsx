@@ -23,7 +23,7 @@ export default function KnowledgeArticlePage() {
             : "This article does not exist or is not Published."
         }
         action={
-          <Button render={<Link to="/knowledge" />}>Back to Knowledge</Button>
+          <Button render={<Link to="/knowledge" />}>Back to Knowledge Base</Button>
         }
       />
     );
@@ -38,7 +38,7 @@ export default function KnowledgeArticlePage() {
         className="-ml-2"
       >
         <ArrowLeftIcon />
-        Back to Knowledge
+        Back to Knowledge Base
       </Button>
 
       <Card className="overflow-hidden">
