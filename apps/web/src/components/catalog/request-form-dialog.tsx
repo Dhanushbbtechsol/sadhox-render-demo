@@ -146,7 +146,7 @@ function RequestFormBody({
           Cancel
         </Button>
         <Button type="submit" disabled={createRequest.isPending}>
-          {createRequest.isPending ? "Submitting..." : "Submit request"}
+          {createRequest.isPending ? "Submitting..." : "Request Service"}
         </Button>
       </DialogFooter>
     </form>
@@ -166,9 +166,19 @@ export function RequestFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{item?.name ?? "Request service"}</DialogTitle>
+          <DialogTitle>
+            {item ? `Request Service — ${item.name}` : "Request Service"}
+          </DialogTitle>
           <DialogDescription>
-            {item?.description ?? "Complete the form to submit a service request."}
+            {[
+              item?.subcategory
+                ? `${item.department} · ${item.subcategory}`
+                : null,
+              item?.description,
+            ]
+              .filter(Boolean)
+              .join(" — ") ||
+              "Complete the form to submit a service request."}
           </DialogDescription>
         </DialogHeader>
         {item ? (

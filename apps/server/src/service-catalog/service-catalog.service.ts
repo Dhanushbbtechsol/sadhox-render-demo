@@ -21,9 +21,19 @@ const publicSelect = {
   name: serviceCatalog.name,
   description: serviceCatalog.description,
   department: serviceCatalog.department,
+  subcategory: serviceCatalog.subcategory,
   formFields: serviceCatalog.formFields,
   isActive: serviceCatalog.isActive,
 } as const;
+
+function sanitizeOptionalSubcategory(
+  value: string | null | undefined,
+): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const trimmed = sanitizePlainText(value, 128);
+  return trimmed.length > 0 ? trimmed : null;
+}
 
 function sanitizeFormFields(
   fields: CreateCatalogItemDto["formFields"],
@@ -77,12 +87,15 @@ export class ServiceCatalogService {
       );
     }
 
+    const subcategory = sanitizeOptionalSubcategory(dto.subcategory);
+
     const [row] = await this.db
       .insert(serviceCatalog)
       .values({
         name,
         description,
         department,
+        ...(subcategory !== undefined ? { subcategory } : {}),
         formFields: sanitizeFormFields(dto.formFields),
         isActive: dto.isActive ?? true,
       })
@@ -106,6 +119,7 @@ export class ServiceCatalogService {
       name?: string;
       description?: string;
       department?: string;
+      subcategory?: string | null;
       formFields?: CatalogFormField[];
       isActive?: boolean;
       updatedAt: Date;
@@ -131,6 +145,9 @@ export class ServiceCatalogService {
         throw new BadRequestException("Catalog department is required");
       }
       patch.department = department;
+    }
+    if (dto.subcategory !== undefined) {
+      patch.subcategory = sanitizeOptionalSubcategory(dto.subcategory) ?? null;
     }
     if (dto.formFields !== undefined) {
       patch.formFields = sanitizeFormFields(dto.formFields);

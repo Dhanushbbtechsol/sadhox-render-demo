@@ -10,6 +10,7 @@ export const MOCK_CATALOG: ServiceCatalogItem[] = [
     name: "Request Laptop",
     description: "Request a new developer or standard business laptop.",
     department: "IT Hardware",
+    subcategory: "Laptop request",
     formFields: [
       {
         name: "justification",
@@ -38,6 +39,7 @@ export const MOCK_CATALOG: ServiceCatalogItem[] = [
     name: "VPN Access",
     description: "Request remote VPN access for secure network connectivity.",
     department: "Access",
+    subcategory: "VPN Access",
     formFields: [
       {
         name: "justification",
@@ -66,6 +68,7 @@ export const MOCK_CATALOG: ServiceCatalogItem[] = [
     name: "Database Access",
     description: "Request read or write access to a production database.",
     department: "Data",
+    subcategory: "Database access",
     formFields: [
       {
         name: "justification",
@@ -100,6 +103,7 @@ export const MOCK_CATALOG: ServiceCatalogItem[] = [
     name: "External Monitor",
     description: "Request an additional external display for your workstation.",
     department: "IT Hardware",
+    subcategory: "Monitor/Peripherals",
     formFields: [
       {
         name: "justification",
@@ -128,6 +132,7 @@ export const MOCK_CATALOG: ServiceCatalogItem[] = [
     name: "Software License",
     description: "Request a licensed software package for your role.",
     department: "Access",
+    subcategory: "Software license",
     formFields: [
       {
         name: "justification",

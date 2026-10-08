@@ -52,10 +52,12 @@ function filterGroupChildren(
   children: NavGroupChild[],
   role: UserRole | undefined,
 ): NavGroupChild[] {
-  return children.flatMap((child) => {
+  return children.flatMap((child): NavGroupChild[] => {
     if (!roleAllows(child.roles, role)) return [];
     if (child.kind === "group") {
-      const nested = filterGroupChildren(child.children, role) as NavChildLink[];
+      const nested = filterGroupChildren(child.children, role).filter(
+        (entry): entry is NavChildLink => entry.kind !== "group",
+      );
       if (nested.length === 0) return [];
       return [{ ...child, children: nested }];
     }
@@ -122,7 +124,7 @@ const NAV_ITEMS: NavItem[] = [
       },
       {
         to: "/requests",
-        label: "Requests",
+        label: "Service Requests",
         roles: ["Admin", "Agent", "EndUser", "Manager"],
       },
       {
@@ -159,7 +161,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     to: "/catalog",
-    label: "Catalog",
+    label: "Service Catalog",
     roles: ["Admin", "Agent", "EndUser", "Manager"],
   },
   {
@@ -329,7 +331,7 @@ export function AppSidebar({
   onToggle: () => void;
 }) {
   const role = useAuthStore((s) => s.user?.role);
-  const items = NAV_ITEMS.flatMap((item) => {
+  const items = NAV_ITEMS.flatMap((item): NavItem[] => {
     if (!roleAllows(item.roles, role)) return [];
     if (item.kind === "group") {
       const children = filterGroupChildren(item.children, role);
