@@ -125,6 +125,8 @@ export type AuditLog = {
   id: string;
   actorId?: string | null;
   actor: string;
+  /** Actor role when joined from users (null for system / unknown). */
+  actorRole?: string | null;
   action: string;
   entityType: string;
   entityId: string | null;

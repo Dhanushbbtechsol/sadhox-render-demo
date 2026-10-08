@@ -90,7 +90,15 @@ export default function ProjectOverviewPage() {
           onValueChange={(v) => setManagerId(!v || v === "__none__" ? "" : v)}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Optional" />
+            <SelectValue placeholder="Optional">
+              {(value) => {
+                if (!value || value === "__none__") return "No manager";
+                const manager = managers.data?.find((m) => m.id === value);
+                return manager
+                  ? `${manager.name} (${manager.email})`
+                  : "Loading…";
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">No manager</SelectItem>
