@@ -85,16 +85,17 @@ AI assistants should suggest updates to this file when they notice relevant chan
 - Use merge-to-audit for combining selected Dev branches into `audit`/`Audit`: if the user named matching origin candidates, merge those without re-asking; ask only when no branches were named; abort on a dirty tree or all-unknown names; resolve conflicts without inventing behavior; never push unless explicitly asked.
 - Persist audit findings and developer fix lists under `Docs/Audit` (shared phase files plus per-dev folders).
 - Prefer ponytail-style minimal fixes for audit remediation; commit only when asked (often after confirming everything is fixed).
-- When handing work back to developers, phase the fix list (e.g. phase 1 / phase 2) rather than dumping an unprioritized backlog; when asked for audit status, roll up by phase and by Dev A–D.
+- When handing work back to developers, phase the fix list (e.g. phase 1 / phase 2) rather than dumping an unprioritized backlog; when asked for audit status, roll up by phase and by Dev A–D (PASS = no open High/Medium for that phase, FAIL = any High/Medium open, Low alone = PASS noted).
 
 ## Learned Workspace Facts
 
 - Parallel feature branches commonly used for merge-to-audit are `Dev-A-`, `Dev-B`, `Dev-C`, and `Dev-D` (note the trailing hyphen on `Dev-A-`).
 - The integration/review branch is `Audit` (local/remote); case variant `audit` may appear in docs.
-- Phases 1–5 feature work is merged; Dev C Phase 5 close-out on `Dev-C` (2026-10-07) — Phase 5 Medium/Low closed in `Docs/Audit/phase5.md` / `Docs/STATUS.md`. Sync to `Audit` before Phase 6 code.
+- Phases 1–5 are merged on `Audit`; Phase 5 Mediums are closed in `Docs/Audit/phase5.md` / `Docs/STATUS.md` (Dev C still has one Low: DEV `catch→mock`). Phase 6 Dev A–D is merged on local `Audit` (may be ahead of `origin/Audit`; do not push unless asked). Phase 6 High/Medium reaudit is CLEAN (all Devs PASS); one Low remains (`seed.ts` when `SEED_PASSWORD` is unset). Phase 4 Dev D CSRF Medium and 3 Lows remain open.
 - Dev tracks: A = Incidents/Problems/portal/ticket–KB links; B = Catalog/Requests/Changes/End-User KB/Admin catalog UI; C = Assets/Admin dashboard/KB authoring/SLA UI/CSV; D = Auth/schema/realtime/jobs/mail/Knowledge+catalog APIs/CI.
 - Phase 6 (Projects / Manager / **Admin User Management**) is in `Docs/Phase/phase6.md`; do not rebuild Knowledge Base. Employee = Agent; Managers approve alongside Admin; Managers are not project_members; user CRUD is Admin-only (`POST`/`GET`/`PATCH /admin/users` + `/admin/users` UI).
-- `Docs/Audit` holds phased audit reports (`phase1.md` … `phase5.md`) and per-developer folders (`Dev A` … `Dev D`).
+- `Docs/Audit` holds phased audit reports (`phase1.md` … `phase6.md`) and per-developer folders (`Dev A` … `Dev D`).
+- Admin projects UI on `Audit` is dialog-based; deleted project detail and overview pages stay deleted.
 - `Docs/Phase` holds per-developer implementation plans and phase notes; product docs live under `Docs/` (`PRD.md`, `FRD.md`, `Techstack.md`, `Architechture.md`, `Workflow.md`, `STATUS.md`).
 - Drizzle schema lives under `apps/server`, not `packages/db`.
 - Analytics/chart UI follows Bklit visual language (`.cursor/rules/charts-analytics.mdc`, bklit.com); reuse `@/components/ui/chart` unless product adopts Bklit components.
