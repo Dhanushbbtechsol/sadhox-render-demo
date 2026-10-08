@@ -6,9 +6,9 @@ Category/subcategory columns, DTO map check, catalog subcategory column, and Pha
 
 ## Low — Resolved
 
-### [A08] Twin category map — **FIXED**
+### [A08] Twin category map — **FIXED** (2026-10-08)
 
-`incident-category-map.ts` is the single server allow-list. Create no longer double-checks a twin module; `incident-categories.ts` deleted. Web copy documents that it mirrors this map.
+Kept `incident-category-map.ts` as the only server allow-list. Removed `incident-categories.ts` (and its spec). Create and update both use `isValidIncidentCategorySubcategory` from that module. Web UI copy is `apps/web/src/types/incident-categories.ts` and is documented to mirror `incident-category-map.ts`.
 
 ## Carryovers (not Phase 7)
 

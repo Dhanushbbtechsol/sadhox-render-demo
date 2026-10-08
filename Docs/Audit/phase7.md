@@ -2,7 +2,7 @@
 
 Scope: `Audit` after `Dev-A-`, `Dev-B`, and `Dev-D` (EndUser `/incidents`, catalog subcategory, category map, seed retag). Diff base: `102d522`. Stack: NestJS + Drizzle + Passport JWT + React/Vite. No `.review.yml` (Sonar defaults). Dev C had no Phase 7 diff.
 
-**Open findings (Phase 7): 0 Critical · 0 High · 0 Medium · 0 Low.**  
+**Open findings (Phase 7): 0 Critical · 0 High · 0 Medium · 0 Low** ([A08] twin maps closed 2026-10-08).
 **Pass/fail:** Dev A **PASS** · Dev B **PASS** · Dev C **PASS** · Dev D **PASS**.
 
 **Owners:** [Dev A](./Dev%20A/phase7.md) · [Dev B](./Dev%20B/phase7.md) · [Dev C](./Dev%20C/phase7.md) · [Dev D](./Dev%20D/phase7.md)
@@ -28,9 +28,9 @@ EndUser incident desk moved from `/portal` to `/incidents` (own list, report for
 
 ## Low / Hardening — Resolved
 
-### [A08] Two server category maps — Dev A + Dev D — **FIXED**
+### [A08] Two server category maps — Dev A + Dev D — **FIXED** (closed 2026-10-08)
 
-Create and update both use `incident-category-map.ts` only. Deleted `apps/server/src/incidents/incident-categories.ts` (+ its spec). Web `apps/web/src/types/incident-categories.ts` mirrors `INCIDENT_CATEGORY_SUBCATEGORY_MAP`. Create subcategory still has min length 1 and max length 128.
+Kept `incident-category-map.ts` only. Deleted `incident-categories.ts`. Create/update use `isValidIncidentCategorySubcategory` from that module. Create subcategory still has min length 1 and max length 128. Web form keeps `apps/web/src/types/incident-categories.ts` as a documented mirror of the server map (UI cannot import Nest modules).
 
 ## Phase 6 / Phase 4 carryovers (not Phase 7)
 
