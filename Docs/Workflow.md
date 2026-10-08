@@ -121,7 +121,7 @@ Admin-owned:
 
 | Job | When | Effect |
 |-----|------|--------|
-| SLA breach check | every ~5 min | sets `sla_breached` on overdue incidents; can enqueue email |
+| SLA breach check | every ~5 min | **Incidents only.** `slaDueAt` from `sla_rules.resolveMinutes`. Sets `sla_breached`, audit, one breach email. `responseMinutes` is stored, not used for the clock. |
 | Auto-close | daily cron | `Resolved` ≥ N days → `Closed` |
 | Email queue | on events | assignment, approval outcome, asset notifications via Resend |
 | Live comments | on comment create | Socket.io emit to `ticket:{id}` |

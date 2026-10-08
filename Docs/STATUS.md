@@ -1,6 +1,6 @@
 # Sadhox — Status & Feature Handoff (for Claude / agents)
 
-**Last updated:** 2026-10-07  
+**Last updated:** 2026-10-08  
 **Integration branch:** `Audit`. This tree is `Dev-C` after merging `Audit` (Phase 5 close-out + Phase 6 Dev A/B/D backend and Dev C project UI).
 **Memory bank:** `memory-bank/` (read all six files at task start)
 
@@ -61,7 +61,7 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 ### Platform
 - JWT login / refresh / logout; global RBAC + rate limiting; audit log on mutations
 - Swagger; health live/ready; Pino + Sentry hooks
-- Realtime comments; SLA background jobs; Resend notifications
+- Realtime comments; SLA jobs (incidents only — see below); Resend notifications
 - Seed scripts (incl. production-oriented seed notes under Dev D phase docs)
 
 ### Incident & Problem (Dev A + D)
@@ -89,6 +89,15 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 - Nest `KnowledgeModule` with RBAC (Draft hidden from non-Admin; Published-only links)
 - Ticket ACL on link list/mutate (`assertCanAccessTicket`)
 - Admin `GET`/`PATCH /admin/sla-rules` (response/resolve minutes per priority)
+
+### SLA (incidents only) — done
+- `sla_rules` seeded per P1–P4 (`responseMinutes`, `resolveMinutes`)
+- Create / priority change stamps `slaDueAt` from **`resolveMinutes` only**
+- BullMQ breach job (~5 min): flags open incidents past due, audit `system.sla_breach`, one Resend email
+- Daily auto-close: `Resolved` for ~3 days → `Closed`
+- Admin `/admin/sla-rules` editor + dashboard SLA charts
+- Incident + portal countdown / breach flag; queue sort by `slaDueAt`
+- **Not used:** `responseMinutes` is stored and editable, not applied to a clock. No SLA on problems, requests, or changes. Drag-drop SLA builder stays out of scope. Live email needs Redis worker + Resend.
 - **Phase 6:** `projects` / `project_members` / `modules`; `Manager` role; Admin `/admin/projects` (members + `/modules`); Admin `/admin/users` create/list/update (password + role; promote-to-Manager clears memberships); Manager `/manager` KPIs via `GET /manager/dashboard/stats` (owned `project_id`s only).
 
 ### Nest modules present
@@ -117,7 +126,7 @@ Design: [Phase/phase6.md](./Phase/phase6.md).
 
 **Phase 6 security audit:** CLEAN for Dev A–D ([Docs/Audit/phase6.md](./Audit/phase6.md)) — assignment agents IDOR, EndUser project/module redaction, and ACL matrix coverage closed on Dev D.
 
-**Still open:** remaining assignment-pool / incident UI wiring per phase6 plan; full ticket 401/403 matrix; local `0010_phase6_projects_manager` migrate + reseed where not yet applied. **Deferred to production go-live:** staging/TL migrate (`0010`); Phase 5 mail job-ID live verify on TL remains **unconfirmed**.
+**Still open:** local `0010_phase6_projects_manager` migrate + reseed where not yet applied. **Deferred to production go-live:** staging/TL migrate (`0010`); Phase 5 mail job-ID live verify on TL remains **unconfirmed**.
 
 ---
 
