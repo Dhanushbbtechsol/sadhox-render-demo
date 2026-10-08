@@ -30,3 +30,5 @@
 | **Phase 6** | Projects, Manager, ProjectAccessService & Admin user CRUD APIs | Days 26–30 (Week 6) | [phase6.md](./phase6.md) |
 
 Coverage: [coverage-matrix.md](../coverage-matrix.md). Phase 6 design: [../phase6.md](../phase6.md).
+
+**Local demo data:** After `pnpm --filter server db:seed`, Agent and EndUser tabs are filled via `[Demo]` fixtures — see [demo-accounts.md](./demo-accounts.md).
