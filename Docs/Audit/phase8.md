@@ -1,6 +1,6 @@
-# Phase 8 audit — 2026-10-08
+# Phase 8 reaudit — 2026-10-08
 
-Scope: `Audit` at `0d51bb6` (approval chain, approvals inbox, dashboard CSV). Diff base: `4ec5e48`. Stack: NestJS + Drizzle + Passport JWT + React/Vite. No `.review.yml` (Sonar defaults). Dev A had no Phase 8 diff.
+Scope: `Audit` at `75d8586` (Dev B fix `7cf42fc` on top of `0d51bb6`). Stack: NestJS + Drizzle + Passport JWT + React/Vite. No `.review.yml` (Sonar defaults).
 
 **Open findings (Phase 8): 0 Critical · 0 High · 0 Medium · 0 Low.**
 **Pass/fail:** Dev A **PASS** · Dev B **PASS** · Dev C **PASS** · Dev D **PASS**.
@@ -27,7 +27,7 @@ Service requests and changes use a Manager-then-Admin chain on `/approve` and `/
 
 ### [A04] Agent can skip the Manager step on a change — Dev B — **FIXED**
 
-`PATCH /changes/:id` `{ status: "PendingApproval" }` now calls `assertCanApprove` plus `assertPendingApprovalAllowed` (Manager own-project, or Admin only when there is no manager step). Agent → 403. Spec: `changes.service.spec.ts`.
+`ChangesService.update` calls `assertCanApprove` then `assertPendingApprovalAllowed` before writing `PendingApproval` (`changes.service.ts`). An Agent fails `assertCanApprove`. An Admin on a project that still needs a manager gets 403. A Manager of another project fails `assertCanApprove` (`project-access.service.ts`). `changes.service.spec.ts` and `phase8-approval-chain.spec.ts`: 13 passed.
 
 ## Review checklist (Sonar)
 
