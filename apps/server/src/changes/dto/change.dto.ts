@@ -4,6 +4,7 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
   Validate,
   ValidateIf,
@@ -17,6 +18,7 @@ const CHANGE_TYPES = ["Standard", "Normal", "Emergency"] as const;
 const CHANGE_STATUSES = [
   "Draft",
   "Submitted",
+  "PendingApproval",
   "Approved",
   "Scheduled",
   "Implemented",
@@ -78,8 +80,20 @@ export class CreateChangeDto extends ProjectScopeFieldsDto {
   rollbackPlan!: string;
 }
 
+export class RejectChangeDto {
+  @ApiProperty({ description: "Rejection reason (required)", maxLength: 4000 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(4000)
+  reason!: string;
+}
+
 export class UpdateChangeDto extends ProjectScopeFieldsDto {
-  @ApiPropertyOptional({ enum: CHANGE_STATUSES })
+  @ApiPropertyOptional({
+    enum: CHANGE_STATUSES,
+    description:
+      "Lifecycle status. Approved and Rolled Back from Submitted/PendingApproval must use /approve and /reject.",
+  })
   @IsOptional()
   @IsIn(CHANGE_STATUSES)
   status?: (typeof CHANGE_STATUSES)[number];

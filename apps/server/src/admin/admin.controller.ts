@@ -2,15 +2,18 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  Res,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from "@nestjs/swagger";
 import { IsIn, IsOptional } from "class-validator";
+import type { Response } from "express";
 import { Roles } from "../common/decorators/roles.decorator";
 import { AdminService } from "./admin.service";
 import { ChartRangeQueryDto } from "./dto/chart-range-query.dto";
@@ -40,6 +43,28 @@ export class AdminController {
   @ApiOperation({ summary: "Executive KPI aggregates" })
   stats() {
     return this.admin.dashboardStats();
+  }
+
+  @Get("dashboard/report")
+  @Roles("Admin")
+  @Header("Content-Type", "text/csv; charset=utf-8")
+  @Header("Cache-Control", "no-store")
+  @ApiOperation({
+    summary:
+      "Phase 8 dashboard CSV report (range=7d|30d|ytd). Same aggregates as the dashboard charts.",
+  })
+  async dashboardReport(
+    @Query() query: ChartRangeQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { csv, filename } = await this.admin.dashboardReportCsv(
+      query.range ?? "30d",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${filename}"`,
+    );
+    return csv;
   }
 
   @Get("dashboard/tickets-by-status")

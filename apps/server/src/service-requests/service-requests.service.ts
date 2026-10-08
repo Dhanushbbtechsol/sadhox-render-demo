@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -11,6 +12,8 @@ import {
   assertAgentOrAdminRole,
   canTransitionRequestFulfillment,
   isPendingServiceRequestStatus,
+  resolveApproveTransition,
+  resolveRejectTransition,
 } from "../common/approval-policy";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
@@ -241,20 +244,42 @@ export class ServiceRequestsService {
   async approve(user: AuthUser, id: string) {
     const existing = await this.requirePending(id);
     await this.projectAccess.assertCanApprove(user, existing.projectId);
+    const decision = resolveApproveTransition({
+      role: user.role,
+      currentStatus: existing.status,
+      projectId: existing.projectId,
+    });
+
+    const patch: Partial<typeof serviceRequests.$inferInsert> = {
+      status: decision.nextStatus,
+      rejectionReason: null,
+      updatedAt: new Date(),
+    };
+    if (decision.setApproverFields) {
+      patch.approverId = user.userId;
+      patch.approvedAt = new Date();
+    }
 
     const [updated] = await this.db
       .update(serviceRequests)
-      .set({
-        status: "Approved",
-        approverId: user.userId,
-        approvedAt: new Date(),
-        rejectionReason: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(serviceRequests.id, existing.id))
+      .set(patch)
+      .where(
+        and(
+          eq(serviceRequests.id, existing.id),
+          eq(serviceRequests.status, existing.status),
+        ),
+      )
       .returning();
 
-    await this.notifyRequesterDecision(updated.id, "Approved");
+    if (!updated) {
+      throw new ConflictException(
+        "Service request status changed; refresh and retry",
+      );
+    }
+
+    if (decision.nextStatus === "Approved") {
+      await this.notifyRequesterDecision(updated.id, "Approved");
+    }
     return this.get(user, updated.id);
   }
 
@@ -265,18 +290,35 @@ export class ServiceRequestsService {
     }
     const existing = await this.requirePending(id);
     await this.projectAccess.assertCanApprove(user, existing.projectId);
+    const decision = resolveRejectTransition({
+      role: user.role,
+      currentStatus: existing.status,
+      projectId: existing.projectId,
+      rejectStatus: "Rejected",
+    });
 
     const [updated] = await this.db
       .update(serviceRequests)
       .set({
-        status: "Rejected",
+        status: decision.nextStatus,
         approverId: user.userId,
         approvedAt: new Date(),
         rejectionReason: reason,
         updatedAt: new Date(),
       })
-      .where(eq(serviceRequests.id, existing.id))
+      .where(
+        and(
+          eq(serviceRequests.id, existing.id),
+          eq(serviceRequests.status, existing.status),
+        ),
+      )
       .returning();
+
+    if (!updated) {
+      throw new ConflictException(
+        "Service request status changed; refresh and retry",
+      );
+    }
 
     await this.notifyRequesterDecision(updated.id, "Rejected", reason);
     return this.get(user, updated.id);

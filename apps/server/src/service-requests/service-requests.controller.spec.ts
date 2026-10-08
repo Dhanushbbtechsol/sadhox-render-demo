@@ -149,7 +149,7 @@ describe("Service requests API (supertest) — submit + approval gating", () => 
     expect(svc.create).toHaveBeenCalled();
   });
 
-  it("PATCH approve allows Admin and Manager (Agent and EndUser forbidden)", async () => {
+  it("PATCH approve allows Admin and Manager (Phase 8 chain; Agent/EndUser forbidden)", async () => {
     for (const role of ["Agent", "EndUser"] as const) {
       const denied = await request(app)
         .patch("/service-requests/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/approve")

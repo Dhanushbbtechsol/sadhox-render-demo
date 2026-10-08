@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -11,8 +12,11 @@ import {
   canTransitionChange,
   CHANGE_API_TO_DB_STATUS,
   requiresAdminForChangeStatus,
+  resolveApproveTransition,
+  resolveRejectTransition,
 } from "../common/approval-policy";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
+import { sanitizePlainText } from "../common/sanitize-plain-text";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
@@ -25,7 +29,11 @@ import {
 import { MailService } from "../mail/mail.service";
 import { ProjectAccessService } from "../projects/project-access.service";
 import { ProjectsService } from "../projects/projects.service";
-import type { CreateChangeDto, UpdateChangeDto } from "./dto/change.dto";
+import type {
+  CreateChangeDto,
+  RejectChangeDto,
+  UpdateChangeDto,
+} from "./dto/change.dto";
 
 type DbChangeStatus =
   | "Draft"
@@ -45,7 +53,7 @@ const API_TO_DB_STATUS = CHANGE_API_TO_DB_STATUS as Record<string, DbChangeStatu
 
 const DB_TO_API_STATUS: Record<string, string> = {
   Draft: "Draft",
-  PendingApproval: "Submitted",
+  PendingApproval: "PendingApproval",
   Submitted: "Submitted",
   Approved: "Approved",
   Scheduled: "Scheduled",
@@ -282,28 +290,92 @@ export class ChangesService {
     if (!existing) throw new NotFoundException("Change not found");
 
     await this.projectAccess.assertCanApprove(user, existing.projectId);
+    const decision = resolveApproveTransition({
+      role: user.role,
+      currentStatus: existing.status,
+      projectId: existing.projectId,
+      allowDraft: true,
+    });
 
-    const apiStatus = DB_TO_API_STATUS[existing.status] ?? existing.status;
-    if (apiStatus !== "Submitted" && apiStatus !== "Draft") {
-      throw new BadRequestException(
-        `Cannot approve a change in status ${apiStatus}`,
-      );
+    const patch: Partial<typeof changes.$inferInsert> = {
+      status: decision.nextStatus as DbChangeStatus,
+      updatedAt: new Date(),
+    };
+    if (decision.setApproverFields) {
+      patch.approvedBy = user.userId;
+      patch.approvedAt = new Date();
     }
 
-    await this.db
+    const [updated] = await this.db
+      .update(changes)
+      .set(patch)
+      .where(
+        and(eq(changes.id, id), eq(changes.status, existing.status as DbChangeStatus)),
+      )
+      .returning();
+
+    if (!updated) {
+      throw new ConflictException("Change status changed; refresh and retry");
+    }
+
+    if (decision.nextStatus === "Approved") {
+      await this.notifyCreator(existing.createdBy, {
+        entityId: existing.id,
+        entityTitle: existing.title,
+        outcome: "approved",
+      });
+    }
+
+    return this.get(user, id);
+  }
+
+  async reject(user: AuthUser, id: string, dto: RejectChangeDto) {
+    const reason = sanitizePlainText(dto.reason ?? "");
+    if (!reason) {
+      throw new BadRequestException("Rejection reason is required");
+    }
+
+    const [existing] = await this.db
+      .select()
+      .from(changes)
+      .where(eq(changes.id, id))
+      .limit(1);
+    if (!existing) throw new NotFoundException("Change not found");
+
+    await this.projectAccess.assertCanApprove(user, existing.projectId);
+    const decision = resolveRejectTransition({
+      role: user.role,
+      currentStatus: existing.status,
+      projectId: existing.projectId,
+      rejectStatus: "RolledBack",
+      allowDraft: true,
+    });
+
+    const [updated] = await this.db
       .update(changes)
       .set({
-        status: "Approved",
+        status: decision.nextStatus,
         approvedBy: user.userId,
         approvedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(changes.id, id));
+      .where(
+        and(
+          eq(changes.id, id),
+          eq(changes.status, existing.status as DbChangeStatus),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      throw new ConflictException("Change status changed; refresh and retry");
+    }
 
     await this.notifyCreator(existing.createdBy, {
       entityId: existing.id,
       entityTitle: existing.title,
-      outcome: "approved",
+      outcome: "rejected",
+      reason,
     });
 
     return this.get(user, id);
