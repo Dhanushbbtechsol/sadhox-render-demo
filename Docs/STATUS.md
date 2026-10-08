@@ -113,7 +113,7 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 
 **Phase 5 Medium/Low (2026-10-06 audit):** closed on `Dev-C` 2026-10-07 — SLA rules API, Admin Knowledge `{ data }` unwrap, offline-only mocks, catalog sanitize/option caps. Residual Low: other Admin surfaces still `catch → mock` in DEV. See `Docs/Audit/phase5.md`.
 
-Phase 4 Dev D carryovers still open (`Docs/Audit/phase4.md` / Dev D phase5): CSRF gap with `SameSite=None` refresh cookie; throttle ceiling / logout throttle; Sentry WS auth noise. **LAN script High is closed.**
+Phase 4 Dev D: CSRF on `SameSite=None` refresh — **closed** (`RefreshCookieOriginGuard` Origin allowlist). Still open: throttle ceiling / logout throttle; Sentry WS auth noise. **LAN script High is closed.**
 
 **Production go-live** checklist incomplete (`Docs/Phase/Dev D/go-live-checklist.md`) — do not assume live Render/Vercel is fully cut over.
 

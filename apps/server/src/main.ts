@@ -20,8 +20,9 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const nodeEnv = config.get<string>("NODE_ENV") ?? "development";
   const isProd = nodeEnv === "production";
-  // Same origin for HTTP + Socket.IO; getOrThrow / sharedCorsOptions fail closed (no "*").
-  const cors = sharedCorsOptions(config.getOrThrow<string>("CORS_ORIGIN"));
+  // Same origin allowlist for HTTP + Socket.IO + refresh-cookie Origin checks.
+  const corsOrigin = config.getOrThrow<string>("CORS_ORIGIN");
+  const cors = sharedCorsOptions(corsOrigin);
 
   app.use(
     helmet({
@@ -31,7 +32,7 @@ async function bootstrap() {
         : false,
     }),
   );
-  app.useWebSocketAdapter(new CorsIoAdapter(app, cors.origin));
+  app.useWebSocketAdapter(new CorsIoAdapter(app, corsOrigin));
   app.use(cookieParser());
   const expressApp = app.getHttpAdapter().getInstance() as {
     set: (key: string, value: number | boolean) => void;

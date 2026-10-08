@@ -31,7 +31,7 @@ No `.review.yml` (Sonar defaults).
 
 ### [A05] Local seed default password — Dev D
 
-`apps/server/scripts/seed.ts` uses `DEFAULT_SEED_PASSWORD = "ChangeMe123!"` when `SEED_PASSWORD` unset (printed / gitignored `.seed-password`). Production seed path remains gated + CSPRNG.
+`apps/server/scripts/seed.ts` no longer defaults to `ChangeMe123!` (**closed** Phase 7 close-out): unset `SEED_PASSWORD` → CSPRNG one-time print; re-run does not reset hashes. Production seed path remains gated + CSPRNG.
 
 **Fix (optional):** require `SEED_PASSWORD` or always `generateSeedPassword()` even for local seed.
 
@@ -43,7 +43,7 @@ No `.review.yml` (Sonar defaults).
 
 | Sev | Item |
 | --- | --- |
-| Medium | CSRF on `SameSite=None` refresh cookie |
+| Medium | CSRF on `SameSite=None` refresh cookie — **FIXED** (2026-10-08; Origin allowlist) |
 | Low | `THROTTLE_GLOBAL_LIMIT` prod ceiling; `/auth/logout` throttle; WS auth → Sentry |
 
 ## Review checklist (Sonar)

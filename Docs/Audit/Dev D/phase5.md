@@ -26,9 +26,9 @@ Reaudit 2026-10-07 (pass 2). Combined: [phase5.md](../phase5.md). Owner: Knowled
 
 `requireEnv` on probe/clean/rebaseline (`probe-remote-services.mjs`, `clean-sla-failed-jobs.mjs`, `rebaseline-remote-journal.mjs` via `require-env.mjs`); no LAN fallbacks.
 
-### Medium — [A07] `SameSite=None` without CSRF — **Still open**
+### Medium — [A07] `SameSite=None` without CSRF — **FIXED** (2026-10-08)
 
-No CSRF token/custom header on `/auth/refresh` or `/auth/logout`.
+`RefreshCookieOriginGuard` on `/auth/refresh` and `/auth/logout`: Origin must match `CORS_ORIGIN` allowlist (prod rejects missing Origin; no custom header).
 
 ### Low — still open
 
