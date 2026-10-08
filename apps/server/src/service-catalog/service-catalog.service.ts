@@ -21,9 +21,19 @@ const publicSelect = {
   name: serviceCatalog.name,
   description: serviceCatalog.description,
   department: serviceCatalog.department,
+  subcategory: serviceCatalog.subcategory,
   formFields: serviceCatalog.formFields,
   isActive: serviceCatalog.isActive,
 } as const;
+
+/** Free-text concrete service label — not validated against the incident map. */
+function sanitizeCatalogSubcategory(
+  value: string | null | undefined,
+): string | null {
+  if (value === null || value === undefined) return null;
+  const cleaned = sanitizePlainText(value, 128);
+  return cleaned.length > 0 ? cleaned : null;
+}
 
 function sanitizeFormFields(
   fields: CreateCatalogItemDto["formFields"],
@@ -76,6 +86,10 @@ export class ServiceCatalogService {
         "Catalog name, description, and department are required",
       );
     }
+    const subcategory =
+      dto.subcategory !== undefined
+        ? sanitizeCatalogSubcategory(dto.subcategory)
+        : null;
 
     const [row] = await this.db
       .insert(serviceCatalog)
@@ -83,6 +97,7 @@ export class ServiceCatalogService {
         name,
         description,
         department,
+        subcategory,
         formFields: sanitizeFormFields(dto.formFields),
         isActive: dto.isActive ?? true,
       })
@@ -106,6 +121,7 @@ export class ServiceCatalogService {
       name?: string;
       description?: string;
       department?: string;
+      subcategory?: string | null;
       formFields?: CatalogFormField[];
       isActive?: boolean;
       updatedAt: Date;
@@ -132,6 +148,9 @@ export class ServiceCatalogService {
       }
       patch.department = department;
     }
+    if (dto.subcategory !== undefined) {
+      patch.subcategory = sanitizeCatalogSubcategory(dto.subcategory);
+    }
     if (dto.formFields !== undefined) {
       patch.formFields = sanitizeFormFields(dto.formFields);
     }
@@ -151,18 +170,38 @@ export class ServiceCatalogService {
   async ensureSeeded() {
     for (const item of CATALOG_SEED) {
       const [existing] = await this.db
-        .select({ id: serviceCatalog.id })
+        .select({
+          id: serviceCatalog.id,
+          department: serviceCatalog.department,
+          subcategory: serviceCatalog.subcategory,
+        })
         .from(serviceCatalog)
         .where(eq(serviceCatalog.id, item.id))
         .limit(1);
-      if (existing) continue;
-      await this.db.insert(serviceCatalog).values({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        department: item.department,
-        formFields: item.formFields,
-      });
+      if (!existing) {
+        await this.db.insert(serviceCatalog).values({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          department: item.department,
+          subcategory: item.subcategory,
+          formFields: item.formFields,
+        });
+        continue;
+      }
+      if (
+        existing.department !== item.department ||
+        existing.subcategory !== item.subcategory
+      ) {
+        await this.db
+          .update(serviceCatalog)
+          .set({
+            department: item.department,
+            subcategory: item.subcategory,
+            updatedAt: new Date(),
+          })
+          .where(eq(serviceCatalog.id, item.id));
+      }
     }
   }
 }

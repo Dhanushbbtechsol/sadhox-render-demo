@@ -8,6 +8,7 @@ import {
   IsString,
   MaxLength,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
@@ -16,6 +17,8 @@ import { Type } from "class-transformer";
 export const CATALOG_OPTION_MAX_LENGTH = 128;
 /** Enough for typical select lists; blocks unbounded payload arrays. */
 export const CATALOG_OPTIONS_MAX_SIZE = 50;
+/** Concrete service label (free text); matches `department` max / column. */
+export const CATALOG_SUBCATEGORY_MAX_LENGTH = 128;
 
 class CatalogFormFieldDto {
   @ApiProperty()
@@ -64,11 +67,24 @@ export class CreateCatalogItemDto {
   @MaxLength(4000)
   description!: string;
 
-  @ApiProperty({ example: "IT Hardware" })
+  @ApiProperty({ example: "Hardware" })
   @IsString()
   @MinLength(1)
   @MaxLength(128)
   department!: string;
+
+  @ApiPropertyOptional({
+    example: "Laptop request",
+    maxLength: CATALOG_SUBCATEGORY_MAX_LENGTH,
+    nullable: true,
+    description:
+      "Optional concrete service label (free text). Not validated against the incident category map. Catalog category remains department.",
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsString()
+  @MaxLength(CATALOG_SUBCATEGORY_MAX_LENGTH)
+  subcategory?: string | null;
 
   @ApiProperty({ type: [CatalogFormFieldDto] })
   @IsArray()
@@ -103,6 +119,19 @@ export class UpdateCatalogItemDto {
   @MinLength(1)
   @MaxLength(128)
   department?: string;
+
+  @ApiPropertyOptional({
+    example: "Laptop request",
+    maxLength: CATALOG_SUBCATEGORY_MAX_LENGTH,
+    nullable: true,
+    description:
+      "Optional concrete service label (free text). Not validated against the incident category map. Pass null to clear.",
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined)
+  @IsString()
+  @MaxLength(CATALOG_SUBCATEGORY_MAX_LENGTH)
+  subcategory?: string | null;
 
   @ApiPropertyOptional({ type: [CatalogFormFieldDto] })
   @IsOptional()

@@ -5,6 +5,8 @@ export type CatalogItemSeed = {
   name: string;
   description: string;
   department: string;
+  /** Concrete service label (Phase 7); free text, not incident-map validated. */
+  subcategory: string;
   formFields: CatalogFormField[];
 };
 
@@ -23,12 +25,17 @@ const urgency: CatalogFormField = {
   options: ["Low", "Medium", "High"],
 };
 
+/**
+ * Phase 7 catalog seed / retag targets (match by name on re-run).
+ * Department = incident-style category name; subcategory = concrete service label.
+ */
 export const CATALOG_SEED: CatalogItemSeed[] = [
   {
     id: "11111111-1111-4111-8111-111111111111",
     name: "Request Laptop",
     description: "Request a new developer or standard business laptop.",
-    department: "IT Hardware",
+    department: "Hardware",
+    subcategory: "Laptop request",
     formFields: [
       justification,
       urgency,
@@ -45,7 +52,8 @@ export const CATALOG_SEED: CatalogItemSeed[] = [
     id: "22222222-2222-4222-8222-222222222222",
     name: "VPN Access",
     description: "Request remote VPN access for secure network connectivity.",
-    department: "Access",
+    department: "Network & Connectivity",
+    subcategory: "VPN access request",
     formFields: [
       justification,
       urgency,
@@ -62,7 +70,8 @@ export const CATALOG_SEED: CatalogItemSeed[] = [
     id: "33333333-3333-4333-8333-333333333333",
     name: "Database Access",
     description: "Request read or write access to a production database.",
-    department: "Data",
+    department: "Identity & Access",
+    subcategory: "Database access request",
     formFields: [
       justification,
       urgency,
@@ -85,7 +94,8 @@ export const CATALOG_SEED: CatalogItemSeed[] = [
     id: "44444444-4444-4444-8444-444444444444",
     name: "External Monitor",
     description: "Request an additional external display for your workstation.",
-    department: "IT Hardware",
+    department: "Hardware",
+    subcategory: "Monitor request",
     formFields: [
       justification,
       urgency,
@@ -102,7 +112,8 @@ export const CATALOG_SEED: CatalogItemSeed[] = [
     id: "55555555-5555-4555-8555-555555555555",
     name: "Software License",
     description: "Request a licensed software package for your role.",
-    department: "Access",
+    department: "Software & OS",
+    subcategory: "Software license request",
     formFields: [
       justification,
       urgency,

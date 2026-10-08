@@ -37,6 +37,10 @@ import {
   requiresResolutionNotes,
 } from "./incident-transitions";
 import { canAssignIncident, canMutateIncident } from "./incident-rbac";
+import {
+  invalidCategorySubcategoryMessage,
+  isValidIncidentCategorySubcategory,
+} from "./incident-category-map";
 import { PriorityCalculationService } from "./priority-calculation.service";
 
 type UserSnippet = {
@@ -50,6 +54,7 @@ export type IncidentListItem = {
   title: string;
   description: string;
   category: string;
+  subcategory: string;
   impact: string;
   urgency: string;
   priority: Priority;
@@ -186,6 +191,21 @@ export class IncidentsService {
   }
 
   async create(user: AuthUser, dto: CreateIncidentDto) {
+    const title = sanitizePlainText(dto.title, 255);
+    const description = sanitizePlainText(dto.description, 10_000);
+    if (!title || title.length < 5) {
+      throw new BadRequestException("Title is required");
+    }
+    if (!description || description.length < 10) {
+      throw new BadRequestException("Description is required");
+    }
+    // Category/subcategory: exact map match (DTO already validated); not free text.
+    if (!isValidIncidentCategorySubcategory(dto.category, dto.subcategory)) {
+      throw new BadRequestException(
+        invalidCategorySubcategoryMessage(dto.category, dto.subcategory),
+      );
+    }
+
     const priority = this.priorityCalc.calculate(dto.impact, dto.urgency);
     const now = new Date();
     const resolveMinutes = await this.lookupResolveMinutes(priority);
@@ -215,9 +235,10 @@ export class IncidentsService {
     const [created] = await this.db
       .insert(incidents)
       .values({
-        title: dto.title,
-        description: dto.description,
+        title,
+        description,
         category: dto.category,
+        subcategory: dto.subcategory,
         impact: dto.impact,
         urgency: dto.urgency,
         priority,
@@ -237,7 +258,7 @@ export class IncidentsService {
       try {
         await this.mail.sendTicketAssigned(assignee.email, {
           ticketId: created!.id,
-          ticketTitle: dto.title,
+          ticketTitle: title,
           assigneeName: assignee.name,
         });
       } catch {
@@ -357,6 +378,33 @@ export class IncidentsService {
       nextModuleId = scope.moduleId;
     }
 
+    const nextCategory =
+      dto.category !== undefined ? dto.category : existing.incident.category;
+    const nextSubcategory =
+      dto.subcategory !== undefined
+        ? dto.subcategory
+        : existing.incident.subcategory;
+    const categoryChanged =
+      dto.category !== undefined &&
+      dto.category !== existing.incident.category;
+    const subcategoryChanged =
+      dto.subcategory !== undefined &&
+      dto.subcategory !== existing.incident.subcategory;
+    if (categoryChanged || subcategoryChanged) {
+      if (
+        !isValidIncidentCategorySubcategory(nextCategory, nextSubcategory)
+      ) {
+        if (categoryChanged && !subcategoryChanged) {
+          throw new BadRequestException(
+            `Category "${nextCategory}" is not compatible with the current subcategory "${nextSubcategory}". Provide a new subcategory that belongs to "${nextCategory}".`,
+          );
+        }
+        throw new BadRequestException(
+          invalidCategorySubcategoryMessage(nextCategory, nextSubcategory),
+        );
+      }
+    }
+
     const impact = dto.impact ?? existing.incident.impact;
     const urgency = dto.urgency ?? existing.incident.urgency;
     const recalculate =
@@ -437,14 +485,33 @@ export class IncidentsService {
       status = "Assigned";
     }
 
+    const title =
+      dto.title !== undefined
+        ? sanitizePlainText(dto.title, 255)
+        : undefined;
+    const description =
+      dto.description !== undefined
+        ? sanitizePlainText(dto.description, 10_000)
+        : undefined;
+    if (dto.title !== undefined && (!title || title.length < 5)) {
+      throw new BadRequestException("Title is required");
+    }
+    if (
+      dto.description !== undefined &&
+      (!description || description.length < 10)
+    ) {
+      throw new BadRequestException("Description is required");
+    }
+
     const [updated] = await this.db
       .update(incidents)
       .set({
-        ...(dto.title !== undefined ? { title: dto.title } : {}),
-        ...(dto.description !== undefined
-          ? { description: dto.description }
+        ...(title !== undefined ? { title } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(dto.category !== undefined ? { category: nextCategory } : {}),
+        ...(dto.subcategory !== undefined
+          ? { subcategory: nextSubcategory }
           : {}),
-        ...(dto.category !== undefined ? { category: dto.category } : {}),
         ...(dto.impact !== undefined ? { impact: dto.impact } : {}),
         ...(dto.urgency !== undefined ? { urgency: dto.urgency } : {}),
         status,
@@ -646,6 +713,7 @@ export class IncidentsService {
       title: row.title,
       description: row.description,
       category: row.category,
+      subcategory: row.subcategory,
       impact: row.impact,
       urgency: row.urgency,
       priority: row.priority,

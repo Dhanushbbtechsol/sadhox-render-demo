@@ -26,8 +26,24 @@ import {
 import {
   KNOWLEDGE_ARTICLE_SEED,
   KNOWLEDGE_CATEGORY_SEED,
+  PHASE7_KNOWLEDGE_ARTICLE_SEED,
+  PHASE7_KNOWLEDGE_CATEGORY_SEED,
 } from "../src/knowledge/knowledge.seed";
 import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
+
+/** Valid Phase 7 pairs for NEW showcase/scenario inserts only (existing rows untouched). */
+const PHASE7_INCIDENT_PAIRS = [
+  { category: "Hardware", subcategory: "Laptop/Desktop" },
+  { category: "Hardware", subcategory: "Monitor/Peripherals" },
+  { category: "Hardware", subcategory: "Printer/Scanner" },
+  { category: "Software & OS", subcategory: "Operating System" },
+  { category: "Software & OS", subcategory: "Standard Productivity Apps" },
+  { category: "Network & Connectivity", subcategory: "Wi-Fi / LAN" },
+  { category: "Network & Connectivity", subcategory: "VPN Access" },
+  { category: "Identity & Access", subcategory: "Password Reset" },
+  { category: "Identity & Access", subcategory: "Role Permissions" },
+  { category: "Collaboration", subcategory: "Email & Calendar" },
+] as const;
 
 const SHOWCASE_PREFIX = "[Showcase]";
 const SCENARIO_PREFIX = "[Scenario]";
@@ -221,18 +237,37 @@ async function seed() {
       .from(serviceCatalog)
       .where(eq(serviceCatalog.id, item.id))
       .limit(1);
-    if (existing) {
-      console.log(`skip existing catalog ${item.name}`);
+    if (!existing) {
+      await db.insert(serviceCatalog).values({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        department: item.department,
+        subcategory: item.subcategory,
+        formFields: item.formFields,
+      });
+      console.log(`created catalog ${item.name}`);
       continue;
     }
-    await db.insert(serviceCatalog).values({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      department: item.department,
-      formFields: item.formFields,
-    });
-    console.log(`created catalog ${item.name}`);
+    // Phase 7 retag: update only these five by name when department/subcategory differ.
+    if (
+      existing.department !== item.department ||
+      existing.subcategory !== item.subcategory
+    ) {
+      await db
+        .update(serviceCatalog)
+        .set({
+          department: item.department,
+          subcategory: item.subcategory,
+          updatedAt: new Date(),
+        })
+        .where(eq(serviceCatalog.id, item.id));
+      console.log(
+        `retagged catalog ${item.name} → ${item.department} / ${item.subcategory}`,
+      );
+    } else {
+      console.log(`skip catalog ${item.name} (already correct)`);
+    }
   }
 
   await seedPhase6Projects(db);
@@ -384,13 +419,22 @@ async function seedKnowledgeBase(db: SeedDb) {
     return;
   }
 
-  for (const category of KNOWLEDGE_CATEGORY_SEED) {
-    const [existing] = await db
+  const allCategories = [
+    ...KNOWLEDGE_CATEGORY_SEED,
+    ...PHASE7_KNOWLEDGE_CATEGORY_SEED,
+  ];
+  for (const category of allCategories) {
+    const [byId] = await db
       .select()
       .from(knowledgeCategories)
       .where(eq(knowledgeCategories.id, category.id))
       .limit(1);
-    if (existing) {
+    const [bySlug] = await db
+      .select()
+      .from(knowledgeCategories)
+      .where(eq(knowledgeCategories.slug, category.slug))
+      .limit(1);
+    if (byId || bySlug) {
       console.log(`skip existing knowledge category ${category.slug}`);
       continue;
     }
@@ -403,13 +447,27 @@ async function seedKnowledgeBase(db: SeedDb) {
     console.log(`created knowledge category ${category.slug}`);
   }
 
-  for (const article of KNOWLEDGE_ARTICLE_SEED) {
-    const [existing] = await db
+  const allArticles = [
+    ...KNOWLEDGE_ARTICLE_SEED,
+    ...PHASE7_KNOWLEDGE_ARTICLE_SEED,
+  ];
+  for (const article of allArticles) {
+    const [byId] = await db
       .select()
       .from(knowledgeArticles)
       .where(eq(knowledgeArticles.id, article.id))
       .limit(1);
-    if (existing) {
+    const [bySlug] = await db
+      .select()
+      .from(knowledgeArticles)
+      .where(eq(knowledgeArticles.slug, article.slug))
+      .limit(1);
+    const [byTitle] = await db
+      .select()
+      .from(knowledgeArticles)
+      .where(eq(knowledgeArticles.title, article.title))
+      .limit(1);
+    if (byId || bySlug || byTitle) {
       console.log(`skip existing knowledge article ${article.slug}`);
       continue;
     }
@@ -492,6 +550,7 @@ async function seedShowcaseData(db: SeedDb) {
     impact: "High" | "Medium" | "Low";
     urgency: "High" | "Medium" | "Low";
     category: string;
+    subcategory: string;
     weekOffset: number;
     met: boolean;
   }[] = [];
@@ -501,23 +560,28 @@ async function seedShowcaseData(db: SeedDb) {
     const metCount = 6 + ((7 - w) % 3);
     const breachedCount = 1 + (w % 3);
     for (let i = 0; i < metCount; i++) {
+      const pair = PHASE7_INCIDENT_PAIRS[i % PHASE7_INCIDENT_PAIRS.length]!;
       resolvedShowcase.push({
         title: `${SHOWCASE_PREFIX} Week-${8 - w} met #${i + 1}`,
         priority: priorities[i % priorities.length],
         impact: i % 2 === 0 ? "Medium" : "Low",
         urgency: i % 3 === 0 ? "High" : "Medium",
-        category: ["Network", "Hardware", "Access", "Other"][i % 4],
+        category: pair.category,
+        subcategory: pair.subcategory,
         weekOffset: w,
         met: true,
       });
     }
     for (let i = 0; i < breachedCount; i++) {
+      const pair =
+        PHASE7_INCIDENT_PAIRS[(i + 5) % PHASE7_INCIDENT_PAIRS.length]!;
       resolvedShowcase.push({
         title: `${SHOWCASE_PREFIX} Week-${8 - w} breached #${i + 1}`,
         priority: priorities[(i + 1) % priorities.length],
         impact: "High",
         urgency: "High",
-        category: ["Network", "Software"][i % 2],
+        category: pair.category,
+        subcategory: pair.subcategory,
         weekOffset: w,
         met: false,
       });
@@ -526,14 +590,19 @@ async function seedShowcaseData(db: SeedDb) {
 
   const openStatuses = ["New", "Assigned", "InProgress"] as const;
   const openShowcase = openStatuses.flatMap((status, si) =>
-    Array.from({ length: 3 + si }, (_, i) => ({
-      title: `${SHOWCASE_PREFIX} Open ${status} #${i + 1}`,
-      priority: priorities[(si + i) % priorities.length],
-      impact: "Medium" as const,
-      urgency: "Medium" as const,
-      category: "Other",
-      status,
-    })),
+    Array.from({ length: 3 + si }, (_, i) => {
+      const pair =
+        PHASE7_INCIDENT_PAIRS[(si + i) % PHASE7_INCIDENT_PAIRS.length]!;
+      return {
+        title: `${SHOWCASE_PREFIX} Open ${status} #${i + 1}`,
+        priority: priorities[(si + i) % priorities.length],
+        impact: "Medium" as const,
+        urgency: "Medium" as const,
+        category: pair.category,
+        subcategory: pair.subcategory,
+        status,
+      };
+    }),
   );
 
   /** Phase 4 Day 19: one ticket per status × priority for staging walkthroughs. */
@@ -571,6 +640,7 @@ async function seedShowcaseData(db: SeedDb) {
       title: row.title,
       description: "Dashboard showcase seed — safe to delete.",
       category: row.category,
+      subcategory: row.subcategory,
       priority: row.priority,
       impact: row.impact,
       urgency: row.urgency,
@@ -589,6 +659,7 @@ async function seedShowcaseData(db: SeedDb) {
       title: row.title,
       description: "Dashboard showcase seed — open ticket.",
       category: row.category,
+      subcategory: row.subcategory,
       priority: row.priority,
       impact: row.impact,
       urgency: row.urgency,
@@ -603,6 +674,7 @@ async function seedShowcaseData(db: SeedDb) {
   }
 
   for (const [i, row] of lifecycleMatrix.entries()) {
+    const pair = PHASE7_INCIDENT_PAIRS[i % PHASE7_INCIDENT_PAIRS.length]!;
     const resolvedAt =
       row.status === "Resolved" || row.status === "Closed"
         ? new Date(now - day)
@@ -612,7 +684,8 @@ async function seedShowcaseData(db: SeedDb) {
       title: row.title,
       description:
         "Phase 4 staging seed — P1–P4 across New/Assigned/InProgress/Resolved/Closed.",
-      category: "Other",
+      category: pair.category,
+      subcategory: pair.subcategory,
       priority: row.priority,
       impact: row.impact,
       urgency: row.urgency,
@@ -858,6 +931,7 @@ async function seedScenarioNarrative(db: SeedDb) {
     title: string;
     description: string;
     category: string;
+    subcategory: string;
     priority: "P1" | "P2" | "P3" | "P4";
     impact: "High" | "Medium" | "Low";
     urgency: "High" | "Medium" | "Low";
@@ -877,7 +951,8 @@ async function seedScenarioNarrative(db: SeedDb) {
       title: `${SCENARIO_PREFIX} VPN gateway intermittent for Platform Ops`,
       description:
         "Users on Platform Ops cannot stay connected to VPN longer than ~5 minutes. Started Monday morning.",
-      category: "Network",
+      category: "Network & Connectivity",
+      subcategory: "VPN Access",
       priority: "P1",
       impact: "High",
       urgency: "High",
@@ -892,6 +967,7 @@ async function seedScenarioNarrative(db: SeedDb) {
       title: `${SCENARIO_PREFIX} Laptop screen flicker after docking`,
       description: "Display blanks when docked; works undocked. Hinders remote work.",
       category: "Hardware",
+      subcategory: "Laptop/Desktop",
       priority: "P2",
       impact: "Medium",
       urgency: "High",
@@ -905,7 +981,8 @@ async function seedScenarioNarrative(db: SeedDb) {
       id: SCENARIO_INCIDENT_IDS.emailDelay,
       title: `${SCENARIO_PREFIX} Outbound mail delayed 30+ minutes`,
       description: "Messages sit in Outbox then batch-send. Affects approvals.",
-      category: "Software",
+      category: "Collaboration",
+      subcategory: "Email & Calendar",
       priority: "P2",
       impact: "High",
       urgency: "Medium",
@@ -920,6 +997,7 @@ async function seedScenarioNarrative(db: SeedDb) {
       title: `${SCENARIO_PREFIX} Floor-3 printer paper jam loop`,
       description: "Printer reports jam even after clearing tray.",
       category: "Hardware",
+      subcategory: "Printer/Scanner",
       priority: "P3",
       impact: "Low",
       urgency: "Medium",
@@ -933,7 +1011,8 @@ async function seedScenarioNarrative(db: SeedDb) {
       id: SCENARIO_INCIDENT_IDS.accessDenied,
       title: `${SCENARIO_PREFIX} SharePoint site access denied after role change`,
       description: "Pat Portal lost write access to Ops handbook site.",
-      category: "Access",
+      category: "Identity & Access",
+      subcategory: "Role Permissions",
       priority: "P2",
       impact: "Medium",
       urgency: "High",
@@ -947,7 +1026,8 @@ async function seedScenarioNarrative(db: SeedDb) {
       id: SCENARIO_INCIDENT_IDS.wifiSlow,
       title: `${SCENARIO_PREFIX} Conference room Wi-Fi throughput drop`,
       description: "Speed tests under 5 Mbps during standup; AP reboot temporary fix.",
-      category: "Network",
+      category: "Network & Connectivity",
+      subcategory: "Wi-Fi / LAN",
       priority: "P3",
       impact: "Medium",
       urgency: "Medium",
@@ -961,7 +1041,8 @@ async function seedScenarioNarrative(db: SeedDb) {
       id: SCENARIO_INCIDENT_IDS.appCrash,
       title: `${SCENARIO_PREFIX} Softphone client crash on call answer`,
       description: "App exits when accepting inbound calls on Windows 11.",
-      category: "Software",
+      category: "Software & OS",
+      subcategory: "Standard Productivity Apps",
       priority: "P2",
       impact: "High",
       urgency: "High",
@@ -977,7 +1058,8 @@ async function seedScenarioNarrative(db: SeedDb) {
       id: SCENARIO_INCIDENT_IDS.dbTimeout,
       title: `${SCENARIO_PREFIX} Reporting DB query timeouts at 09:00`,
       description: "Batch report job times out during morning peak.",
-      category: "Other",
+      category: "Software & OS",
+      subcategory: "Enterprise Software (ERP/CRM)",
       priority: "P1",
       impact: "High",
       urgency: "High",
@@ -992,6 +1074,7 @@ async function seedScenarioNarrative(db: SeedDb) {
       title: `${SCENARIO_PREFIX} Desk phone no dial tone`,
       description: "Handset shows registered but no dial tone on pickup.",
       category: "Hardware",
+      subcategory: "Mobile Device",
       priority: "P3",
       impact: "Low",
       urgency: "Low",
@@ -1008,7 +1091,8 @@ async function seedScenarioNarrative(db: SeedDb) {
       id: SCENARIO_INCIDENT_IDS.badgeFail,
       title: `${SCENARIO_PREFIX} Badge reader rejects valid cards`,
       description: "Building B lobby reader beeps red for Ops badges.",
-      category: "Access",
+      category: "Identity & Access",
+      subcategory: "Multi-Factor Authentication (MFA)",
       priority: "P3",
       impact: "Medium",
       urgency: "Medium",
@@ -1023,6 +1107,7 @@ async function seedScenarioNarrative(db: SeedDb) {
       title: `${SCENARIO_PREFIX} Dual-monitor blank on HDMI hub`,
       description: "Second monitor stays black after docking station firmware update.",
       category: "Hardware",
+      subcategory: "Monitor/Peripherals",
       priority: "P4",
       impact: "Low",
       urgency: "Low",
@@ -1039,7 +1124,8 @@ async function seedScenarioNarrative(db: SeedDb) {
       title: `${SCENARIO_PREFIX} Shared Infra backup window overrun`,
       description:
         "Admin-owned Shared Infra ticket — Manager must not see this in scoped lists.",
-      category: "Other",
+      category: "Network & Connectivity",
+      subcategory: "DNS / Firewall",
       priority: "P2",
       impact: "Medium",
       urgency: "Medium",
@@ -1057,6 +1143,7 @@ async function seedScenarioNarrative(db: SeedDb) {
       title: row.title,
       description: row.description,
       category: row.category,
+      subcategory: row.subcategory,
       priority: row.priority,
       impact: row.impact,
       urgency: row.urgency,
@@ -1579,7 +1666,8 @@ async function seedRoleVisibleDemo(db: SeedDb) {
     },
   ];
 
-  for (const row of demoIncidents) {
+  for (const [i, row] of demoIncidents.entries()) {
+    const pair = PHASE7_INCIDENT_PAIRS[i % PHASE7_INCIDENT_PAIRS.length]!;
     await db
       .insert(incidents)
       .values({
@@ -1587,7 +1675,8 @@ async function seedRoleVisibleDemo(db: SeedDb) {
         title: row.title,
         description:
           "Demo seed for Agent / EndUser tab visibility after login. Safe to delete.",
-        category: "Other",
+        category: pair.category,
+        subcategory: pair.subcategory,
         priority: row.priority,
         impact: row.priority === "P1" || row.priority === "P2" ? "High" : "Medium",
         urgency: row.priority === "P1" ? "High" : "Medium",

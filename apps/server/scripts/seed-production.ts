@@ -93,22 +93,40 @@ async function seedProduction() {
 
   for (const item of CATALOG_SEED) {
     const [existing] = await db
-      .select({ id: serviceCatalog.id })
+      .select()
       .from(serviceCatalog)
       .where(eq(serviceCatalog.id, item.id))
       .limit(1);
-    if (existing) {
-      console.log(`skip existing catalog ${item.name}`);
+    if (!existing) {
+      await db.insert(serviceCatalog).values({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        department: item.department,
+        subcategory: item.subcategory,
+        formFields: item.formFields,
+      });
+      console.log(`created catalog ${item.name}`);
       continue;
     }
-    await db.insert(serviceCatalog).values({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      department: item.department,
-      formFields: item.formFields,
-    });
-    console.log(`created catalog ${item.name}`);
+    if (
+      existing.department !== item.department ||
+      existing.subcategory !== item.subcategory
+    ) {
+      await db
+        .update(serviceCatalog)
+        .set({
+          department: item.department,
+          subcategory: item.subcategory,
+          updatedAt: new Date(),
+        })
+        .where(eq(serviceCatalog.id, item.id));
+      console.log(
+        `retagged catalog ${item.name} → ${item.department} / ${item.subcategory}`,
+      );
+    } else {
+      console.log(`skip catalog ${item.name} (already correct)`);
+    }
   }
 
   await client.end();

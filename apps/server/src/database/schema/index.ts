@@ -208,6 +208,9 @@ export const incidents = pgTable(
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description").notNull(),
     category: varchar("category", { length: 64 }).notNull().default("Other"),
+    subcategory: varchar("subcategory", { length: 128 })
+      .notNull()
+      .default("Other"),
     priority: priorityEnum("priority").notNull().default("P3"),
     impact: impactUrgencyEnum("impact").notNull().default("Medium"),
     urgency: impactUrgencyEnum("urgency").notNull().default("Medium"),
@@ -311,6 +314,7 @@ export const serviceCatalog = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description").notNull(),
     department: varchar("department", { length: 128 }).notNull(),
+    subcategory: varchar("subcategory", { length: 128 }),
     formFields: jsonb("form_fields")
       .$type<CatalogFormField[]>()
       .notNull()

@@ -56,6 +56,7 @@ describe("ServiceCatalogService sanitize on write", () => {
       name: '<script>alert("xss")</script>Laptop',
       description: '<img src=x onerror="alert(1)">Need a laptop',
       department: "<b>Hardware</b>",
+      subcategory: "<b>Laptop request</b>",
       formFields: [
         {
           name: "<script>qty</script>",
@@ -71,6 +72,7 @@ describe("ServiceCatalogService sanitize on write", () => {
         name: 'alert("xss") Laptop',
         description: "Need a laptop",
         department: "Hardware",
+        subcategory: "Laptop request",
         formFields: [
           {
             name: "qty",
@@ -83,10 +85,26 @@ describe("ServiceCatalogService sanitize on write", () => {
     );
   });
 
+  it("creates without subcategory as null", async () => {
+    await service.create({
+      name: "Request Laptop",
+      description: "Need a laptop",
+      department: "Hardware",
+      formFields: [],
+    });
+
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subcategory: null,
+      }),
+    );
+  });
+
   it("sanitizes update free-text and form field options", async () => {
     await service.update("catalog-1", {
       name: "a < b > Monitor",
       description: "  line1\n\n\n\nline2  ",
+      subcategory: "<i>Monitor request</i>",
       formFields: [
         {
           name: "size",
@@ -102,6 +120,7 @@ describe("ServiceCatalogService sanitize on write", () => {
       expect.objectContaining({
         name: "a b Monitor",
         description: "line1\n\nline2",
+        subcategory: "Monitor request",
         formFields: [
           {
             name: "size",
@@ -112,6 +131,20 @@ describe("ServiceCatalogService sanitize on write", () => {
         ],
       }),
     );
+  });
+
+  it("clears subcategory on update when null is sent", async () => {
+    await service.update("catalog-1", { subcategory: null });
+    expect(updateSet).toHaveBeenCalledWith(
+      expect.objectContaining({ subcategory: null }),
+    );
+  });
+
+  it("does not patch subcategory when omitted on update", async () => {
+    await service.update("catalog-1", { name: "Renamed only" });
+    const patch = updateSet.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(patch).toMatchObject({ name: "Renamed only" });
+    expect(patch).not.toHaveProperty("subcategory");
   });
 
   it("rejects create when sanitization empties required fields", async () => {
