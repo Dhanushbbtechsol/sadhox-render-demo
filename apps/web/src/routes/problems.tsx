@@ -56,16 +56,35 @@ export default function ProblemsPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <Select
+          items={{
+            all: "All projects",
+            ...Object.fromEntries(
+              projects.map((project) => [project.id, project.name]),
+            ),
+          }}
           value={projectFilter}
           onValueChange={(v) => v && setProjectFilter(v)}
         >
           <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Project" />
+            <SelectValue placeholder="Project">
+              {(value: string | null) => {
+                if (!value || value === "all") return "All projects";
+                return (
+                  projects.find((p) => p.id === value)?.name ?? "Project"
+                );
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All projects</SelectItem>
+            <SelectItem value="all" label="All projects">
+              All projects
+            </SelectItem>
             {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
+              <SelectItem
+                key={project.id}
+                value={project.id}
+                label={project.name}
+              >
                 {project.name}
               </SelectItem>
             ))}
