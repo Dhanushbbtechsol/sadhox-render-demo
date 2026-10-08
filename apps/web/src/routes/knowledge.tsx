@@ -62,11 +62,26 @@ export default function KnowledgePage() {
           />
         </div>
         <Select
+          items={[
+            { value: "all", label: "All categories" },
+            ...(categories.data ?? []).map((category) => ({
+              value: category.id,
+              label: category.name,
+            })),
+          ]}
           value={categoryId}
           onValueChange={(value) => setCategoryId(value ?? "all")}
         >
           <SelectTrigger className="w-full sm:w-56">
-            <SelectValue placeholder="Category" />
+            <SelectValue placeholder="Category">
+              {(value) => {
+                if (!value || value === "all") return "All categories";
+                return (
+                  (categories.data ?? []).find((c) => c.id === value)?.name ??
+                  "Category"
+                );
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>

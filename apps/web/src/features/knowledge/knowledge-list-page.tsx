@@ -145,11 +145,25 @@ export default function KnowledgeListPage() {
           />
         </div>
         <Select
+          items={[
+            { value: "all", label: "All categories" },
+            ...categoryList.map((category) => ({
+              value: category.id,
+              label: category.name,
+            })),
+          ]}
           value={categoryId}
           onValueChange={(value) => setCategoryId((value as string | "all") ?? "all")}
         >
           <SelectTrigger className="w-full md:w-52">
-            <SelectValue placeholder="Category" />
+            <SelectValue placeholder="Category">
+              {(value) => {
+                if (!value || value === "all") return "All categories";
+                return (
+                  categoryList.find((c) => c.id === value)?.name ?? "Category"
+                );
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
@@ -161,6 +175,10 @@ export default function KnowledgeListPage() {
           </SelectContent>
         </Select>
         <Select
+          items={STATUSES.map((item) => ({
+            value: item,
+            label: item === "all" ? "All statuses" : item,
+          }))}
           value={status}
           onValueChange={(value) =>
             setStatus((value as KnowledgeArticleStatus | "all") ?? "all")
