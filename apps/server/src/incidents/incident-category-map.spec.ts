@@ -55,12 +55,25 @@ describe("INCIDENT_CATEGORY_SUBCATEGORY_MAP", () => {
     }
   });
 
+  it("exposes the five Phase 7 categories in map order", () => {
+    expect(INCIDENT_CATEGORIES).toEqual([
+      "Hardware",
+      "Software & OS",
+      "Network & Connectivity",
+      "Identity & Access",
+      "Collaboration",
+    ]);
+  });
+
   it("accepts known pairs and rejects invalid ones", () => {
     expect(
       isValidIncidentCategorySubcategory("Hardware", "Laptop/Desktop"),
     ).toBe(true);
     expect(
       isValidIncidentCategorySubcategory("Hardware", "Password Reset"),
+    ).toBe(false);
+    expect(
+      isValidIncidentCategorySubcategory("Hardware", "Email & Calendar"),
     ).toBe(false);
     expect(isValidIncidentCategorySubcategory("Email", "Other")).toBe(false);
     expect(isValidIncidentCategorySubcategory("Hardware", "Other")).toBe(false);

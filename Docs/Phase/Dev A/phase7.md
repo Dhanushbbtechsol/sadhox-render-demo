@@ -5,4 +5,4 @@
 
 - Sidebar: EndUser gets **Incidents** → `/incidents`. Remove **My Portal**.
 - Route: EndUser may open `/incidents` (own rows only — server already scopes lists). `/incidents/:id` for EndUser is the current portal detail (read-only). Redirect `/portal` and `/portal/incidents/:id`.
-- Report form: category + subcategory from Dev D’s Phase 7 map (`incident-categories`). Problems stay unreachable for EndUser.
+- Report form: category + subcategory from Dev D’s Phase 7 map (`incident-category-map` on server; web mirrors via `types/incident-categories.ts`). Problems stay unreachable for EndUser.

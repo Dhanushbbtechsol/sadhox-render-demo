@@ -2,8 +2,8 @@
 
 Scope: `Audit` after `Dev-A-`, `Dev-B`, and `Dev-D` (EndUser `/incidents`, catalog subcategory, category map, seed retag). Diff base: `102d522`. Stack: NestJS + Drizzle + Passport JWT + React/Vite. No `.review.yml` (Sonar defaults). Dev C had no Phase 7 diff.
 
-**Open findings (Phase 7): 0 Critical · 0 High · 0 Medium · 1 Low** (duplicate category maps).  
-**Pass/fail:** Dev A **PASS** · Dev B **PASS** · Dev C **PASS** · Dev D **PASS** (Low alone does not fail).
+**Open findings (Phase 7): 0 Critical · 0 High · 0 Medium · 0 Low** ([A08] twin maps closed 2026-10-08).  
+**Pass/fail:** Dev A **PASS** · Dev B **PASS** · Dev C **PASS** · Dev D **PASS**.
 
 **Owners:** [Dev A](./Dev%20A/phase7.md) · [Dev B](./Dev%20B/phase7.md) · [Dev C](./Dev%20C/phase7.md) · [Dev D](./Dev%20D/phase7.md)
 
@@ -28,13 +28,9 @@ EndUser incident desk moved from `/portal` to `/incidents` (own list, report for
 
 ## Low / Hardening
 
-### [A08] Two server category maps — Dev A + Dev D
+### [A08] Two server category maps — Dev A + Dev D — **closed 2026-10-08**
 
-`apps/server/src/incidents/incident-categories.ts` and `incident-category-map.ts` are the same allow-list. Create checks both (`incidents.service.ts` around the create method). Update checks only `incident-category-map`. The web form copies `incident-categories` (`apps/web/src/types/incident-categories.ts`).
-
-They match today. If one list is edited, create and update can disagree, and the form can offer a pair the update path accepts.
-
-**Fix:** keep `incident-category-map.ts` only. Point the service and the web copy at that module. Delete `incident-categories.ts`.
+Kept `incident-category-map.ts` only. Deleted `incident-categories.ts`. Create/update use `isValidIncidentCategorySubcategory` from that module. Web form still has `apps/web/src/types/incident-categories.ts` as a documented mirror of the server map (UI cannot import Nest modules).
 
 ## Phase 6 / Phase 4 carryovers (not Phase 7)
 

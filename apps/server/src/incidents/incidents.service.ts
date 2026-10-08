@@ -37,7 +37,6 @@ import {
   requiresResolutionNotes,
 } from "./incident-transitions";
 import { canAssignIncident, canMutateIncident } from "./incident-rbac";
-import { isValidIncidentCategoryPair } from "./incident-categories";
 import {
   invalidCategorySubcategoryMessage,
   isValidIncidentCategorySubcategory,
@@ -230,12 +229,6 @@ export class IncidentsService {
       assignee = await this.assertAssigneeInPool(
         dto.assignedTo,
         scope.projectId,
-      );
-    }
-
-    if (!isValidIncidentCategoryPair(dto.category, dto.subcategory)) {
-      throw new BadRequestException(
-        "subcategory must belong to the selected category",
       );
     }
 

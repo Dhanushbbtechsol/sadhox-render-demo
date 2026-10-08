@@ -4,11 +4,11 @@ Audit 2026-10-08 (post merge-to-audit). Combined: [phase7.md](../phase7.md). **P
 
 Category/subcategory columns, DTO map check, catalog subcategory column, and Phase 7 seed (catalog retag + five Published articles). Create rejects pairs outside the map. Update validates only when category or subcategory actually changes, so a stored legacy value can be re-sent. Drizzle parameters only. KB seed is plain text.
 
-## Low — Open (shared with Dev A)
+## Low — Closed
 
-### [A08] Twin category map
+### [A08] Twin category map — fixed 2026-10-08
 
-`incident-category-map.ts` is the map update uses. `incident-categories.ts` is a second copy that create also checks. Keep this module, point create and `apps/web/src/types/incident-categories.ts` at it, delete the other file.
+Kept `incident-category-map.ts` as the only server allow-list. Removed `incident-categories.ts` (and its spec). Create and update both use `isValidIncidentCategorySubcategory` from that module. Web UI copy is `apps/web/src/types/incident-categories.ts` and is documented to mirror `incident-category-map.ts`.
 
 ## Carryovers (not Phase 7)
 
