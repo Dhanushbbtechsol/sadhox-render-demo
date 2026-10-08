@@ -41,6 +41,7 @@ const catalogSchema = z.object({
   name: z.string().min(2).max(255),
   description: z.string().min(1).max(4000),
   department: z.string().min(1).max(128),
+  subcategory: z.string().max(128).optional(),
   isActive: z.boolean(),
   formFields: z.array(formFieldSchema).min(1),
 });
@@ -70,6 +71,7 @@ function toFormValues(item?: ServiceCatalogItem | null): CatalogFormValues {
       name: "",
       description: "",
       department: "",
+      subcategory: "",
       isActive: true,
       formFields: DEFAULT_FIELDS,
     };
@@ -78,6 +80,7 @@ function toFormValues(item?: ServiceCatalogItem | null): CatalogFormValues {
     name: item.name,
     description: item.description,
     department: item.department,
+    subcategory: item.subcategory ?? "",
     isActive: item.isActive !== false,
     formFields: item.formFields.map((field) => ({
       name: field.name,
@@ -90,10 +93,12 @@ function toFormValues(item?: ServiceCatalogItem | null): CatalogFormValues {
 }
 
 function toPayload(values: CatalogFormValues) {
+  const subcategory = values.subcategory?.trim() ?? "";
   return {
     name: values.name.trim(),
     description: values.description.trim(),
     department: values.department.trim(),
+    subcategory: subcategory.length > 0 ? subcategory : null,
     isActive: values.isActive,
     formFields: values.formFields.map((field) => ({
       name: field.name.trim(),
@@ -166,7 +171,8 @@ export function CatalogItemFormDialog({
             {isEdit ? "Edit catalog item" : "New catalog item"}
           </DialogTitle>
           <DialogDescription>
-            Configure name, department, active flag, and dynamic form fields.
+            Configure name, department (category), optional subcategory, active
+            flag, and dynamic form fields.
           </DialogDescription>
         </DialogHeader>
 
@@ -185,8 +191,17 @@ export function CatalogItemFormDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="catalog-department">Department</Label>
+            <Label htmlFor="catalog-department">Department (category)</Label>
             <Input id="catalog-department" {...form.register("department")} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="catalog-subcategory">Subcategory (optional)</Label>
+            <Input
+              id="catalog-subcategory"
+              placeholder="e.g. Laptop request"
+              {...form.register("subcategory")}
+            />
           </div>
 
           <div className="space-y-2">

@@ -24,8 +24,57 @@ import {
   useApproveServiceRequest,
   useServiceRequests,
 } from "@/hooks/use-service-requests";
+import { useAuthStore } from "@/stores/auth-store";
+import type { ChangeRecord, ServiceRequest, UserRole } from "@/types/api";
+
+/** Phase 8 waiting copy for the approval chain. */
+function waitingLabel(item: {
+  status: string;
+  projectId?: string | null;
+}): "Waiting on manager" | "Waiting on admin" {
+  if (item.status === "PendingApproval") return "Waiting on admin";
+  if (item.status === "Submitted" && item.projectId) {
+    return "Waiting on manager";
+  }
+  return "Waiting on admin";
+}
+
+function hasProject(item: { projectId?: string | null }): boolean {
+  return Boolean(item.projectId);
+}
+
+/** Manager inbox: owned-project tickets in Submitted (list is already project-scoped). */
+function inManagerInbox(item: {
+  status: string;
+  projectId?: string | null;
+}): boolean {
+  return item.status === "Submitted" && hasProject(item);
+}
+
+/**
+ * Admin inbox: PendingApproval, plus Submitted with no project (Admin-only step).
+ * Submitted tickets that still need a manager stay out of the Admin queue.
+ */
+function inAdminInbox(item: {
+  status: string;
+  projectId?: string | null;
+}): boolean {
+  if (item.status === "PendingApproval") return true;
+  return item.status === "Submitted" && !hasProject(item);
+}
+
+function filterForRole<T extends { status: string; projectId?: string | null }>(
+  items: T[],
+  role: UserRole | undefined,
+): T[] {
+  if (role === "Manager") return items.filter(inManagerInbox);
+  if (role === "Admin") return items.filter(inAdminInbox);
+  return [];
+}
 
 export function ApprovalInboxTable() {
+  const role = useAuthStore((s) => s.user?.role);
+  const isManager = role === "Manager";
   const { data: requests, isLoading: loadingRequests } = useServiceRequests();
   const { data: changes, isLoading: loadingChanges } = useChanges();
   const approveRequest = useApproveServiceRequest();
@@ -37,27 +86,56 @@ export function ApprovalInboxTable() {
   } | null>(null);
 
   const pendingRequests = useMemo(
-    () => (requests ?? []).filter((r) => r.status === "Submitted"),
-    [requests],
+    () => filterForRole(requests ?? [], role),
+    [requests, role],
   );
   const pendingChanges = useMemo(
-    () =>
-      (changes ?? []).filter(
-        (c) => c.status === "Submitted" || c.status === "Draft",
-      ),
-    [changes],
+    () => filterForRole(changes ?? [], role),
+    [changes, role],
   );
+
+  async function handleApproveRequest(request: ServiceRequest) {
+    try {
+      const result = await approveRequest.mutateAsync(request.id);
+      if (result.status === "PendingApproval") {
+        toast.success("Sent to admin for final approval");
+      } else {
+        toast.success("Request approved");
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Approve failed",
+      );
+    }
+  }
+
+  async function handleApproveChange(change: ChangeRecord) {
+    try {
+      const result = await approveChange.mutateAsync(change.id);
+      if (result.status === "PendingApproval") {
+        toast.success("Sent to admin for final approval");
+      } else {
+        toast.success("Change approved");
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Approve failed",
+      );
+    }
+  }
 
   if (loadingRequests || loadingChanges) {
     return <Skeleton className="h-56 w-full" />;
   }
+
+  const approveLabel = isManager ? "Send to admin" : "Approve";
 
   return (
     <>
       <Tabs defaultValue="requests">
         <TabsList>
           <TabsTrigger value="requests">
-            Requests ({pendingRequests.length})
+            Service Requests ({pendingRequests.length})
           </TabsTrigger>
           <TabsTrigger value="changes">
             Changes ({pendingChanges.length})
@@ -68,7 +146,11 @@ export function ApprovalInboxTable() {
           {!pendingRequests.length ? (
             <EmptyState
               title="No pending approvals"
-              description="Service requests waiting for Admin or Manager review will show up here. Managers only see their projects."
+              description={
+                isManager
+                  ? "Submitted service requests on projects you manage will show up here."
+                  : "Requests waiting on admin (after manager approval, or with no project) will show up here."
+              }
             />
           ) : (
             <Table>
@@ -76,6 +158,7 @@ export function ApprovalInboxTable() {
                 <TableRow>
                   <TableHead>Service</TableHead>
                   <TableHead>Project</TableHead>
+                  <TableHead>Waiting on</TableHead>
                   <TableHead>Requester</TableHead>
                   <TableHead>Urgency</TableHead>
                   <TableHead>Created</TableHead>
@@ -97,6 +180,9 @@ export function ApprovalInboxTable() {
                       {request.projectName ?? "—"}
                       {request.moduleName ? ` / ${request.moduleName}` : ""}
                     </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{waitingLabel(request)}</Badge>
+                    </TableCell>
                     <TableCell>{request.requesterName}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{request.urgency}</Badge>
@@ -108,20 +194,9 @@ export function ApprovalInboxTable() {
                       <Button
                         size="sm"
                         disabled={approveRequest.isPending}
-                        onClick={async () => {
-                          try {
-                            await approveRequest.mutateAsync(request.id);
-                            toast.success("Request approved");
-                          } catch (error) {
-                            toast.error(
-                              error instanceof Error
-                                ? error.message
-                                : "Approve failed",
-                            );
-                          }
-                        }}
+                        onClick={() => void handleApproveRequest(request)}
                       >
-                        Approve
+                        {approveLabel}
                       </Button>
                       <Button
                         size="sm"
@@ -147,7 +222,11 @@ export function ApprovalInboxTable() {
           {!pendingChanges.length ? (
             <EmptyState
               title="No pending changes"
-              description="Submitted changes awaiting Admin or Manager approval will appear here. Managers only see their projects."
+              description={
+                isManager
+                  ? "Submitted changes on projects you manage will appear here."
+                  : "Changes waiting on admin (after manager approval, or with no project) will appear here."
+              }
             />
           ) : (
             <Table>
@@ -155,6 +234,7 @@ export function ApprovalInboxTable() {
                 <TableRow>
                   <TableHead>Title</TableHead>
                   <TableHead>Project</TableHead>
+                  <TableHead>Waiting on</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Schedule</TableHead>
                   <TableHead>Created by</TableHead>
@@ -177,6 +257,9 @@ export function ApprovalInboxTable() {
                       {change.moduleName ? ` / ${change.moduleName}` : ""}
                     </TableCell>
                     <TableCell>
+                      <Badge variant="outline">{waitingLabel(change)}</Badge>
+                    </TableCell>
+                    <TableCell>
                       <Badge variant="outline">{change.type}</Badge>
                     </TableCell>
                     <TableCell className="text-xs">
@@ -193,20 +276,9 @@ export function ApprovalInboxTable() {
                       <Button
                         size="sm"
                         disabled={approveChange.isPending}
-                        onClick={async () => {
-                          try {
-                            await approveChange.mutateAsync(change.id);
-                            toast.success("Change approved");
-                          } catch (error) {
-                            toast.error(
-                              error instanceof Error
-                                ? error.message
-                                : "Approve failed",
-                            );
-                          }
-                        }}
+                        onClick={() => void handleApproveChange(change)}
                       >
-                        Approve
+                        {approveLabel}
                       </Button>
                       <Button
                         size="sm"

@@ -1,7 +1,8 @@
 /**
- * Phase 7 incident category → subcategory map.
- * Mirrors `apps/server/src/incidents/incident-category-map.ts`
- * (`INCIDENT_CATEGORY_SUBCATEGORY_MAP`). Keep in sync deliberately.
+ * Phase 7 incident category → subcategory map for the web form.
+ * Must stay identical to apps/server/src/incidents/incident-category-map.ts
+ * (`INCIDENT_CATEGORY_SUBCATEGORY_MAP`) — single server source of truth; this is the UI copy.
+ * Keep in sync deliberately.
  */
 export const INCIDENT_CATEGORY_MAP = {
   Hardware: [

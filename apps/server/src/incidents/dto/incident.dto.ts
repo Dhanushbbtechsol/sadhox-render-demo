@@ -65,9 +65,11 @@ export class CreateIncidentDto extends ProjectScopeFieldsDto {
   @ApiProperty({
     example: "Laptop/Desktop",
     description:
-      "Required subcategory belonging to category (INCIDENT_CATEGORY_SUBCATEGORY_MAP)",
+      "Required subcategory belonging to the selected category (INCIDENT_CATEGORY_SUBCATEGORY_MAP)",
   })
   @IsString()
+  @MinLength(1)
+  @MaxLength(128)
   @Validate(IsIncidentCategorySubcategoryPairConstraint)
   subcategory!: string;
 
@@ -122,7 +124,7 @@ export class UpdateIncidentDto extends ProjectScopeFieldsDto {
   @ApiPropertyOptional({
     example: "Laptop/Desktop",
     description:
-      "When changed, effective (category, subcategory) must be a valid map pair",
+      "When changed, effective (category, subcategory) must be a valid map pair. Must belong to category when both are sent.",
   })
   @IsOptional()
   @IsString()

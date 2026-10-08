@@ -201,7 +201,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "catalog",
-            handle: { breadcrumb: "Catalog" },
+            handle: { breadcrumb: "Service Catalog" },
             element: (
               <ProtectedRoute
                 roles={["Admin", "Agent", "EndUser", "Manager"]}
@@ -211,7 +211,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "requests",
-            handle: { breadcrumb: "Requests" },
+            handle: { breadcrumb: "Service Requests" },
             element: (
               <ProtectedRoute roles={["Admin", "Agent", "EndUser", "Manager"]} />
             ),

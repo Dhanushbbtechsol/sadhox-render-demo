@@ -45,6 +45,10 @@ Phases **1–5** merged on `Audit` (Dev-C close-out 2026-10-07): JWT/RBAC, full 
 
 **Phase 6:** Projects / modules / `Manager` + project ACL + **Admin User Management** — [Docs/Phase/phase6.md](./Docs/Phase/phase6.md). Admin `/admin/users` create/list/update is landed. Do not rebuild KB.
 
+**Phase 7 (designed, not coded):** EndUser desk — [Docs/Phase/phase7.md](./Docs/Phase/phase7.md).
+
+**Phase 8 (designed, not coded):** Manager-then-Admin approval + server dashboard CSV — [Docs/Phase/phase8.md](./Docs/Phase/phase8.md).
+
 ## Better Fullstack note
 
 `bts.jsonc` records the **original** generator graph (Hono / Supabase Auth labels). The **shipped application** diverged to NestJS + Passport JWT. Do not reintroduce Hono or Supabase Auth unless explicitly requested. Treat Better Fullstack recipe tooling carefully on existing-project writes.

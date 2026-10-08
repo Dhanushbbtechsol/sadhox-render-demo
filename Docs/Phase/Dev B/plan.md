@@ -29,5 +29,7 @@
 | **Phase 4** | QA, Security Pass & Deploy | Days 16–20 (Week 4) | [phase4.md](./phase4.md) |
 | **Phase 5** | End User Knowledge Portal & Catalog Admin CRUD | Days 21–25 (Week 5) | [phase5.md](./phase5.md) |
 | **Phase 6** | Project-scoped Requests/Changes & Manager approvals | Days 26–30 (Week 6) | [phase6.md](./phase6.md) |
+| **Phase 7** | Service Catalog & Service Requests labels | — | [phase7.md](./phase7.md) |
+| **Phase 8** | Approvals inbox for Manager-then-Admin chain | — | [phase8.md](./phase8.md) |
 
 Coverage: [coverage-matrix.md](../coverage-matrix.md). Phase 6 design: [../phase6.md](../phase6.md).

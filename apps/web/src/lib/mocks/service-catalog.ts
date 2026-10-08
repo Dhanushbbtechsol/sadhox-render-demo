@@ -10,6 +10,7 @@ export const MOCK_CATALOG: ServiceCatalogItem[] = [
     name: "Request Laptop",
     description: "Request a new developer or standard business laptop.",
     department: "IT Hardware",
+    subcategory: "Laptop request",
     formFields: [
       {
         name: "justification",
@@ -38,6 +39,7 @@ export const MOCK_CATALOG: ServiceCatalogItem[] = [
     name: "VPN Access",
     description: "Request remote VPN access for secure network connectivity.",
     department: "Access",
+    subcategory: "VPN Access",
     formFields: [
       {
         name: "justification",
@@ -66,6 +68,7 @@ export const MOCK_CATALOG: ServiceCatalogItem[] = [
     name: "Database Access",
     description: "Request read or write access to a production database.",
     department: "Data",
+    subcategory: "Database access",
     formFields: [
       {
         name: "justification",
@@ -100,6 +103,7 @@ export const MOCK_CATALOG: ServiceCatalogItem[] = [
     name: "External Monitor",
     description: "Request an additional external display for your workstation.",
     department: "IT Hardware",
+    subcategory: "Monitor/Peripherals",
     formFields: [
       {
         name: "justification",
@@ -128,6 +132,7 @@ export const MOCK_CATALOG: ServiceCatalogItem[] = [
     name: "Software License",
     description: "Request a licensed software package for your role.",
     department: "Access",
+    subcategory: "Software license",
     formFields: [
       {
         name: "justification",
@@ -164,6 +169,38 @@ export let mockServiceRequests: ServiceRequest[] = [
     urgency: "Medium",
     fields: { duration: "90 days" },
     createdAt: "2026-09-20T10:00:00.000Z",
+    // No project → Admin-only step
+    projectId: null,
+    projectName: null,
+  },
+  {
+    id: "sr-1003",
+    catalogId: "cat-laptop",
+    catalogName: "Request Laptop",
+    requesterId: "user-enduser",
+    requesterName: "End User",
+    status: "Submitted",
+    justification: "Replacement for onboarding on Alpha project.",
+    urgency: "High",
+    fields: { laptopType: "Developer" },
+    createdAt: "2026-09-21T09:00:00.000Z",
+    // Owned project → Manager step first
+    projectId: "proj-alpha",
+    projectName: "Alpha",
+  },
+  {
+    id: "sr-1004",
+    catalogId: "cat-software",
+    catalogName: "Software License",
+    requesterId: "user-enduser",
+    requesterName: "End User",
+    status: "PendingApproval",
+    justification: "Manager OK — waiting on Admin.",
+    urgency: "Medium",
+    fields: { softwareName: "Figma" },
+    createdAt: "2026-09-19T11:00:00.000Z",
+    projectId: "proj-alpha",
+    projectName: "Alpha",
   },
   {
     id: "sr-1002",
@@ -194,6 +231,38 @@ export let mockChanges: ChangeRecord[] = [
     createdById: "user-agent",
     createdByName: "Support Agent",
     createdAt: "2026-09-22T11:00:00.000Z",
+    projectId: "proj-alpha",
+    projectName: "Alpha",
+  },
+  {
+    id: "chg-2003",
+    title: "Shared printer firmware (no project)",
+    description: "Admin-only approval path — no project manager.",
+    type: "Standard",
+    status: "Submitted",
+    scheduledStart: "2026-09-29T01:00:00.000Z",
+    scheduledEnd: "2026-09-29T02:00:00.000Z",
+    rollbackPlan: "Revert firmware package.",
+    createdById: "user-agent",
+    createdByName: "Support Agent",
+    createdAt: "2026-09-23T10:00:00.000Z",
+    projectId: null,
+    projectName: null,
+  },
+  {
+    id: "chg-2004",
+    title: "VPC peering change",
+    description: "Manager already approved — waiting on Admin.",
+    type: "Normal",
+    status: "PendingApproval",
+    scheduledStart: "2026-09-30T02:00:00.000Z",
+    scheduledEnd: "2026-09-30T03:00:00.000Z",
+    rollbackPlan: "Remove peering and restore route tables.",
+    createdById: "user-agent",
+    createdByName: "Support Agent",
+    createdAt: "2026-09-25T08:00:00.000Z",
+    projectId: "proj-alpha",
+    projectName: "Alpha",
   },
   {
     id: "chg-2002",

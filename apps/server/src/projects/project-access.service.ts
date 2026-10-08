@@ -110,6 +110,22 @@ export class ProjectAccessService {
     );
   }
 
+  /**
+   * Phase 8 — Manager-then-Admin when the ticket has a project with a manager.
+   * Null project / missing manager → Admin-only single step.
+   */
+  async projectRequiresManagerStep(
+    projectId: string | null | undefined,
+  ): Promise<boolean> {
+    if (projectId == null || projectId === "") return false;
+    const [row] = await this.db
+      .select({ managerId: projects.managerId })
+      .from(projects)
+      .where(eq(projects.id, projectId))
+      .limit(1);
+    return Boolean(row?.managerId);
+  }
+
   async listAccessibleProjectIds(user: AccessUser): Promise<string[]> {
     if (user.role === "Admin") {
       const rows = await this.db.select({ id: projects.id }).from(projects);

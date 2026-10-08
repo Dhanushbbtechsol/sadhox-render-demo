@@ -58,7 +58,7 @@ describe("Changes API (supertest) — approval / schedule gating", () => {
     vi.clearAllMocks();
   });
 
-  it("PATCH /changes/:id/approve allows Admin and Manager", async () => {
+  it("PATCH /changes/:id/approve allows Admin and Manager (Phase 8: Manager → PendingApproval)", async () => {
     const denied = await request(app)
       .patch(`/changes/${id}/approve`)
       .set("x-role", "Agent")
@@ -72,11 +72,13 @@ describe("Changes API (supertest) — approval / schedule gating", () => {
       .send({});
     expect(ok.status).toBe(200);
 
+    svc.approve.mockResolvedValue({ status: "PendingApproval" });
     const okMgr = await request(app)
       .patch(`/changes/${id}/approve`)
       .set("x-role", "Manager")
       .send({});
     expect(okMgr.status).toBe(200);
+    expect(okMgr.body.status).toBe("PendingApproval");
   });
 
   it("Agent cannot PATCH status to Scheduled", async () => {

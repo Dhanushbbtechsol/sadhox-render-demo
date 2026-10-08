@@ -1,6 +1,6 @@
 # Phase 6 — Projects, Modules, Manager Role & User Management
 
-**Status:** in progress — Dev C Admin `/admin/users` CRUD UI and create/get/patch APIs landed (2026-10-07); staging/TL migrate deferred to production go-live
+**Status:** feature work landed on local `Audit` / `Dev-C` (2026-10-08) — projects, Manager ACL, scoped assignment/approvals, Admin user CRUD + `/admin/users`. Staging/TL migrate still deferred to production go-live. Phase 6 security reaudit: CLEAN (`Docs/Audit/phase6.md`).
 
 **Prerequisite:** close Phase 5 open gaps first (`Docs/Audit/phase5.md`) — SLA rules API, Admin Knowledge `{ data }` unwrap, kill silent DEV mock write fallbacks. **Do not rebuild Knowledge Base.**
 
@@ -74,7 +74,7 @@ Hierarchy already says Admin owns users. Org user CRUD:
 | `GET /admin/users/:id` | Admin; same fields as list row |
 | `PATCH /admin/users/:id` | Admin; `name?`, `email?`, `password?`, `role?` — role→Manager clears `project_members` |
 | `PATCH /admin/users/:id/role` | Thin alias over PATCH body `{ role }` |
-| UI `/admin/users` | **Still open (Dev C)** — Admin table + create/edit dialog; sidebar entry; no Manager access |
+| UI `/admin/users` | **Landed** — Admin table + create/edit dialog; sidebar entry; no Manager access |
 
 No `is_active` / soft-delete this phase (YAGNI — no column today). No self-service signup. Seed stays for demos; Admin can create real users after go-live.
 

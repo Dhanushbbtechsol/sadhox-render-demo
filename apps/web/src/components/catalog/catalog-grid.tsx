@@ -104,8 +104,14 @@ export function CatalogGrid() {
                       </div>
                       <CardDescription>{item.description}</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="flex flex-wrap items-center gap-2">
                       <Badge variant="outline">{item.department}</Badge>
+                      {item.subcategory ? (
+                        <Badge variant="secondary">{item.subcategory}</Badge>
+                      ) : null}
+                      <span className="text-primary ml-auto text-xs font-medium">
+                        Request Service
+                      </span>
                     </CardContent>
                   </Card>
                 </button>

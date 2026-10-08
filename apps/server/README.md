@@ -21,7 +21,7 @@ Copy `.env.example` to `.env` (never commit secrets).
 | --- | --- | --- |
 | `DATABASE_URL` | yes | Postgres connection string |
 | `REDIS_URL` | yes | Redis for BullMQ (from env, never hardcode) |
-| `CORS_ORIGIN` | yes | Web origin for HTTP + Socket.io |
+| `CORS_ORIGIN` | yes | Web origin for HTTP + Socket.io + refresh/logout Origin check |
 | `JWT_ACCESS_SECRET` | yes | min 16 chars |
 | `JWT_REFRESH_SECRET` | yes | min 16 chars |
 | `PORT` | no | default `3000` |

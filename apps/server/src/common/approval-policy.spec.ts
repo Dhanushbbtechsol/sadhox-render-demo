@@ -1,3 +1,5 @@
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { describe, expect, it } from "vitest";
 import {
   assertAdminRole,
   assertAgentOrAdminRole,
@@ -5,6 +7,9 @@ import {
   canTransitionRequestFulfillment,
   isPendingServiceRequestStatus,
   requiresAdminForChangeStatus,
+  resolveApproveTransition,
+  resolveRejectTransition,
+  ticketHasManagerStep,
 } from "./approval-policy";
 
 describe("Phase 2 approval policy", () => {
@@ -22,8 +27,11 @@ describe("Phase 2 approval policy", () => {
 
   it("enforces change status transitions including reject from Submitted", () => {
     expect(canTransitionChange("Submitted", "Approved")).toBe(true);
+    expect(canTransitionChange("Submitted", "PendingApproval")).toBe(true);
     expect(canTransitionChange("Submitted", "Rolled Back")).toBe(true);
+    expect(canTransitionChange("PendingApproval", "Approved")).toBe(true);
     expect(canTransitionChange("Draft", "Submitted")).toBe(true);
+    expect(canTransitionChange("Draft", "Rolled Back")).toBe(true);
     expect(canTransitionChange("Closed", "Approved")).toBe(false);
   });
 
@@ -40,6 +48,173 @@ describe("Phase 2 approval policy", () => {
     expect(requiresAdminForChangeStatus("Implemented")).toBe(false);
     expect(requiresAdminForChangeStatus("Closed")).toBe(false);
     expect(requiresAdminForChangeStatus("Submitted")).toBe(false);
+  });
+});
+
+describe("Phase 8 approve/reject chain", () => {
+  it("treats null project_id as no manager step", () => {
+    expect(ticketHasManagerStep(null)).toBe(false);
+    expect(ticketHasManagerStep("proj")).toBe(true);
+  });
+
+  it("Manager: Submitted → PendingApproval; cannot final-approve", () => {
+    expect(
+      resolveApproveTransition({
+        role: "Manager",
+        currentStatus: "Submitted",
+        projectId: "p1",
+      }),
+    ).toEqual({ nextStatus: "PendingApproval", setApproverFields: false });
+
+    expect(() =>
+      resolveApproveTransition({
+        role: "Manager",
+        currentStatus: "PendingApproval",
+        projectId: "p1",
+      }),
+    ).toThrow(ForbiddenException);
+  });
+
+  it("Admin: PendingApproval → Approved; 403 on managed Submitted", () => {
+    expect(
+      resolveApproveTransition({
+        role: "Admin",
+        currentStatus: "PendingApproval",
+        projectId: "p1",
+      }),
+    ).toEqual({ nextStatus: "Approved", setApproverFields: true });
+
+    expect(() =>
+      resolveApproveTransition({
+        role: "Admin",
+        currentStatus: "Submitted",
+        projectId: "p1",
+      }),
+    ).toThrow(ForbiddenException);
+
+    expect(
+      resolveApproveTransition({
+        role: "Admin",
+        currentStatus: "Submitted",
+        projectId: null,
+      }),
+    ).toEqual({ nextStatus: "Approved", setApproverFields: true });
+  });
+
+  it("Manager Draft approve (changes) → PendingApproval when project set", () => {
+    expect(
+      resolveApproveTransition({
+        role: "Manager",
+        currentStatus: "Draft",
+        projectId: "p1",
+        allowDraft: true,
+      }),
+    ).toEqual({ nextStatus: "PendingApproval", setApproverFields: false });
+  });
+
+  it("reject: Manager on Submitted; Admin on PendingApproval; Admin 403 on managed Submitted", () => {
+    expect(
+      resolveRejectTransition({
+        role: "Manager",
+        currentStatus: "Submitted",
+        projectId: "p1",
+        rejectStatus: "Rejected",
+      }),
+    ).toEqual({ nextStatus: "Rejected", setApproverFields: true });
+
+    expect(
+      resolveRejectTransition({
+        role: "Admin",
+        currentStatus: "PendingApproval",
+        projectId: "p1",
+        rejectStatus: "RolledBack",
+      }),
+    ).toEqual({ nextStatus: "RolledBack", setApproverFields: true });
+
+    expect(() =>
+      resolveRejectTransition({
+        role: "Admin",
+        currentStatus: "Submitted",
+        projectId: "p1",
+        rejectStatus: "Rejected",
+      }),
+    ).toThrow(ForbiddenException);
+
+    expect(() =>
+      resolveRejectTransition({
+        role: "Manager",
+        currentStatus: "PendingApproval",
+        projectId: "p1",
+        rejectStatus: "Rejected",
+      }),
+    ).toThrow(ForbiddenException);
+
+    expect(() =>
+      resolveApproveTransition({
+        role: "Admin",
+        currentStatus: "Approved",
+        projectId: null,
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  /**
+   * phase8.md reject table lists Submitted / PendingApproval only (no Draft).
+   * Changes keep allowDraft on /reject (same as approve); SR has no Draft reject path.
+   */
+  it("Draft reject via resolveRejectTransition (Change allowDraft only)", () => {
+    // Without allowDraft (SR-shaped): Draft is not rejectable
+    expect(() =>
+      resolveRejectTransition({
+        role: "Manager",
+        currentStatus: "Draft",
+        projectId: "p1",
+        rejectStatus: "Rejected",
+      }),
+    ).toThrow(BadRequestException);
+
+    // Change-shaped: Manager may reject Draft on own project
+    expect(
+      resolveRejectTransition({
+        role: "Manager",
+        currentStatus: "Draft",
+        projectId: "p1",
+        rejectStatus: "RolledBack",
+        allowDraft: true,
+      }),
+    ).toEqual({ nextStatus: "RolledBack", setApproverFields: true });
+
+    // Admin: Draft with project → 403 (manager must act); null project → ok
+    expect(() =>
+      resolveRejectTransition({
+        role: "Admin",
+        currentStatus: "Draft",
+        projectId: "p1",
+        rejectStatus: "RolledBack",
+        allowDraft: true,
+      }),
+    ).toThrow(ForbiddenException);
+
+    expect(
+      resolveRejectTransition({
+        role: "Admin",
+        currentStatus: "Draft",
+        projectId: null,
+        rejectStatus: "RolledBack",
+        allowDraft: true,
+      }),
+    ).toEqual({ nextStatus: "RolledBack", setApproverFields: true });
+
+    // Agent never
+    expect(() =>
+      resolveRejectTransition({
+        role: "Agent",
+        currentStatus: "Draft",
+        projectId: "p1",
+        rejectStatus: "RolledBack",
+        allowDraft: true,
+      }),
+    ).toThrow(ForbiddenException);
   });
 });
 

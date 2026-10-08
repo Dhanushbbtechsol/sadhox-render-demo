@@ -23,11 +23,9 @@ Scope: current `Audit` tree after Dev-A/B/C/D Phase 4 merges + Dev-A/B remediati
 
 Verified closed on reaudit: scripts use `requireEnv` (no LAN fallbacks). See [phase5.md](./phase5.md).
 
-### Medium — [A07] `SameSite=None` without CSRF defense
+### Medium — [A07] `SameSite=None` without CSRF defense — **FIXED** (2026-10-08)
 
-Prod refresh cookie: `HttpOnly` + `Secure` + `SameSite=None` (correct for cross-site SPA). No CSRF token/custom header on `/auth/refresh` or `/auth/logout`.
-
-Fix: custom header or double-submit CSRF; optionally bind `Origin`/`Referer` to `CORS_ORIGIN`.
+Prod refresh cookie: `HttpOnly` + `Secure` + `SameSite=None` (correct for cross-site SPA). `RefreshCookieOriginGuard` binds request `Origin` to the `CORS_ORIGIN` allowlist on `/auth/refresh` and `/auth/logout` (no custom header; SPA unchanged).
 
 ### Low
 

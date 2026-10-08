@@ -44,6 +44,7 @@ export default function AdminCatalogPage() {
       (item) =>
         item.name.toLowerCase().includes(needle) ||
         item.department.toLowerCase().includes(needle) ||
+        (item.subcategory ?? "").toLowerCase().includes(needle) ||
         item.description.toLowerCase().includes(needle),
     );
   }, [catalog.data, query]);
@@ -88,7 +89,7 @@ export default function AdminCatalogPage() {
       <Input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="Search name or department"
+        placeholder="Search name, department, or subcategory"
         className="md:max-w-xs"
       />
 
@@ -117,6 +118,7 @@ export default function AdminCatalogPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Department</TableHead>
+                <TableHead>Subcategory</TableHead>
                 <TableHead>Fields</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-12" />
@@ -136,6 +138,9 @@ export default function AdminCatalogPage() {
                       </div>
                     </TableCell>
                     <TableCell>{item.department}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {item.subcategory?.trim() || "—"}
+                    </TableCell>
                     <TableCell>{item.formFields.length}</TableCell>
                     <TableCell>
                       <Badge variant={active ? "success" : "outline"}>

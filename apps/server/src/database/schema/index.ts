@@ -314,6 +314,8 @@ export const serviceCatalog = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description").notNull(),
     department: varchar("department", { length: 128 }).notNull(),
+    /** Optional grouping under department (Phase 7). Nullable for older rows. */
+    subcategory: varchar("subcategory", { length: 128 }),
     formFields: jsonb("form_fields")
       .$type<CatalogFormField[]>()
       .notNull()

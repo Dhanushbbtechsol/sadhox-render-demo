@@ -62,7 +62,7 @@ Mocks only via `useOfflineAdminData()`; live authoring/SLA fail loudly.
 | Sev | Item | Status |
 | --- | --- | --- |
 | High | Hardcoded LAN DB/Redis defaults in scripts | **FIXED** |
-| Medium | `SameSite=None` refresh cookie without CSRF | **Still open** |
+| Medium | `SameSite=None` refresh cookie without CSRF | **FIXED** (2026-10-08; Origin allowlist) |
 | Low | Cap `THROTTLE_GLOBAL_LIMIT` in production | **Still open** |
 | Low | Throttle `/auth/logout` like refresh | **Still open** |
 | Low | Skip expected WS auth denials in Sentry | **Still open** |

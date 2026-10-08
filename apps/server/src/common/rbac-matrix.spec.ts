@@ -4,6 +4,7 @@ import {
   type INestApplication,
   UnauthorizedException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { APP_GUARD, Reflector } from "@nestjs/core";
 import { Test } from "@nestjs/testing";
 import { HealthCheckService } from "@nestjs/terminus";
@@ -15,6 +16,7 @@ import { AssetsController } from "../assets/assets.controller";
 import { AssetsService } from "../assets/assets.service";
 import { AuthController } from "../auth/auth.controller";
 import { AuthService } from "../auth/auth.service";
+import { RefreshCookieOriginGuard } from "../auth/refresh-cookie-origin.guard";
 import { ChangesController } from "../changes/changes.controller";
 import { ChangesService } from "../changes/changes.service";
 import type { AuthUser } from "./decorators/current-user.decorator";
@@ -196,8 +198,18 @@ const MATRIX: MatrixRow[] = [
   },
   {
     method: "patch",
+    path: `/changes/${ID}/reject`,
+    allowed: ["Admin", "Manager"],
+  },
+  {
+    method: "patch",
     path: `/changes/${ID}`,
     allowed: ["Admin", "Agent", "Manager"],
+  },
+  {
+    method: "get",
+    path: "/admin/dashboard/report",
+    allowed: ["Admin"],
   },
   { method: "get", path: "/assets", allowed: ["Admin"] },
   { method: "post", path: "/assets", allowed: ["Admin"] },
@@ -347,6 +359,18 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
           inject: [Reflector],
         },
         { provide: APP_GUARD, useClass: RolesGuard },
+        RefreshCookieOriginGuard,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) =>
+              key === "NODE_ENV" ? "test" : undefined,
+            getOrThrow: (key: string) => {
+              if (key === "CORS_ORIGIN") return "http://localhost:5173";
+              throw new Error(`missing ${key}`);
+            },
+          },
+        },
         {
           provide: AuthService,
           useValue: stubService(["login", "refresh", "logout"]),
@@ -427,6 +451,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
             "get",
             "create",
             "approve",
+            "reject",
             "update",
           ]),
         },
@@ -467,6 +492,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
           provide: AdminService,
           useValue: stubService([
             "dashboardStats",
+            "dashboardReportCsv",
             "ticketsByStatus",
             "slaPerformance",
             "volumeByModule",
@@ -495,7 +521,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 
   it("public liveness endpoints work without role header", async () => {

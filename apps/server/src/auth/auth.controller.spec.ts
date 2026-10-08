@@ -1,9 +1,11 @@
 import type { INestApplication } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { RefreshCookieOriginGuard } from "./refresh-cookie-origin.guard";
 import { REFRESH_COOKIE_NAME } from "./refresh-cookie";
 
 describe("AuthController cookie flags (Day 16)", () => {
@@ -13,6 +15,18 @@ describe("AuthController cookie flags (Day 16)", () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
+        RefreshCookieOriginGuard,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) =>
+              key === "NODE_ENV" ? "test" : undefined,
+            getOrThrow: (key: string) => {
+              if (key === "CORS_ORIGIN") return "http://localhost:5173";
+              throw new Error(`missing ${key}`);
+            },
+          },
+        },
         {
           provide: AuthService,
           useValue: {
@@ -26,7 +40,10 @@ describe("AuthController cookie flags (Day 16)", () => {
                 role: "Admin",
               },
             }),
-            refresh: vi.fn(),
+            refresh: vi.fn().mockResolvedValue({
+              accessToken: "access-rotated",
+              refreshToken: "refresh-rotated",
+            }),
             logout: vi.fn().mockResolvedValue(undefined),
           },
         },
@@ -61,4 +78,26 @@ describe("AuthController cookie flags (Day 16)", () => {
       process.env.NODE_ENV = previous;
     }
   });
+
+  it("refresh rejects a non-allowlisted Origin", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/refresh")
+      .set("Origin", "https://evil.example")
+      .expect(403);
+  });
+
+  it("logout rejects a non-allowlisted Origin", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/logout")
+      .set("Origin", "https://evil.example")
+      .expect(403);
+  });
+
+  it("refresh allows missing Origin in test (Supertest)", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/refresh")
+      .set("Cookie", `${REFRESH_COOKIE_NAME}=refresh-secret-value`)
+      .expect(200);
+  });
 });
+

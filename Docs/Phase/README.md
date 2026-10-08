@@ -3,7 +3,9 @@
 This directory contains the detailed phase-by-phase execution plan for the Sadhox ITSM platform.
 
 **Current status (what shipped on `Audit`):** [../STATUS.md](../STATUS.md)  
-**Phase 6 design (Projects / Manager):** [phase6.md](./phase6.md)  
+**Phase 6:** [phase6.md](./phase6.md)  
+**Phase 7 (EndUser desk — designed):** [phase7.md](./phase7.md)  
+**Phase 8 (approval chain + dashboard report — designed):** [phase8.md](./phase8.md)  
 **Requirements coverage (Phases 1–4 vs Phase 5 gaps):** [coverage-matrix.md](./coverage-matrix.md)  
 **Latest audit:** [../Audit/phase5.md](../Audit/phase5.md)
 
@@ -27,7 +29,8 @@ Week 3 (Days 11–15): Workflows & Automation (SLA Workers, Round-Robin, Approva
 Week 4 (Days 16–20): QA, Security Pass, Load Testing, Production Go-Live
 Week 5 (Days 21–25): Knowledge Base + residual gaps (portal detail, catalog CRUD, SLA table, CSV)
 Week 6 (Days 26–30): Projects / Modules / Manager + project ACL & assignment + Admin User Management
-                      (gate: close Phase 5 audit gaps first — do not rebuild KB)
+Week 7:            EndUser desk — Incidents replaces My Portal; Service Catalog / Service Requests labels; subcategory + seed (phase7.md)
+Week 8:            Two-step approval (Manager then Admin) + server dashboard CSV report (phase8.md)
 ```
 
 ## Critical Cross-Track Dependencies (Blockers)

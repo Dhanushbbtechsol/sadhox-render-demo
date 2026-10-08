@@ -1,6 +1,6 @@
 # Progress
 
-**Branch head (as of 2026-10-07):** `Dev-C` — Phase 5 closed; Phase 6 Dev C stub (projects UI + Manager home) in source. Sync to `Audit` when TL asks.
+**Branch head (as of 2026-10-08):** local `Audit` / `Dev-C` — Phases 1–6 feature work in tree. May be ahead of `origin/Audit`.
 
 Full feature inventory for Claude: **`Docs/STATUS.md`**.
 
@@ -13,7 +13,9 @@ Full feature inventory for Claude: **`Docs/STATUS.md`**.
 | 3 | Round-robin, SLA jobs, Resend, approval machines, Admin charts | Done |
 | 4 | Security remediations, load notes, deploy prep, seed hardening | Done (go-live checklist not fully executed) |
 | 5 | Knowledge Base + portal detail + catalog Admin CRUD + CSV + SLA UI/API | **Done** (Medium/Low closed 2026-10-07 on Dev-C) |
-| 6 | Projects / Modules / Manager + project ACL + **User Management** | In progress; **Admin user CRUD still open** — [Docs/Phase/phase6.md](../Docs/Phase/phase6.md) |
+| 6 | Projects / Modules / Manager + project ACL + Admin User Management | **Landed** (audit CLEAN). Staging migrate deferred — [Docs/Phase/phase6.md](../Docs/Phase/phase6.md) |
+| 7 | EndUser desk (Incidents nav, catalog labels, subcategory, seed) | Designed only — [Docs/Phase/phase7.md](../Docs/Phase/phase7.md) |
+| 8 | Approval chain (Manager then Admin) + server dashboard CSV | Designed only — [Docs/Phase/phase8.md](../Docs/Phase/phase8.md) |
 
 ## Feature checklist (implemented in codebase)
 
@@ -39,16 +41,15 @@ Full feature inventory for Claude: **`Docs/STATUS.md`**.
 - [x] Portal incident detail for End Users
 - [x] Admin catalog CRUD UI + `POST`/`PATCH /service-catalog`
 - [x] Admin SLA rules `GET`/`PATCH /admin/sla-rules`
+- [x] Incident SLA: `slaDueAt` from `resolveMinutes`, breach job + email, auto-close, countdown UI (`responseMinutes` unused)
 
-## Phase 6 — in progress
-- [ ] Merge Phase 5 close-out + Phase 6 stub to `Audit` when TL asks
-- [x] `projects` / `project_members` / `modules`; nullable `project_id`/`module_id` columns on tickets
-- [x] Role `Manager` + seed user; projects + manager dashboard in RBAC matrix
-- [x] `ProjectAccessService` for project reads + Manager KPI scope
-- [x] Admin `/admin/projects` CRUD + members/modules; Manager `/manager` home — `Docs/Phase/Dev C/phase6-qa.md`
-- [x] `GET /admin/users?role=` + `PATCH /admin/users/:id/role` (pickers / promote clears memberships)
-- [ ] **Admin User Management** — `POST`/`GET`/`PATCH /admin/users` + `/admin/users` UI
-- [ ] Admin+Manager approvals; project-scoped assignment pool; ticket forms (remaining A/B/D)
+## Phase 6 — landed
+- [x] `projects` / `project_members` / `modules`; nullable `project_id`/`module_id` on tickets
+- [x] Role `Manager`; `ProjectAccessService`; scoped lists, assignment pool, Admin+Manager approvals
+- [x] Admin `/admin/projects`; Manager `/manager` home
+- [x] Admin user CRUD: `POST`/`GET`/`PATCH /admin/users` + `/admin/users` UI (promote-to-Manager clears memberships)
+- [ ] Apply migration `0010` + reseed where the database is behind
+- [ ] Staging/TL migrate deferred to go-live
 
 ## Open / incomplete
 
@@ -56,7 +57,7 @@ Full feature inventory for Claude: **`Docs/STATUS.md`**.
 See `Docs/Audit/phase5.md` (all Phase 5 Medium/Low marked fixed).
 
 ### Phase 4 carryovers (Dev D) — see `Docs/Audit/phase4.md`
-- [ ] **High:** Probe/clean scripts hardcoded LAN DB/Redis defaults (confirm `require-env.mjs` on all scripts)
+- [x] **High:** Probe/clean script LAN defaults — closed (`Docs/STATUS.md`)
 - [ ] **Medium:** `SameSite=None` refresh cookie without CSRF defense
 - [ ] **Low:** Throttle prod ceiling; throttle logout; skip expected WS auth denials in Sentry
 

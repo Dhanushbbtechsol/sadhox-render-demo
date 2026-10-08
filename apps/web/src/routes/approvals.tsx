@@ -6,7 +6,8 @@ export default function ApprovalsPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Approval inbox</h1>
         <p className="text-muted-foreground text-sm">
-          Review pending service requests and change records.
+          Manager reviews Submitted tickets on owned projects; Admin reviews
+          Pending approval and tickets with no project.
         </p>
       </div>
       <ApprovalInboxTable />
