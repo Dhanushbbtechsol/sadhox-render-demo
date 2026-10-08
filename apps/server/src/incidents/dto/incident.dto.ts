@@ -128,7 +128,6 @@ export class UpdateIncidentDto extends ProjectScopeFieldsDto {
   })
   @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(128)
   subcategory?: string;
 

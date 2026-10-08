@@ -1,14 +1,14 @@
 # Security Audit: Dev D (Phase 7)
 
-Audit 2026-10-08 (post merge-to-audit). Combined: [phase7.md](../phase7.md). **PASS** (Phase 7 High/Medium clean).
+Audit 2026-10-08 (post merge-to-audit). Combined: [phase7.md](../phase7.md). **PASS / CLEAN.**
 
 Category/subcategory columns, DTO map check, catalog subcategory column, and Phase 7 seed (catalog retag + five Published articles). Create rejects pairs outside the map. Update validates only when category or subcategory actually changes, so a stored legacy value can be re-sent. Drizzle parameters only. KB seed is plain text.
 
-## Low — Open (shared with Dev A)
+## Low — Resolved
 
-### [A08] Twin category map
+### [A08] Twin category map — **FIXED**
 
-`incident-category-map.ts` is the map update uses. `incident-categories.ts` is a second copy that create also checks. Keep this module, point create and `apps/web/src/types/incident-categories.ts` at it, delete the other file.
+`incident-category-map.ts` is the single server allow-list. Create no longer double-checks a twin module; `incident-categories.ts` deleted. Web copy documents that it mirrors this map.
 
 ## Carryovers (not Phase 7)
 
