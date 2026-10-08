@@ -57,7 +57,7 @@ export default function KnowledgeDetailPage() {
           className="-ml-2"
         >
           <ArrowLeftIcon />
-          Back to knowledge
+          Back to Knowledge Base
         </Button>
         <EmptyState
           title="Article not found"
@@ -82,7 +82,7 @@ export default function KnowledgeDetailPage() {
           className="-ml-2"
         >
           <ArrowLeftIcon />
-          Back to knowledge
+          Back to Knowledge Base
         </Button>
         {role === "Admin" ? (
           <Button

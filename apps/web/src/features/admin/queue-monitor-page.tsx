@@ -41,8 +41,8 @@ export default function QueueMonitorPage() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Worker queues</h1>
         <p className="text-sm text-muted-foreground">
-          BullMQ job counts from Admin queues API, with Redis readiness from{" "}
-          <code className="text-xs">/health/ready</code>.
+          How many background jobs are waiting, running, finished, or stuck, and
+          whether the job system is ready.
         </p>
       </div>
 
@@ -54,7 +54,7 @@ export default function QueueMonitorPage() {
             <p className="opacity-90">
               {health.error instanceof Error
                 ? health.error.message
-                : "Redis or API unavailable"}
+                : "The job system is unavailable."}
             </p>
           </div>
         </div>
@@ -67,8 +67,8 @@ export default function QueueMonitorPage() {
             <p className="font-medium">Queue alert</p>
             <p className="opacity-90">
               {redisDown
-                ? "Redis readiness probe reports down — workers may be stalled."
-                : "One or more queues report failed or stalled jobs, or are paused."}
+                ? "The job system is not ready, so background work may be stuck."
+                : "One or more queues have failed or stuck jobs, or are paused."}
             </p>
           </div>
         </div>

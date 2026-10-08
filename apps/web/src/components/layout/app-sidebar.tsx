@@ -139,7 +139,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     to: "/admin/knowledge",
-    label: "Knowledge",
+    label: "Knowledge Base",
     roles: ["Admin"],
   },
   {
@@ -169,7 +169,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     to: "/knowledge",
-    label: "Knowledge",
+    label: "Knowledge Base",
     // Admin uses the merged /admin/knowledge browse + authoring page
     roles: ["Agent", "EndUser"],
   },

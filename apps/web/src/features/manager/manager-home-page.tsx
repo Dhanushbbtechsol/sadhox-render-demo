@@ -40,8 +40,7 @@ export default function ManagerHomePage() {
         <div>
           <h1 className="text-xl font-semibold">Manager home</h1>
           <p className="text-muted-foreground text-sm">
-            KPIs and charts for projects you own. Scope comes from the API, not
-            a client-side hide of the admin dashboard.
+            Numbers and charts for the projects you manage.
           </p>
         </div>
         <div className="flex flex-wrap gap-1">

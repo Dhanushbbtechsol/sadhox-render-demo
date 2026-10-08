@@ -29,7 +29,7 @@ export default function AuditLogsPage() {
       <div>
         <h1 className="text-xl font-semibold">Audit logs</h1>
         <p className="text-sm text-muted-foreground">
-          Timeline of mutating API actions.
+          A timeline of changes made in the system.
         </p>
       </div>
 
