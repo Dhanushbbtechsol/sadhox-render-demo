@@ -211,7 +211,19 @@ function AgentIncidentsPage() {
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
+        <Select
+          items={[
+            { value: "all", label: "All statuses" },
+            ...(
+              Object.keys(INCIDENT_STATUS_LABELS) as IncidentStatus[]
+            ).map((status) => ({
+              value: status,
+              label: INCIDENT_STATUS_LABELS[status],
+            })),
+          ]}
+          value={statusFilter}
+          onValueChange={(v) => v && setStatusFilter(v)}
+        >
           <SelectTrigger className="w-full sm:w-[160px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
@@ -226,16 +238,35 @@ function AgentIncidentsPage() {
         </Select>
 
         <Select
+          items={{
+            all: "All projects",
+            ...Object.fromEntries(
+              projects.map((project) => [project.id, project.name]),
+            ),
+          }}
           value={projectFilter}
           onValueChange={(v) => v && setProjectFilter(v)}
         >
           <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Project" />
+            <SelectValue placeholder="Project">
+              {(value: string | null) => {
+                if (!value || value === "all") return "All projects";
+                return (
+                  projects.find((p) => p.id === value)?.name ?? "Project"
+                );
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All projects</SelectItem>
+            <SelectItem value="all" label="All projects">
+              All projects
+            </SelectItem>
             {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
+              <SelectItem
+                key={project.id}
+                value={project.id}
+                label={project.name}
+              >
                 {project.name}
               </SelectItem>
             ))}
@@ -243,6 +274,12 @@ function AgentIncidentsPage() {
         </Select>
 
         <Select
+          items={[
+            { value: "createdAt", label: "Created" },
+            { value: "priority", label: "Priority" },
+            { value: "status", label: "Status" },
+            { value: "slaDueAt", label: "SLA due" },
+          ]}
           value={sortBy}
           onValueChange={(v) => v && setSortBy(v as SortKey)}
         >
@@ -258,6 +295,10 @@ function AgentIncidentsPage() {
         </Select>
 
         <Select
+          items={[
+            { value: "desc", label: "Descending" },
+            { value: "asc", label: "Ascending" },
+          ]}
           value={sortDir}
           onValueChange={(v) => v && setSortDir(v as "asc" | "desc")}
         >

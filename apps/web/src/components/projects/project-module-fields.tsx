@@ -66,17 +66,14 @@ function RhfProjectModuleFields<T extends FieldValues>({
   const { data: modules = [] } = useProjectModules(projectId);
   const allowUnscoped = useAllowUnscopedProject();
 
-  const projectItems = [
-    ...(allowUnscoped ? [{ value: NONE, label: "No project" }] : []),
-    ...projects.map((project) => ({
-      value: project.id,
-      label: project.name,
-    })),
-  ];
-  const moduleItems = [
-    { value: NONE, label: "No module" },
-    ...modules.map((mod) => ({ value: mod.id, label: mod.name })),
-  ];
+  const projectItems = {
+    ...(allowUnscoped ? { [NONE]: "No project" } : {}),
+    ...Object.fromEntries(projects.map((project) => [project.id, project.name])),
+  } as Record<string, string>;
+  const moduleItems = {
+    [NONE]: "No module",
+    ...Object.fromEntries(modules.map((mod) => [mod.id, mod.name])),
+  } as Record<string, string>;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -106,14 +103,28 @@ function RhfProjectModuleFields<T extends FieldValues>({
                   placeholder={
                     allowUnscoped ? "Optional project…" : "Select a project…"
                   }
-                />
+                >
+                  {(value: string | null) =>
+                    value && value in projectItems
+                      ? projectItems[value]
+                      : allowUnscoped
+                        ? "Optional project…"
+                        : "Select a project…"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {allowUnscoped ? (
-                  <SelectItem value={NONE}>No project</SelectItem>
+                  <SelectItem value={NONE} label="No project">
+                    No project
+                  </SelectItem>
                 ) : null}
                 {projects.map((project) => (
-                  <SelectItem key={project.id} value={project.id}>
+                  <SelectItem
+                    key={project.id}
+                    value={project.id}
+                    label={project.name}
+                  >
                     {project.name}
                   </SelectItem>
                 ))}
@@ -142,12 +153,22 @@ function RhfProjectModuleFields<T extends FieldValues>({
                   placeholder={
                     projectId ? "Optional module…" : "Select a project first"
                   }
-                />
+                >
+                  {(value: string | null) =>
+                    value && value in moduleItems
+                      ? moduleItems[value]
+                      : projectId
+                        ? "Optional module…"
+                        : "Select a project first"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE}>No module</SelectItem>
+                <SelectItem value={NONE} label="No module">
+                  No module
+                </SelectItem>
                 {modules.map((mod) => (
-                  <SelectItem key={mod.id} value={mod.id}>
+                  <SelectItem key={mod.id} value={mod.id} label={mod.name}>
                     {mod.name}
                   </SelectItem>
                 ))}
@@ -170,17 +191,14 @@ function ControlledProjectModuleFields({
   const { data: modules = [] } = useProjectModules(projectId || undefined);
   const allowUnscoped = useAllowUnscopedProject();
 
-  const projectItems = [
-    ...(allowUnscoped ? [{ value: NONE, label: "No project" }] : []),
-    ...projects.map((project) => ({
-      value: project.id,
-      label: project.name,
-    })),
-  ];
-  const moduleItems = [
-    { value: NONE, label: "No module" },
-    ...modules.map((mod) => ({ value: mod.id, label: mod.name })),
-  ];
+  const projectItems = {
+    ...(allowUnscoped ? { [NONE]: "No project" } : {}),
+    ...Object.fromEntries(projects.map((project) => [project.id, project.name])),
+  } as Record<string, string>;
+  const moduleItems = {
+    [NONE]: "No module",
+    ...Object.fromEntries(modules.map((mod) => [mod.id, mod.name])),
+  } as Record<string, string>;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -198,14 +216,28 @@ function ControlledProjectModuleFields({
           <SelectTrigger className="w-full">
             <SelectValue
               placeholder={allowUnscoped ? "No project" : "Select a project…"}
-            />
+            >
+              {(value: string | null) =>
+                value && value in projectItems
+                  ? projectItems[value]
+                  : allowUnscoped
+                    ? "No project"
+                    : "Select a project…"
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {allowUnscoped ? (
-              <SelectItem value={NONE}>No project</SelectItem>
+              <SelectItem value={NONE} label="No project">
+                No project
+              </SelectItem>
             ) : null}
             {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
+              <SelectItem
+                key={project.id}
+                value={project.id}
+                label={project.name}
+              >
                 {project.name}
               </SelectItem>
             ))}
@@ -225,12 +257,22 @@ function ControlledProjectModuleFields({
           <SelectTrigger className="w-full">
             <SelectValue
               placeholder={projectId ? "No module" : "Select a project first"}
-            />
+            >
+              {(value: string | null) =>
+                value && value in moduleItems
+                  ? moduleItems[value]
+                  : projectId
+                    ? "No module"
+                    : "Select a project first"
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE}>No module</SelectItem>
+            <SelectItem value={NONE} label="No module">
+              No module
+            </SelectItem>
             {modules.map((mod) => (
-              <SelectItem key={mod.id} value={mod.id}>
+              <SelectItem key={mod.id} value={mod.id} label={mod.name}>
                 {mod.name}
               </SelectItem>
             ))}
