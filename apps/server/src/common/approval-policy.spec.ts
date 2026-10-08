@@ -22,7 +22,9 @@ describe("Phase 2 approval policy", () => {
 
   it("enforces change status transitions including reject from Submitted", () => {
     expect(canTransitionChange("Submitted", "Approved")).toBe(true);
+    expect(canTransitionChange("Submitted", "PendingApproval")).toBe(true);
     expect(canTransitionChange("Submitted", "Rolled Back")).toBe(true);
+    expect(canTransitionChange("PendingApproval", "Approved")).toBe(true);
     expect(canTransitionChange("Draft", "Submitted")).toBe(true);
     expect(canTransitionChange("Closed", "Approved")).toBe(false);
   });

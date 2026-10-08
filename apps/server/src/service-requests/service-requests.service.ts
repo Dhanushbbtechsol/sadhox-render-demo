@@ -242,19 +242,36 @@ export class ServiceRequestsService {
     const existing = await this.requirePending(id);
     await this.projectAccess.assertCanApprove(user, existing.projectId);
 
+    const needsManager = await this.projectAccess.projectRequiresManagerStep(
+      existing.projectId,
+    );
+    const nextStatus = this.resolveApprovalNextStatus(
+      user.role,
+      existing.status,
+      needsManager,
+    );
+
     const [updated] = await this.db
       .update(serviceRequests)
       .set({
-        status: "Approved",
-        approverId: user.userId,
-        approvedAt: new Date(),
-        rejectionReason: null,
+        status: nextStatus,
+        ...(nextStatus === "Approved"
+          ? {
+              approverId: user.userId,
+              approvedAt: new Date(),
+              rejectionReason: null,
+            }
+          : {
+              rejectionReason: null,
+            }),
         updatedAt: new Date(),
       })
       .where(eq(serviceRequests.id, existing.id))
       .returning();
 
-    await this.notifyRequesterDecision(updated.id, "Approved");
+    if (nextStatus === "Approved") {
+      await this.notifyRequesterDecision(updated.id, "Approved");
+    }
     return this.get(user, updated.id);
   }
 
@@ -265,6 +282,11 @@ export class ServiceRequestsService {
     }
     const existing = await this.requirePending(id);
     await this.projectAccess.assertCanApprove(user, existing.projectId);
+
+    const needsManager = await this.projectAccess.projectRequiresManagerStep(
+      existing.projectId,
+    );
+    this.assertRejectAllowed(user.role, existing.status, needsManager);
 
     const [updated] = await this.db
       .update(serviceRequests)
@@ -280,6 +302,77 @@ export class ServiceRequestsService {
 
     await this.notifyRequesterDecision(updated.id, "Rejected", reason);
     return this.get(user, updated.id);
+  }
+
+  /** Phase 8: Manager Submitted→PendingApproval; Admin final or Admin-only. */
+  private resolveApprovalNextStatus(
+    role: string,
+    status: string,
+    needsManager: boolean,
+  ): "PendingApproval" | "Approved" {
+    if (role === "Manager") {
+      if (status !== "Submitted") {
+        throw new BadRequestException(
+          `Manager can only approve Submitted requests (current: ${status})`,
+        );
+      }
+      return "PendingApproval";
+    }
+
+    if (role !== "Admin") {
+      throw new ForbiddenException("Admin or Manager role required");
+    }
+
+    if (status === "PendingApproval") {
+      return "Approved";
+    }
+
+    if (status === "Submitted") {
+      if (needsManager) {
+        throw new ForbiddenException(
+          "Waiting on project manager — Admin cannot skip the Manager step",
+        );
+      }
+      return "Approved";
+    }
+
+    throw new BadRequestException(
+      `Cannot approve a request in status ${status}`,
+    );
+  }
+
+  private assertRejectAllowed(
+    role: string,
+    status: string,
+    needsManager: boolean,
+  ): void {
+    if (role === "Manager") {
+      if (status !== "Submitted") {
+        throw new BadRequestException(
+          `Manager can only reject Submitted requests (current: ${status})`,
+        );
+      }
+      return;
+    }
+
+    if (role !== "Admin") {
+      throw new ForbiddenException("Admin or Manager role required");
+    }
+
+    if (status === "PendingApproval") return;
+
+    if (status === "Submitted") {
+      if (needsManager) {
+        throw new ForbiddenException(
+          "Waiting on project manager — Admin cannot skip the Manager step",
+        );
+      }
+      return;
+    }
+
+    throw new BadRequestException(
+      `Cannot reject a request in status ${status}`,
+    );
   }
 
   async startFulfillment(user: AuthUser, id: string) {

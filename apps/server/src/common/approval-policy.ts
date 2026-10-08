@@ -37,6 +37,7 @@ export function assertAgentOrAdminRole(role: string): void {
 export const CHANGE_API_TO_DB_STATUS: Record<string, string> = {
   Draft: "Draft",
   Submitted: "Submitted",
+  PendingApproval: "PendingApproval",
   Approved: "Approved",
   Scheduled: "Scheduled",
   Implemented: "Implemented",
@@ -46,8 +47,8 @@ export const CHANGE_API_TO_DB_STATUS: Record<string, string> = {
 
 export const CHANGE_ALLOWED_TRANSITIONS: Record<string, string[]> = {
   Draft: ["Submitted", "Rolled Back"],
-  // Approval required before schedule — no Submitted → Scheduled skip.
-  Submitted: ["Approved", "Rolled Back"],
+  // Phase 8: Manager → PendingApproval; Admin final → Approved. No schedule skip.
+  Submitted: ["PendingApproval", "Approved", "Rolled Back"],
   PendingApproval: ["Approved", "Rolled Back"],
   Approved: ["Scheduled", "Implemented", "Rolled Back"],
   Scheduled: ["Implemented", "Rolled Back"],
