@@ -33,7 +33,7 @@ export default function PortalIncidentDetailPage() {
           error instanceof Error ? error.message : "This ticket does not exist."
         }
         action={
-          <Button render={<Link to="/portal" />}>Back to portal</Button>
+          <Button render={<Link to="/incidents" />}>Back to incidents</Button>
         }
       />
     );
@@ -44,11 +44,11 @@ export default function PortalIncidentDetailPage() {
       <Button
         variant="ghost"
         size="sm"
-        render={<Link to="/portal" />}
+        render={<Link to="/incidents" />}
         className="-ml-2"
       >
         <ArrowLeftIcon />
-        Back to portal
+        Back to incidents
       </Button>
 
       <Card className="overflow-hidden">
@@ -63,6 +63,9 @@ export default function PortalIncidentDetailPage() {
               {INCIDENT_STATUS_LABELS[data.status]}
             </Badge>
             <Badge variant="secondary">{data.category}</Badge>
+            {data.subcategory ? (
+              <Badge variant="outline">{data.subcategory}</Badge>
+            ) : null}
           </div>
           <CardTitle className="text-xl font-semibold tracking-tight">
             {data.title}

@@ -37,6 +37,7 @@ export interface Incident {
   title: string;
   description: string;
   category: string;
+  subcategory?: string | null;
   impact: Impact;
   urgency: Urgency;
   priority: Priority;
@@ -85,6 +86,7 @@ export interface CreateIncidentInput {
   title: string;
   description: string;
   category: string;
+  subcategory: string;
   impact: Impact;
   urgency: Urgency;
   projectId?: string | null;
@@ -96,6 +98,7 @@ export interface UpdateIncidentInput {
   title?: string;
   description?: string;
   category?: string;
+  subcategory?: string;
   impact?: Impact;
   urgency?: Urgency;
   status?: IncidentStatus;
@@ -204,11 +207,9 @@ export const PROBLEM_STATUS_LABELS: Record<ProblemStatus, string> = {
   Closed: "Closed",
 };
 
-export const INCIDENT_CATEGORIES = [
-  "Hardware",
-  "Software",
-  "Network",
-  "Access",
-  "Email",
-  "Other",
-] as const;
+export {
+  INCIDENT_CATEGORIES,
+  INCIDENT_CATEGORY_MAP,
+  subcategoriesFor,
+  type IncidentCategory,
+} from "./incident-categories";

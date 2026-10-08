@@ -121,6 +121,11 @@ const NAV_ITEMS: NavItem[] = [
         ],
       },
       {
+        to: "/incidents",
+        label: "Incidents",
+        roles: ["EndUser"],
+      },
+      {
         to: "/requests",
         label: "Requests",
         roles: ["Admin", "Agent", "EndUser", "Manager"],
@@ -161,11 +166,6 @@ const NAV_ITEMS: NavItem[] = [
     to: "/catalog",
     label: "Catalog",
     roles: ["Admin", "Agent", "EndUser", "Manager"],
-  },
-  {
-    to: "/portal",
-    label: "My Portal",
-    roles: ["EndUser", "Admin"],
   },
   {
     to: "/knowledge",
