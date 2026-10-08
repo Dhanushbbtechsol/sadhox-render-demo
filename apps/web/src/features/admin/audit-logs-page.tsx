@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { formatAuditActorLine, formatAuditSummary } from "./audit-activity";
 import { useAuditLogs } from "./hooks";
 import type { AuditLog } from "./types";
 
@@ -29,7 +30,8 @@ export default function AuditLogsPage() {
       <div>
         <h1 className="text-xl font-semibold">Audit logs</h1>
         <p className="text-sm text-muted-foreground">
-          Timeline of mutating API actions.
+          Timeline of who created, updated, or approved records across the
+          service desk.
         </p>
       </div>
 
@@ -127,13 +129,13 @@ function AuditTimelineItem({ entry }: { entry: AuditLog }) {
       <span className="bg-primary absolute -start-[1.9rem] mt-1.5 size-3 rounded-full ring-4 ring-background" />
       <div className="bg-card ring-foreground/10 w-full rounded-xl p-4 ring-1">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="font-medium">{entry.action}</p>
+          <p className="font-medium">{formatAuditSummary(entry)}</p>
           <time className="text-muted-foreground text-xs">
             {new Date(entry.createdAt).toLocaleString()}
           </time>
         </div>
         <p className="text-muted-foreground mt-1 text-sm">
-          {entry.actor} · {entry.entityType}
+          Performed by {formatAuditActorLine(entry)}
         </p>
       </div>
     </li>
