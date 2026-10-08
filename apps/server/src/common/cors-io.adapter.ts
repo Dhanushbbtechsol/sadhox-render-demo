@@ -2,13 +2,10 @@ import type { INestApplication } from "@nestjs/common";
 import { IoAdapter } from "@nestjs/platform-socket.io";
 
 /**
- * Shared HTTP + Socket.IO CORS settings. Fail closed — never `*`.
- * Call only with a value from validated ConfigService (`getOrThrow`).
+ * Parse CORS_ORIGIN into an allowlist (same parsing HTTP CORS + cookie Origin checks use).
+ * Fail closed — never `*`. Today env is typically one URL; comma-separated is supported.
  */
-export function sharedCorsOptions(origin: string): {
-  origin: string;
-  credentials: true;
-} {
+export function parseCorsOriginAllowlist(origin: string): readonly string[] {
   const trimmed = origin.trim();
   if (!trimmed) {
     throw new Error("CORS_ORIGIN is required");
@@ -16,7 +13,42 @@ export function sharedCorsOptions(origin: string): {
   if (trimmed === "*") {
     throw new Error('CORS_ORIGIN must not be "*"');
   }
-  return { origin: trimmed, credentials: true };
+  const parts = trimmed
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  if (parts.length === 0) {
+    throw new Error("CORS_ORIGIN is required");
+  }
+  if (parts.some((part) => part === "*")) {
+    throw new Error('CORS_ORIGIN must not be "*"');
+  }
+  return parts;
+}
+
+/**
+ * Shared HTTP + Socket.IO CORS settings. Fail closed — never `*`.
+ * Call only with a value from validated ConfigService (`getOrThrow`).
+ */
+export function sharedCorsOptions(origin: string): {
+  origin: string | string[];
+  credentials: true;
+} {
+  const allowlist = parseCorsOriginAllowlist(origin);
+  return {
+    origin: allowlist.length === 1 ? allowlist[0]! : [...allowlist],
+    credentials: true,
+  };
+}
+
+/** True when the request Origin is in the CORS_ORIGIN allowlist. */
+export function isAllowedCorsOrigin(
+  requestOrigin: string,
+  corsOriginConfig: string,
+): boolean {
+  return parseCorsOriginAllowlist(corsOriginConfig).includes(
+    requestOrigin.trim(),
+  );
 }
 
 /**
@@ -24,7 +56,7 @@ export function sharedCorsOptions(origin: string): {
  * (avoids reading process.env at @WebSocketGateway import time).
  */
 export class CorsIoAdapter extends IoAdapter {
-  private readonly cors: { origin: string; credentials: true };
+  private readonly cors: { origin: string | string[]; credentials: true };
 
   constructor(app: INestApplication, corsOrigin: string) {
     super(app);
@@ -32,7 +64,7 @@ export class CorsIoAdapter extends IoAdapter {
   }
 
   /** Exposed for tests — origin actually applied to Socket.IO. */
-  getCorsOrigin(): string {
+  getCorsOrigin(): string | string[] {
     return this.cors.origin;
   }
 

@@ -36,8 +36,8 @@ Kept `incident-category-map.ts` only. Deleted `incident-categories.ts`. Create/u
 
 | Sev | Item |
 | --- | --- |
-| Low | `seed.ts` `ChangeMe123!` when `SEED_PASSWORD` is unset (password hash still re-synced for seed emails) |
-| Medium | CSRF on `SameSite=None` refresh cookie |
+| Low | `seed.ts` `ChangeMe123!` when `SEED_PASSWORD` unset — **closed** (CSPRNG one-time print; no re-sync on re-run) |
+| Medium | CSRF on `SameSite=None` refresh cookie — **FIXED** (Origin allowlist via `RefreshCookieOriginGuard`; no custom header) |
 | Low | `THROTTLE_GLOBAL_LIMIT` prod ceiling; `/auth/logout` throttle; WS auth → Sentry |
 
 ## Review checklist (Sonar)

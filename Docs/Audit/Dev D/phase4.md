@@ -10,9 +10,9 @@ Reaudit 2026-10-01. Combined: [phase4.md](../phase4.md). Owner: auth cookies, th
 
 Scripts use `requireEnv`; no LAN URL/cred fallbacks. See [phase5.md](./phase5.md).
 
-### [A07] Medium — `SameSite=None` without CSRF defense
+### [A07] Medium — `SameSite=None` without CSRF defense — **FIXED** (2026-10-08)
 
-Cookie flags OK for cross-site SPA. Add CSRF (custom header or double-submit) on `/auth/refresh` + `/auth/logout`.
+Cookie flags OK for cross-site SPA. `RefreshCookieOriginGuard` binds `Origin` to `CORS_ORIGIN` on `/auth/refresh` + `/auth/logout` (same allowlist as CORS; no custom header).
 
 ## Phase 2 (still open)
 

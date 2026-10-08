@@ -68,7 +68,7 @@ export class ServiceRequestsController {
   @Roles("Admin", "Manager")
   @ApiOperation({
     summary:
-      "Approve a submitted service request (Admin any; Manager own project only; null project Admin-only)",
+      "Phase 8 approve: Manager Submitted→PendingApproval; Admin PendingApproval→Approved (or Submitted when no project)",
   })
   approve(
     @CurrentUser() user: AuthUser,
@@ -81,7 +81,7 @@ export class ServiceRequestsController {
   @Roles("Admin", "Manager")
   @ApiOperation({
     summary:
-      "Reject a submitted service request (Admin any; Manager own project only)",
+      "Phase 8 reject: Manager on Submitted; Admin on PendingApproval (or Submitted when no project)",
   })
   reject(
     @CurrentUser() user: AuthUser,

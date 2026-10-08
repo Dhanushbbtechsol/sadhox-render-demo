@@ -2,15 +2,15 @@
 
 After `pnpm --filter server db:seed`, these logins should show non-empty tabs.
 
-| Email | Role | Password (default) | Lands on | Should see |
+| Email | Role | Password | Lands on | Should see |
 | --- | --- | --- | --- | --- |
-| `agent@sadhox.local` | Agent | `ChangeMe123!` | `/incidents` | Incidents, Problems, Changes, Requests (Platform Ops + unscoped) |
-| `enduser@sadhox.local` | EndUser | `ChangeMe123!` | `/portal` | Own incidents + Requests |
-| `user@sadhox.local` | EndUser (Pat Portal) | `ChangeMe123!` | `/portal` | Own incidents + Requests |
-| `admin@sadhox.local` | Admin | `ChangeMe123!` | `/admin` | Everything |
-| `manager@sadhox.local` | Manager | `ChangeMe123!` | Manager home | Own project (Platform Ops) |
+| `agent@sadhox.local` | Agent | See below | `/incidents` | Incidents, Problems, Changes, Requests (Platform Ops + unscoped) |
+| `enduser@sadhox.local` | EndUser | See below | `/portal` | Own incidents + Requests |
+| `user@sadhox.local` | EndUser (Pat Portal) | See below | `/portal` | Own incidents + Requests |
+| `admin@sadhox.local` | Admin | See below | `/admin` | Everything |
+| `manager@sadhox.local` | Manager | See below | Manager home | Own project (Platform Ops) |
 
-Override password with `SEED_PASSWORD=...` when seeding.
+Password: set `SEED_PASSWORD=...` when seeding **new** users, or copy the one-time value printed to stdout if unset. Re-seed does not change existing passwords. Use `scripts/reset-seed-password.mjs` only when you intentionally want a new hash.
 
 ## Seed sources (Dev D)
 

@@ -14,7 +14,11 @@ import {
   type AuthUser,
 } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
-import { CreateChangeDto, UpdateChangeDto } from "./dto/change.dto";
+import {
+  CreateChangeDto,
+  RejectChangeDto,
+  UpdateChangeDto,
+} from "./dto/change.dto";
 import { ChangesService } from "./changes.service";
 
 @ApiTags("changes")
@@ -57,7 +61,7 @@ export class ChangesController {
   @Roles("Admin", "Manager")
   @ApiOperation({
     summary:
-      "Approve a change (Admin any; Manager own project; null project Admin-only)",
+      "Phase 8 approve: Manager Submitted/Draft→PendingApproval; Admin PendingApproval→Approved (or Submitted/Draft when no project)",
   })
   approve(
     @CurrentUser() user: AuthUser,
@@ -66,9 +70,23 @@ export class ChangesController {
     return this.changes.approve(user, id);
   }
 
+  @Patch(":id/reject")
+  @Roles("Admin", "Manager")
+  @ApiOperation({
+    summary:
+      "Phase 8 reject: Manager on Submitted/Draft; Admin on PendingApproval (or Submitted/Draft when no project). DB status RolledBack.",
+  })
+  reject(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: RejectChangeDto,
+  ) {
+    return this.changes.reject(user, id, dto);
+  }
+
   @Patch(":id")
   @Roles("Admin", "Agent", "Manager")
-  @ApiOperation({ summary: "Update change fields / status transition" })
+  @ApiOperation({ summary: "Update change fields / non-approval status transitions" })
   update(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,

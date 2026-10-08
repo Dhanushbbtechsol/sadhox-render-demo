@@ -4,21 +4,21 @@ These scripts are **manual local/lab tooling**. They are not wired into Nest bui
 
 ## Demo seed (`db:seed`)
 
-Re-run against local Postgres to sync role passwords and load scenario data:
+Re-run against local Postgres to load scenario data (idempotent):
 
 ```bash
 cd apps/server
 pnpm db:seed
 ```
 
-Default password is `ChangeMe123!` (override with `SEED_PASSWORD=...`). Seed upserts hashes for known demo emails every run. Scenario tickets use the `[Scenario]` prefix and are skipped if already present.
+Password: set `SEED_PASSWORD=...` for new users, or leave unset to generate a random one-time password (printed once to stdout, never written to disk). Re-running does **not** reset passwords for existing seed emails. Scenario tickets use the `[Scenario]` prefix and are skipped if already present.
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Admin | `admin@sadhox.local` | `ChangeMe123!` |
-| Agent | `agent@sadhox.local` | `ChangeMe123!` |
-| EndUser | `user@sadhox.local` | `ChangeMe123!` |
-| Manager | `manager@sadhox.local` | `ChangeMe123!` |
+| Role | Email |
+| --- | --- |
+| Admin | `admin@sadhox.local` |
+| Agent | `agent@sadhox.local` |
+| EndUser | `user@sadhox.local` |
+| Manager | `manager@sadhox.local` |
 
 Also seeded: `enduser@sadhox.local` (second EndUser for multi-requester volume).
 

@@ -53,7 +53,9 @@ function createProjectAccessMock() {
         throw new ForbiddenException("Admin or Manager role required");
       }
     }),
-    ticketProjectScope: vi.fn().mockResolvedValue(undefined),
+    projectRequiresManagerStep: vi.fn(async (projectId: string | null) =>
+      projectId != null && projectId !== "",
+    ),
   };
 }
 

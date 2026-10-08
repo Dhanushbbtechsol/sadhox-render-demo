@@ -15,6 +15,10 @@ import {
   stackOpenClosed,
   type ChartRangePreset,
 } from "./chart-range";
+import {
+  buildDashboardReportCsv,
+  dashboardReportFilename,
+} from "./dashboard-report-csv";
 import { assertPasswordComplexity } from "../common/password-policy";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
 import type { UserRole } from "../common/types/roles";
@@ -50,6 +54,16 @@ export type AdminUserView = {
   role: UserRole;
 };
 
+function formatSlaWeekLabel(weekStart: string): string {
+  const date = new Date(`${weekStart}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return weekStart;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -58,6 +72,46 @@ export class AdminService {
     @InjectQueue(TICKET_LIFECYCLE_QUEUE) private readonly lifecycleQueue: Queue,
     @InjectQueue(EMAIL_QUEUE) private readonly emailQueue: Queue,
   ) {}
+
+  /**
+   * Phase 8 Admin report — reuses existing aggregate methods (no new SQL).
+   */
+  async dashboardReportCsv(rangePreset: ChartRangePreset = "30d"): Promise<{
+    csv: string;
+    filename: string;
+  }> {
+    const [statsBundle, statusBundle, slaCompliance, slaPerf] =
+      await Promise.all([
+        this.dashboardStats(),
+        this.ticketsByStatus(),
+        this.slaCompliance(rangePreset),
+        this.slaPerformance(),
+      ]);
+
+    const csv = buildDashboardReportCsv({
+      range: rangePreset,
+      generatedAt: new Date().toISOString(),
+      kpis: statsBundle.kpis,
+      ticketsByStatus: statusBundle.ticketsByStatus,
+      ticketsByPriority: statusBundle.ticketsByPriority,
+      ticketsByModule: statusBundle.ticketsByModule,
+      slaCompliance: {
+        from: slaCompliance.from,
+        to: slaCompliance.to,
+        met: slaCompliance.met,
+        breached: slaCompliance.breached,
+        rate: slaCompliance.rate,
+      },
+      slaPerformance: slaPerf.data.map((row) => ({
+        weekStart: row.weekStart,
+        label: formatSlaWeekLabel(row.weekStart),
+        met: row.met,
+        breached: row.breached,
+      })),
+    });
+
+    return { csv, filename: dashboardReportFilename(rangePreset) };
+  }
 
   async dashboardStats() {
     const [incidentAgg] = await this.db

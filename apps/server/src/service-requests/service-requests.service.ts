@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -11,6 +12,7 @@ import {
   assertAgentOrAdminRole,
   canTransitionRequestFulfillment,
   isPendingServiceRequestStatus,
+  resolveRejectTransition,
 } from "../common/approval-policy";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
@@ -241,7 +243,6 @@ export class ServiceRequestsService {
   async approve(user: AuthUser, id: string) {
     const existing = await this.requirePending(id);
     await this.projectAccess.assertCanApprove(user, existing.projectId);
-
     const needsManager = await this.projectAccess.projectRequiresManagerStep(
       existing.projectId,
     );
@@ -266,8 +267,19 @@ export class ServiceRequestsService {
             }),
         updatedAt: new Date(),
       })
-      .where(eq(serviceRequests.id, existing.id))
+      .where(
+        and(
+          eq(serviceRequests.id, existing.id),
+          eq(serviceRequests.status, existing.status),
+        ),
+      )
       .returning();
+
+    if (!updated) {
+      throw new ConflictException(
+        "Service request status changed; refresh and retry",
+      );
+    }
 
     if (nextStatus === "Approved") {
       await this.notifyRequesterDecision(updated.id, "Approved");
@@ -282,6 +294,12 @@ export class ServiceRequestsService {
     }
     const existing = await this.requirePending(id);
     await this.projectAccess.assertCanApprove(user, existing.projectId);
+    const decision = resolveRejectTransition({
+      role: user.role,
+      currentStatus: existing.status,
+      projectId: existing.projectId,
+      rejectStatus: "Rejected",
+    });
 
     const needsManager = await this.projectAccess.projectRequiresManagerStep(
       existing.projectId,
@@ -291,14 +309,25 @@ export class ServiceRequestsService {
     const [updated] = await this.db
       .update(serviceRequests)
       .set({
-        status: "Rejected",
+        status: decision.nextStatus,
         approverId: user.userId,
         approvedAt: new Date(),
         rejectionReason: reason,
         updatedAt: new Date(),
       })
-      .where(eq(serviceRequests.id, existing.id))
+      .where(
+        and(
+          eq(serviceRequests.id, existing.id),
+          eq(serviceRequests.status, existing.status),
+        ),
+      )
       .returning();
+
+    if (!updated) {
+      throw new ConflictException(
+        "Service request status changed; refresh and retry",
+      );
+    }
 
     await this.notifyRequesterDecision(updated.id, "Rejected", reason);
     return this.get(user, updated.id);

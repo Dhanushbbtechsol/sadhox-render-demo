@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -11,8 +12,10 @@ import {
   canTransitionChange,
   CHANGE_API_TO_DB_STATUS,
   requiresAdminForChangeStatus,
+  resolveRejectTransition,
 } from "../common/approval-policy";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
+import { sanitizePlainText } from "../common/sanitize-plain-text";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
@@ -25,7 +28,11 @@ import {
 import { MailService } from "../mail/mail.service";
 import { ProjectAccessService } from "../projects/project-access.service";
 import { ProjectsService } from "../projects/projects.service";
-import type { CreateChangeDto, UpdateChangeDto } from "./dto/change.dto";
+import type {
+  CreateChangeDto,
+  RejectChangeDto,
+  UpdateChangeDto,
+} from "./dto/change.dto";
 
 type DbChangeStatus =
   | "Draft"
@@ -293,7 +300,7 @@ export class ChangesService {
       needsManager,
     );
 
-    await this.db
+    const [updated] = await this.db
       .update(changes)
       .set({
         status: nextStatus,
@@ -305,7 +312,17 @@ export class ChangesService {
           : {}),
         updatedAt: new Date(),
       })
-      .where(eq(changes.id, id));
+      .where(
+        and(
+          eq(changes.id, id),
+          eq(changes.status, existing.status as DbChangeStatus),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      throw new ConflictException("Change status changed; refresh and retry");
+    }
 
     if (nextStatus === "Approved") {
       await this.notifyCreator(existing.createdBy, {
@@ -314,6 +331,58 @@ export class ChangesService {
         outcome: "approved",
       });
     }
+
+    return this.get(user, id);
+  }
+
+  async reject(user: AuthUser, id: string, dto: RejectChangeDto) {
+    const reason = sanitizePlainText(dto.reason ?? "");
+    if (!reason) {
+      throw new BadRequestException("Rejection reason is required");
+    }
+
+    const [existing] = await this.db
+      .select()
+      .from(changes)
+      .where(eq(changes.id, id))
+      .limit(1);
+    if (!existing) throw new NotFoundException("Change not found");
+
+    await this.projectAccess.assertCanApprove(user, existing.projectId);
+    const decision = resolveRejectTransition({
+      role: user.role,
+      currentStatus: existing.status,
+      projectId: existing.projectId,
+      rejectStatus: "RolledBack",
+      allowDraft: true,
+    });
+
+    const [updated] = await this.db
+      .update(changes)
+      .set({
+        status: decision.nextStatus,
+        approvedBy: user.userId,
+        approvedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(changes.id, id),
+          eq(changes.status, existing.status as DbChangeStatus),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      throw new ConflictException("Change status changed; refresh and retry");
+    }
+
+    await this.notifyCreator(existing.createdBy, {
+      entityId: existing.id,
+      entityTitle: existing.title,
+      outcome: "rejected",
+      reason,
+    });
 
     return this.get(user, id);
   }

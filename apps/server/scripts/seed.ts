@@ -3,7 +3,10 @@ import * as bcrypt from "bcryptjs";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { and, eq, like, sql } from "drizzle-orm";
 import postgres from "postgres";
-import { assertPasswordComplexity } from "../src/common/password-policy";
+import {
+  assertPasswordComplexity,
+  generateSeedPassword,
+} from "../src/common/password-policy";
 import {
   users,
   slaRules,
@@ -48,8 +51,6 @@ const PHASE7_INCIDENT_PAIRS = [
 const SHOWCASE_PREFIX = "[Showcase]";
 const SCENARIO_PREFIX = "[Scenario]";
 const SCENARIO_ASSET_PREFIX = "SCEN-";
-/** Local demo password — override with SEED_PASSWORD=... if needed. */
-const DEFAULT_SEED_PASSWORD = "ChangeMe123!";
 const PHASE6_PROJECT_ID = "a1000000-0000-4000-8000-000000000001";
 const PHASE6_MODULE_ID = "a1000000-0000-4000-8000-000000000002";
 // Second project owned by Admin — Manager/Agent must not see its tickets in scoped lists.
@@ -128,50 +129,40 @@ async function seed() {
   const client = postgres(url, { max: 1 });
   const db = drizzle(client);
 
-  const seedPassword = process.env.SEED_PASSWORD ?? DEFAULT_SEED_PASSWORD;
-  assertPasswordComplexity(seedPassword);
-  const passwordHash = await bcrypt.hash(seedPassword, 12);
-
   const seedUsers = [
     {
       email: "admin@sadhox.local",
-      passwordHash,
       role: "Admin" as const,
       name: "Ian Admin",
     },
     {
       email: "agent@sadhox.local",
-      passwordHash,
       role: "Agent" as const,
       name: "Alice Agent",
     },
     {
       email: "enduser@sadhox.local",
-      passwordHash,
       role: "EndUser" as const,
       name: "End User",
     },
     {
       email: "user@sadhox.local",
-      passwordHash,
       role: "EndUser" as const,
       name: "Pat Portal",
     },
     {
       email: "manager@sadhox.local",
-      passwordHash,
       role: "Manager" as const,
       name: "Morgan Manager",
     },
     {
       email: "manager2@sadhox.local",
-      passwordHash,
       role: "Manager" as const,
       name: "Casey Manager",
     },
   ];
 
-  let createdAny = false;
+  const toCreate: typeof seedUsers = [];
   for (const u of seedUsers) {
     const [existing] = await db
       .select({ id: users.id })
@@ -179,35 +170,51 @@ async function seed() {
       .where(eq(users.email, u.email))
       .limit(1);
     if (existing) {
+      // Idempotent: never reset passwords on re-run; keep name/role in sync.
       await db
         .update(users)
         .set({
-          passwordHash: u.passwordHash,
           name: u.name,
           role: u.role,
           updatedAt: new Date(),
         })
         .where(eq(users.id, existing.id));
-      console.log(`synced password for ${u.email}`);
+      console.log(`skip existing seed user ${u.email} (password unchanged)`);
       continue;
     }
-    await db.insert(users).values(u);
-    createdAny = true;
-    console.log(`created ${u.role} ${u.email}`);
+    toCreate.push(u);
   }
 
-  {
-    const { writeFileSync } = await import("node:fs");
-    writeFileSync(".seed-password", seedPassword, { mode: 0o600 });
-    console.log("");
-    console.log("=== SEED PASSWORD (synced for all seed role emails) ===");
-    console.log(seedPassword);
-    console.log("=======================================================");
-    console.log("Wrote apps/server/.seed-password (gitignored).");
+  if (toCreate.length > 0) {
+    const fromEnv = process.env.SEED_PASSWORD?.trim();
+    const seedPassword = fromEnv && fromEnv.length > 0
+      ? fromEnv
+      : generateSeedPassword();
+    assertPasswordComplexity(seedPassword);
+    const passwordHash = await bcrypt.hash(seedPassword, 12);
+    for (const u of toCreate) {
+      await db.insert(users).values({
+        email: u.email,
+        passwordHash,
+        role: u.role,
+        name: u.name,
+      });
+      console.log(`created ${u.role} ${u.email}`);
+    }
+    // Print once to stdout only — never write to .seed-password or other disk paths.
+    process.stdout.write(
+      `\n=== ONE-TIME SEED PASSWORD (copy now; not saved to disk) ===\n`,
+    );
+    process.stdout.write(`${seedPassword}\n`);
+    process.stdout.write(
+      `Applies to newly created seed role emails this run.\n`,
+    );
+    process.stdout.write(
+      `================================================================\n\n`,
+    );
+  } else {
     console.log(
-      createdAny
-        ? "New users were created this run."
-        : "Existing seed users updated (password hash synced).",
+      "all seed role users already present — passwords left unchanged",
     );
   }
 
