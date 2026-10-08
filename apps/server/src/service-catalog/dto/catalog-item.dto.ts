@@ -8,6 +8,7 @@ import {
   IsString,
   MaxLength,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
@@ -70,6 +71,17 @@ export class CreateCatalogItemDto {
   @MaxLength(128)
   department!: string;
 
+  @ApiPropertyOptional({
+    example: "Laptop request",
+    description: "Optional grouping under department (Phase 7)",
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(128)
+  subcategory?: string | null;
+
   @ApiProperty({ type: [CatalogFormFieldDto] })
   @IsArray()
   @ValidateNested({ each: true })
@@ -103,6 +115,17 @@ export class UpdateCatalogItemDto {
   @MinLength(1)
   @MaxLength(128)
   department?: string;
+
+  @ApiPropertyOptional({
+    example: "Laptop request",
+    description: "Optional grouping under department (Phase 7). Null clears.",
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(128)
+  subcategory?: string | null;
 
   @ApiPropertyOptional({ type: [CatalogFormFieldDto] })
   @IsOptional()

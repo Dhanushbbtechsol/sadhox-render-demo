@@ -37,7 +37,10 @@ export interface ServiceCatalogItem {
   id: string;
   name: string;
   description: string;
+  /** Category label — stored as `department` in the API. */
   department: string;
+  /** Optional service grouping under department (Phase 7). */
+  subcategory?: string | null;
   formFields: CatalogFormField[];
   isActive?: boolean;
 }

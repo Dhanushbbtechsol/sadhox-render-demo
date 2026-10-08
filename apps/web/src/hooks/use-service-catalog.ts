@@ -16,6 +16,7 @@ export type CreateCatalogItemInput = {
   name: string;
   description: string;
   department: string;
+  subcategory?: string | null;
   formFields: CatalogFormField[];
   isActive?: boolean;
 };
