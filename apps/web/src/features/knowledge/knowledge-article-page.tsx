@@ -215,7 +215,14 @@ export default function KnowledgeArticlePage() {
                 control={form.control}
                 name="status"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    items={[
+                      { value: "Draft", label: "Draft" },
+                      { value: "Published", label: "Published" },
+                    ]}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -232,21 +239,44 @@ export default function KnowledgeArticlePage() {
               <Controller
                 control={form.control}
                 name="categoryId"
-                render={({ field }) => (
-                  <Select value={field.value ?? "none"} onValueChange={field.onChange}>
+                render={({ field }) => {
+                  const categoryOptions = Array.isArray(categories.data)
+                    ? categories.data
+                    : [];
+                  return (
+                  <Select
+                    items={[
+                      { value: "none", label: "Uncategorized" },
+                      ...categoryOptions.map((category) => ({
+                        value: category.id,
+                        label: category.name,
+                      })),
+                    ]}
+                    value={field.value ?? "none"}
+                    onValueChange={field.onChange}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Category" />
+                      <SelectValue placeholder="Category">
+                        {(value) => {
+                          if (!value || value === "none") return "Uncategorized";
+                          return (
+                            categoryOptions.find((c) => c.id === value)?.name ??
+                            "Category"
+                          );
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Uncategorized</SelectItem>
-                      {(Array.isArray(categories.data) ? categories.data : []).map((category) => (
+                      {categoryOptions.map((category) => (
                         <SelectItem key={category.id} value={category.id}>
                           {category.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                )}
+                  );
+                }}
               />
             </div>
           </div>
