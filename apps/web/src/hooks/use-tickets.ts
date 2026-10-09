@@ -153,10 +153,10 @@ export function useAssignIncident(incidentId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (agentId?: string) =>
+    mutationFn: (agentId: string) =>
       apiFetch<Incident>(`/incidents/${incidentId}/assign`, {
         method: "POST",
-        body: agentId ? { agentId } : {},
+        body: { agentId },
       }),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: incidentsKey });
@@ -199,6 +199,7 @@ export function useCreateProblem() {
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: problemsKey });
+      void queryClient.invalidateQueries({ queryKey: incidentsKey });
     },
   });
 }
@@ -223,6 +224,7 @@ export function useUpdateProblem(problemId: string) {
       }),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: problemsKey });
+      void queryClient.invalidateQueries({ queryKey: incidentsKey });
       queryClient.setQueryData(
         [...problemsKey, problemId, useAuthStore.getState().user?.id],
         data,

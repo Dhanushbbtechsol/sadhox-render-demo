@@ -171,13 +171,12 @@ export class UpdateIncidentDto extends ProjectScopeFieldsDto {
 }
 
 export class AssignIncidentDto {
-  @ApiPropertyOptional({
+  @ApiProperty({
     format: "uuid",
-    description: "Omit for round-robin auto-assignment",
+    description: "Agent (or Admin) to assign; required — no auto-assignment",
   })
-  @IsOptional()
   @IsUUID()
-  agentId?: string;
+  agentId!: string;
 }
 
 export class CreateCommentDto {

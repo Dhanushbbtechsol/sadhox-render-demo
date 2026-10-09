@@ -143,17 +143,46 @@ export class ProblemsService {
   }
 
   async create(user: AuthUser, dto: CreateProblemDto): Promise<ProblemView> {
-    const scope = await this.projectsService.resolveTicketProjectFields(
-      user,
-      dto.projectId,
-      dto.moduleId,
-    );
+    if (dto.linkedIncidentIds?.length) {
+      await this.assertCanLinkIncidents(user, dto.linkedIncidentIds);
+      await this.assertIncidentsNotLinkedElsewhere(dto.linkedIncidentIds);
+    }
+
+    let projectId = dto.projectId;
+    let moduleId = dto.moduleId;
+    if (projectId === undefined && moduleId === undefined) {
+      if (!dto.linkedIncidentIds?.length) {
+        throw new BadRequestException(
+          "Link at least one incident so the problem inherits that ticket's project scope",
+        );
+      }
+      const derived = await this.deriveProjectScopeFromLinkedIncidents(
+        dto.linkedIncidentIds,
+      );
+      projectId = derived.projectId;
+      moduleId = derived.moduleId;
+    }
+
+    // Agents already work the global (unscoped) incident pool. Let them inherit
+    // that null project when creating a Problem from linked incidents. Creating
+    // unscoped tickets from scratch remains Admin-only in resolveTicketProjectFields.
+    const inheritUnscopedFromLinks =
+      Boolean(dto.linkedIncidentIds?.length) &&
+      projectId == null &&
+      moduleId == null &&
+      user.role === "Agent";
+
+    const scope: { projectId: string | null; moduleId: string | null } =
+      inheritUnscopedFromLinks
+        ? { projectId: null, moduleId: null }
+        : await this.projectsService.resolveTicketProjectFields(
+            user,
+            projectId,
+            moduleId,
+          );
 
     if (dto.assignedTo) {
       await this.assertAssigneeInPool(dto.assignedTo, scope.projectId);
-    }
-    if (dto.linkedIncidentIds?.length) {
-      await this.assertCanLinkIncidents(user, dto.linkedIncidentIds);
     }
 
     const now = new Date();
@@ -360,6 +389,51 @@ export class ProblemsService {
       });
     }
     return map;
+  }
+
+  /** Project/module stamp from the linked incident(s) — must share one scope. */
+  private async deriveProjectScopeFromLinkedIncidents(incidentIds: string[]) {
+    const rows = await this.db
+      .select({
+        projectId: incidents.projectId,
+        moduleId: incidents.moduleId,
+      })
+      .from(incidents)
+      .where(inArray(incidents.id, incidentIds));
+
+    if (rows.length !== incidentIds.length) {
+      throw new BadRequestException("One or more incident IDs are invalid");
+    }
+
+    const first = rows[0]!;
+    for (const row of rows.slice(1)) {
+      if (
+        row.projectId !== first.projectId ||
+        row.moduleId !== first.moduleId
+      ) {
+        throw new BadRequestException(
+          "Linked incidents must belong to the same project and module",
+        );
+      }
+    }
+
+    return {
+      projectId: first.projectId ?? null,
+      moduleId: first.moduleId ?? null,
+    };
+  }
+
+  private async assertIncidentsNotLinkedElsewhere(incidentIds: string[]) {
+    const rows = await this.db
+      .select({ incidentId: problemIncidents.incidentId })
+      .from(problemIncidents)
+      .where(inArray(problemIncidents.incidentId, incidentIds))
+      .limit(1);
+    if (rows.length > 0) {
+      throw new BadRequestException(
+        "Incident is already linked to another problem",
+      );
+    }
   }
 
   /** Link only incidents the actor can already view (blocks cross-project probe). */

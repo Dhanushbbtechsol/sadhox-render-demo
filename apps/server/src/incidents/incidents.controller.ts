@@ -92,8 +92,7 @@ export class IncidentsController {
   @HttpCode(200)
   @Roles("Admin", "Agent", "Manager")
   @ApiOperation({
-    summary:
-      "Assign incident (manual agentId or round-robin) and notify assignee",
+    summary: "Assign incident to an agent and notify assignee",
   })
   assign(
     @CurrentUser() user: AuthUser,

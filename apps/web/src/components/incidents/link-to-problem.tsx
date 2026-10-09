@@ -60,6 +60,7 @@ export function LinkToProblem({ incidentId }: { incidentId: string }) {
         { method: "POST" },
       );
       void queryClient.invalidateQueries({ queryKey: ["problems"] });
+      void queryClient.invalidateQueries({ queryKey: ["incidents"] });
       toast.success("Incident linked to problem");
       setOpen(false);
       setProblemId("");

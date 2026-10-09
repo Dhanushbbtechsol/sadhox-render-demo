@@ -67,15 +67,6 @@ export function IncidentActions({ incident }: { incident: Incident }) {
     }
   }
 
-  async function handleAutoAssign() {
-    try {
-      await assign.mutateAsync(undefined);
-      toast.success("Auto-assigned via round-robin");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Auto-assign failed");
-    }
-  }
-
   async function handleAssignSelected() {
     if (!selectedAgent) return;
     try {
@@ -160,25 +151,15 @@ export function IncidentActions({ incident }: { incident: Incident }) {
         </p>
       </div>
 
-      {canAssign ? (
+      {canAssign && user?.role === "Agent" ? (
         <div className="flex flex-wrap gap-2">
-          {user?.role === "Agent" ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={busy}
-              onClick={() => void handleAssignToMe()}
-            >
-              Assign to Me
-            </Button>
-          ) : null}
           <Button
             size="sm"
-            variant="outline"
-            disabled={busy || agents.length === 0}
-            onClick={() => void handleAutoAssign()}
+            variant="secondary"
+            disabled={busy}
+            onClick={() => void handleAssignToMe()}
           >
-            Auto-assign
+            Assign to Me
           </Button>
         </div>
       ) : null}

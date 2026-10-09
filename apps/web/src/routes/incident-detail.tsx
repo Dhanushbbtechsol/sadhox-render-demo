@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router";
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
 import { IncidentActions } from "@/components/incidents/incident-actions";
 import { IncidentComments } from "@/components/incidents/incident-comments";
-import { LinkToProblem } from "@/components/incidents/link-to-problem";
+import { CreateProblemDialog } from "@/components/problems/create-problem-dialog";
 import { SlaCountdown } from "@/components/incidents/sla-countdown";
 import { RelatedArticles } from "@/components/knowledge/related-articles";
 import { PriorityBadge } from "@/components/priority-badge";
@@ -135,9 +135,41 @@ export default function IncidentDetailPage() {
             ))}
           </dl>
 
-          <div className="flex flex-wrap gap-2">
-            <LinkToProblem incidentId={data.id} />
-          </div>
+          {canSeeLinkedAssets ? (
+            <section className="space-y-3">
+              <h2 className="text-sm font-semibold tracking-tight">
+                Related problem
+              </h2>
+              {data.linkedProblem ? (
+                <Link
+                  to={`/problems/${data.linkedProblem.id}`}
+                  className="border-border/80 bg-muted/40 hover:bg-muted/70 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-sm transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">{data.linkedProblem.title}</p>
+                    <p className="text-muted-foreground font-mono text-[11px]">
+                      {data.linkedProblem.id.slice(0, 8)} ·{" "}
+                      {data.linkedProblem.status}
+                      {data.linkedProblem.knownError ? " · Known error" : ""}
+                    </p>
+                  </div>
+                  <Badge variant="outline">{data.linkedProblem.status}</Badge>
+                </Link>
+              ) : (
+                <>
+                  <p className="text-muted-foreground text-sm">
+                    No problem linked to this incident yet.
+                  </p>
+                  <CreateProblemDialog
+                    defaultIncidentId={data.id}
+                    triggerLabel="Create problem"
+                    triggerSize="sm"
+                    triggerVariant="outline"
+                  />
+                </>
+              )}
+            </section>
+          ) : null}
 
           <EditTicketProjectScope
             projectId={data.projectId}

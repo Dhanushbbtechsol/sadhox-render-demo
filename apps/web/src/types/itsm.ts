@@ -58,6 +58,13 @@ export interface Incident {
   reporter?: { id: string; name: string; email: string } | null;
   assignee?: { id: string; name: string; email: string } | null;
   slaTargetMinutes?: number | null;
+  /** Present on incident detail when linked via problem_incidents. */
+  linkedProblem?: {
+    id: string;
+    title: string;
+    status: string;
+    knownError: boolean;
+  } | null;
 }
 
 export interface Project {
