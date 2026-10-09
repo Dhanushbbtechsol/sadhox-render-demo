@@ -1,8 +1,13 @@
 import * as React from "react";
 
+import { capitalizeInitial } from "@/lib/capitalize-initial";
 import { cn } from "@/lib/utils";
 
-function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+function Textarea({
+  className,
+  onChange,
+  ...props
+}: React.ComponentProps<"textarea">) {
   return (
     <textarea
       data-slot="textarea"
@@ -11,6 +16,13 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
         className,
       )}
       {...props}
+      onChange={(event) => {
+        const next = capitalizeInitial(event.target.value);
+        if (next !== event.target.value) {
+          event.target.value = next;
+        }
+        onChange?.(event);
+      }}
     />
   );
 }

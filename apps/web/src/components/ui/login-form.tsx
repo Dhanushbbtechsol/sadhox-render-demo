@@ -84,6 +84,9 @@ export default function LoginForm({
               type="email"
               placeholder="Email"
               autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={email}
               onChange={(event) => onEmailChange(event.target.value)}
               className="text-foreground placeholder:text-muted-foreground h-11 w-full bg-transparent text-sm outline-none"

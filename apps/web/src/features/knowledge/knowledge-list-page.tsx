@@ -10,6 +10,7 @@ import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/empty-state";
+import { CatalogDescriptionsSection } from "@/components/knowledge/catalog-descriptions-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,14 +39,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useDeleteKnowledgeArticle,
-  useDeleteKnowledgeCategory,
   useKnowledgeArticles,
   useKnowledgeCategories,
 } from "@/features/admin/hooks";
 import type {
   KnowledgeArticle,
   KnowledgeArticleStatus,
-  KnowledgeCategory,
 } from "@/features/admin/types";
 
 import { KnowledgeCategoryDialog } from "./knowledge-category-dialog";
@@ -63,12 +62,10 @@ export default function KnowledgeListPage() {
   const [categoryId, setCategoryId] = useState<string | "all">("all");
   const [status, setStatus] = useState<KnowledgeArticleStatus | "all">("all");
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<KnowledgeCategory | null>(null);
 
   const categories = useKnowledgeCategories();
   const articles = useKnowledgeArticles({ q: query, categoryId, status });
   const deleteArticle = useDeleteKnowledgeArticle();
-  const deleteCategory = useDeleteKnowledgeCategory();
 
   const categoryList = Array.isArray(categories.data) ? categories.data : [];
   const rows = Array.isArray(articles.data) ? articles.data : [];
@@ -85,16 +82,6 @@ export default function KnowledgeListPage() {
     try {
       await deleteArticle.mutateAsync(article.id);
       toast.success(`Deleted “${article.title}”`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Delete failed");
-    }
-  }
-
-  async function handleDeleteCategory(category: KnowledgeCategory) {
-    try {
-      await deleteCategory.mutateAsync(category.id);
-      toast.success(`Deleted category “${category.name}”`);
-      if (categoryId === category.id) setCategoryId("all");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Delete failed");
     }
@@ -118,10 +105,7 @@ export default function KnowledgeListPage() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => {
-              setEditingCategory(null);
-              setCategoryDialogOpen(true);
-            }}
+            onClick={() => setCategoryDialogOpen(true)}
           >
             <TagsIcon />
             New category
@@ -197,40 +181,6 @@ export default function KnowledgeListPage() {
         </Select>
       </div>
 
-      {categoryList.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {categoryList.map((category) => (
-            <div
-              key={category.id}
-              className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs"
-            >
-              <span className="font-medium">{category.name}</span>
-              <Button
-                type="button"
-                size="xs"
-                variant="ghost"
-                className="h-6 px-1.5"
-                onClick={() => {
-                  setEditingCategory(category);
-                  setCategoryDialogOpen(true);
-                }}
-              >
-                Edit
-              </Button>
-              <Button
-                type="button"
-                size="xs"
-                variant="ghost"
-                className="h-6 px-1.5 text-destructive"
-                onClick={() => void handleDeleteCategory(category)}
-              >
-                Delete
-              </Button>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
       {articles.isError ? (
         <p className="text-destructive text-sm">
           {articles.error instanceof Error ? articles.error.message : "Failed to load articles"}
@@ -241,6 +191,7 @@ export default function KnowledgeListPage() {
         <TabsList>
           <TabsTrigger value="browse">Browse</TabsTrigger>
           <TabsTrigger value="manage">Manage</TabsTrigger>
+          <TabsTrigger value="catalog">Service catalog</TabsTrigger>
         </TabsList>
 
         <TabsContent value="browse" className="space-y-4">
@@ -443,12 +394,25 @@ export default function KnowledgeListPage() {
             </div>
           ) : null}
         </TabsContent>
+
+        <TabsContent value="catalog" className="space-y-3">
+          <div className="space-y-1">
+            <h2 className="text-sm font-semibold tracking-tight">
+              Service catalog reference
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              Read-only descriptions of active catalog services, grouped by
+              category. Select a category to browse its services.
+            </p>
+          </div>
+          <CatalogDescriptionsSection />
+        </TabsContent>
       </Tabs>
 
       <KnowledgeCategoryDialog
         open={categoryDialogOpen}
         onOpenChange={setCategoryDialogOpen}
-        category={editingCategory}
+        category={null}
       />
     </div>
   );

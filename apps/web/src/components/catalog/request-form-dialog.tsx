@@ -37,7 +37,7 @@ function buildSchema(item: ServiceCatalogItem) {
   return z.object(shape);
 }
 
-function RequestFormBody({
+export function RequestFormBody({
   item,
   onOpenChange,
 }: {
