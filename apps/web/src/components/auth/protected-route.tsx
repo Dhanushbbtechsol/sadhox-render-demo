@@ -1,15 +1,26 @@
 import { Navigate, Outlet, useLocation } from "react-router";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
+import { ServiceUnavailableScreen } from "@/components/auth/service-unavailable";
 import Loader from "@/components/loader";
+import { getAccessToken } from "@/lib/api";
 import { homePathForRole, useAuthStore } from "@/stores/auth-store";
 import type { UserRole } from "@/types/itsm";
+
+function hasVerifiedSession(
+  isAuthenticated: boolean,
+  user: { role: UserRole } | null,
+): boolean {
+  return Boolean(isAuthenticated && user && getAccessToken());
+}
 
 export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
   const location = useLocation();
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
+  const serviceUnavailable = useAuthStore((s) => s.serviceUnavailable);
+  const verified = hasVerifiedSession(isAuthenticated, user);
 
   if (!isHydrated) {
     return (
@@ -19,21 +30,33 @@ export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
     );
   }
 
-  if (!isAuthenticated || !user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  // Fresh login/refresh wins — don't keep the outage gate after the API is back.
+  if (verified) {
+    if (roles && user && !roles.includes(user.role)) {
+      return <Navigate to={homePathForRole(user.role)} replace />;
+    }
+    return <Outlet />;
   }
 
-  if (roles && !roles.includes(user.role)) {
-    return <Navigate to={homePathForRole(user.role)} replace />;
+  if (serviceUnavailable) {
+    return <ServiceUnavailableScreen />;
   }
 
-  return <Outlet />;
+  return <Navigate to="/login" replace state={{ from: location.pathname }} />;
 }
 
 export function GuestRoute() {
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
+  const serviceUnavailable = useAuthStore((s) => s.serviceUnavailable);
+
+  // Drop a stale outage flag so login → app isn't blocked after Docker is back.
+  useEffect(() => {
+    if (serviceUnavailable) {
+      useAuthStore.setState({ serviceUnavailable: false });
+    }
+  }, [serviceUnavailable]);
 
   if (!isHydrated) {
     return (
@@ -43,7 +66,7 @@ export function GuestRoute() {
     );
   }
 
-  if (isAuthenticated && user) {
+  if (hasVerifiedSession(isAuthenticated, user) && user) {
     return <Navigate to={homePathForRole(user.role)} replace />;
   }
 

@@ -11,6 +11,10 @@ import {
   Query,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  CurrentUser,
+  type AuthUser,
+} from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { ASSET_ADMIN_ROLES } from "./assets.roles";
 import { AssetsService } from "./assets.service";
@@ -35,8 +39,16 @@ export class AssetsController {
   @Post()
   @HttpCode(201)
   @ApiOperation({ summary: "Create asset" })
-  create(@Body() dto: CreateAssetDto) {
-    return this.assets.create(dto);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateAssetDto) {
+    return this.assets.create(dto, user.userId);
+  }
+
+  @Get(":id/assignments")
+  @ApiOperation({
+    summary: "Assignment history for an asset (Admin, newest first)",
+  })
+  listAssignments(@Param("id", ParseUUIDPipe) id: string) {
+    return this.assets.listAssignments(id);
   }
 
   @Get(":id")
@@ -48,10 +60,11 @@ export class AssetsController {
   @Patch(":id")
   @ApiOperation({ summary: "Update asset metadata or owner" })
   update(
+    @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: UpdateAssetDto,
   ) {
-    return this.assets.update(id, dto);
+    return this.assets.update(id, dto, user.userId);
   }
 
   @Delete(":id")

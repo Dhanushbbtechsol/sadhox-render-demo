@@ -5,9 +5,11 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from "@nestjs/common";
 import * as bcrypt from "bcryptjs";
-import { and, asc, count, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import type { Queue } from "bullmq";
 import {
   computeSlaComplianceRate,
@@ -16,9 +18,31 @@ import {
   type ChartRangePreset,
 } from "./chart-range";
 import {
-  buildDashboardReportCsv,
+  buildTicketReportCsv,
+  buildTidyFiguresCsvDocument,
   dashboardReportFilename,
+  REPORT_ROW_CAP,
+  REPORT_STATUS_FILTER,
+  type ReportType,
+  type TicketReportRow,
 } from "./dashboard-report-csv";
+import type { ReportFormat } from "./dto/dashboard-report-query.dto";
+import {
+  WORK_GROUPS_NOTE,
+  buildSummaryWorkbookXml,
+  buildTidyFigureRows,
+  buildWorkGroupRows,
+  summaryFiguresCsvFilename,
+  summaryWorkbookFilename,
+  type OverviewMetric,
+  type SummaryWorkbookData,
+} from "./dashboard-report-workbook";
+import {
+  deskReportToCsv,
+  type DeskReport,
+  type DeskReportRange,
+} from "./desk-report";
+import { assertReportsTo } from "./org-chart";
 import { assertPasswordComplexity } from "../common/password-policy";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
 import type { UserRole } from "../common/types/roles";
@@ -27,14 +51,22 @@ import type { DrizzleDB } from "../database/database.module";
 import {
   auditLog,
   changes,
+  escalationRules,
   incidents,
   projectMembers,
+  projects,
+  serviceCatalog,
   serviceRequests,
   slaRules,
   users,
   type Priority,
 } from "../database/schema";
 import type { ListAuditLogsQueryDto } from "./dto/list-audit-logs-query.dto";
+import {
+  ESCALATION_PRIORITIES,
+  type EscalationPriority,
+  type UpdateEscalationRuleDto,
+} from "./dto/escalation-rule.dto";
 import {
   SLA_PRIORITIES,
   type SlaPriority,
@@ -52,7 +84,24 @@ export type AdminUserView = {
   name: string;
   email: string;
   role: UserRole;
+  reportsToId: string | null;
 };
+
+const QUEUE_PURPOSE: Record<string, string> = {
+  [SLA_QUEUE]:
+    "Every 5 minutes, marks overdue incidents and sends SLA mail.",
+  [TICKET_LIFECYCLE_QUEUE]:
+    "Closes incidents that have stayed Resolved for the auto-close window.",
+  [EMAIL_QUEUE]: "Sends the transactional emails queued by the app.",
+};
+
+const USER_PUBLIC_COLS = {
+  id: users.id,
+  name: users.name,
+  email: users.email,
+  role: users.role,
+  reportsToId: users.reportsToId,
+} as const;
 
 function formatSlaWeekLabel(weekStart: string): string {
   const date = new Date(`${weekStart}T12:00:00Z`);
@@ -74,43 +123,748 @@ export class AdminService {
   ) {}
 
   /**
-   * Phase 8 Admin report — reuses existing aggregate methods (no new SQL).
+   * Admin dashboard report — summary workbook/CSV or ticket CSV by type.
    */
-  async dashboardReportCsv(rangePreset: ChartRangePreset = "30d"): Promise<{
-    csv: string;
+  async dashboardReportCsv(
+    rangePreset: ChartRangePreset = "30d",
+    type: ReportType = "summary",
+    actorId?: string,
+    format: ReportFormat = "excel",
+  ): Promise<{
+    body: string;
     filename: string;
+    contentType: string;
   }> {
-    const [statsBundle, statusBundle, slaCompliance, slaPerf] =
-      await Promise.all([
-        this.dashboardStats(),
-        this.ticketsByStatus(),
-        this.slaCompliance(rangePreset),
-        this.slaPerformance(),
-      ]);
+    const now = new Date();
+    const { from, to } = resolveChartRange(rangePreset, now);
 
-    const csv = buildDashboardReportCsv({
-      range: rangePreset,
-      generatedAt: new Date().toISOString(),
-      kpis: statsBundle.kpis,
-      ticketsByStatus: statusBundle.ticketsByStatus,
-      ticketsByPriority: statusBundle.ticketsByPriority,
-      ticketsByModule: statusBundle.ticketsByModule,
-      slaCompliance: {
-        from: slaCompliance.from,
-        to: slaCompliance.to,
-        met: slaCompliance.met,
-        breached: slaCompliance.breached,
-        rate: slaCompliance.rate,
-      },
-      slaPerformance: slaPerf.data.map((row) => ({
-        weekStart: row.weekStart,
-        label: formatSlaWeekLabel(row.weekStart),
-        met: row.met,
-        breached: row.breached,
-      })),
+    if (type === "summary") {
+      return this.buildSummaryReport(rangePreset, from, to, now, format, actorId);
+    }
+
+    const tickets = await this.fetchReportTickets(type, from, to, this.db);
+    if (tickets.length > REPORT_ROW_CAP) {
+      throw new UnprocessableEntityException(
+        `Report exceeds ${REPORT_ROW_CAP} rows. Narrow the range or use format=csv on a smaller type.`,
+      );
+    }
+    const body = buildTicketReportCsv(tickets);
+    if (actorId) {
+      await this.writeReportAudit(actorId, type, format, rangePreset, tickets.length);
+    }
+    return {
+      body,
+      filename: dashboardReportFilename(type, rangePreset, now),
+      contentType: "text/csv; charset=utf-8",
+    };
+  }
+
+  private async writeReportAudit(
+    actorId: string,
+    type: ReportType,
+    format: ReportFormat,
+    range: ChartRangePreset,
+    rowCount: number,
+  ) {
+    await this.db.insert(auditLog).values({
+      actorId,
+      action: "report.export",
+      entityType: "dashboard_report",
+      entityId: null,
+      diff: { type, format, range, rowCount },
     });
+  }
 
-    return { csv, filename: dashboardReportFilename(rangePreset) };
+  private async buildSummaryReport(
+    rangePreset: ChartRangePreset,
+    from: Date,
+    to: Date,
+    now: Date,
+    format: ReportFormat,
+    actorId?: string,
+  ): Promise<{ body: string; filename: string; contentType: string }> {
+    const data = await this.db.transaction(
+      async (tx) => {
+        const tickets = await this.fetchReportTickets("all", from, to, tx);
+        if (tickets.length > REPORT_ROW_CAP) {
+          throw new UnprocessableEntityException(
+            `Report exceeds ${REPORT_ROW_CAP} rows. Narrow the range or use format=csv.`,
+          );
+        }
+
+        const [volume, statusDist, slaComp, priorityRows, slaWeeks, dashStats] =
+          await Promise.all([
+            this.queryVolumeByModule(tx, from, to, rangePreset),
+            this.queryStatusDistribution(tx, from, to, rangePreset),
+            this.querySlaCompliance(tx, from, to, rangePreset),
+            this.queryPriorityCountsInRange(tx, from, to),
+            this.querySlaWeeksInRange(tx, from, to),
+            this.queryDashboardStatsSnapshot(tx),
+          ]);
+
+        const byModule = volume.data;
+        const rangeTotal = tickets.length;
+        const rangeOpen = byModule.reduce((sum, m) => sum + m.open, 0);
+        const rangeClosed = byModule.reduce((sum, m) => sum + m.closed, 0);
+        const p1InRange = tickets.filter(
+          (t) => t.module === "Incident" && t.priority === "P1",
+        ).length;
+
+        const overview: OverviewMetric[] = [
+          {
+            metric: "Total tickets (range)",
+            value: rangeTotal,
+            unit: "count",
+            definition:
+              "Tickets created in the selected range (reconciles with By Module and Tickets).",
+          },
+          {
+            metric: "Open tickets (range)",
+            value: rangeOpen,
+            unit: "count",
+            definition:
+              "Open counts from volume-by-module rules for tickets created in range.",
+          },
+          {
+            metric: "Closed tickets (range)",
+            value: rangeClosed,
+            unit: "count",
+            definition: "Closed counts from volume-by-module rules; Open + Closed = Total per module.",
+          },
+          {
+            metric: "P1 incidents (range)",
+            value: p1InRange,
+            unit: "count",
+            definition: "Incidents in range with priority P1.",
+          },
+          {
+            metric: "SLA compliance (range)",
+            value: slaComp.rate,
+            unit: "%",
+            definition:
+              "Resolved incidents with SLA due in range (same as dashboard SLA gauge). Empty if no samples.",
+          },
+          {
+            metric: "Dashboard: Total tickets",
+            value: dashStats.totalTickets,
+            unit: "count",
+            definition: "KPI card — all-time (not range-filtered).",
+          },
+          {
+            metric: "Dashboard: Open tickets",
+            value: dashStats.openTickets,
+            unit: "count",
+            definition: "KPI card — all-time open incidents + requests.",
+          },
+          {
+            metric: "Dashboard: P1 incidents",
+            value: dashStats.p1Incidents,
+            unit: "count",
+            definition: "KPI card — all-time P1 incidents.",
+          },
+          {
+            metric: "Dashboard: SLA compliance",
+            value: dashStats.slaCompliance,
+            unit: "%",
+            definition: "KPI card — all resolved SLA samples (all-time).",
+          },
+          {
+            metric: "Range",
+            value: rangePreset,
+            unit: "",
+            definition: "7d | 30d | ytd window used for range-scoped sheets.",
+          },
+          {
+            metric: "Generated at (UTC)",
+            value: now.toISOString().replace("T", " ").slice(0, 19),
+            unit: "",
+            definition: "Fixed clock for this workbook (REPEATABLE READ).",
+          },
+        ];
+
+        const workbook: SummaryWorkbookData = {
+          period: { range: rangePreset, from, to, generatedAt: now },
+          overview,
+          byModule,
+          byStatus: statusDist.data.map((r) => ({
+            module: r.module,
+            status: r.label,
+            count: r.count,
+          })),
+          workGroups: buildWorkGroupRows(tickets),
+          workGroupsNote: WORK_GROUPS_NOTE,
+          byPriority: priorityRows,
+          slaCompliance: {
+            met: slaComp.met,
+            breached: slaComp.breached,
+            rate:
+              slaComp.met + slaComp.breached === 0 ? null : slaComp.rate,
+          },
+          slaWeeks: slaWeeks.map((row) => ({
+            weekStart: row.weekStart,
+            label: formatSlaWeekLabel(row.weekStart),
+            met: row.met,
+            breached: row.breached,
+          })),
+          tickets,
+        };
+        return workbook;
+      },
+      { isolationLevel: "repeatable read", accessMode: "read only" },
+    );
+
+    let body: string;
+    let filename: string;
+    let contentType: string;
+    let rowCount: number;
+
+    if (format === "csv") {
+      const tidy = buildTidyFigureRows(data);
+      body = buildTidyFiguresCsvDocument(tidy);
+      filename = summaryFiguresCsvFilename(rangePreset, now);
+      contentType = "text/csv; charset=utf-8";
+      rowCount = tidy.length;
+    } else {
+      body = buildSummaryWorkbookXml(data);
+      filename = summaryWorkbookFilename(rangePreset, now);
+      contentType = "application/vnd.ms-excel; charset=utf-8";
+      rowCount = data.tickets.length;
+    }
+
+    if (actorId) {
+      await this.writeReportAudit(actorId, "summary", format, rangePreset, rowCount);
+    }
+
+    return { body, filename, contentType };
+  }
+
+  private async fetchReportTickets(
+    type: Exclude<ReportType, "summary">,
+    from: Date,
+    to: Date,
+    db: DrizzleDB,
+  ): Promise<TicketReportRow[]> {
+    const statusFilter =
+      type === "all" ? null : REPORT_STATUS_FILTER[type];
+
+    const incidentStatuses = statusFilter?.incidents;
+    const srStatuses = statusFilter?.serviceRequests;
+    const changeStatuses = statusFilter?.changes;
+
+    const fetchIncidents =
+      type === "all" || (incidentStatuses && incidentStatuses.length > 0);
+    const fetchSr = type === "all" || (srStatuses && srStatuses.length > 0);
+    const fetchChanges =
+      type === "all" || (changeStatuses && changeStatuses.length > 0);
+
+    const [incidentRows, srRows, changeRows] = await Promise.all([
+      fetchIncidents
+        ? this.queryIncidentReportRows(
+            db,
+            from,
+            to,
+            type === "all" ? undefined : incidentStatuses,
+          )
+        : Promise.resolve([] as TicketReportRow[]),
+      fetchSr
+        ? this.queryServiceRequestReportRows(
+            db,
+            from,
+            to,
+            type === "all" ? undefined : srStatuses,
+          )
+        : Promise.resolve([] as TicketReportRow[]),
+      fetchChanges
+        ? this.queryChangeReportRows(
+            db,
+            from,
+            to,
+            type === "all" ? undefined : changeStatuses,
+          )
+        : Promise.resolve([] as TicketReportRow[]),
+    ]);
+
+    return [...incidentRows, ...srRows, ...changeRows];
+  }
+
+  private async queryVolumeByModule(
+    db: DrizzleDB,
+    from: Date,
+    to: Date,
+    range: ChartRangePreset,
+  ) {
+    const [incidentAgg] = await db
+      .select({
+        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress'))`,
+        closed: sql<number>`count(*) filter (where ${incidents.status} in ('Resolved','Closed'))`,
+      })
+      .from(incidents)
+      .where(and(gte(incidents.createdAt, from), lte(incidents.createdAt, to)));
+
+    const [srAgg] = await db
+      .select({
+        open: sql<number>`count(*) filter (where ${serviceRequests.status} not in ('Fulfilled','Closed','Rejected'))`,
+        closed: sql<number>`count(*) filter (where ${serviceRequests.status} in ('Fulfilled','Closed','Rejected'))`,
+      })
+      .from(serviceRequests)
+      .where(
+        and(
+          gte(serviceRequests.createdAt, from),
+          lte(serviceRequests.createdAt, to),
+        ),
+      );
+
+    const [changeAgg] = await db
+      .select({
+        open: sql<number>`count(*) filter (where ${changes.status} not in ('Completed','Closed','Cancelled','Failed','RolledBack'))`,
+        closed: sql<number>`count(*) filter (where ${changes.status} in ('Completed','Closed','Cancelled','Failed','RolledBack'))`,
+      })
+      .from(changes)
+      .where(and(gte(changes.createdAt, from), lte(changes.createdAt, to)));
+
+    return {
+      range,
+      data: [
+        {
+          module: "Incident",
+          ...stackOpenClosed(
+            Number(incidentAgg?.open ?? 0),
+            Number(incidentAgg?.closed ?? 0),
+          ),
+        },
+        {
+          module: "Service Request",
+          ...stackOpenClosed(
+            Number(srAgg?.open ?? 0),
+            Number(srAgg?.closed ?? 0),
+          ),
+        },
+        {
+          module: "Change",
+          ...stackOpenClosed(
+            Number(changeAgg?.open ?? 0),
+            Number(changeAgg?.closed ?? 0),
+          ),
+        },
+      ],
+    };
+  }
+
+  private async queryStatusDistribution(
+    db: DrizzleDB,
+    from: Date,
+    to: Date,
+    range: ChartRangePreset,
+  ) {
+    const [incidentRows, requestRows, changeRows] = await Promise.all([
+      db
+        .select({ status: incidents.status, count: count() })
+        .from(incidents)
+        .where(and(gte(incidents.createdAt, from), lte(incidents.createdAt, to)))
+        .groupBy(incidents.status),
+      db
+        .select({ status: serviceRequests.status, count: count() })
+        .from(serviceRequests)
+        .where(
+          and(
+            gte(serviceRequests.createdAt, from),
+            lte(serviceRequests.createdAt, to),
+          ),
+        )
+        .groupBy(serviceRequests.status),
+      db
+        .select({ status: changes.status, count: count() })
+        .from(changes)
+        .where(and(gte(changes.createdAt, from), lte(changes.createdAt, to)))
+        .groupBy(changes.status),
+    ]);
+
+    const data = [
+      ...incidentRows.map((r) => ({
+        module: "Incident",
+        label: r.status,
+        count: Number(r.count),
+      })),
+      ...requestRows.map((r) => ({
+        module: "Service Request",
+        label: r.status,
+        count: Number(r.count),
+      })),
+      ...changeRows.map((r) => ({
+        module: "Change",
+        label: r.status,
+        count: Number(r.count),
+      })),
+    ].filter((row) => row.count > 0);
+
+    return { range, data };
+  }
+
+  private async querySlaCompliance(
+    db: DrizzleDB,
+    from: Date,
+    to: Date,
+    range: ChartRangePreset,
+  ) {
+    const [agg] = await db
+      .select({
+        met: sql<number>`count(*) filter (
+          where ${incidents.slaDueAt} is not null
+            and ${incidents.resolvedAt} is not null
+            and ${incidents.resolvedAt} <= ${incidents.slaDueAt}
+        )`,
+        breached: sql<number>`count(*) filter (
+          where ${incidents.slaDueAt} is not null
+            and ${incidents.resolvedAt} is not null
+            and ${incidents.resolvedAt} > ${incidents.slaDueAt}
+        )`,
+      })
+      .from(incidents)
+      .where(
+        and(
+          sql`${incidents.resolvedAt} is not null`,
+          gte(incidents.resolvedAt, from),
+          lte(incidents.resolvedAt, to),
+        ),
+      );
+    const met = Number(agg?.met ?? 0);
+    const breached = Number(agg?.breached ?? 0);
+    return {
+      range,
+      met,
+      breached,
+      rate: computeSlaComplianceRate(met, breached),
+    };
+  }
+
+  private async queryPriorityCountsInRange(
+    db: DrizzleDB,
+    from: Date,
+    to: Date,
+  ) {
+    const rows = await db
+      .select({
+        priority: incidents.priority,
+        count: count(),
+      })
+      .from(incidents)
+      .where(and(gte(incidents.createdAt, from), lte(incidents.createdAt, to)))
+      .groupBy(incidents.priority);
+    return rows.map((r) => ({
+      priority: r.priority,
+      count: Number(r.count),
+    }));
+  }
+
+  private async querySlaWeeksInRange(db: DrizzleDB, from: Date, to: Date) {
+    const rows = await db
+      .select({
+        weekStart: sql<string>`to_char(date_trunc('week', ${incidents.resolvedAt}), 'YYYY-MM-DD')`,
+        met: sql<number>`count(*) filter (
+          where ${incidents.slaDueAt} is not null
+            and ${incidents.resolvedAt} is not null
+            and ${incidents.resolvedAt} <= ${incidents.slaDueAt}
+        )`,
+        breached: sql<number>`count(*) filter (
+          where ${incidents.slaDueAt} is not null
+            and ${incidents.resolvedAt} is not null
+            and ${incidents.resolvedAt} > ${incidents.slaDueAt}
+        )`,
+      })
+      .from(incidents)
+      .where(
+        and(
+          sql`${incidents.resolvedAt} is not null`,
+          gte(incidents.resolvedAt, from),
+          lte(incidents.resolvedAt, to),
+        ),
+      )
+      .groupBy(sql`date_trunc('week', ${incidents.resolvedAt})`)
+      .orderBy(sql`date_trunc('week', ${incidents.resolvedAt})`);
+
+    return rows.map((row) => ({
+      weekStart: row.weekStart,
+      met: Number(row.met),
+      breached: Number(row.breached),
+    }));
+  }
+
+  private async queryDashboardStatsSnapshot(db: DrizzleDB) {
+    const [incidentAgg] = await db
+      .select({
+        total: count(),
+        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress'))`,
+        p1: sql<number>`count(*) filter (where ${incidents.priority} = 'P1')`,
+        slaMet: sql<number>`count(*) filter (
+          where ${incidents.slaDueAt} is not null
+            and ${incidents.resolvedAt} is not null
+            and ${incidents.resolvedAt} <= ${incidents.slaDueAt}
+        )`,
+        slaTotal: sql<number>`count(*) filter (
+          where ${incidents.slaDueAt} is not null
+            and ${incidents.resolvedAt} is not null
+        )`,
+      })
+      .from(incidents);
+
+    const [srCount] = await db.select({ total: count() }).from(serviceRequests);
+    const [changeCount] = await db.select({ total: count() }).from(changes);
+    const [srOpen] = await db
+      .select({
+        open: sql<number>`count(*) filter (where ${serviceRequests.status} not in ('Fulfilled','Closed','Rejected','Draft'))`,
+      })
+      .from(serviceRequests);
+
+    const totalTickets =
+      Number(incidentAgg?.total ?? 0) +
+      Number(srCount?.total ?? 0) +
+      Number(changeCount?.total ?? 0);
+    const openTickets =
+      Number(incidentAgg?.open ?? 0) + Number(srOpen?.open ?? 0);
+    const p1 = Number(incidentAgg?.p1 ?? 0);
+    const slaTotal = Number(incidentAgg?.slaTotal ?? 0);
+    const slaMet = Number(incidentAgg?.slaMet ?? 0);
+    const slaCompliance =
+      slaTotal === 0 ? 100 : Math.round((slaMet / slaTotal) * 1000) / 10;
+
+    return {
+      totalTickets,
+      openTickets,
+      p1Incidents: p1,
+      slaCompliance,
+    };
+  }
+
+  private async queryIncidentReportRows(
+    db: DrizzleDB,
+    from: Date,
+    to: Date,
+    statuses?: string[],
+  ): Promise<TicketReportRow[]> {
+    const reporter = alias(users, "report_incident_reporter");
+    const assignee = alias(users, "report_incident_assignee");
+    const filters = [
+      gte(incidents.createdAt, from),
+      lte(incidents.createdAt, to),
+    ];
+    if (statuses && statuses.length > 0) {
+      filters.push(
+        inArray(
+          incidents.status,
+          statuses as Array<
+            "New" | "Assigned" | "InProgress" | "Resolved" | "Closed"
+          >,
+        ),
+      );
+    }
+
+    const rows = await db
+      .select({
+        id: incidents.id,
+        title: incidents.title,
+        status: incidents.status,
+        priority: incidents.priority,
+        category: incidents.category,
+        subcategory: incidents.subcategory,
+        projectName: projects.name,
+        assignedTo: assignee.name,
+        raisedBy: reporter.name,
+        createdAt: incidents.createdAt,
+        updatedAt: incidents.updatedAt,
+        slaDueAt: incidents.slaDueAt,
+        slaBreached: incidents.slaBreached,
+        resolvedAt: incidents.resolvedAt,
+        closedAt: incidents.closedAt,
+        description: incidents.description,
+      })
+      .from(incidents)
+      .leftJoin(projects, eq(incidents.projectId, projects.id))
+      .leftJoin(reporter, eq(incidents.reporterId, reporter.id))
+      .leftJoin(assignee, eq(incidents.assignedTo, assignee.id))
+      .where(and(...filters))
+      .limit(REPORT_ROW_CAP + 1);
+
+    return rows.map((row) => ({
+      id: row.id,
+      module: "Incident" as const,
+      title: row.title,
+      status: row.status,
+      priority: row.priority,
+      category: row.category,
+      subcategory: row.subcategory,
+      projectName: row.projectName,
+      assignedTo: row.assignedTo,
+      raisedBy: row.raisedBy,
+      approvedBy: null,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      slaDueAt: row.slaDueAt,
+      slaBreached: row.slaBreached,
+      resolvedAt: row.resolvedAt,
+      closedAt: row.closedAt,
+      approvedAt: null,
+      description: row.description,
+    }));
+  }
+
+  private async queryServiceRequestReportRows(
+    db: DrizzleDB,
+    from: Date,
+    to: Date,
+    statuses?: string[],
+  ): Promise<TicketReportRow[]> {
+    const requester = alias(users, "report_sr_requester");
+    const assignee = alias(users, "report_sr_assignee");
+    const approver = alias(users, "report_sr_approver");
+    const filters = [
+      gte(serviceRequests.createdAt, from),
+      lte(serviceRequests.createdAt, to),
+    ];
+    if (statuses && statuses.length > 0) {
+      filters.push(
+        inArray(
+          serviceRequests.status,
+          statuses as Array<
+            | "Draft"
+            | "Submitted"
+            | "PendingApproval"
+            | "Approved"
+            | "Rejected"
+            | "InFulfillment"
+            | "Fulfilled"
+            | "Closed"
+          >,
+        ),
+      );
+    }
+
+    const rows = await db
+      .select({
+        id: serviceRequests.id,
+        title: serviceRequests.title,
+        status: serviceRequests.status,
+        urgency: serviceRequests.urgency,
+        category: serviceCatalog.department,
+        subcategory: serviceCatalog.subcategory,
+        projectName: projects.name,
+        assignedTo: assignee.name,
+        raisedBy: requester.name,
+        approvedBy: approver.name,
+        createdAt: serviceRequests.createdAt,
+        updatedAt: serviceRequests.updatedAt,
+        approvedAt: serviceRequests.approvedAt,
+        description: serviceRequests.description,
+      })
+      .from(serviceRequests)
+      .leftJoin(
+        serviceCatalog,
+        eq(serviceRequests.catalogId, serviceCatalog.id),
+      )
+      .leftJoin(projects, eq(serviceRequests.projectId, projects.id))
+      .leftJoin(requester, eq(serviceRequests.requesterId, requester.id))
+      .leftJoin(assignee, eq(serviceRequests.assigneeId, assignee.id))
+      .leftJoin(approver, eq(serviceRequests.approverId, approver.id))
+      .where(and(...filters))
+      .limit(REPORT_ROW_CAP + 1);
+
+    return rows.map((row) => ({
+      id: row.id,
+      module: "Service Request" as const,
+      title: row.title,
+      status: row.status,
+      priority: row.urgency,
+      category: row.category,
+      subcategory: row.subcategory,
+      projectName: row.projectName,
+      assignedTo: row.assignedTo,
+      raisedBy: row.raisedBy,
+      approvedBy: row.approvedBy,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      slaDueAt: null,
+      slaBreached: null,
+      resolvedAt: null,
+      closedAt: null,
+      approvedAt: row.approvedAt,
+      description: row.description,
+    }));
+  }
+
+  private async queryChangeReportRows(
+    db: DrizzleDB,
+    from: Date,
+    to: Date,
+    statuses?: string[],
+  ): Promise<TicketReportRow[]> {
+    const creator = alias(users, "report_change_creator");
+    const approver = alias(users, "report_change_approver");
+    const filters = [
+      gte(changes.createdAt, from),
+      lte(changes.createdAt, to),
+    ];
+    if (statuses && statuses.length > 0) {
+      filters.push(
+        inArray(
+          changes.status,
+          statuses as Array<
+            | "Draft"
+            | "PendingApproval"
+            | "Submitted"
+            | "Approved"
+            | "Scheduled"
+            | "Implementing"
+            | "Implemented"
+            | "Completed"
+            | "Closed"
+            | "Failed"
+            | "RolledBack"
+            | "Cancelled"
+          >,
+        ),
+      );
+    }
+
+    const rows = await db
+      .select({
+        id: changes.id,
+        title: changes.title,
+        status: changes.status,
+        projectName: projects.name,
+        raisedBy: creator.name,
+        approvedBy: approver.name,
+        createdAt: changes.createdAt,
+        updatedAt: changes.updatedAt,
+        approvedAt: changes.approvedAt,
+        description: changes.description,
+      })
+      .from(changes)
+      .leftJoin(projects, eq(changes.projectId, projects.id))
+      .leftJoin(creator, eq(changes.createdBy, creator.id))
+      .leftJoin(approver, eq(changes.approvedBy, approver.id))
+      .where(and(...filters))
+      .limit(REPORT_ROW_CAP + 1);
+
+    return rows.map((row) => ({
+      id: row.id,
+      module: "Change" as const,
+      title: row.title,
+      status: row.status,
+      priority: null,
+      category: null,
+      subcategory: null,
+      projectName: row.projectName,
+      assignedTo: null,
+      raisedBy: row.raisedBy,
+      approvedBy: row.approvedBy,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      slaDueAt: null,
+      slaBreached: null,
+      resolvedAt: null,
+      closedAt: null,
+      approvedAt: row.approvedAt,
+      description: row.description,
+    }));
   }
 
   async dashboardStats() {
@@ -513,22 +1267,12 @@ export class AdminService {
   ): Promise<{ data: AdminUserView[] }> {
     const rows = role
       ? await this.db
-          .select({
-            id: users.id,
-            name: users.name,
-            email: users.email,
-            role: users.role,
-          })
+          .select(USER_PUBLIC_COLS)
           .from(users)
           .where(eq(users.role, role))
           .orderBy(asc(users.name))
       : await this.db
-          .select({
-            id: users.id,
-            name: users.name,
-            email: users.email,
-            role: users.role,
-          })
+          .select(USER_PUBLIC_COLS)
           .from(users)
           .orderBy(asc(users.name));
 
@@ -537,12 +1281,7 @@ export class AdminService {
 
   async getUser(userId: string): Promise<AdminUserView> {
     const [row] = await this.db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        role: users.role,
-      })
+      .select(USER_PUBLIC_COLS)
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
@@ -557,6 +1296,14 @@ export class AdminService {
     this.assertPasswordOrThrow(dto.password);
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
+    let reportsToId: string | null = null;
+    if (dto.reportsToId) {
+      const manager = await this.loadReportsToTarget(dto.reportsToId);
+      // Create has no id yet — empty string cannot equal a UUID reportsToId.
+      assertReportsTo(dto.reportsToId, "", manager.role);
+      reportsToId = dto.reportsToId;
+    }
+
     try {
       const [created] = await this.db
         .insert(users)
@@ -565,13 +1312,9 @@ export class AdminService {
           email,
           passwordHash,
           role: dto.role,
+          reportsToId,
         })
-        .returning({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-          role: users.role,
-        });
+        .returning(USER_PUBLIC_COLS);
       return created!;
     } catch (err) {
       if (this.isUniqueViolation(err)) {
@@ -595,7 +1338,8 @@ export class AdminService {
       dto.name === undefined &&
       dto.email === undefined &&
       dto.password === undefined &&
-      dto.role === undefined
+      dto.role === undefined &&
+      dto.reportsToId === undefined
     ) {
       throw new BadRequestException("No fields to update");
     }
@@ -607,6 +1351,7 @@ export class AdminService {
           email: users.email,
           name: users.name,
           role: users.role,
+          reportsToId: users.reportsToId,
         })
         .from(users)
         .where(eq(users.id, userId))
@@ -620,6 +1365,7 @@ export class AdminService {
         email?: string;
         passwordHash?: string;
         role?: UserRole;
+        reportsToId?: string | null;
         updatedAt: Date;
       } = { updatedAt: new Date() };
 
@@ -638,6 +1384,22 @@ export class AdminService {
       if (dto.role !== undefined) {
         patch.role = dto.role;
       }
+      if (dto.reportsToId !== undefined) {
+        if (dto.reportsToId === null) {
+          patch.reportsToId = null;
+        } else {
+          const [manager] = await tx
+            .select({ id: users.id, role: users.role })
+            .from(users)
+            .where(eq(users.id, dto.reportsToId))
+            .limit(1);
+          if (!manager) {
+            throw new BadRequestException("reportsToId user not found");
+          }
+          assertReportsTo(dto.reportsToId, userId, manager.role);
+          patch.reportsToId = dto.reportsToId;
+        }
+      }
 
       let updated: AdminUserView;
       try {
@@ -645,12 +1407,7 @@ export class AdminService {
           .update(users)
           .set(patch)
           .where(eq(users.id, userId))
-          .returning({
-            id: users.id,
-            email: users.email,
-            name: users.name,
-            role: users.role,
-          });
+          .returning(USER_PUBLIC_COLS);
         updated = row!;
       } catch (err) {
         if (this.isUniqueViolation(err)) {
@@ -674,6 +1431,18 @@ export class AdminService {
         membershipsRemoved,
       };
     });
+  }
+
+  private async loadReportsToTarget(reportsToId: string) {
+    const [manager] = await this.db
+      .select({ id: users.id, role: users.role })
+      .from(users)
+      .where(eq(users.id, reportsToId))
+      .limit(1);
+    if (!manager) {
+      throw new BadRequestException("reportsToId user not found");
+    }
+    return manager;
   }
 
   private assertPasswordOrThrow(password: string): void {
@@ -770,6 +1539,200 @@ export class AdminService {
     };
   }
 
+  async listEscalationRules() {
+    const rows = await this.db
+      .select({
+        priority: escalationRules.priority,
+        notifyManager: escalationRules.notifyManager,
+        notifyAdmin: escalationRules.notifyAdmin,
+      })
+      .from(escalationRules)
+      .orderBy(asc(escalationRules.priority));
+    return rows;
+  }
+
+  async updateEscalationRule(
+    priority: string,
+    dto: UpdateEscalationRuleDto,
+  ) {
+    if (!ESCALATION_PRIORITIES.includes(priority as EscalationPriority)) {
+      throw new BadRequestException(
+        `priority must be one of ${ESCALATION_PRIORITIES.join(", ")}`,
+      );
+    }
+    const p = priority as Priority;
+    const [existing] = await this.db
+      .select({ priority: escalationRules.priority })
+      .from(escalationRules)
+      .where(eq(escalationRules.priority, p))
+      .limit(1);
+    if (!existing) {
+      throw new NotFoundException(`Escalation rule not found for ${p}`);
+    }
+    const [row] = await this.db
+      .update(escalationRules)
+      .set({
+        notifyManager: dto.notifyManager,
+        notifyAdmin: dto.notifyAdmin,
+      })
+      .where(eq(escalationRules.priority, p))
+      .returning({
+        priority: escalationRules.priority,
+        notifyManager: escalationRules.notifyManager,
+        notifyAdmin: escalationRules.notifyAdmin,
+      });
+    return row!;
+  }
+
+  /**
+   * Phase 9 desk report — Admin scope All, or Manager scope Team (direct reports).
+   */
+  async buildDeskReport(opts: {
+    range: DeskReportRange;
+    scope: "All" | "Team";
+    managerId?: string;
+  }): Promise<DeskReport> {
+    const { range, from, to } = resolveChartRange(opts.range);
+    const teamFilter =
+      opts.scope === "Team" && opts.managerId
+        ? eq(users.reportsToId, opts.managerId)
+        : null;
+
+    const incidentBase = this.db
+      .select({
+        status: incidents.status,
+        priority: incidents.priority,
+        category: incidents.category,
+        slaBreached: incidents.slaBreached,
+        resolvedAt: incidents.resolvedAt,
+      })
+      .from(incidents);
+
+    const incidentRows =
+      teamFilter != null
+        ? await incidentBase
+            .innerJoin(users, eq(incidents.assignedTo, users.id))
+            .where(
+              and(
+                gte(incidents.createdAt, from),
+                lte(incidents.createdAt, to),
+                teamFilter,
+              ),
+            )
+        : await incidentBase.where(
+            and(gte(incidents.createdAt, from), lte(incidents.createdAt, to)),
+          );
+
+    const srBase = this.db
+      .select({
+        status: serviceRequests.status,
+      })
+      .from(serviceRequests);
+
+    const srRows =
+      teamFilter != null
+        ? await srBase
+            .innerJoin(users, eq(serviceRequests.requesterId, users.id))
+            .where(
+              and(
+                gte(serviceRequests.createdAt, from),
+                lte(serviceRequests.createdAt, to),
+                teamFilter,
+              ),
+            )
+        : await srBase.where(
+            and(
+              gte(serviceRequests.createdAt, from),
+              lte(serviceRequests.createdAt, to),
+            ),
+          );
+
+    const openIncidentStatuses = new Set(["New", "Assigned", "InProgress"]);
+    const openSrStatuses = new Set([
+      "Submitted",
+      "PendingApproval",
+      "Approved",
+      "InFulfillment",
+    ]);
+
+    let incidentsOpen = 0;
+    let incidentsResolved = 0;
+    let slaMet = 0;
+    let slaBreached = 0;
+    const byStatus = new Map<string, number>();
+    const byPriority = new Map<string, number>();
+    const byCategory = new Map<string, number>();
+
+    for (const row of incidentRows) {
+      byStatus.set(row.status, (byStatus.get(row.status) ?? 0) + 1);
+      byPriority.set(row.priority, (byPriority.get(row.priority) ?? 0) + 1);
+      byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + 1);
+      if (openIncidentStatuses.has(row.status)) incidentsOpen += 1;
+      if (row.status === "Resolved" || row.resolvedAt) incidentsResolved += 1;
+      if (row.slaBreached) slaBreached += 1;
+      else if (row.resolvedAt) slaMet += 1;
+    }
+
+    let serviceRequestsOpen = 0;
+    let serviceRequestsApproved = 0;
+    for (const row of srRows) {
+      if (openSrStatuses.has(row.status)) serviceRequestsOpen += 1;
+      if (
+        row.status === "Approved" ||
+        row.status === "InFulfillment" ||
+        row.status === "Fulfilled"
+      ) {
+        serviceRequestsApproved += 1;
+      }
+    }
+
+    return {
+      title: "Desk report",
+      generatedAt: new Date().toISOString(),
+      range,
+      scope: opts.scope,
+      kpis: {
+        incidentsOpen,
+        incidentsResolved,
+        serviceRequestsOpen,
+        serviceRequestsApproved,
+      },
+      byStatus: [...byStatus.entries()].map(([status, count]) => ({
+        status,
+        count,
+      })),
+      byPriority: [...byPriority.entries()].map(([priority, count]) => ({
+        priority,
+        count,
+      })),
+      byCategory: [...byCategory.entries()].map(([category, count]) => ({
+        category,
+        count,
+      })),
+      sla: {
+        met: slaMet,
+        breached: slaBreached,
+        rate: computeSlaComplianceRate(slaMet, slaBreached),
+      },
+    };
+  }
+
+  async deskReportResponse(
+    range: DeskReportRange,
+    format: "json" | "csv",
+    scope: "All" | "Team",
+    managerId?: string,
+  ): Promise<{ body: DeskReport | string; filename?: string }> {
+    const report = await this.buildDeskReport({ range, scope, managerId });
+    if (format === "csv") {
+      return {
+        body: deskReportToCsv(report),
+        filename: `desk-report-${range}.csv`,
+      };
+    }
+    return { body: report };
+  }
+
   async queueHealth() {
     const queues = [
       { name: SLA_QUEUE, queue: this.slaQueue },
@@ -790,9 +1753,11 @@ export class AdminService {
           const paused = await queue.isPaused();
           const failed = counts.failed ?? 0;
           const stalled = await this.countStalledFailures(queue);
+          const lastFailure = await this.newestFailedJob(queue);
           const alert = failed > 0 || paused || stalled > 0;
           return {
             name,
+            purpose: QUEUE_PURPOSE[name] ?? "",
             counts: {
               active: counts.active ?? 0,
               waiting: counts.waiting ?? 0,
@@ -804,11 +1769,13 @@ export class AdminService {
             },
             paused,
             alert,
+            lastFailure,
             error: null as string | null,
           };
         } catch (err) {
           return {
             name,
+            purpose: QUEUE_PURPOSE[name] ?? "",
             counts: {
               active: 0,
               waiting: 0,
@@ -820,6 +1787,7 @@ export class AdminService {
             },
             paused: false,
             alert: true,
+            lastFailure: null,
             error: err instanceof Error ? err.message : String(err),
           };
         }
@@ -841,6 +1809,24 @@ export class AdminService {
       ).length;
     } catch {
       return 0;
+    }
+  }
+
+  private async newestFailedJob(
+    queue: Queue,
+  ): Promise<{ jobName: string; reason: string; failedAt: string } | null> {
+    try {
+      const failedJobs = await queue.getJobs(["failed"], 0, 0, false);
+      const job = failedJobs[0];
+      if (!job) return null;
+      const failedAtMs = job.finishedOn ?? job.timestamp ?? Date.now();
+      return {
+        jobName: job.name,
+        reason: job.failedReason ?? "unknown",
+        failedAt: new Date(failedAtMs).toISOString(),
+      };
+    } catch {
+      return null;
     }
   }
 }

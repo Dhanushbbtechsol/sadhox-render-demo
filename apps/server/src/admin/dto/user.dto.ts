@@ -4,8 +4,10 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
+  ValidateIf,
 } from "class-validator";
 import type { UserRole } from "../../common/types/roles";
 
@@ -37,6 +39,16 @@ export class CreateUserDto {
   @ApiProperty({ enum: USER_ROLES })
   @IsIn(USER_ROLES)
   role!: UserRole;
+
+  @ApiPropertyOptional({
+    format: "uuid",
+    nullable: true,
+    description: "Manager or Admin this user reports to (Phase 9)",
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsUUID()
+  reportsToId?: string | null;
 }
 
 export class UpdateUserDto {
@@ -64,4 +76,14 @@ export class UpdateUserDto {
   @IsOptional()
   @IsIn(USER_ROLES)
   role?: UserRole;
+
+  @ApiPropertyOptional({
+    format: "uuid",
+    nullable: true,
+    description: "Manager or Admin this user reports to; null clears (Phase 9)",
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsUUID()
+  reportsToId?: string | null;
 }

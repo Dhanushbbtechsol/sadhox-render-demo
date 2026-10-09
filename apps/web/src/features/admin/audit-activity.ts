@@ -29,7 +29,7 @@ export function formatAuditSummary(entry: AuditLog): string {
   const detail = describeActivity(entry);
 
   if (detail.kind === "system") {
-    return detail.text;
+    return detail.text ?? who;
   }
 
   const failed = detail.failed ? " (failed)" : "";

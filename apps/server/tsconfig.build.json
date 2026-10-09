@@ -4,6 +4,7 @@
     "node_modules",
     "dist",
     "src/**/*.spec.ts",
+    "src/**/*.probe.ts",
     "src/lib/**/*",
     "scripts",
     "src/index.ts",

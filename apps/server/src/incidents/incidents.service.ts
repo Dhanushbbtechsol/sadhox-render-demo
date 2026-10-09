@@ -23,6 +23,8 @@ import {
 } from "../database/schema";
 import { EventsService } from "../events/events.service";
 import { MailService } from "../mail/mail.service";
+import { NotificationService } from "../notifications/notification.service";
+import { recipientIds } from "../notifications/recipients";
 import { ProjectAccessService } from "../projects/project-access.service";
 import { ProjectsService } from "../projects/projects.service";
 import type {
@@ -98,6 +100,7 @@ export class IncidentsService {
     private readonly events: EventsService,
     private readonly assignment: AssignmentService,
     private readonly mail: MailService,
+    private readonly notifications: NotificationService,
     private readonly assets: AssetsService,
     private readonly projectAccess: ProjectAccessService,
     private readonly projectsService: ProjectsService,
@@ -261,9 +264,22 @@ export class IncidentsService {
           ticketTitle: title,
           assigneeName: assignee.name,
         });
+        await this.notifyReporterStatus(
+          created!.id,
+          title,
+          user.userId,
+          "New",
+          "Assigned",
+          user.name ?? user.email,
+          assignee.id,
+        );
       } catch {
         // Assignment succeeded; email is best-effort (same as assign()).
       }
+    }
+
+    if (priority === "P1") {
+      await this.notifyP1Created(created!.id, title);
     }
 
     return this.get(user, created!.id);
@@ -341,6 +357,15 @@ export class IncidentsService {
         ticketTitle: existing.incident.title,
         assigneeName: agentName,
       });
+      await this.notifyReporterStatus(
+        id,
+        existing.incident.title,
+        existing.incident.reporterId,
+        current,
+        nextStatus,
+        user.name ?? user.email,
+        agentId,
+      );
     } catch {
       // Assignment succeeded; mail enqueue failures are logged by MailService.
     }
@@ -533,9 +558,118 @@ export class IncidentsService {
 
     if (!updated) throw new NotFoundException("Incident not found");
 
+    if (
+      status !== fromStatus &&
+      (status === "Assigned" ||
+        status === "Resolved" ||
+        status === "Closed")
+    ) {
+      try {
+        await this.notifyReporterStatus(
+          id,
+          updated.title,
+          existing.incident.reporterId,
+          fromStatus,
+          status,
+          user.name ?? user.email,
+          updated.assignedTo,
+        );
+      } catch {
+        // Status update succeeded; mail is best-effort.
+      }
+    }
+
     const detail = await this.get(user, id);
     this.events.emitTicketUpdated(id, detail);
     return detail;
+  }
+
+  private async notifyReporterStatus(
+    ticketId: string,
+    ticketTitle: string,
+    reporterId: string,
+    previousStatus: string,
+    newStatus: string,
+    actorName: string,
+    assigneeId: string | null,
+  ) {
+    if (
+      newStatus !== "Assigned" &&
+      newStatus !== "Resolved" &&
+      newStatus !== "Closed"
+    ) {
+      return;
+    }
+
+    const ids =
+      newStatus === "Assigned"
+        ? recipientIds({
+            type: "incident.assigned",
+            assigneeId: assigneeId ?? reporterId,
+            reporterId,
+          })
+        : recipientIds({
+            type:
+              newStatus === "Resolved"
+                ? "incident.resolved"
+                : "incident.closed",
+            reporterId,
+          });
+
+    const href = `/incidents/${ticketId}`;
+    const rows = await this.db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(
+        // Prefer loading reporter (and assignee when Assigned)
+        eq(users.id, reporterId),
+      );
+
+    const [reporter] = rows;
+    if (reporter?.email) {
+      await this.mail.sendStatusChanged(reporter.email, {
+        ticketId,
+        ticketTitle,
+        previousStatus,
+        newStatus,
+        actorName,
+      });
+    }
+
+    for (const uid of ids) {
+      await this.notifications.record(
+        uid,
+        `incident.${newStatus.toLowerCase()}`,
+        `${ticketTitle} → ${newStatus}`,
+        `Status changed from ${previousStatus} to ${newStatus}`,
+        href,
+      );
+    }
+  }
+
+  private async notifyP1Created(ticketId: string, ticketTitle: string) {
+    try {
+      const admins = await this.db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.role, "Admin"));
+      const ids = recipientIds({
+        type: "incident.p1_created",
+        adminIds: admins.map((a) => a.id),
+      });
+      const href = `/incidents/${ticketId}`;
+      for (const uid of ids) {
+        await this.notifications.record(
+          uid,
+          "incident.p1_created",
+          `P1 created: ${ticketTitle}`,
+          "A priority-1 incident was opened",
+          href,
+        );
+      }
+    } catch {
+      // Best-effort
+    }
   }
 
   async listComments(user: AuthUser, incidentId: string): Promise<CommentView[]> {
@@ -607,6 +741,31 @@ export class IncidentsService {
     };
 
     this.events.emitCommentCreated(incidentId, view);
+
+    try {
+      const existing = await this.loadIncidentRow(incidentId);
+      if (existing) {
+        const ids = recipientIds({
+          type: "comment.created",
+          reporterId: existing.incident.reporterId,
+          assigneeId: existing.incident.assignedTo,
+          authorId: user.userId,
+        });
+        const href = `/incidents/${incidentId}`;
+        for (const uid of ids) {
+          await this.notifications.record(
+            uid,
+            "comment.created",
+            "New comment",
+            "A comment was added on your ticket",
+            href,
+          );
+        }
+      }
+    } catch {
+      // Best-effort in-app notice
+    }
+
     return view;
   }
 

@@ -12,6 +12,7 @@
   index,
   primaryKey,
   unique,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -101,6 +102,10 @@ export const users = pgTable(
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
     role: userRoleEnum("role").notNull().default("EndUser"),
     name: varchar("name", { length: 255 }).notNull(),
+    /** Phase 9 org chart — Manager or Admin this user reports to. */
+    reportsToId: uuid("reports_to_id").references((): AnyPgColumn => users.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -108,7 +113,10 @@ export const users = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("users_email_idx").on(t.email)],
+  (t) => [
+    index("users_email_idx").on(t.email),
+    index("users_reports_to_id_idx").on(t.reportsToId),
+  ],
 );
 
 export const refreshTokens = pgTable(
@@ -229,6 +237,8 @@ export const incidents = pgTable(
     }),
     slaDueAt: timestamp("sla_due_at", { withTimezone: true }),
     slaBreached: boolean("sla_breached").notNull().default(false),
+    /** Phase 9 — SLA warning (75%) mailed once before breach. */
+    slaWarned: boolean("sla_warned").notNull().default(false),
     resolutionNotes: text("resolution_notes"),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
@@ -433,6 +443,9 @@ export const assets = pgTable(
     purchaseCost: numeric("purchase_cost", { precision: 12, scale: 2 }),
     /** Polymorphic ticket UUID (incident or service_request); no FK. */
     linkedTicketId: uuid("linked_ticket_id"),
+    serialNumber: varchar("serial_number", { length: 128 }),
+    location: varchar("location", { length: 128 }),
+    assignedAt: timestamp("assigned_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -445,6 +458,31 @@ export const assets = pgTable(
     index("assets_status_idx").on(t.status),
     index("assets_linked_ticket_id_idx").on(t.linkedTicketId),
   ],
+);
+
+/** Phase 9 — assignment history when asset owner changes. */
+export const assetAssignments = pgTable(
+  "asset_assignments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    assetId: uuid("asset_id")
+      .notNull()
+      .references(() => assets.id, { onDelete: "cascade" }),
+    fromOwnerId: uuid("from_owner_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    toOwnerId: uuid("to_owner_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    assignedBy: uuid("assigned_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    note: varchar("note", { length: 500 }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("asset_assignments_asset_id_idx").on(t.assetId)],
 );
 
 export const comments = pgTable(
@@ -476,6 +514,13 @@ export const slaRules = pgTable("sla_rules", {
     .defaultNow(),
 });
 
+/** Phase 9 — who to notify on SLA warning/breach per priority. */
+export const escalationRules = pgTable("escalation_rules", {
+  priority: priorityEnum("priority").primaryKey(),
+  notifyManager: boolean("notify_manager").notNull().default(true),
+  notifyAdmin: boolean("notify_admin").notNull().default(false),
+});
+
 /** GUESS: notification payload shape — FRD only says "User notification delivery records". */
 export const notifications = pgTable(
   "notifications",
@@ -487,6 +532,7 @@ export const notifications = pgTable(
     type: varchar("type", { length: 64 }).notNull(),
     title: varchar("title", { length: 255 }).notNull(),
     body: text("body"),
+    href: varchar("href", { length: 512 }),
     readAt: timestamp("read_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

@@ -36,6 +36,7 @@ describe("ServiceRequestsService.create project ACL (audit A01/A04)", () => {
     const service = new ServiceRequestsService(
       db as never,
       { sendRequestReviewRequest: vi.fn() } as never,
+      { record: vi.fn() } as never,
       {} as never,
       projectsService as never,
     );

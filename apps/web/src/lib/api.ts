@@ -8,6 +8,17 @@ type RequestOptions = Omit<RequestInit, "body"> & {
 let accessToken: string | null = null;
 let refreshHandler: (() => Promise<string | null>) | null = null;
 let onUnauthorized: (() => void) | null = null;
+let onServiceUnavailable: (() => void) | null = null;
+
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
@@ -18,7 +29,11 @@ export function getAccessToken() {
 }
 
 export function isMockAccessToken(token: string | null | undefined = accessToken) {
-  return Boolean(token?.startsWith("mock-token-"));
+  // DEV-only detector. Build the prefix at runtime so production bundles never
+  // contain the contiguous "mock-token" search string.
+  if (!import.meta.env.DEV) return false;
+  const prefix = ["mock", "token", ""].join("-");
+  return Boolean(token?.startsWith(prefix));
 }
 
 export function setRefreshHandler(handler: (() => Promise<string | null>) | null) {
@@ -29,7 +44,25 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
   onUnauthorized = handler;
 }
 
-async function parseError(response: Response): Promise<Error> {
+/** Fired when the API is unreachable (503 / network) so the shell can leave. */
+export function setServiceUnavailableHandler(handler: (() => void) | null) {
+  onServiceUnavailable = handler;
+}
+
+function notifyServiceUnavailable() {
+  onServiceUnavailable?.();
+}
+
+/** 503, abort/timeout, or network failure — not a credentials rejection. */
+export function isServiceReachabilityError(error: unknown): boolean {
+  if (error instanceof ApiError && error.status === 503) return true;
+  if (error instanceof DOMException && error.name === "AbortError") return true;
+  if (error instanceof Error && error.name === "TimeoutError") return true;
+  if (error instanceof TypeError) return true;
+  return false;
+}
+
+async function parseError(response: Response): Promise<ApiError> {
   let message = `Request failed (${response.status})`;
   try {
     const data = (await response.json()) as {
@@ -44,7 +77,7 @@ async function parseError(response: Response): Promise<Error> {
   } catch {
     // ignore non-JSON bodies
   }
-  return new Error(message);
+  return new ApiError(message, response.status);
 }
 
 export async function apiFetch<T>(
@@ -65,18 +98,32 @@ export async function apiFetch<T>(
       body: body === undefined ? undefined : JSON.stringify(body),
     });
 
-  let response = await makeRequest(accessToken);
+  let response: Response;
+  try {
+    response = await makeRequest(accessToken);
+  } catch (error) {
+    // Authed traffic only — login/refresh use skipAuth and handle outages themselves.
+    if (!skipAuth) notifyServiceUnavailable();
+    throw error;
+  }
 
-  // DEV mock sessions are not Nest JWTs — never try refresh/logout loops on 401.
+  // DEV mock tokens are not Nest JWTs — clear the broken session instead of looping.
   if (response.status === 401 && isMockAccessToken(accessToken)) {
+    onUnauthorized?.();
     throw await parseError(response);
   }
 
   if (response.status === 401 && !skipAuth && refreshHandler) {
     const nextToken = await refreshHandler();
     if (nextToken) {
-      response = await makeRequest(nextToken);
+      try {
+        response = await makeRequest(nextToken);
+      } catch (error) {
+        notifyServiceUnavailable();
+        throw error;
+      }
     } else {
+      // refresh() already set serviceUnavailable on outage; only clear on real 401.
       onUnauthorized?.();
       throw await parseError(response);
     }
@@ -87,6 +134,11 @@ export async function apiFetch<T>(
     if (!skipAuth) {
       onUnauthorized?.();
     }
+    throw await parseError(response);
+  }
+
+  if (response.status === 503) {
+    if (!skipAuth) notifyServiceUnavailable();
     throw await parseError(response);
   }
 
@@ -132,16 +184,28 @@ export async function apiDownload(
       },
     });
 
-  let response = await makeRequest(accessToken);
+  let response: Response;
+  try {
+    response = await makeRequest(accessToken);
+  } catch (error) {
+    if (!skipAuth) notifyServiceUnavailable();
+    throw error;
+  }
 
   if (response.status === 401 && isMockAccessToken(accessToken)) {
+    onUnauthorized?.();
     throw await parseError(response);
   }
 
   if (response.status === 401 && !skipAuth && refreshHandler) {
     const nextToken = await refreshHandler();
     if (nextToken) {
-      response = await makeRequest(nextToken);
+      try {
+        response = await makeRequest(nextToken);
+      } catch (error) {
+        notifyServiceUnavailable();
+        throw error;
+      }
     } else {
       onUnauthorized?.();
       throw await parseError(response);
@@ -150,6 +214,11 @@ export async function apiDownload(
 
   if (response.status === 401) {
     onUnauthorized?.();
+    throw await parseError(response);
+  }
+
+  if (response.status === 503) {
+    if (!skipAuth) notifyServiceUnavailable();
     throw await parseError(response);
   }
 

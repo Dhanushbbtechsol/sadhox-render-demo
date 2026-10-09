@@ -21,14 +21,7 @@ export default function QueueMonitorPage() {
       if (import.meta.env.DEV && isMockAccessToken(getAccessToken())) {
         return { status: "ok", database: "up", redis: "up" };
       }
-      try {
-        return await apiFetch<ReadyProbe>("/health/ready");
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          return { status: "degraded", database: "up", redis: "down" };
-        }
-        throw error;
-      }
+      return apiFetch<ReadyProbe>("/health/ready");
     },
     refetchInterval: 15_000,
   });
