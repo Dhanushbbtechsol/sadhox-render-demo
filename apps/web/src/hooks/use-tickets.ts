@@ -9,7 +9,6 @@ import type {
   Incident,
   PageMeta,
   Problem,
-  TicketComment,
   UpdateIncidentInput,
 } from "@/types/itsm";
 
@@ -75,16 +74,6 @@ export function useIncident(id: string | undefined) {
     queryKey: [...incidentsKey, id, userId],
     enabled: Boolean(id) && Boolean(userId),
     queryFn: () => apiFetch<Incident>(`/incidents/${id}`),
-  });
-}
-
-export function useIncidentComments(id: string | undefined) {
-  const userId = useAuthStore((state) => state.user?.id);
-
-  return useQuery({
-    queryKey: [...incidentsKey, id, "comments", userId],
-    enabled: Boolean(id) && Boolean(userId),
-    queryFn: () => apiFetch<TicketComment[]>(`/incidents/${id}/comments`),
   });
 }
 
@@ -229,35 +218,4 @@ export function useUpdateProblem(problemId: string) {
       );
     },
   });
-}
-
-export function useCreateComment(incidentId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (content: string) =>
-      apiFetch<TicketComment>(`/incidents/${incidentId}/comments`, {
-        method: "POST",
-        body: { content },
-      }),
-    // Append optimistically by id — avoid invalidate flicker racing the socket.
-    onSuccess: (created) => {
-      appendIncidentComment(queryClient, incidentId, created);
-    },
-  });
-}
-
-export function appendIncidentComment(
-  queryClient: ReturnType<typeof useQueryClient>,
-  incidentId: string,
-  comment: TicketComment,
-) {
-  queryClient.setQueryData<TicketComment[]>(
-    [...incidentsKey, incidentId, "comments", useAuthStore.getState().user?.id],
-    (prev) => {
-      if (!prev) return [comment];
-      if (prev.some((c) => c.id === comment.id)) return prev;
-      return [...prev, comment];
-    },
-  );
 }

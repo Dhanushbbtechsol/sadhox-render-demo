@@ -2,7 +2,7 @@ import { ArrowLeftIcon, UserIcon } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
-import { IncidentComments } from "@/components/incidents/incident-comments";
+import { TicketComments } from "@/components/comments/ticket-comments";
 import { SlaCountdown } from "@/components/incidents/sla-countdown";
 import { RelatedArticles } from "@/components/knowledge/related-articles";
 import { PriorityBadge } from "@/components/priority-badge";
@@ -115,7 +115,7 @@ export default function PortalIncidentDetailPage() {
             readOnly
           />
 
-          <IncidentComments incidentId={data.id} />
+          <TicketComments ticketType="incident" ticketId={data.id} />
         </CardContent>
       </Card>
     </div>

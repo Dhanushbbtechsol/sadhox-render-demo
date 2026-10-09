@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { PriorityBadge } from "@/components/priority-badge";
-import { ProjectModuleFields } from "@/components/projects/project-module-fields";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -44,43 +43,32 @@ const NONE = "__none__";
 const DEFAULT_CATEGORY = INCIDENT_CATEGORIES[0] as IncidentCategory;
 const DEFAULT_SUBCATEGORY = INCIDENT_CATEGORY_MAP[DEFAULT_CATEGORY][0];
 
-function buildCreateIncidentSchema(requireProject: boolean) {
-  return z
-    .object({
-      title: z.string().min(5, "Title must be at least 5 characters").max(120),
-      description: z
-        .string()
-        .min(10, "Description must be at least 10 characters"),
-      category: z.enum(
-        INCIDENT_CATEGORIES as [IncidentCategory, ...IncidentCategory[]],
-      ),
-      subcategory: z.string().min(1, "Subcategory is required"),
-      impact: z.enum(LEVELS),
-      urgency: z.enum(LEVELS),
-      projectId: z.string().uuid().optional(),
-      moduleId: z.string().uuid().optional(),
-      assignedTo: z.string().uuid().optional(),
-    })
-    .superRefine((values, ctx) => {
-      const allowed = subcategoriesFor(values.category);
-      if (!allowed.includes(values.subcategory)) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["subcategory"],
-          message: "Subcategory must match the selected category",
-        });
-      }
-      if (requireProject && !values.projectId) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["projectId"],
-          message: "Select a project",
-        });
-      }
-    });
-}
+const createIncidentSchema = z
+  .object({
+    title: z.string().min(5, "Title must be at least 5 characters").max(120),
+    description: z
+      .string()
+      .min(10, "Description must be at least 10 characters"),
+    category: z.enum(
+      INCIDENT_CATEGORIES as [IncidentCategory, ...IncidentCategory[]],
+    ),
+    subcategory: z.string().min(1, "Subcategory is required"),
+    impact: z.enum(LEVELS),
+    urgency: z.enum(LEVELS),
+    assignedTo: z.string().uuid().optional(),
+  })
+  .superRefine((values, ctx) => {
+    const allowed = subcategoriesFor(values.category);
+    if (!allowed.includes(values.subcategory)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["subcategory"],
+        message: "Subcategory must match the selected category",
+      });
+    }
+  });
 
-type CreateIncidentForm = z.infer<ReturnType<typeof buildCreateIncidentSchema>>;
+type CreateIncidentForm = z.infer<typeof createIncidentSchema>;
 
 export function CreateIncidentDialog({
   triggerLabel = "New Incident",
@@ -92,14 +80,9 @@ export function CreateIncidentDialog({
   const role = useAuthStore((s) => s.user?.role);
   const canAssign =
     role === "Admin" || role === "Agent" || role === "Manager";
-  const requireProject = role === "Manager";
-  const schema = useMemo(
-    () => buildCreateIncidentSchema(requireProject),
-    [requireProject],
-  );
 
   const form = useForm<CreateIncidentForm>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(createIncidentSchema),
     defaultValues: {
       title: "",
       description: "",
@@ -107,8 +90,6 @@ export function CreateIncidentDialog({
       subcategory: DEFAULT_SUBCATEGORY,
       impact: "Medium",
       urgency: "Medium",
-      projectId: undefined,
-      moduleId: undefined,
       assignedTo: undefined,
     },
   });
@@ -119,8 +100,7 @@ export function CreateIncidentDialog({
     control: form.control,
     name: "category",
   }) as IncidentCategory;
-  const projectId = useWatch({ control: form.control, name: "projectId" });
-  const { data: agents = [] } = useAgents(projectId, { enabled: canAssign });
+  const { data: agents = [] } = useAgents(undefined, { enabled: canAssign });
   const agentItems = useMemo(
     () =>
       ({
@@ -153,8 +133,6 @@ export function CreateIncidentDialog({
         subcategory: values.subcategory,
         impact: values.impact,
         urgency: values.urgency,
-        projectId: values.projectId ?? null,
-        moduleId: values.projectId ? (values.moduleId ?? null) : null,
         ...(canAssign && values.assignedTo
           ? { assignedTo: values.assignedTo }
           : {}),
@@ -209,22 +187,6 @@ export function CreateIncidentDialog({
             ) : null}
           </div>
 
-          <ProjectModuleFields
-            control={form.control}
-            projectField="projectId"
-            moduleField="moduleId"
-            projectId={projectId}
-            onProjectChange={() => {
-              form.setValue("moduleId", undefined);
-              if (canAssign) form.setValue("assignedTo", undefined);
-            }}
-          />
-          {form.formState.errors.projectId ? (
-            <p className="text-destructive text-xs">
-              {form.formState.errors.projectId.message}
-            </p>
-          ) : null}
-
           {canAssign ? (
             <div className="space-y-2">
               <Label htmlFor="agents-select">Agents</Label>
@@ -244,11 +206,7 @@ export function CreateIncidentDialog({
                     <SelectTrigger id="agents-select">
                       <SelectValue
                         placeholder={
-                          agents.length === 0
-                            ? projectId
-                              ? "No project members"
-                              : "No agents"
-                            : "Unassigned"
+                          agents.length === 0 ? "No agents" : "Unassigned"
                         }
                       >
                         {(value: string | null) =>
@@ -276,9 +234,7 @@ export function CreateIncidentDialog({
                 )}
               />
               <p className="text-muted-foreground text-xs">
-                {projectId
-                  ? "Pool is this project's Agent members."
-                  : "Global Agent pool (no project)."}
+                Global Agent pool.
               </p>
             </div>
           ) : null}
