@@ -12,7 +12,7 @@ type ScopePayload = {
 
 /**
  * Admin/Agent/Manager can move a ticket between accessible projects.
- * Manager/Agent cannot clear to unscoped (server + ProjectModuleFields).
+ * Manager must keep a project; Admin/Agent may clear project (shows under All projects).
  */
 export function EditTicketProjectScope({
   projectId,
@@ -66,8 +66,9 @@ export function EditTicketProjectScope({
       <div>
         <h3 className="text-sm font-semibold tracking-tight">Project scope</h3>
         <p className="text-muted-foreground mt-0.5 text-xs">
-          Module must belong to the selected project. Changing project re-checks
-          the assignee pool.
+          Link a project so the ticket appears in that project filter. Leave
+          blank to keep it under All projects. Module is optional and must
+          belong to the selected project.
         </p>
       </div>
 

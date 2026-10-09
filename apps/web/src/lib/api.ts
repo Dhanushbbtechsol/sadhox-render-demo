@@ -83,7 +83,10 @@ export async function apiFetch<T>(
   }
 
   if (response.status === 401) {
-    onUnauthorized?.();
+    // Login/refresh with skipAuth must not clear the session via the global handler.
+    if (!skipAuth) {
+      onUnauthorized?.();
+    }
     throw await parseError(response);
   }
 

@@ -39,10 +39,10 @@ function isRhfProps<T extends FieldValues>(
   return "control" in props && props.control != null;
 }
 
-/** Admin/EndUser may leave tickets unscoped; Manager/Agent must pick a project. */
+/** Admin/Agent/EndUser may leave project blank; Manager must pick a project. */
 function useAllowUnscopedProject() {
   const role = useAuthStore((s) => s.user?.role);
-  return role === "Admin" || role === "EndUser";
+  return role === "Admin" || role === "EndUser" || role === "Agent";
 }
 
 /** Shared project → module cascading selects (RHF or controlled). */
@@ -67,116 +67,123 @@ function RhfProjectModuleFields<T extends FieldValues>({
   const allowUnscoped = useAllowUnscopedProject();
 
   const projectItems = {
-    ...(allowUnscoped ? { [NONE]: "No project" } : {}),
+    ...(allowUnscoped ? { [NONE]: "Select" } : {}),
     ...Object.fromEntries(projects.map((project) => [project.id, project.name])),
   } as Record<string, string>;
   const moduleItems = {
-    [NONE]: "No module",
+    [NONE]: "Select",
     ...Object.fromEntries(modules.map((mod) => [mod.id, mod.name])),
   } as Record<string, string>;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <div className="space-y-2">
-        <Label>Project</Label>
-        <Controller
-          control={control}
-          name={projectField}
-          render={({ field }) => (
-            <Select
-              items={projectItems}
-              value={
-                field.value
-                  ? String(field.value)
-                  : allowUnscoped
-                    ? NONE
-                    : undefined
-              }
-              onValueChange={(value) => {
-                const next = !value || value === NONE ? undefined : value;
-                field.onChange(next);
-                onProjectChange?.(next);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    allowUnscoped ? "Optional project…" : "Select a project…"
-                  }
-                >
-                  {(value: string | null) =>
-                    value && value in projectItems
-                      ? projectItems[value]
-                      : allowUnscoped
-                        ? "Optional project…"
-                        : "Select a project…"
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {allowUnscoped ? (
-                  <SelectItem value={NONE} label="No project">
-                    No project
-                  </SelectItem>
-                ) : null}
-                {projects.map((project) => (
-                  <SelectItem
-                    key={project.id}
-                    value={project.id}
-                    label={project.name}
+    <div className="space-y-2">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>{allowUnscoped ? "Project (optional)" : "Project"}</Label>
+          <Controller
+            control={control}
+            name={projectField}
+            render={({ field }) => (
+              <Select
+                items={projectItems}
+                value={
+                  field.value
+                    ? String(field.value)
+                    : allowUnscoped
+                      ? NONE
+                      : undefined
+                }
+                onValueChange={(value) => {
+                  const next = !value || value === NONE ? undefined : value;
+                  field.onChange(next);
+                  onProjectChange?.(next);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      allowUnscoped ? "Select" : "Select a project…"
+                    }
                   >
-                    {project.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-      </div>
+                    {(value: string | null) =>
+                      value && value in projectItems
+                        ? projectItems[value]
+                        : allowUnscoped
+                          ? "Select"
+                          : "Select a project…"
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {allowUnscoped ? (
+                    <SelectItem value={NONE} label="Select">
+                      Select
+                    </SelectItem>
+                  ) : null}
+                  {projects.map((project) => (
+                    <SelectItem
+                      key={project.id}
+                      value={project.id}
+                      label={project.name}
+                    >
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
 
-      <div className="space-y-2">
-        <Label>Module</Label>
-        <Controller
-          control={control}
-          name={moduleField}
-          render={({ field }) => (
-            <Select
-              items={moduleItems}
-              value={field.value ? String(field.value) : NONE}
-              disabled={!projectId}
-              onValueChange={(value) => {
-                field.onChange(!value || value === NONE ? undefined : value);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    projectId ? "Optional module…" : "Select a project first"
-                  }
-                >
-                  {(value: string | null) =>
-                    value && value in moduleItems
-                      ? moduleItems[value]
-                      : projectId
-                        ? "Optional module…"
-                        : "Select a project first"
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE} label="No module">
-                  No module
-                </SelectItem>
-                {modules.map((mod) => (
-                  <SelectItem key={mod.id} value={mod.id} label={mod.name}>
-                    {mod.name}
+        <div className="space-y-2">
+          <Label>Module (optional)</Label>
+          <Controller
+            control={control}
+            name={moduleField}
+            render={({ field }) => (
+              <Select
+                items={moduleItems}
+                value={field.value ? String(field.value) : NONE}
+                disabled={!projectId}
+                onValueChange={(value) => {
+                  field.onChange(!value || value === NONE ? undefined : value);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      projectId ? "Select" : "Select a project first"
+                    }
+                  >
+                    {(value: string | null) =>
+                      value && value in moduleItems
+                        ? moduleItems[value]
+                        : projectId
+                          ? "Select"
+                          : "Select a project first"
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE} label="Select">
+                    Select
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
+                  {modules.map((mod) => (
+                    <SelectItem key={mod.id} value={mod.id} label={mod.name}>
+                      {mod.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
       </div>
+      <p className="text-muted-foreground text-xs">
+        {allowUnscoped
+          ? "Leave blank to keep the ticket under All projects. Pick a project to scope it."
+          : "Managers must link the ticket to a project they own."}
+      </p>
     </div>
   );
 }
@@ -192,11 +199,11 @@ function ControlledProjectModuleFields({
   const allowUnscoped = useAllowUnscopedProject();
 
   const projectItems = {
-    ...(allowUnscoped ? { [NONE]: "No project" } : {}),
+    ...(allowUnscoped ? { [NONE]: "Select" } : {}),
     ...Object.fromEntries(projects.map((project) => [project.id, project.name])),
   } as Record<string, string>;
   const moduleItems = {
-    [NONE]: "No module",
+    [NONE]: "Select",
     ...Object.fromEntries(modules.map((mod) => [mod.id, mod.name])),
   } as Record<string, string>;
 
@@ -215,21 +222,21 @@ function ControlledProjectModuleFields({
         >
           <SelectTrigger className="w-full">
             <SelectValue
-              placeholder={allowUnscoped ? "No project" : "Select a project…"}
+              placeholder={allowUnscoped ? "Select" : "Select a project…"}
             >
               {(value: string | null) =>
                 value && value in projectItems
                   ? projectItems[value]
                   : allowUnscoped
-                    ? "No project"
+                    ? "Select"
                     : "Select a project…"
               }
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {allowUnscoped ? (
-              <SelectItem value={NONE} label="No project">
-                No project
+              <SelectItem value={NONE} label="Select">
+                Select
               </SelectItem>
             ) : null}
             {projects.map((project) => (
@@ -256,20 +263,20 @@ function ControlledProjectModuleFields({
         >
           <SelectTrigger className="w-full">
             <SelectValue
-              placeholder={projectId ? "No module" : "Select a project first"}
+              placeholder={projectId ? "Select" : "Select a project first"}
             >
               {(value: string | null) =>
                 value && value in moduleItems
                   ? moduleItems[value]
                   : projectId
-                    ? "No module"
+                    ? "Select"
                     : "Select a project first"
               }
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE} label="No module">
-              No module
+            <SelectItem value={NONE} label="Select">
+              Select
             </SelectItem>
             {modules.map((mod) => (
               <SelectItem key={mod.id} value={mod.id} label={mod.name}>

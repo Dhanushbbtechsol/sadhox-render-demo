@@ -116,7 +116,7 @@ function AgentIncidentsPage() {
   });
 
   const projectName = (id: string | null | undefined) => {
-    if (!id) return "Unscoped";
+    if (!id) return "—";
     return projects.find((p) => p.id === id)?.name ?? id.slice(0, 8);
   };
 
@@ -327,9 +327,21 @@ function AgentIncidentsPage() {
 
       {!isLoading && !isError && incidents?.length === 0 ? (
         <EmptyState
-          title="No incidents yet"
-          description="Create the first ticket to populate the agent queue."
-          action={<CreateIncidentDialog triggerLabel="Create first incident" />}
+          title={
+            projectFilter !== "all"
+              ? "No incidents in this project"
+              : "No incidents yet"
+          }
+          description={
+            projectFilter !== "all"
+              ? "Only tickets linked to this project appear here. Leave project blank on create to keep them under All projects, or set the project on the ticket detail."
+              : "Create the first ticket to populate the agent queue."
+          }
+          action={
+            projectFilter === "all" ? (
+              <CreateIncidentDialog triggerLabel="Create first incident" />
+            ) : undefined
+          }
         />
       ) : null}
 

@@ -95,7 +95,7 @@ export default function IncidentDetailPage() {
                 value: data.projectId
                   ? (projects.find((p) => p.id === data.projectId)?.name ??
                     data.projectId.slice(0, 8))
-                  : "Unscoped",
+                  : "—",
               },
               {
                 label: "Module",
