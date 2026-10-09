@@ -18,7 +18,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useApproveChange,
   useChanges,
-  useUpdateChangeStatus,
 } from "@/hooks/use-changes";
 import {
   useApproveServiceRequest,
@@ -27,46 +26,56 @@ import {
 import { useAuthStore } from "@/stores/auth-store";
 import type { ChangeRecord, ServiceRequest, UserRole } from "@/types/api";
 
-/** Phase 8 waiting copy for the approval chain. */
+/** Phase 9 waiting copy for the org-chart approval chain. */
 function waitingLabel(item: {
   status: string;
-  projectId?: string | null;
+  requesterReportsToId?: string | null;
+  creatorReportsToId?: string | null;
 }): "Waiting on manager" | "Waiting on admin" {
   if (item.status === "PendingApproval") return "Waiting on admin";
-  if (item.status === "Submitted" && item.projectId) {
+  const reportsTo =
+    item.requesterReportsToId ?? item.creatorReportsToId ?? null;
+  if (item.status === "Submitted" && reportsTo) {
     return "Waiting on manager";
   }
   return "Waiting on admin";
 }
 
-function hasProject(item: { projectId?: string | null }): boolean {
-  return Boolean(item.projectId);
-}
-
-/** Manager inbox: owned-project tickets in Submitted (list is already project-scoped). */
-function inManagerInbox(item: {
-  status: string;
-  projectId?: string | null;
+function hasReportsToManager(item: {
+  requesterReportsToId?: string | null;
+  creatorReportsToId?: string | null;
 }): boolean {
-  return item.status === "Submitted" && hasProject(item);
+  return Boolean(item.requesterReportsToId ?? item.creatorReportsToId);
 }
 
 /**
- * Admin inbox: PendingApproval, plus Submitted with no project (Admin-only step).
- * Submitted tickets that still need a manager stay out of the Admin queue.
+ * Manager inbox: Submitted tickets whose requester/creator reports to them.
+ * (List API already scopes Managers to their direct reports.)
+ */
+function inManagerInbox(item: { status: string }): boolean {
+  return item.status === "Submitted";
+}
+
+/**
+ * Admin inbox: PendingApproval, plus Submitted with no manager (one-step).
+ * Submitted that still need a manager stay out of the Admin queue.
  */
 function inAdminInbox(item: {
   status: string;
-  projectId?: string | null;
+  requesterReportsToId?: string | null;
+  creatorReportsToId?: string | null;
 }): boolean {
   if (item.status === "PendingApproval") return true;
-  return item.status === "Submitted" && !hasProject(item);
+  return item.status === "Submitted" && !hasReportsToManager(item);
 }
 
-function filterForRole<T extends { status: string; projectId?: string | null }>(
-  items: T[],
-  role: UserRole | undefined,
-): T[] {
+function filterForRole<
+  T extends {
+    status: string;
+    requesterReportsToId?: string | null;
+    creatorReportsToId?: string | null;
+  },
+>(items: T[], role: UserRole | undefined): T[] {
   if (role === "Manager") return items.filter(inManagerInbox);
   if (role === "Admin") return items.filter(inAdminInbox);
   return [];
@@ -79,8 +88,8 @@ export function ApprovalInboxTable() {
   const { data: changes, isLoading: loadingChanges } = useChanges();
   const approveRequest = useApproveServiceRequest();
   const approveChange = useApproveChange();
-  const updateChange = useUpdateChangeStatus();
   const [rejectTarget, setRejectTarget] = useState<{
+    kind: "request" | "change";
     id: string;
     label: string;
   } | null>(null);
@@ -128,6 +137,7 @@ export function ApprovalInboxTable() {
     return <Skeleton className="h-56 w-full" />;
   }
 
+  // Manager never sees a final Approve label — only Send to admin.
   const approveLabel = isManager ? "Send to admin" : "Approve";
 
   return (
@@ -148,8 +158,8 @@ export function ApprovalInboxTable() {
               title="No pending approvals"
               description={
                 isManager
-                  ? "Submitted service requests on projects you manage will show up here."
-                  : "Requests waiting on admin (after manager approval, or with no project) will show up here."
+                  ? "Submitted service requests from people who report to you will show up here."
+                  : "Requests waiting on admin (after manager approval, or with no manager) will show up here."
               }
             />
           ) : (
@@ -157,7 +167,6 @@ export function ApprovalInboxTable() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Service</TableHead>
-                  <TableHead>Project</TableHead>
                   <TableHead>Waiting on</TableHead>
                   <TableHead>Requester</TableHead>
                   <TableHead>Urgency</TableHead>
@@ -175,10 +184,6 @@ export function ApprovalInboxTable() {
                           {request.justification}
                         </p>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {request.projectName ?? "—"}
-                      {request.moduleName ? ` / ${request.moduleName}` : ""}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{waitingLabel(request)}</Badge>
@@ -203,6 +208,7 @@ export function ApprovalInboxTable() {
                         variant="destructive"
                         onClick={() =>
                           setRejectTarget({
+                            kind: "request",
                             id: request.id,
                             label: request.catalogName,
                           })
@@ -224,8 +230,8 @@ export function ApprovalInboxTable() {
               title="No pending changes"
               description={
                 isManager
-                  ? "Submitted changes on projects you manage will appear here."
-                  : "Changes waiting on admin (after manager approval, or with no project) will appear here."
+                  ? "Submitted changes from people who report to you will appear here."
+                  : "Changes waiting on admin (after manager approval, or with no manager) will appear here."
               }
             />
           ) : (
@@ -233,7 +239,6 @@ export function ApprovalInboxTable() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Title</TableHead>
-                  <TableHead>Project</TableHead>
                   <TableHead>Waiting on</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Schedule</TableHead>
@@ -251,10 +256,6 @@ export function ApprovalInboxTable() {
                           {change.description}
                         </p>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {change.projectName ?? "—"}
-                      {change.moduleName ? ` / ${change.moduleName}` : ""}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{waitingLabel(change)}</Badge>
@@ -283,22 +284,13 @@ export function ApprovalInboxTable() {
                       <Button
                         size="sm"
                         variant="destructive"
-                        disabled={updateChange.isPending}
-                        onClick={async () => {
-                          try {
-                            await updateChange.mutateAsync({
-                              id: change.id,
-                              status: "Rolled Back",
-                            });
-                            toast.success("Change rejected");
-                          } catch (error) {
-                            toast.error(
-                              error instanceof Error
-                                ? error.message
-                                : "Reject failed",
-                            );
-                          }
-                        }}
+                        onClick={() =>
+                          setRejectTarget({
+                            kind: "change",
+                            id: change.id,
+                            label: change.title,
+                          })
+                        }
                       >
                         Reject
                       </Button>
@@ -312,8 +304,9 @@ export function ApprovalInboxTable() {
       </Tabs>
 
       <RejectRequestDialog
-        requestId={rejectTarget?.id ?? null}
-        requestLabel={rejectTarget?.label}
+        targetId={rejectTarget?.id ?? null}
+        kind={rejectTarget?.kind}
+        label={rejectTarget?.label}
         open={Boolean(rejectTarget)}
         onOpenChange={(open) => {
           if (!open) setRejectTarget(null);

@@ -76,6 +76,7 @@ export class ServiceRequestsService {
       projectName: string | null;
       moduleId: string | null;
       moduleName: string | null;
+      requesterReportsToId: string | null;
     },
     redactProjectFields: boolean,
   ) {
@@ -85,6 +86,7 @@ export class ServiceRequestsService {
       catalogName: row.catalogName ?? "Unknown service",
       requesterId: row.requesterId,
       requesterName: row.requesterName ?? "Unknown",
+      requesterReportsToId: row.requesterReportsToId ?? null,
       status: toApiStatus(row.status),
       justification: row.justification,
       urgency: row.urgency,
@@ -116,6 +118,7 @@ export class ServiceRequestsService {
       catalogName: serviceCatalog.name,
       requesterId: serviceRequests.requesterId,
       requesterName: users.name,
+      requesterReportsToId: users.reportsToId,
       status: serviceRequests.status,
       justification: serviceRequests.justification,
       urgency: serviceRequests.urgency,
@@ -200,11 +203,8 @@ export class ServiceRequestsService {
     if (user.role === "EndUser") {
       conditions.push(eq(serviceRequests.requesterId, user.userId));
     } else if (user.role === "Manager") {
-      const scope = await this.projectAccess.ticketProjectScope(
-        user,
-        serviceRequests.projectId,
-      );
-      if (scope) conditions.push(scope);
+      // Phase 9: Manager team = users.reports_to_id (not project ownership).
+      conditions.push(eq(users.reportsToId, user.userId));
     } else if (user.role === "Agent") {
       const scope = await this.projectAccess.ticketProjectScope(
         user,
@@ -212,7 +212,7 @@ export class ServiceRequestsService {
       );
       if (scope) conditions.push(scope);
     }
-    // Admin: no project filter; Manager also sees Approvals via scoped list
+    // Admin: no filter
 
     const base = this.listQuery();
     const rows =
@@ -237,7 +237,11 @@ export class ServiceRequestsService {
     if (user.role === "EndUser" && row.requesterId !== user.userId) {
       throw new ForbiddenException("Cannot view this service request");
     }
-    if (user.role !== "EndUser") {
+    if (user.role === "Manager") {
+      if (row.requesterReportsToId !== user.userId) {
+        await this.projectAccess.assertCanViewTicket(user, row.projectId);
+      }
+    } else if (user.role !== "EndUser") {
       await this.projectAccess.assertCanViewTicket(user, row.projectId);
     }
     return this.mapRow(row, user.role === "EndUser");

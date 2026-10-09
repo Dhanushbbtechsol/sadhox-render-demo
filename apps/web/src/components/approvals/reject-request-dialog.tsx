@@ -12,34 +12,44 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useRejectChange } from "@/hooks/use-changes";
 import { useRejectServiceRequest } from "@/hooks/use-service-requests";
 
 type RejectRequestDialogProps = {
-  requestId: string | null;
-  requestLabel?: string;
+  targetId: string | null;
+  kind?: "request" | "change";
+  label?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
 export function RejectRequestDialog({
-  requestId,
-  requestLabel,
+  targetId,
+  kind = "request",
+  label,
   open,
   onOpenChange,
 }: RejectRequestDialogProps) {
   const rejectRequest = useRejectServiceRequest();
+  const rejectChange = useRejectChange();
   const [reason, setReason] = useState("");
+  const pending = rejectRequest.isPending || rejectChange.isPending;
 
   async function handleReject() {
-    if (!requestId) return;
+    if (!targetId) return;
     const trimmed = reason.trim();
     if (!trimmed) {
       toast.error("Rejection reason is required");
       return;
     }
     try {
-      await rejectRequest.mutateAsync({ id: requestId, reason: trimmed });
-      toast.success("Request rejected");
+      if (kind === "change") {
+        await rejectChange.mutateAsync({ id: targetId, reason: trimmed });
+        toast.success("Change rejected");
+      } else {
+        await rejectRequest.mutateAsync({ id: targetId, reason: trimmed });
+        toast.success("Request rejected");
+      }
       setReason("");
       onOpenChange(false);
     } catch (error) {
@@ -57,11 +67,13 @@ export function RejectRequestDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reject service request</DialogTitle>
+          <DialogTitle>
+            {kind === "change" ? "Reject change" : "Reject service request"}
+          </DialogTitle>
           <DialogDescription>
-            {requestLabel
-              ? `Provide a reason for rejecting “${requestLabel}”. The requester will see this note.`
-              : "Provide a reason for rejecting this request. The requester will see this note."}
+            {label
+              ? `Provide a reason for rejecting “${label}”.`
+              : "Provide a reason for rejecting this item."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5">
@@ -85,10 +97,10 @@ export function RejectRequestDialog({
           <Button
             type="button"
             variant="destructive"
-            disabled={rejectRequest.isPending || !reason.trim()}
+            disabled={pending || !reason.trim()}
             onClick={() => void handleReject()}
           >
-            {rejectRequest.isPending ? "Rejecting…" : "Confirm reject"}
+            {pending ? "Rejecting…" : "Confirm reject"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -23,7 +22,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { RelatedHelpArticles } from "@/components/catalog/related-help-articles";
-import { ProjectModuleFields } from "@/components/projects/project-module-fields";
 import { useCreateServiceRequest } from "@/hooks/use-service-requests";
 import type { ServiceCatalogItem, Urgency } from "@/types/api";
 
@@ -45,8 +43,6 @@ function RequestFormBody({
   onOpenChange: (open: boolean) => void;
 }) {
   const createRequest = useCreateServiceRequest();
-  const [projectId, setProjectId] = useState("");
-  const [moduleId, setModuleId] = useState("");
   const defaultValues = Object.fromEntries(item.formFields.map((field) => [field.name, ""]));
 
   const form = useForm({
@@ -65,14 +61,13 @@ function RequestFormBody({
       const { justification: _j, urgency: _u, ...fields } = data;
 
       try {
+        // Phase 9: no project/module on new request forms.
         await createRequest.mutateAsync({
           catalogId: item.id,
           catalogName: item.name,
           justification,
           urgency,
           fields,
-          projectId: projectId || null,
-          moduleId: moduleId || null,
         });
         toast.success("Service request submitted");
         onOpenChange(false);
@@ -91,12 +86,6 @@ function RequestFormBody({
         void form.handleSubmit();
       }}
     >
-      <ProjectModuleFields
-        projectId={projectId}
-        moduleId={moduleId}
-        onProjectChange={setProjectId}
-        onModuleChange={setModuleId}
-      />
       {item.formFields.map((field) => (
         <form.Field
           key={field.name}
