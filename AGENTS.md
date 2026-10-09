@@ -95,7 +95,7 @@ AI assistants should suggest updates to this file when they notice relevant chan
 - Dev tracks: A = Incidents/Problems/portal/ticket–KB links; B = Catalog/Requests/Changes/End-User KB/Admin catalog UI; C = Assets/Admin dashboard/KB authoring/SLA UI/CSV; D = Auth/schema/realtime/jobs/mail/Knowledge+catalog APIs/CI.
 - Phase 6 (Projects / Manager / **Admin User Management**) is in `Docs/Phase/phase6.md`; do not rebuild Knowledge Base. Employee = Agent; Managers approve alongside Admin; Managers are not project_members; user CRUD is Admin-only (`POST`/`GET`/`PATCH /admin/users` + `/admin/users` UI).
 - Phase 7 (EndUser desk) is merged on local `Audit`: Incidents replaces My Portal; Service Catalog / Service Requests labels; incident + catalog subcategory; KB seed articles. Create and update share server allow-list `incident-category-map.ts` (web form mirrors it).
-- Phase 8 is designed only in `Docs/Phase/phase8.md`: service request/change approval is Manager then Admin (replaces alongside); Admin dashboard report is `GET /admin/dashboard/report` CSV. No report builder. Not coded.
+- Phase 9 is the follow-on plan in `Docs/Phase/phase9.md` (dev files under `Docs/Phase/Dev A` … `Dev D`). Phase 8 is superseded by Phase 9. Do not use phases 10–15; those copies were removed.
 - `Docs/Audit` holds phased audit reports (`phase1.md` … `phase7.md`) and per-developer folders (`Dev A` … `Dev D`).
 - Admin projects UI on `Audit` is dialog-based; deleted project detail and overview pages stay deleted.
 - `Docs/Phase` holds per-developer implementation plans and phase notes; product docs live under `Docs/` (`PRD.md`, `FRD.md`, `Techstack.md`, `Architechture.md`, `Workflow.md`, `STATUS.md`).

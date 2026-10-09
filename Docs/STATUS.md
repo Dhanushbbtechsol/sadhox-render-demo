@@ -1,7 +1,7 @@
 # Sadhox — Status & Feature Handoff (for Claude / agents)
 
 **Last updated:** 2026-10-08  
-**Next (designed, not coded):** [Phase 7 — EndUser desk](./Phase/phase7.md). [Phase 8 — approval chain + dashboard report](./Phase/phase8.md): Manager then Admin (not alongside); `GET /admin/dashboard/report` CSV. No report builder. Do not rebuild KB.  
+**Next (designed, not coded):** [Phase 7 — EndUser desk](./Phase/phase7.md), then [Phase 9](./Phase/phase9.md) (org chart, approvals, escalation, notices, desk report, assets). Do not rebuild KB.  
 **Integration branch:** `Audit`. This tree is `Dev-C` after merging `Audit` (Phase 5 close-out + Phase 6 Dev A/B/D backend and Dev C project UI).
 **Memory bank:** `memory-bank/` (read all six files at task start)
 

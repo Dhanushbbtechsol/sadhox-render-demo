@@ -29,6 +29,7 @@
 | **Phase 4** | QA, Security Pass & Deploy | Days 16–20 (Week 4) | [phase4.md](./phase4.md) |
 | **Phase 5** | Admin Knowledge Authoring, SLA Table & CSV Export | Days 21–25 (Week 5) | [phase5.md](./phase5.md) |
 | **Phase 6** | Admin Projects UI, Manager views & Admin User Management UI | Days 26–30 (Week 6) | [phase6.md](./phase6.md) |
-| **Phase 8** | Dashboard Generate report button | — | [phase8.md](./phase8.md) |
+| **Phase 8** | Superseded by Phase 9 | — | [../phase9.md](../phase9.md) |
+| **Phase 9** | Org select, escalation, queues, audit, report, assets, bell | — | [phase9.md](./phase9.md) |
 
 Coverage: [coverage-matrix.md](../coverage-matrix.md). Phase 6 design: [../phase6.md](../phase6.md).

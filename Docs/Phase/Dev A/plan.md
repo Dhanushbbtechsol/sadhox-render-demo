@@ -30,5 +30,6 @@
 | **Phase 5** | Ticket–Knowledge Links & Portal Detail | Days 21–25 (Week 5) | [phase5.md](./phase5.md) |
 | **Phase 6** | Project-scoped Incidents/Problems & assignment | Days 26–30 (Week 6) | [phase6.md](./phase6.md) |
 | **Phase 7** | EndUser Incidents replaces My Portal | — | [phase7.md](./phase7.md) |
+| **Phase 9** | Incident forms use category, not project | — | [phase9.md](./phase9.md) |
 
 Coverage: [coverage-matrix.md](../coverage-matrix.md). Phase 6 design: [../phase6.md](../phase6.md).

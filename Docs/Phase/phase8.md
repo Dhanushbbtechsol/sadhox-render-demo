@@ -1,7 +1,6 @@
 # Phase 8 — Approval chain & dashboard report
 
-**Status:** designed / not started (2026-10-08)  
-**Replaces** the Phase 6 rule “Manager approves **alongside** Admin” for service requests and changes. Still **not** a configurable multi-level builder (that stays out of scope).
+**Status:** superseded by [phase9.md](./phase9.md) (2026-10-09). Do not implement this file. Phase 9 keeps the two-step chain but the first approver is `users.reports_to_id`, and the report is the desk report (Admin = all, Manager = team).
 
 ## 1. Approval chain (fixed, two steps)
 

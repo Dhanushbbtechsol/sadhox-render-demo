@@ -29,7 +29,8 @@
 | **Phase 5** | Knowledge Base API, SLA Rules API & Catalog Writes | Days 21–25 (Week 5) | [phase5.md](./phase5.md) |
 | **Phase 6** | Projects, Manager, ProjectAccessService & Admin user CRUD APIs | Days 26–30 (Week 6) | [phase6.md](./phase6.md) |
 | **Phase 7** | Incident/catalog subcategory + seed | — | [phase7.md](./phase7.md) |
-| **Phase 8** | Two-step approval + dashboard report API | — | [phase8.md](./phase8.md) |
+| **Phase 8** | Superseded by Phase 9 | — | [../phase9.md](../phase9.md) |
+| **Phase 9** | Org chart, approval chain, escalation, notices, report, assets API | — | [phase9.md](./phase9.md) |
 
 Coverage: [coverage-matrix.md](../coverage-matrix.md). Phase 6 design: [../phase6.md](../phase6.md).
 

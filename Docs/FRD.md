@@ -86,7 +86,7 @@
 | **Week 5** | Knowledge Base & residual gaps | KB schema/API + Admin authoring + End User search; ticket–article links; portal incident detail; catalog Admin CRUD; SLA rules table editor; dashboard CSV. **Checkpoint (Day 25):** Phase 5 acceptance per [coverage-matrix.md](./Phase/coverage-matrix.md). |
 | **Week 6** | Projects, Manager & User Management | Schema + `Manager` + `ProjectAccessService` + scoped assignment/approvals/UI + Admin user CRUD. **Gate:** Phase 5 Medium gaps closed. **Checkpoint (Day 30):** per [phase6.md](./Phase/phase6.md). |
 | **Week 7** | EndUser desk | Incidents replaces `/portal`; Service Catalog / Service Requests labels; subcategory + seed. Per [phase7.md](./Phase/phase7.md). |
-| **Week 8** | Approval chain & report | Manager then Admin on requests/changes; server dashboard CSV. Per [phase8.md](./Phase/phase8.md). |
+| **Week 9** | Org chart through assets | Per [phase9.md](./Phase/phase9.md). Week 8 is superseded by this. |
 
 ## 6. Out-of-Scope Follow-ups
 - Multi-tenant tenant isolation and billing management.
