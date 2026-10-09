@@ -2,6 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ReactDOM from "react-dom/client";
 import { RouterProvider } from "react-router";
 
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
+
 import "./index.css";
 import { router } from "./router";
 
@@ -23,6 +26,14 @@ if (!rootElement) {
 
 ReactDOM.createRoot(rootElement).render(
   <QueryClientProvider client={queryClient}>
-    <RouterProvider router={router} />
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="light"
+      disableTransitionOnChange
+      storageKey="vite-ui-theme"
+    >
+      <RouterProvider router={router} />
+      <Toaster richColors />
+    </ThemeProvider>
   </QueryClientProvider>,
 );

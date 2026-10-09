@@ -130,9 +130,7 @@ export const useAuthStore = create<AuthState>()(
         const mockUser = MOCK_USERS[email.toLowerCase()];
         const allowedPasswords = new Set([mockUser?.password, "ChangeMe123!", "password"]);
         if (!mockUser || !allowedPasswords.has(password)) {
-          throw new Error(
-            "Invalid email or password (API unreachable — try password `password` or `ChangeMe123!` in local DEV)",
-          );
+          throw new Error("Invalid credentials");
         }
 
         applyMockSession(set, mockUser);

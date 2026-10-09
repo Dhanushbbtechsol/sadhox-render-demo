@@ -545,7 +545,7 @@ export class ProjectsService {
 
   /**
    * Validate project/module pair for ticket writes.
-   * - Unscoped (null): Admin or EndUser only — Manager/Agent must stamp a project
+   * - No project (null): Admin, Agent, or EndUser — Manager must stamp a project
    * - project set, module null: OK
    * - module set without project: reject
    * - module must belong to project
@@ -602,11 +602,17 @@ export class ProjectsService {
     };
   }
 
-  /** Unscoped tickets are Admin (global pool) or EndUser (own) only. */
+  /** No project: Admin/Agent global pool, or EndUser own. Manager must stamp a project. */
   private assertMayStampUnscoped(user: AuthUser): void {
-    if (user.role === "Admin" || user.role === "EndUser") return;
+    if (
+      user.role === "Admin" ||
+      user.role === "EndUser" ||
+      user.role === "Agent"
+    ) {
+      return;
+    }
     throw new BadRequestException(
-      "Only Admin may create or clear unscoped tickets",
+      "Managers must link tickets to a project they own",
     );
   }
 }
