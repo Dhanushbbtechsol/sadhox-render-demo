@@ -9,6 +9,8 @@ After `pnpm --filter server db:seed`, these logins should show non-empty tabs.
 | `user@sadhox.local` | EndUser (Pat Portal) | See below | `/portal` | Own incidents + Requests |
 | `admin@sadhox.local` | Admin | See below | `/admin` | Everything |
 | `manager@sadhox.local` | Manager | See below | Manager home | Own project (Platform Ops) |
+| `sameeksha@sadhox.local` | Agent | See below | `/incidents` | Platform Ops queues (project member) |
+| `vaishnavi@sadhox.local` | EndUser | See below | `/portal` | Own portal tickets after reporting |
 
 Password: set `SEED_PASSWORD=...` when seeding **new** users, or copy the one-time value printed to stdout if unset. Re-seed does not change existing passwords. Use `scripts/reset-seed-password.mjs` only when you intentionally want a new hash.
 
