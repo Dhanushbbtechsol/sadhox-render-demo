@@ -89,6 +89,8 @@ export interface ServiceRequest {
   catalogName: string;
   requesterId: string;
   requesterName: string;
+  /** Phase 9 org chart — requester's manager id, if any. */
+  requesterReportsToId?: string | null;
   status: ServiceRequestStatus;
   justification: string;
   urgency: Urgency;
@@ -117,6 +119,8 @@ export interface ChangeRecord {
   rollbackPlan: string;
   createdById: string;
   createdByName: string;
+  /** Phase 9 org chart — creator's manager id, if any. */
+  creatorReportsToId?: string | null;
   approvedById?: string;
   createdAt: string;
   projectId?: string | null;

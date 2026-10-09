@@ -16,6 +16,8 @@ import type { DrizzleDB } from "../database/database.module";
 import {
   comments,
   incidents,
+  problemIncidents,
+  problems,
   slaRules,
   users,
   type IncidentStatus,
@@ -76,10 +78,19 @@ export type IncidentListItem = {
   updatedAt: string;
 };
 
+export type LinkedProblemSnippet = {
+  id: string;
+  title: string;
+  status: string;
+  knownError: boolean;
+};
+
 export type IncidentDetail = IncidentListItem & {
   reporter: UserSnippet | null;
   assignee: UserSnippet | null;
   slaTargetMinutes: number | null;
+  /** At most one — `problem_incidents.incident_id` is unique. */
+  linkedProblem: LinkedProblemSnippet | null;
 };
 
 export type CommentView = {
@@ -166,6 +177,18 @@ export class IncidentsService {
       .where(eq(slaRules.priority, row.incident.priority))
       .limit(1);
 
+    const [linked] = await this.db
+      .select({
+        id: problems.id,
+        title: problems.title,
+        status: problems.status,
+        knownError: problems.knownError,
+      })
+      .from(problemIncidents)
+      .innerJoin(problems, eq(problemIncidents.problemId, problems.id))
+      .where(eq(problemIncidents.incidentId, id))
+      .limit(1);
+
     return {
       ...this.toListItem(
         row.incident,
@@ -175,6 +198,14 @@ export class IncidentsService {
       reporter: row.reporter,
       assignee: row.assignee,
       slaTargetMinutes: sla?.resolveMinutes ?? null,
+      linkedProblem: linked
+        ? {
+            id: linked.id,
+            title: linked.title,
+            status: linked.status,
+            knownError: linked.knownError,
+          }
+        : null,
     };
   }
 
@@ -304,26 +335,13 @@ export class IncidentsService {
       );
     }
 
-    let agentId = dto.agentId;
-    let agentEmail: string;
-    let agentName: string;
-
-    if (agentId) {
-      const agent = await this.assertAssigneeInPool(
-        agentId,
-        existing.incident.projectId,
-      );
-      agentEmail = agent.email;
-      agentName = agent.name;
-    } else {
-      const next = await this.assignment.assignNextAgent(
-        id,
-        existing.incident.category,
-      );
-      agentId = next.id;
-      agentEmail = next.email;
-      agentName = next.name;
-    }
+    const agent = await this.assertAssigneeInPool(
+      dto.agentId,
+      existing.incident.projectId,
+    );
+    const agentId = agent.id;
+    const agentEmail = agent.email;
+    const agentName = agent.name;
 
     const now = new Date();
     const nextStatus: IncidentStatus =

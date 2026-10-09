@@ -74,6 +74,20 @@ export function useApproveChange() {
   });
 }
 
+export function useRejectChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { id: string; reason: string }) =>
+      apiFetch<ChangeRecord>(`/changes/${input.id}/reject`, {
+        method: "PATCH",
+        body: { reason: input.reason },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: CHANGES_KEY });
+    },
+  });
+}
+
 export function useUpdateChangeStatus() {
   const queryClient = useQueryClient();
   return useMutation({

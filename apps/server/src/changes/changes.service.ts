@@ -90,6 +90,7 @@ export class ChangesService {
     rollbackPlan: string | null;
     createdBy: string | null;
     createdByName: string | null;
+    creatorReportsToId: string | null;
     approvedBy: string | null;
     createdAt: Date;
     projectId: string | null;
@@ -108,6 +109,7 @@ export class ChangesService {
       rollbackPlan: row.rollbackPlan ?? "",
       createdById: row.createdBy ?? "",
       createdByName: row.createdByName ?? "Unknown",
+      creatorReportsToId: row.creatorReportsToId ?? null,
       approvedById: row.approvedBy ?? undefined,
       createdAt: row.createdAt.toISOString(),
       projectId: row.projectId ?? null,
@@ -129,6 +131,7 @@ export class ChangesService {
       rollbackPlan: changes.rollbackPlan,
       createdBy: changes.createdBy,
       createdByName: users.name,
+      creatorReportsToId: users.reportsToId,
       approvedBy: changes.approvedBy,
       createdAt: changes.createdAt,
       projectId: changes.projectId,
@@ -257,7 +260,10 @@ export class ChangesService {
       conditions.push(eq(changes.status, dbStatus as never));
     }
 
-    if (user.role === "Manager" || user.role === "Agent") {
+    if (user.role === "Manager") {
+      // Phase 9: Manager team = creator's reports_to_id.
+      conditions.push(eq(users.reportsToId, user.userId));
+    } else if (user.role === "Agent") {
       const scope = await this.projectAccess.ticketProjectScope(
         user,
         changes.projectId,
@@ -279,7 +285,13 @@ export class ChangesService {
     const [row] = await this.baseQuery().where(eq(changes.id, id)).limit(1);
 
     if (!row) throw new NotFoundException("Change not found");
-    await this.projectAccess.assertCanViewTicket(user, row.projectId);
+    if (user.role === "Manager") {
+      if (row.creatorReportsToId !== user.userId) {
+        await this.projectAccess.assertCanViewTicket(user, row.projectId);
+      }
+    } else {
+      await this.projectAccess.assertCanViewTicket(user, row.projectId);
+    }
     return this.mapRow(row);
   }
 
@@ -384,11 +396,49 @@ export class ChangesService {
       .limit(1);
     if (!existing) throw new NotFoundException("Change not found");
 
-    await this.projectAccess.assertCanApprove(user, existing.projectId);
+    // Phase 9: org-chart gate (same as approve), not project ownership.
+    const creatorId = existing.createdBy;
+    if (!creatorId) {
+      throw new BadRequestException("Change has no creator");
+    }
+    const [creator] = await this.db
+      .select({ reportsToId: users.reportsToId })
+      .from(users)
+      .where(eq(users.id, creatorId))
+      .limit(1);
+    const managerId = creator?.reportsToId ?? null;
+    const hasManager = Boolean(managerId);
+    const apiStatus = DB_TO_API_STATUS[existing.status] ?? existing.status;
+    const chainStatus =
+      apiStatus === "Draft" || apiStatus === "Submitted"
+        ? "Submitted"
+        : apiStatus === "PendingApproval"
+          ? "PendingApproval"
+          : null;
+    if (!chainStatus) {
+      throw new BadRequestException(
+        `Cannot reject a change in status ${apiStatus}`,
+      );
+    }
+    let actorRole: "Manager" | "Admin";
+    if (user.role === "Manager") {
+      if (!managerId || managerId !== user.userId) {
+        throw new ForbiddenException(
+          "Only the creator's manager can reject at this step",
+        );
+      }
+      actorRole = "Manager";
+    } else if (user.role === "Admin") {
+      actorRole = "Admin";
+    } else {
+      throw new ForbiddenException("Admin or Manager role required");
+    }
+    nextApproval({ status: chainStatus, actorRole, hasManager });
+
     const decision = resolveRejectTransition({
       role: user.role,
       currentStatus: existing.status,
-      projectId: existing.projectId,
+      projectId: hasManager ? "org-manager" : null,
       rejectStatus: "RolledBack",
       allowDraft: true,
     });
