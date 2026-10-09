@@ -111,7 +111,7 @@ export function ProjectMembersDialog({
           if (!next) resetPicker();
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-w-xl overflow-hidden sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>
               Members{project ? ` · ${project.name}` : ""}
@@ -122,7 +122,7 @@ export function ProjectMembersDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col gap-3 py-1">
+          <div className="flex min-w-0 flex-col gap-3 py-1">
             <div className="flex justify-end">
               <Button
                 type="button"
@@ -145,34 +145,44 @@ export function ProjectMembersDialog({
             ) : null}
 
             {!members.isLoading && !members.isError ? (
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="w-24" />
+                    <TableHead className="w-[28%]">Name</TableHead>
+                    <TableHead className="w-[18%]">Role</TableHead>
+                    <TableHead className="w-[40%]">Email</TableHead>
+                    <TableHead className="w-[14%] text-right">
+                      <span className="sr-only">Actions</span>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {(members.data ?? []).map((m) => (
                     <TableRow key={m.userId}>
-                      <TableCell className="font-medium">{m.name}</TableCell>
-                      <TableCell className="text-sm">{m.role}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="max-w-0 truncate font-medium">
+                        {m.name}
+                      </TableCell>
+                      <TableCell className="max-w-0 truncate text-sm">
+                        {m.role}
+                      </TableCell>
+                      <TableCell
+                        className="text-muted-foreground max-w-0 truncate text-sm"
+                        title={m.email}
+                      >
                         {m.email}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="px-2 text-right">
                         <Button
                           type="button"
                           variant="ghost"
-                          size="sm"
+                          size="icon-sm"
+                          className="text-muted-foreground hover:text-destructive"
                           onClick={() => void onRemove(m.userId)}
                           disabled={removeMember.isPending}
                           aria-label={`Remove ${m.name}`}
+                          title="Remove"
                         >
                           <UserMinusIcon />
-                          Remove
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -181,7 +191,7 @@ export function ProjectMembersDialog({
                     <TableRow>
                       <TableCell
                         colSpan={4}
-                        className="text-muted-foreground text-sm"
+                        className="text-muted-foreground whitespace-normal text-sm"
                       >
                         No members yet. Click Add member to invite someone.
                       </TableCell>

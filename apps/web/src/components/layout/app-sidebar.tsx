@@ -165,11 +165,6 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["Admin"],
   },
   {
-    to: "/catalog",
-    label: "Service Catalog",
-    roles: ["Admin", "Agent", "EndUser", "Manager"],
-  },
-  {
     to: "/knowledge",
     label: "Knowledge Base",
     // Admin uses the merged /admin/knowledge browse + authoring page

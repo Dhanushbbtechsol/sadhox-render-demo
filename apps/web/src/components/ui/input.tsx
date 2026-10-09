@@ -1,18 +1,39 @@
 import { Input as InputPrimitive } from "@base-ui/react/input";
 import * as React from "react";
 
+import {
+  capitalizeInitial,
+  shouldCapitalizeInputType,
+} from "@/lib/capitalize-initial";
 import { cn } from "@/lib/utils";
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function Input({
+  className,
+  type,
+  onChange,
+  ...props
+}: React.ComponentProps<"input">) {
   return (
     <InputPrimitive
       type={type}
       data-slot="input"
+      autoCapitalize={
+        type === "email" || type === "password" ? "none" : undefined
+      }
       className={cn(
         "dark:bg-input/30 border-input bg-card/80 focus-visible:border-primary/50 focus-visible:ring-primary/25 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 disabled:bg-input/50 dark:disabled:bg-input/80 h-10 rounded-lg border px-3 py-2 text-sm shadow-soft transition-all duration-200 file:h-7 file:text-xs file:font-medium focus-visible:ring-[3px] hover:border-primary/25 aria-invalid:ring-1 md:text-sm file:text-foreground placeholder:text-muted-foreground w-full min-w-0 outline-none file:inline-flex file:border-0 file:bg-transparent disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
+      onChange={(event) => {
+        if (shouldCapitalizeInputType(type)) {
+          const next = capitalizeInitial(event.target.value);
+          if (next !== event.target.value) {
+            event.target.value = next;
+          }
+        }
+        onChange?.(event);
+      }}
     />
   );
 }

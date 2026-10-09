@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router";
 
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
 import { IncidentActions } from "@/components/incidents/incident-actions";
-import { IncidentComments } from "@/components/incidents/incident-comments";
+import { TicketComments } from "@/components/comments/ticket-comments";
 import { LinkToProblem } from "@/components/incidents/link-to-problem";
 import { SlaCountdown } from "@/components/incidents/sla-countdown";
 import { RelatedArticles } from "@/components/knowledge/related-articles";
@@ -196,7 +196,7 @@ export default function IncidentDetailPage() {
             </section>
           ) : null}
 
-          <IncidentComments incidentId={data.id} />
+          <TicketComments ticketType="incident" ticketId={data.id} />
         </CardContent>
       </Card>
     </div>
