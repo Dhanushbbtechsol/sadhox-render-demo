@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -22,11 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useDirectoryUsers } from "@/features/projects/hooks";
 
 import type { AdminUser } from "./use-admin-users";
 import { useCreateAdminUser, useUpdateAdminUser } from "./use-admin-users";
 
 const ROLES = ["Admin", "Agent", "EndUser", "Manager"] as const;
+const NONE_REPORTS_TO = "__none__";
 
 function passwordIssue(value: string): string | null {
   if (value.length < 12) return "Password must be at least 12 characters";
@@ -45,6 +47,7 @@ const userSchema = z
     email: z.string().trim().email("Enter a valid email").max(255),
     password: z.string().max(128),
     role: z.enum(ROLES),
+    reportsToId: z.string().nullable(),
   })
   .superRefine((value, ctx) => {
     if (!value.password) return;
@@ -69,7 +72,18 @@ export function UserFormDialog({
 }: UserFormDialogProps) {
   const createUser = useCreateAdminUser();
   const updateUser = useUpdateAdminUser();
+  const managers = useDirectoryUsers("Manager");
+  const admins = useDirectoryUsers("Admin");
   const editing = Boolean(user);
+
+  const reportsToOptions = useMemo(() => {
+    const byId = new Map<string, { id: string; name: string; role: string }>();
+    for (const entry of [...(managers.data ?? []), ...(admins.data ?? [])]) {
+      if (user && entry.id === user.id) continue;
+      byId.set(entry.id, { id: entry.id, name: entry.name, role: entry.role });
+    }
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [managers.data, admins.data, user]);
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -78,6 +92,7 @@ export function UserFormDialog({
       email: "",
       password: "",
       role: "Agent",
+      reportsToId: null,
     },
   });
 
@@ -88,6 +103,7 @@ export function UserFormDialog({
       email: user?.email ?? "",
       password: "",
       role: (user?.role as UserFormValues["role"]) ?? "Agent",
+      reportsToId: user?.reportsToId ?? null,
     });
   }, [open, user, form]);
 
@@ -104,6 +120,7 @@ export function UserFormDialog({
             name: values.name,
             email: values.email,
             role: values.role,
+            reportsToId: values.reportsToId,
             ...(values.password ? { password: values.password } : {}),
           },
         });
@@ -118,6 +135,7 @@ export function UserFormDialog({
           email: values.email,
           password: values.password,
           role: values.role,
+          reportsToId: values.reportsToId,
         });
         toast.success(`${values.name} created`);
       }
@@ -128,6 +146,7 @@ export function UserFormDialog({
   }
 
   const pending = createUser.isPending || updateUser.isPending;
+  const reportsToValue = form.watch("reportsToId") ?? NONE_REPORTS_TO;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -193,6 +212,30 @@ export function UserFormDialog({
                 {ROLES.map((role) => (
                   <SelectItem key={role} value={role}>
                     {role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Reports to</Label>
+            <Select
+              value={reportsToValue}
+              onValueChange={(value) =>
+                form.setValue(
+                  "reportsToId",
+                  value === NONE_REPORTS_TO ? null : value,
+                )
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE_REPORTS_TO}>None</SelectItem>
+                {reportsToOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.name} ({option.role})
                   </SelectItem>
                 ))}
               </SelectContent>

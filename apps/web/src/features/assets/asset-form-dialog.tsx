@@ -24,15 +24,20 @@ import {
 } from "@/components/ui/select";
 import { useCreateAsset, useUpdateAsset } from "@/features/admin/hooks";
 import type { Asset, AssetStatus, AssetType } from "@/features/admin/types";
+import { useDirectoryUsers } from "@/features/projects/hooks";
 
 const TYPES = ["Hardware", "Software"] as const;
 const STATUSES = ["Active", "InRepair", "Retired"] as const;
+const NONE_OWNER = "__none__";
 
 const assetSchema = z.object({
   assetTag: z.string().min(2).max(64),
   name: z.string().min(2).max(255),
   type: z.enum(TYPES),
   status: z.enum(STATUSES),
+  serialNumber: z.string().max(128).optional(),
+  location: z.string().max(128).optional(),
+  ownerId: z.string().nullable(),
   purchaseCost: z
     .string()
     .optional()
@@ -52,6 +57,7 @@ export function AssetFormDialog({
 }) {
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
+  const agents = useDirectoryUsers("Agent");
   const isEdit = Boolean(asset);
 
   const form = useForm<AssetFormValues>({
@@ -61,6 +67,9 @@ export function AssetFormDialog({
       name: "",
       type: "Hardware",
       status: "Active",
+      serialNumber: "",
+      location: "",
+      ownerId: null,
       purchaseCost: "",
     },
   });
@@ -74,6 +83,9 @@ export function AssetFormDialog({
             name: asset.name,
             type: asset.type,
             status: asset.status,
+            serialNumber: asset.serialNumber ?? "",
+            location: asset.location ?? "",
+            ownerId: asset.ownerId,
             purchaseCost: asset.purchaseCost ?? "",
           }
         : {
@@ -81,12 +93,17 @@ export function AssetFormDialog({
             name: "",
             type: "Hardware",
             status: "Active",
+            serialNumber: "",
+            location: "",
+            ownerId: null,
             purchaseCost: "",
           },
     );
   }, [asset, form, open]);
 
   async function onSubmit(values: AssetFormValues) {
+    const serialNumber = values.serialNumber?.trim() || null;
+    const location = values.location?.trim() || null;
     try {
       if (isEdit && asset) {
         await updateAsset.mutateAsync({
@@ -96,6 +113,9 @@ export function AssetFormDialog({
             name: values.name,
             type: values.type as AssetType,
             status: values.status as AssetStatus,
+            serialNumber,
+            location,
+            ownerId: values.ownerId,
             purchaseCost: values.purchaseCost?.trim() || undefined,
           },
         });
@@ -106,6 +126,9 @@ export function AssetFormDialog({
           name: values.name,
           type: values.type as AssetType,
           status: values.status as AssetStatus,
+          serialNumber,
+          location,
+          ownerId: values.ownerId ?? undefined,
           purchaseCost: values.purchaseCost?.trim() || undefined,
         });
         toast.success(`Created ${values.assetTag}`);
@@ -117,6 +140,7 @@ export function AssetFormDialog({
   }
 
   const pending = createAsset.isPending || updateAsset.isPending;
+  const ownerValue = form.watch("ownerId") ?? NONE_OWNER;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -133,7 +157,9 @@ export function AssetFormDialog({
             <Label htmlFor="assetTag">Asset tag</Label>
             <Input id="assetTag" {...form.register("assetTag")} />
             {form.formState.errors.assetTag ? (
-              <p className="text-destructive text-xs">{form.formState.errors.assetTag.message}</p>
+              <p className="text-destructive text-xs">
+                {form.formState.errors.assetTag.message}
+              </p>
             ) : null}
           </div>
 
@@ -141,7 +167,9 @@ export function AssetFormDialog({
             <Label htmlFor="assetName">Name</Label>
             <Input id="assetName" {...form.register("name")} />
             {form.formState.errors.name ? (
-              <p className="text-destructive text-xs">{form.formState.errors.name.message}</p>
+              <p className="text-destructive text-xs">
+                {form.formState.errors.name.message}
+              </p>
             ) : null}
           </div>
 
@@ -189,6 +217,60 @@ export function AssetFormDialog({
                 )}
               />
             </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="serialNumber">Serial</Label>
+              <Input
+                id="serialNumber"
+                maxLength={128}
+                {...form.register("serialNumber")}
+              />
+              {form.formState.errors.serialNumber ? (
+                <p className="text-destructive text-xs">
+                  {form.formState.errors.serialNumber.message}
+                </p>
+              ) : null}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                maxLength={128}
+                {...form.register("location")}
+              />
+              {form.formState.errors.location ? (
+                <p className="text-destructive text-xs">
+                  {form.formState.errors.location.message}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Owner</Label>
+            <Select
+              value={ownerValue}
+              onValueChange={(value) =>
+                form.setValue(
+                  "ownerId",
+                  value === NONE_OWNER ? null : value,
+                )
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Unassigned" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE_OWNER}>Unassigned</SelectItem>
+                {(agents.data ?? []).map((agent) => (
+                  <SelectItem key={agent.id} value={agent.id}>
+                    {agent.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

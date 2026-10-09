@@ -27,6 +27,7 @@ export type DirectoryUser = {
   name: string;
   email: string;
   role: string;
+  reportsToId?: string | null;
 };
 
 export type CreateProjectInput = {

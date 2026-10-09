@@ -10,7 +10,7 @@ export default function ChangesPage() {
           Review scheduled and emergency changes. Approvals are Admin-only.
         </p>
       </div>
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem]">
         <ChangesTable />
         <ChangeScheduleCalendar />
       </div>

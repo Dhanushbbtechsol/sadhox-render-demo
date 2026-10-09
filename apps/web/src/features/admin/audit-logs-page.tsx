@@ -1,10 +1,15 @@
 import { useMemo, useState } from "react";
 
+import { LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { formatAuditActorLine, formatAuditSummary } from "./audit-activity";
+import {
+  formatAuditActorLine,
+  formatAuditDiff,
+  formatAuditSummary,
+} from "./audit-activity";
 import { useAuditLogs } from "./hooks";
 import type { AuditLog } from "./types";
 
@@ -17,7 +22,7 @@ export default function AuditLogsPage() {
     from: from ? new Date(from).toISOString() : undefined,
     to: to ? new Date(`${to}T23:59:59.999`).toISOString() : undefined,
     page,
-    limit: 25,
+    limit: LIST_PAGE_SIZE,
   });
 
   const totalPages = useMemo(() => {
@@ -92,31 +97,13 @@ export default function AuditLogsPage() {
             <p className="text-muted-foreground text-sm">No audit events for this filter.</p>
           ) : null}
 
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-muted-foreground text-xs">
-              Page {logs.data.page} of {totalPages} · {logs.data.total} events
-            </p>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <ListPagination
+            page={page}
+            totalPages={totalPages}
+            total={logs.data.total}
+            onPageChange={setPage}
+            label="events"
+          />
         </div>
       ) : null}
     </div>
@@ -124,6 +111,7 @@ export default function AuditLogsPage() {
 }
 
 function AuditTimelineItem({ entry }: { entry: AuditLog }) {
+  const diffLines = formatAuditDiff(entry.diff);
   return (
     <li className="relative mb-4 last:mb-0">
       <span className="bg-primary absolute -start-[1.9rem] mt-1.5 size-3 rounded-full ring-4 ring-background" />
@@ -137,6 +125,13 @@ function AuditTimelineItem({ entry }: { entry: AuditLog }) {
         <p className="text-muted-foreground mt-1 text-sm">
           Performed by {formatAuditActorLine(entry)}
         </p>
+        {diffLines.length > 0 ? (
+          <ul className="text-muted-foreground mt-2 space-y-0.5 font-mono text-xs">
+            {diffLines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </li>
   );

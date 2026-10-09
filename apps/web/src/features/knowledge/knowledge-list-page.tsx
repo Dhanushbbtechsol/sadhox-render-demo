@@ -5,11 +5,12 @@ import {
   SearchIcon,
   TagsIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/empty-state";
+import { ListPagination, paginateItems } from "@/components/list-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,6 +63,8 @@ export default function KnowledgeListPage() {
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState<string | "all">("all");
   const [status, setStatus] = useState<KnowledgeArticleStatus | "all">("all");
+  const [page, setPage] = useState(1);
+  const [tab, setTab] = useState("browse");
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<KnowledgeCategory | null>(null);
 
@@ -72,6 +75,12 @@ export default function KnowledgeListPage() {
 
   const categoryList = Array.isArray(categories.data) ? categories.data : [];
   const rows = Array.isArray(articles.data) ? articles.data : [];
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, categoryId, status, tab]);
+
+  const paged = paginateItems(rows, page);
 
   const categoryNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -237,7 +246,7 @@ export default function KnowledgeListPage() {
         </p>
       ) : null}
 
-      <Tabs defaultValue="browse" className="gap-4">
+      <Tabs value={tab} onValueChange={setTab} className="gap-4">
         <TabsList>
           <TabsTrigger value="browse">Browse</TabsTrigger>
           <TabsTrigger value="manage">Manage</TabsTrigger>
@@ -270,8 +279,9 @@ export default function KnowledgeListPage() {
           ) : null}
 
           {!isLoading && rows.length > 0 ? (
+            <div className="flex flex-col gap-3">
             <ul className="grid gap-3 sm:grid-cols-2">
-              {rows.map((article, index) => (
+              {paged.items.map((article, index) => (
                 <li key={article.id} className={index === 1 ? "stagger-1" : undefined}>
                   <div className="border-border/80 bg-card hover:border-primary/25 hover:shadow-lift group relative flex h-full flex-col gap-2 rounded-xl border p-4 shadow-soft transition-all duration-200 animate-in-up">
                     <div className="flex items-start justify-between gap-2">
@@ -340,6 +350,14 @@ export default function KnowledgeListPage() {
                 </li>
               ))}
             </ul>
+            <ListPagination
+              page={paged.page}
+              totalPages={paged.totalPages}
+              total={paged.total}
+              onPageChange={setPage}
+              label="articles"
+            />
+            </div>
           ) : null}
         </TabsContent>
 
@@ -353,6 +371,7 @@ export default function KnowledgeListPage() {
           ) : null}
 
           {!isLoading && articles.isSuccess ? (
+            <div className="flex flex-col gap-3">
             <div className="overflow-x-auto rounded-lg border">
               <Table>
                 <TableHeader>
@@ -375,7 +394,7 @@ export default function KnowledgeListPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    rows.map((article) => (
+                    paged.items.map((article) => (
                       <TableRow key={article.id}>
                         <TableCell>
                           <Link
@@ -440,6 +459,16 @@ export default function KnowledgeListPage() {
                   )}
                 </TableBody>
               </Table>
+            </div>
+            {rows.length > 0 ? (
+              <ListPagination
+                page={paged.page}
+                totalPages={paged.totalPages}
+                total={paged.total}
+                onPageChange={setPage}
+                label="articles"
+              />
+            ) : null}
             </div>
           ) : null}
         </TabsContent>

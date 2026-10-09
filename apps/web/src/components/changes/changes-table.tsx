@@ -1,9 +1,10 @@
 import { Link } from "react-router";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { Can } from "@/components/auth/protected-route";
 import { EmptyState } from "@/components/empty-state";
+import { ListPagination, paginateItems } from "@/components/list-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,12 @@ export function ChangesTable() {
   const [rollbackPlan, setRollbackPlan] = useState("");
   const [projectId, setProjectId] = useState("");
   const [moduleId, setModuleId] = useState("");
+  const [page, setPage] = useState(1);
+
+  const paged = useMemo(
+    () => paginateItems(data ?? [], page),
+    [data, page],
+  );
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
@@ -105,7 +112,7 @@ export function ChangesTable() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4 self-start">
       <div className="flex justify-end">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger render={<Button size="sm" />}>
@@ -208,108 +215,122 @@ export function ChangesTable() {
           description="Create a Normal or Emergency change with a rollback plan and maintenance window to get started."
         />
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Schedule</TableHead>
-              <TableHead>Created by</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.map((change) => (
-              <TableRow key={change.id}>
-                <TableCell>
-                  <div className="space-y-1">
-                    <Link
-                      to={`/changes/${change.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {change.title}
-                    </Link>
-                    <p className="text-muted-foreground line-clamp-1 text-xs">
-                      {change.description}
-                    </p>
-                  </div>
-                </TableCell>
-                <TableCell className="text-xs">
-                  {change.projectName ?? "—"}
-                  {change.moduleName ? ` / ${change.moduleName}` : ""}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{change.type}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{change.status}</Badge>
-                </TableCell>
-                <TableCell className="text-xs">
-                  {change.scheduledStart
-                    ? new Date(change.scheduledStart).toLocaleString()
-                    : "—"}
-                  <br />
-                  {change.scheduledEnd
-                    ? new Date(change.scheduledEnd).toLocaleString()
-                    : "—"}
-                </TableCell>
-                <TableCell>{change.createdByName}</TableCell>
-                <TableCell className="space-x-2 text-right">
-                  <Can roles={["Admin", "Manager"]}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={
-                        approveChange.isPending || change.status === "Approved"
-                      }
-                      onClick={async () => {
-                        try {
-                          await approveChange.mutateAsync(change.id);
-                          toast.success("Change approved");
-                        } catch (error) {
-                          toast.error(
-                            error instanceof Error
-                              ? error.message
-                              : "Approve failed",
-                          );
-                        }
-                      }}
-                    >
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={
-                        updateStatus.isPending ||
-                        change.status === "Rolled Back"
-                      }
-                      onClick={async () => {
-                        try {
-                          await updateStatus.mutateAsync({
-                            id: change.id,
-                            status: "Rolled Back",
-                          });
-                          toast.message("Change rolled back");
-                        } catch (error) {
-                          toast.error(
-                            error instanceof Error
-                              ? error.message
-                              : "Reject failed",
-                          );
-                        }
-                      }}
-                    >
-                      Reject
-                    </Button>
-                  </Can>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="flex w-full min-w-0 flex-col gap-3">
+          <div className="border-border/80 overflow-x-auto rounded-xl border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Project</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Schedule</TableHead>
+                  <TableHead>Created by</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paged.items.map((change) => (
+                  <TableRow key={change.id}>
+                    <TableCell className="max-w-[16rem] whitespace-normal">
+                      <div className="space-y-1">
+                        <Link
+                          to={`/changes/${change.id}`}
+                          className="font-medium hover:underline"
+                        >
+                          {change.title}
+                        </Link>
+                        <p className="text-muted-foreground line-clamp-1 text-xs">
+                          {change.description}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-[10rem] whitespace-normal text-xs">
+                      {change.projectName ?? "—"}
+                      {change.moduleName ? ` / ${change.moduleName}` : ""}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{change.type}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{change.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {change.scheduledStart
+                        ? new Date(change.scheduledStart).toLocaleString()
+                        : "—"}
+                      <br />
+                      {change.scheduledEnd
+                        ? new Date(change.scheduledEnd).toLocaleString()
+                        : "—"}
+                    </TableCell>
+                    <TableCell>{change.createdByName}</TableCell>
+                    <TableCell className="whitespace-normal">
+                      <Can roles={["Admin", "Manager"]}>
+                        <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={
+                            approveChange.isPending ||
+                            change.status === "Approved"
+                          }
+                          onClick={async () => {
+                            try {
+                              await approveChange.mutateAsync(change.id);
+                              toast.success("Change approved");
+                            } catch (error) {
+                              toast.error(
+                                error instanceof Error
+                                  ? error.message
+                                  : "Approve failed",
+                              );
+                            }
+                          }}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={
+                            updateStatus.isPending ||
+                            change.status === "Rolled Back"
+                          }
+                          onClick={async () => {
+                            try {
+                              await updateStatus.mutateAsync({
+                                id: change.id,
+                                status: "Rolled Back",
+                              });
+                              toast.message("Change rolled back");
+                            } catch (error) {
+                              toast.error(
+                                error instanceof Error
+                                  ? error.message
+                                  : "Reject failed",
+                              );
+                            }
+                          }}
+                        >
+                          Reject
+                        </Button>
+                        </div>
+                      </Can>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <ListPagination
+            page={paged.page}
+            totalPages={paged.totalPages}
+            total={paged.total}
+            onPageChange={setPage}
+            label="changes"
+          />
+        </div>
       )}
     </div>
   );

@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { RejectRequestDialog } from "@/components/approvals/reject-request-dialog";
 import { EmptyState } from "@/components/empty-state";
+import { ListPagination, paginateItems } from "@/components/list-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -84,6 +85,8 @@ export function ApprovalInboxTable() {
     id: string;
     label: string;
   } | null>(null);
+  const [tab, setTab] = useState("requests");
+  const [page, setPage] = useState(1);
 
   const pendingRequests = useMemo(
     () => filterForRole(requests ?? [], role),
@@ -93,6 +96,18 @@ export function ApprovalInboxTable() {
     () => filterForRole(changes ?? [], role),
     [changes, role],
   );
+  const pagedRequests = useMemo(
+    () => paginateItems(pendingRequests, page),
+    [pendingRequests, page],
+  );
+  const pagedChanges = useMemo(
+    () => paginateItems(pendingChanges, page),
+    [pendingChanges, page],
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab]);
 
   async function handleApproveRequest(request: ServiceRequest) {
     try {
@@ -132,7 +147,7 @@ export function ApprovalInboxTable() {
 
   return (
     <>
-      <Tabs defaultValue="requests">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="requests">
             Service Requests ({pendingRequests.length})
@@ -153,6 +168,7 @@ export function ApprovalInboxTable() {
               }
             />
           ) : (
+            <>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -166,7 +182,7 @@ export function ApprovalInboxTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pendingRequests.map((request) => (
+                {pagedRequests.items.map((request) => (
                   <TableRow key={request.id}>
                     <TableCell>
                       <div className="space-y-1">
@@ -215,6 +231,14 @@ export function ApprovalInboxTable() {
                 ))}
               </TableBody>
             </Table>
+            <ListPagination
+              page={pagedRequests.page}
+              totalPages={pagedRequests.totalPages}
+              total={pagedRequests.total}
+              onPageChange={setPage}
+              label="requests"
+            />
+            </>
           )}
         </TabsContent>
 
@@ -229,6 +253,7 @@ export function ApprovalInboxTable() {
               }
             />
           ) : (
+            <>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -242,7 +267,7 @@ export function ApprovalInboxTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pendingChanges.map((change) => (
+                {pagedChanges.items.map((change) => (
                   <TableRow key={change.id}>
                     <TableCell>
                       <div className="space-y-1">
@@ -307,6 +332,14 @@ export function ApprovalInboxTable() {
                 ))}
               </TableBody>
             </Table>
+            <ListPagination
+              page={pagedChanges.page}
+              totalPages={pagedChanges.totalPages}
+              total={pagedChanges.total}
+              onPageChange={setPage}
+              label="changes"
+            />
+            </>
           )}
         </TabsContent>
       </Tabs>

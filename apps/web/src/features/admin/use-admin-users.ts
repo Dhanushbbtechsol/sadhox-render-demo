@@ -11,6 +11,7 @@ export type CreateAdminUserInput = {
   email: string;
   password: string;
   role: "Admin" | "Agent" | "EndUser" | "Manager";
+  reportsToId?: string | null;
 };
 
 export type UpdateAdminUserInput = {
@@ -18,6 +19,7 @@ export type UpdateAdminUserInput = {
   email?: string;
   password?: string;
   role?: CreateAdminUserInput["role"];
+  reportsToId?: string | null;
 };
 
 function useOfflineAdminData() {
@@ -45,6 +47,7 @@ export function useCreateAdminUser() {
           name: input.name,
           email: input.email,
           role: input.role,
+          reportsToId: input.reportsToId ?? null,
         };
         mockDirectoryUsers.push(created);
         return created;

@@ -155,6 +155,11 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["Admin"],
   },
   {
+    to: "/admin/escalation",
+    label: "Escalation",
+    roles: ["Admin"],
+  },
+  {
     to: "/admin/queues",
     label: "Queues",
     roles: ["Admin"],

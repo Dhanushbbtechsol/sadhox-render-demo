@@ -129,6 +129,20 @@ export default function QueueMonitorPage() {
                   </div>
                 ))}
               </dl>
+              {queue.purpose ? (
+                <p className="text-muted-foreground text-xs leading-relaxed">
+                  {queue.purpose}
+                </p>
+              ) : null}
+              {queue.lastFailure ? (
+                <div className="text-destructive/90 space-y-0.5 text-xs">
+                  <p className="font-medium">{queue.lastFailure.jobName}</p>
+                  <p>{queue.lastFailure.reason}</p>
+                  <p className="text-muted-foreground">
+                    {new Date(queue.lastFailure.failedAt).toLocaleString()}
+                  </p>
+                </div>
+              ) : null}
             </section>
           ))}
         </div>
