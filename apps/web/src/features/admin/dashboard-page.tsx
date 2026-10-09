@@ -36,7 +36,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-import { downloadDashboardReport } from "./export-dashboard-csv";
+import {
+  DASHBOARD_REPORT_TYPES,
+  downloadDashboardReport,
+  type DashboardReportFormat,
+  type DashboardReportType,
+} from "./export-dashboard-csv";
 import {
   useAdminStats,
   useChartSlaCompliance,
@@ -96,10 +101,13 @@ export default function DashboardPage() {
   const statusDist = useChartStatusDistribution(range);
   const slaRate = useChartSlaCompliance(range);
 
-  async function handleGenerateReport() {
+  async function handleGenerateReport(
+    type: DashboardReportType,
+    format: DashboardReportFormat = type === "summary" ? "excel" : "csv",
+  ) {
     setReportLoading(true);
     try {
-      await downloadDashboardReport(range);
+      await downloadDashboardReport(range, type, format);
       toast.success("Report downloaded");
     } catch (error) {
       toast.error(
@@ -133,16 +141,40 @@ export default function DashboardPage() {
               </Button>
             ))}
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={handleGenerateReport}
-            disabled={reportLoading}
-          >
-            <DownloadIcon />
-            {reportLoading ? "Generating…" : "Generate report"}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={reportLoading}
+                />
+              }
+            >
+              <DownloadIcon />
+              {reportLoading ? "Generating…" : "Generate report"}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-44">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Report type</DropdownMenuLabel>
+                {DASHBOARD_REPORT_TYPES.map((option) => (
+                  <DropdownMenuItem
+                    key={`${option.value}-${option.format ?? "csv"}`}
+                    disabled={reportLoading}
+                    onClick={() =>
+                      void handleGenerateReport(
+                        option.value,
+                        option.format ?? "csv",
+                      )
+                    }
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

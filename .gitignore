@@ -68,3 +68,6 @@ apps/server/.seed-password
 
 # Local DB dumps (never commit)
 apps/server/backups/
+
+# Local report CSV samples (STEP 5 export scratch)
+apps/server/tmp/report-samples/

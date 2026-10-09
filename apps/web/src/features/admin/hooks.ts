@@ -81,13 +81,8 @@ export function useAssets(filters: AssetFilters = {}) {
       if (useOfflineAdminData()) {
         return filterMockAssets(filters);
       }
-      try {
-        const result = await apiFetch<AssetListResponse>(`/assets?${query}`);
-        return result.data.map(normalizeAsset);
-      } catch (error) {
-        if (import.meta.env.DEV) return filterMockAssets(filters);
-        throw error;
-      }
+      const result = await apiFetch<AssetListResponse>(`/assets?${query}`);
+      return result.data.map(normalizeAsset);
     },
   });
 }
@@ -268,33 +263,28 @@ export function useAdminStats() {
       if (useOfflineAdminData()) {
         return mockAdminStats;
       }
-      try {
-        const [stats, breakdown, sla] = await Promise.all([
-          apiFetch<{ kpis: KpiMetric[] }>("/admin/dashboard/stats"),
-          apiFetch<{
-            ticketsByStatus: CountBucket[];
-            ticketsByPriority: CountBucket[];
-            ticketsByModule: CountBucket[];
-          }>("/admin/dashboard/tickets-by-status"),
-          apiFetch<{ data: { weekStart: string; met: number; breached: number }[] }>(
-            "/admin/dashboard/sla-performance",
-          ),
-        ]);
+      const [stats, breakdown, sla] = await Promise.all([
+        apiFetch<{ kpis: KpiMetric[] }>("/admin/dashboard/stats"),
+        apiFetch<{
+          ticketsByStatus: CountBucket[];
+          ticketsByPriority: CountBucket[];
+          ticketsByModule: CountBucket[];
+        }>("/admin/dashboard/tickets-by-status"),
+        apiFetch<{ data: { weekStart: string; met: number; breached: number }[] }>(
+          "/admin/dashboard/sla-performance",
+        ),
+      ]);
 
-        return {
-          kpis: stats.kpis,
-          ticketsByStatus: breakdown.ticketsByStatus,
-          ticketsByPriority: breakdown.ticketsByPriority,
-          ticketsByModule: breakdown.ticketsByModule,
-          slaPerformance: sla.data.map((row) => ({
-            ...row,
-            label: formatWeekLabel(row.weekStart),
-          })),
-        };
-      } catch (error) {
-        if (import.meta.env.DEV) return mockAdminStats;
-        throw error;
-      }
+      return {
+        kpis: stats.kpis,
+        ticketsByStatus: breakdown.ticketsByStatus,
+        ticketsByPriority: breakdown.ticketsByPriority,
+        ticketsByModule: breakdown.ticketsByModule,
+        slaPerformance: sla.data.map((row) => ({
+          ...row,
+          label: formatWeekLabel(row.weekStart),
+        })),
+      };
     },
   });
 }
@@ -312,14 +302,9 @@ export function useChartVolumeByModule(range: ChartRange) {
       if (useOfflineAdminData()) {
         return { ...mockVolumeByModule, range };
       }
-      try {
-        return await apiFetch<VolumeByModuleResponse>(
-          `/admin/charts/volume-by-module?range=${range}`,
-        );
-      } catch (error) {
-        if (import.meta.env.DEV) return { ...mockVolumeByModule, range };
-        throw error;
-      }
+      return apiFetch<VolumeByModuleResponse>(
+        `/admin/charts/volume-by-module?range=${range}`,
+      );
     },
   });
 }
@@ -331,14 +316,9 @@ export function useChartStatusDistribution(range: ChartRange) {
       if (useOfflineAdminData()) {
         return { ...mockStatusDistribution, range };
       }
-      try {
-        return await apiFetch<StatusDistributionResponse>(
-          `/admin/charts/status-distribution?range=${range}`,
-        );
-      } catch (error) {
-        if (import.meta.env.DEV) return { ...mockStatusDistribution, range };
-        throw error;
-      }
+      return apiFetch<StatusDistributionResponse>(
+        `/admin/charts/status-distribution?range=${range}`,
+      );
     },
   });
 }
@@ -350,14 +330,9 @@ export function useChartSlaCompliance(range: ChartRange) {
       if (useOfflineAdminData()) {
         return { ...mockSlaCompliance, range };
       }
-      try {
-        return await apiFetch<SlaComplianceResponse>(
-          `/admin/charts/sla-compliance?range=${range}`,
-        );
-      } catch (error) {
-        if (import.meta.env.DEV) return { ...mockSlaCompliance, range };
-        throw error;
-      }
+      return apiFetch<SlaComplianceResponse>(
+        `/admin/charts/sla-compliance?range=${range}`,
+      );
     },
   });
 }
@@ -391,19 +366,7 @@ export function useAuditLogs(filters: AuditLogFilters = {}) {
           total: mockAuditLogs.length,
         };
       }
-      try {
-        return await apiFetch<AuditLogListResponse>(`/admin/audit-logs?${params}`);
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          return {
-            data: mockAuditLogs,
-            page,
-            limit,
-            total: mockAuditLogs.length,
-          };
-        }
-        throw error;
-      }
+      return apiFetch<AuditLogListResponse>(`/admin/audit-logs?${params}`);
     },
   });
 }
@@ -416,12 +379,7 @@ export function useQueueHealth() {
       if (useOfflineAdminData()) {
         return mockQueueHealth;
       }
-      try {
-        return await apiFetch<QueueHealthResponse>("/admin/queues");
-      } catch (error) {
-        if (import.meta.env.DEV) return mockQueueHealth;
-        throw error;
-      }
+      return apiFetch<QueueHealthResponse>("/admin/queues");
     },
   });
 }

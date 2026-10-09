@@ -12,11 +12,14 @@ import {
   Res,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { IsIn, IsOptional } from "class-validator";
 import type { Response } from "express";
+import { CurrentUser, type AuthUser } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { AdminService } from "./admin.service";
 import { ChartRangeQueryDto } from "./dto/chart-range-query.dto";
+import { DashboardReportQueryDto } from "./dto/dashboard-report-query.dto";
 import { ListAuditLogsQueryDto } from "./dto/list-audit-logs-query.dto";
 import {
   UpdateSlaRuleDto,
@@ -47,24 +50,32 @@ export class AdminController {
 
   @Get("dashboard/report")
   @Roles("Admin")
-  @Header("Content-Type", "text/csv; charset=utf-8")
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Header("Cache-Control", "no-store")
   @ApiOperation({
     summary:
-      "Phase 8 dashboard CSV report (range=7d|30d|ytd). Same aggregates as the dashboard charts.",
+      "Dashboard report (range=7d|30d|ytd, type=summary|all|assigned|in-progress|approved, format=excel|csv).",
   })
   async dashboardReport(
-    @Query() query: ChartRangeQueryDto,
+    @Query() query: DashboardReportQueryDto,
+    @CurrentUser() user: AuthUser,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { csv, filename } = await this.admin.dashboardReportCsv(
+    const type = query.type ?? "summary";
+    const format =
+      type === "summary" ? (query.format ?? "excel") : (query.format ?? "csv");
+    const { body, filename, contentType } = await this.admin.dashboardReportCsv(
       query.range ?? "30d",
+      type,
+      user.userId,
+      format,
     );
+    res.setHeader("Content-Type", contentType);
     res.setHeader(
       "Content-Disposition",
       `attachment; filename="${filename}"`,
     );
-    return csv;
+    return body;
   }
 
   @Get("dashboard/tickets-by-status")

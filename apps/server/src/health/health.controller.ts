@@ -5,6 +5,7 @@ import {
   HealthCheckService,
   type HealthCheckResult,
 } from "@nestjs/terminus";
+import { SkipThrottle } from "@nestjs/throttler";
 import { Public } from "../common/decorators/public.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { DrizzleHealthIndicator } from "./drizzle.health";
@@ -19,8 +20,13 @@ export class HealthController {
     private readonly redis: RedisHealthIndicator,
   ) {}
 
-  /** Liveness — process up; no dependency probes. */
+  /**
+   * Liveness — process up; no dependency probes.
+   * SkipThrottle: Render healthCheckPath is /health; must not touch Postgres
+   * throttler storage when the DB is down.
+   */
   @Public()
+  @SkipThrottle()
   @Get()
   @ApiOperation({ summary: "Liveness probe (no dependency details)" })
   live() {
@@ -29,6 +35,7 @@ export class HealthController {
 
   /** Alias for orchestrators that expect /health/live (same as GET /health). */
   @Public()
+  @SkipThrottle()
   @Get("live")
   @ApiOperation({ summary: "Liveness alias (same as GET /health)" })
   liveAlias() {
