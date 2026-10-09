@@ -318,13 +318,22 @@ describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
     };
   }
 
-  function createService(existing: ReturnType<typeof row>, returning: unknown[] = []) {
+  function createService(
+    existing: ReturnType<typeof row>,
+    returning: unknown[] = [],
+    creatorReportsToId: string | null = "mgr-not-actor",
+  ) {
     const whereUpdate = vi.fn(() => ({
       returning: vi.fn(async () => returning),
     }));
     const set = vi.fn(() => ({ where: whereUpdate }));
     const update = vi.fn(() => ({ set }));
-    const limit = vi.fn(async () => [existing]);
+    let selectN = 0;
+    const limit = vi.fn(async () => {
+      selectN += 1;
+      if (selectN === 1) return [existing];
+      return [{ reportsToId: creatorReportsToId }];
+    });
     const db = {
       select: vi.fn(() => ({
         from: vi.fn(() => ({
@@ -358,7 +367,9 @@ describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
     };
     const service = new ChangesService(
       db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,      { record: vi.fn() } as never,      projectAccess as never,
+      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
+      { record: vi.fn() } as never,
+      projectAccess as never,
       {
         resolveTicketProjectFields: vi.fn(),
       } as never,
@@ -366,7 +377,7 @@ describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
     return { service, update, whereUpdate, projectAccess };
   }
 
-  it("PATCH Approved or Rolled Back is refused for Agent, and for Admin while a manager must act", async () => {
+  it("PATCH Approved or Rolled Back is refused for Agent, and for Admin when creator has a manager (A04)", async () => {
     for (const status of ["Submitted", "PendingApproval"] as const) {
       for (const next of ["Approved", "Rolled Back"] as const) {
         const { service } = createService(row(status));
@@ -375,8 +386,9 @@ describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
         ).rejects.toBeInstanceOf(ForbiddenException);
       }
     }
+    // Admin cannot skip creator's reports_to_id on Submitted (even with null project).
     for (const next of ["Approved", "Rolled Back"] as const) {
-      const { service } = createService(row("Submitted"));
+      const { service } = createService(row("Submitted", null));
       await expect(
         service.update(admin, ID, { status: next }),
       ).rejects.toBeInstanceOf(ForbiddenException);

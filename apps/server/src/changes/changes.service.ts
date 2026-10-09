@@ -304,43 +304,17 @@ export class ChangesService {
     if (!existing) throw new NotFoundException("Change not found");
 
     const apiStatus = DB_TO_API_STATUS[existing.status] ?? existing.status;
-    const chainStatus =
-      apiStatus === "Draft" || apiStatus === "Submitted"
-        ? "Submitted"
-        : apiStatus === "PendingApproval"
-          ? "PendingApproval"
-          : null;
+    const chainStatus = this.toApprovalChainStatus(apiStatus);
     if (!chainStatus) {
       throw new BadRequestException(
         `Cannot approve a change in status ${apiStatus}`,
       );
     }
 
-    const creatorId = existing.createdBy;
-    if (!creatorId) {
-      throw new BadRequestException("Change has no creator");
-    }
-    const [creator] = await this.db
-      .select({ reportsToId: users.reportsToId })
-      .from(users)
-      .where(eq(users.id, creatorId))
-      .limit(1);
-    const managerId = creator?.reportsToId ?? null;
-    const hasManager = Boolean(managerId);
-
-    let actorRole: "Manager" | "Admin";
-    if (user.role === "Manager") {
-      if (!managerId || managerId !== user.userId) {
-        throw new ForbiddenException(
-          "Only the creator's manager can approve at this step",
-        );
-      }
-      actorRole = "Manager";
-    } else if (user.role === "Admin") {
-      actorRole = "Admin";
-    } else {
-      throw new ForbiddenException("Admin or Manager role required");
-    }
+    const { hasManager, actorRole } = await this.resolveOrgApprovalActor(
+      user,
+      existing.createdBy,
+    );
 
     const nextStatus = nextApproval({
       status: chainStatus,
@@ -396,43 +370,17 @@ export class ChangesService {
       .limit(1);
     if (!existing) throw new NotFoundException("Change not found");
 
-    // Phase 9: org-chart gate (same as approve), not project ownership.
-    const creatorId = existing.createdBy;
-    if (!creatorId) {
-      throw new BadRequestException("Change has no creator");
-    }
-    const [creator] = await this.db
-      .select({ reportsToId: users.reportsToId })
-      .from(users)
-      .where(eq(users.id, creatorId))
-      .limit(1);
-    const managerId = creator?.reportsToId ?? null;
-    const hasManager = Boolean(managerId);
     const apiStatus = DB_TO_API_STATUS[existing.status] ?? existing.status;
-    const chainStatus =
-      apiStatus === "Draft" || apiStatus === "Submitted"
-        ? "Submitted"
-        : apiStatus === "PendingApproval"
-          ? "PendingApproval"
-          : null;
+    const chainStatus = this.toApprovalChainStatus(apiStatus);
     if (!chainStatus) {
       throw new BadRequestException(
         `Cannot reject a change in status ${apiStatus}`,
       );
     }
-    let actorRole: "Manager" | "Admin";
-    if (user.role === "Manager") {
-      if (!managerId || managerId !== user.userId) {
-        throw new ForbiddenException(
-          "Only the creator's manager can reject at this step",
-        );
-      }
-      actorRole = "Manager";
-    } else if (user.role === "Admin") {
-      actorRole = "Admin";
-    } else {
-      throw new ForbiddenException("Admin or Manager role required");
-    }
+    const { hasManager, actorRole } = await this.resolveOrgApprovalActor(
+      user,
+      existing.createdBy,
+    );
     nextApproval({ status: chainStatus, actorRole, hasManager });
 
     const decision = resolveRejectTransition({
@@ -473,112 +421,46 @@ export class ChangesService {
     return this.get(user, id);
   }
 
-  /**
-   * Phase 8 chain: Manager Submitted→PendingApproval; Admin PendingApproval→Approved
-   * (or Submitted→Approved when there is no manager step).
-   */
-  private resolveApprovalNextStatus(
-    role: UserRole,
+  /** Map API/db lifecycle status onto the Phase 9 two-step approval chain. */
+  private toApprovalChainStatus(
     apiStatus: string,
-    needsManager: boolean,
-  ): "PendingApproval" | "Approved" {
-    if (role === "Manager") {
-      if (apiStatus !== "Submitted" && apiStatus !== "Draft") {
-        throw new BadRequestException(
-          `Cannot approve a change in status ${apiStatus}`,
-        );
-      }
-      return "PendingApproval";
-    }
-
-    if (role !== "Admin") {
-      throw new ForbiddenException("Admin or Manager role required");
-    }
-
-    if (apiStatus === "PendingApproval") {
-      return "Approved";
-    }
-
-    if (apiStatus === "Submitted" || apiStatus === "Draft") {
-      if (needsManager) {
-        throw new ForbiddenException(
-          "Waiting on project manager — Admin cannot skip the Manager step",
-        );
-      }
-      return "Approved";
-    }
-
-    throw new BadRequestException(
-      `Cannot approve a change in status ${apiStatus}`,
-    );
+  ): "Submitted" | "PendingApproval" | null {
+    if (apiStatus === "Draft" || apiStatus === "Submitted") return "Submitted";
+    if (apiStatus === "PendingApproval") return "PendingApproval";
+    return null;
   }
 
   /**
-   * PATCH → PendingApproval must match approve(): Manager (own project), or Admin
-   * only when there is no manager step. Agent → 403 via assertCanApprove.
+   * Phase 9: Manager must be creator.reports_to_id; Admin otherwise.
+   * Not project.manager_id.
    */
-  private assertPendingApprovalAllowed(
-    role: UserRole,
-    apiStatus: string,
-    needsManager: boolean,
-  ): void {
-    if (apiStatus !== "Submitted" && apiStatus !== "Draft") {
-      throw new BadRequestException(
-        `Cannot set PendingApproval from status ${apiStatus}`,
-      );
+  private async resolveOrgApprovalActor(
+    user: AuthUser,
+    creatorId: string | null,
+  ): Promise<{ hasManager: boolean; actorRole: "Manager" | "Admin" }> {
+    if (!creatorId) {
+      throw new BadRequestException("Change has no creator");
     }
-    if (role === "Manager") {
-      return;
-    }
-    if (role === "Admin") {
-      if (needsManager) {
+    const [creator] = await this.db
+      .select({ reportsToId: users.reportsToId })
+      .from(users)
+      .where(eq(users.id, creatorId))
+      .limit(1);
+    const managerId = creator?.reportsToId ?? null;
+    const hasManager = Boolean(managerId);
+
+    if (user.role === "Manager") {
+      if (!managerId || managerId !== user.userId) {
         throw new ForbiddenException(
-          "Waiting on project manager — Admin cannot skip the Manager step",
+          "Only the creator's manager can act at this step",
         );
       }
-      return;
+      return { hasManager, actorRole: "Manager" };
+    }
+    if (user.role === "Admin") {
+      return { hasManager, actorRole: "Admin" };
     }
     throw new ForbiddenException("Admin or Manager role required");
-  }
-
-  private assertRejectOrFinalApproveAllowed(
-    role: UserRole,
-    apiStatus: string,
-    nextStatus: "Approved" | "Rolled Back",
-    needsManager: boolean,
-  ): void {
-    if (role === "Manager") {
-      if (apiStatus !== "Submitted" && apiStatus !== "Draft") {
-        throw new BadRequestException(
-          `Manager can only act on Submitted changes (current: ${apiStatus})`,
-        );
-      }
-      if (nextStatus === "Approved") {
-        throw new ForbiddenException(
-          "Manager cannot set final Approved — use approve to send to Admin",
-        );
-      }
-      return;
-    }
-
-    if (role !== "Admin") {
-      throw new ForbiddenException("Admin or Manager role required");
-    }
-
-    if (apiStatus === "PendingApproval") return;
-
-    if (apiStatus === "Submitted" || apiStatus === "Draft") {
-      if (needsManager) {
-        throw new ForbiddenException(
-          "Waiting on project manager — Admin cannot skip the Manager step",
-        );
-      }
-      return;
-    }
-
-    throw new BadRequestException(
-      `Cannot set ${nextStatus} from status ${apiStatus}`,
-    );
   }
 
   private async notifyCreator(
@@ -655,39 +537,46 @@ export class ChangesService {
           `Invalid transition from ${currentApi} to ${dto.status}`,
         );
       }
-      if (requiresAdminForChangeStatus(dto.status)) {
-        // Approve + reject (Rolled Back) — Admin any; Manager own-project only.
-        if (dto.status === "Approved" || dto.status === "Rolled Back") {
-          await this.projectAccess.assertCanApprove(user, existing.projectId);
-        } else if ((user.role as UserRole) !== "Admin") {
+
+      // Phase 9 [A04]: PendingApproval / Approved / Rolled Back use reports_to_id
+      // (same as approve/reject) — not project.manager_id.
+      if (
+        dto.status === "PendingApproval" ||
+        dto.status === "Approved" ||
+        dto.status === "Rolled Back"
+      ) {
+        const chainStatus = this.toApprovalChainStatus(currentApi);
+        if (!chainStatus) {
+          throw new BadRequestException(
+            `Cannot set ${dto.status} from status ${currentApi}`,
+          );
+        }
+        const { hasManager, actorRole } = await this.resolveOrgApprovalActor(
+          user,
+          existing.createdBy,
+        );
+        const next = nextApproval({
+          status: chainStatus,
+          actorRole,
+          hasManager,
+        });
+        if (dto.status === "PendingApproval" && next !== "PendingApproval") {
+          throw new ForbiddenException(
+            "Cannot set PendingApproval at this step",
+          );
+        }
+        if (dto.status === "Approved" && next !== "Approved") {
+          throw new ForbiddenException("Cannot set Approved at this step");
+        }
+        // Rolled Back: nextApproval is gate-only (discard result), same as reject.
+      } else if (requiresAdminForChangeStatus(dto.status)) {
+        if ((user.role as UserRole) !== "Admin") {
           throw new ForbiddenException(
             `Admin role required to set change status to ${dto.status}`,
           );
         }
       }
-      // Phase 8 [A04]: PendingApproval is a Manager-step status — not a free Agent PATCH.
-      if (dto.status === "PendingApproval") {
-        await this.projectAccess.assertCanApprove(user, existing.projectId);
-        const needsManager = await this.projectAccess.projectRequiresManagerStep(
-          existing.projectId,
-        );
-        this.assertPendingApprovalAllowed(
-          user.role as UserRole,
-          currentApi,
-          needsManager,
-        );
-      }
-      if (dto.status === "Approved" || dto.status === "Rolled Back") {
-        const needsManager = await this.projectAccess.projectRequiresManagerStep(
-          existing.projectId,
-        );
-        this.assertRejectOrFinalApproveAllowed(
-          user.role as UserRole,
-          currentApi,
-          dto.status,
-          needsManager,
-        );
-      }
+
       const dbStatus = API_TO_DB_STATUS[dto.status];
       if (!dbStatus) {
         throw new BadRequestException(`Unknown status ${dto.status}`);
