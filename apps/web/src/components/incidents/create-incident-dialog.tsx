@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -105,6 +105,19 @@ export function CreateIncidentDialog({
   }) as IncidentCategory;
   const projectId = useWatch({ control: form.control, name: "projectId" });
   const { data: agents = [] } = useAgents(projectId, { enabled: canAssign });
+  const agentItems = useMemo(
+    () =>
+      ({
+        [NONE]: "Unassigned",
+        ...Object.fromEntries(
+          agents.map((agent) => [
+            agent.id,
+            `${agent.name} (${agent.openTicketCount} open)`,
+          ]),
+        ),
+      }) as Record<string, string>,
+    [agents],
+  );
   const previewPriority = calculatePriority(impact, urgency);
   const subcategoryOptions = subcategoriesFor(category);
 
@@ -200,13 +213,7 @@ export function CreateIncidentDialog({
                   name="assignedTo"
                   render={({ field }) => (
                     <Select
-                      items={[
-                        { value: NONE, label: "Unassigned" },
-                        ...agents.map((agent) => ({
-                          value: agent.id,
-                          label: `${agent.name} (${agent.openTicketCount} open)`,
-                        })),
-                      ]}
+                      items={agentItems}
                       value={field.value ?? NONE}
                       onValueChange={(value) => {
                         field.onChange(
@@ -223,13 +230,25 @@ export function CreateIncidentDialog({
                                 : "No agents"
                               : "Unassigned"
                           }
-                        />
+                        >
+                          {(value: string | null) =>
+                            value && value in agentItems
+                              ? agentItems[value]
+                              : "Unassigned"
+                          }
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={NONE}>Unassigned</SelectItem>
+                        <SelectItem value={NONE} label="Unassigned">
+                          Unassigned
+                        </SelectItem>
                         {agents.map((agent) => (
-                          <SelectItem key={agent.id} value={agent.id}>
-                            {agent.name} ({agent.openTicketCount} open)
+                          <SelectItem
+                            key={agent.id}
+                            value={agent.id}
+                            label={agentItems[agent.id]}
+                          >
+                            {agentItems[agent.id]}
                           </SelectItem>
                         ))}
                       </SelectContent>

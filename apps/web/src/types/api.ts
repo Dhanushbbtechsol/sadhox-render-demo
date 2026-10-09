@@ -17,6 +17,7 @@ export type ChangeType = "Standard" | "Normal" | "Emergency";
 export type ChangeStatus =
   | "Draft"
   | "Submitted"
+  | "PendingApproval"
   | "Approved"
   | "Scheduled"
   | "Implemented"

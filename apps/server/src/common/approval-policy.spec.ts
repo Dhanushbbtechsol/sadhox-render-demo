@@ -25,13 +25,14 @@ describe("Phase 2 approval policy", () => {
     expect(isPendingServiceRequestStatus("Approved")).toBe(false);
   });
 
-  it("blocks Approved/Rolled Back via generic PATCH from Submitted/PendingApproval", () => {
-    expect(canTransitionChange("Submitted", "Approved")).toBe(false);
-    expect(canTransitionChange("Submitted", "Rolled Back")).toBe(false);
-    expect(canTransitionChange("PendingApproval", "Approved")).toBe(false);
-    expect(canTransitionChange("PendingApproval", "Rolled Back")).toBe(false);
+  it("enforces change status transitions including reject from Submitted", () => {
+    expect(canTransitionChange("Submitted", "Approved")).toBe(true);
+    expect(canTransitionChange("Submitted", "PendingApproval")).toBe(true);
+    expect(canTransitionChange("Submitted", "Rolled Back")).toBe(true);
+    expect(canTransitionChange("PendingApproval", "Approved")).toBe(true);
     expect(canTransitionChange("Draft", "Submitted")).toBe(true);
-    expect(canTransitionChange("Draft", "Rolled Back")).toBe(false);
+    expect(canTransitionChange("Draft", "Rolled Back")).toBe(true);
+    expect(canTransitionChange("Closed", "Approved")).toBe(false);
   });
 
   it("blocks Submitted → Scheduled skip (must Approve first)", () => {

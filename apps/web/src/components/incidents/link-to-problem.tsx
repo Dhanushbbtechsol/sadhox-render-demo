@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,13 @@ export function LinkToProblem({ incidentId }: { incidentId: string }) {
   const [pending, setPending] = useState(false);
   const { data } = useProblems({ pageSize: 100 });
   const problems = data?.data ?? [];
+  const problemItems = useMemo(
+    () =>
+      Object.fromEntries(
+        problems.map((problem) => [problem.id, problem.title]),
+      ) as Record<string, string>,
+    [problems],
+  );
 
   if (!canLink) return null;
 
@@ -84,26 +91,33 @@ export function LinkToProblem({ incidentId }: { incidentId: string }) {
         <Select
           items={
             problems.length === 0
-              ? [{ value: "__none", label: "No problems yet" }]
-              : problems.map((problem) => ({
-                  value: problem.id,
-                  label: problem.title,
-                }))
+              ? { __none: "No problems yet" }
+              : problemItems
           }
-          value={problemId}
+          value={problemId || null}
           onValueChange={(v) => setProblemId(v ?? "")}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Select problem…" />
+            <SelectValue placeholder="Select problem…">
+              {(value: string | null) =>
+                value && value in problemItems
+                  ? problemItems[value]
+                  : "Select problem…"
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {problems.length === 0 ? (
-              <SelectItem value="__none" disabled>
+              <SelectItem value="__none" disabled label="No problems yet">
                 No problems yet
               </SelectItem>
             ) : (
               problems.map((problem) => (
-                <SelectItem key={problem.id} value={problem.id}>
+                <SelectItem
+                  key={problem.id}
+                  value={problem.id}
+                  label={problem.title}
+                >
                   {problem.title}
                 </SelectItem>
               ))

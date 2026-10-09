@@ -1,12 +1,12 @@
 # Security Audit: Dev D (Phase 7)
 
-Audit 2026-10-08 (post merge-to-audit). Combined: [phase7.md](../phase7.md). **PASS** (Phase 7 High/Medium clean).
+Reaudit 2026-10-08. Combined: [phase7.md](../phase7.md). **PASS / CLEAN.**
 
 Category/subcategory columns, DTO map check, catalog subcategory column, and Phase 7 seed (catalog retag + five Published articles). Create rejects pairs outside the map. Update validates only when category or subcategory actually changes, so a stored legacy value can be re-sent. Drizzle parameters only. KB seed is plain text.
 
-## Low — Closed
+## Low — Resolved
 
-### [A08] Twin category map — fixed 2026-10-08
+### [A08] Twin category map — **FIXED** (2026-10-08)
 
 Kept `incident-category-map.ts` as the only server allow-list. Removed `incident-categories.ts` (and its spec). Create and update both use `isValidIncidentCategorySubcategory` from that module. Web UI copy is `apps/web/src/types/incident-categories.ts` and is documented to mirror `incident-category-map.ts`. Server test `incident-category-map.spec.ts` fails if the web copy drifts (currently identical).
 

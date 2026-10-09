@@ -50,14 +50,14 @@ export const CHANGE_API_TO_DB_STATUS: Record<string, string> = {
 };
 
 /**
- * Generic PATCH transitions. Approved / Rolled Back are intentionally absent
- * from Submitted and PendingApproval — those are written only by approve/reject.
+ * Generic PATCH transitions. Phase 8: Manager → PendingApproval; Admin final → Approved.
+ * Submitted and PendingApproval may also move to Approved or Rolled Back when
+ * ChangesService role checks pass. No schedule skip.
  */
 export const CHANGE_ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  // phase8.md does not mention Draft; reject/withdraw only via PATCH /reject.
-  Draft: ["Submitted"],
-  Submitted: [],
-  PendingApproval: [],
+  Draft: ["Submitted", "Rolled Back"],
+  Submitted: ["PendingApproval", "Approved", "Rolled Back"],
+  PendingApproval: ["Approved", "Rolled Back"],
   Approved: ["Scheduled", "Implemented", "Rolled Back"],
   Scheduled: ["Implemented", "Rolled Back"],
   Implemented: ["Closed", "Rolled Back"],

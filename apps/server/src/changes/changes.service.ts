@@ -12,7 +12,6 @@ import {
   canTransitionChange,
   CHANGE_API_TO_DB_STATUS,
   requiresAdminForChangeStatus,
-  resolveApproveTransition,
   resolveRejectTransition,
 } from "../common/approval-policy";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
@@ -290,27 +289,34 @@ export class ChangesService {
     if (!existing) throw new NotFoundException("Change not found");
 
     await this.projectAccess.assertCanApprove(user, existing.projectId);
-    const decision = resolveApproveTransition({
-      role: user.role,
-      currentStatus: existing.status,
-      projectId: existing.projectId,
-      allowDraft: true,
-    });
 
-    const patch: Partial<typeof changes.$inferInsert> = {
-      status: decision.nextStatus as DbChangeStatus,
-      updatedAt: new Date(),
-    };
-    if (decision.setApproverFields) {
-      patch.approvedBy = user.userId;
-      patch.approvedAt = new Date();
-    }
+    const apiStatus = DB_TO_API_STATUS[existing.status] ?? existing.status;
+    const needsManager = await this.projectAccess.projectRequiresManagerStep(
+      existing.projectId,
+    );
+    const nextStatus = this.resolveApprovalNextStatus(
+      user.role as UserRole,
+      apiStatus,
+      needsManager,
+    );
 
     const [updated] = await this.db
       .update(changes)
-      .set(patch)
+      .set({
+        status: nextStatus,
+        ...(nextStatus === "Approved"
+          ? {
+              approvedBy: user.userId,
+              approvedAt: new Date(),
+            }
+          : {}),
+        updatedAt: new Date(),
+      })
       .where(
-        and(eq(changes.id, id), eq(changes.status, existing.status as DbChangeStatus)),
+        and(
+          eq(changes.id, id),
+          eq(changes.status, existing.status as DbChangeStatus),
+        ),
       )
       .returning();
 
@@ -318,7 +324,7 @@ export class ChangesService {
       throw new ConflictException("Change status changed; refresh and retry");
     }
 
-    if (decision.nextStatus === "Approved") {
+    if (nextStatus === "Approved") {
       await this.notifyCreator(existing.createdBy, {
         entityId: existing.id,
         entityTitle: existing.title,
@@ -379,6 +385,114 @@ export class ChangesService {
     });
 
     return this.get(user, id);
+  }
+
+  /**
+   * Phase 8 chain: Manager Submitted→PendingApproval; Admin PendingApproval→Approved
+   * (or Submitted→Approved when there is no manager step).
+   */
+  private resolveApprovalNextStatus(
+    role: UserRole,
+    apiStatus: string,
+    needsManager: boolean,
+  ): "PendingApproval" | "Approved" {
+    if (role === "Manager") {
+      if (apiStatus !== "Submitted" && apiStatus !== "Draft") {
+        throw new BadRequestException(
+          `Cannot approve a change in status ${apiStatus}`,
+        );
+      }
+      return "PendingApproval";
+    }
+
+    if (role !== "Admin") {
+      throw new ForbiddenException("Admin or Manager role required");
+    }
+
+    if (apiStatus === "PendingApproval") {
+      return "Approved";
+    }
+
+    if (apiStatus === "Submitted" || apiStatus === "Draft") {
+      if (needsManager) {
+        throw new ForbiddenException(
+          "Waiting on project manager — Admin cannot skip the Manager step",
+        );
+      }
+      return "Approved";
+    }
+
+    throw new BadRequestException(
+      `Cannot approve a change in status ${apiStatus}`,
+    );
+  }
+
+  /**
+   * PATCH → PendingApproval must match approve(): Manager (own project), or Admin
+   * only when there is no manager step. Agent → 403 via assertCanApprove.
+   */
+  private assertPendingApprovalAllowed(
+    role: UserRole,
+    apiStatus: string,
+    needsManager: boolean,
+  ): void {
+    if (apiStatus !== "Submitted" && apiStatus !== "Draft") {
+      throw new BadRequestException(
+        `Cannot set PendingApproval from status ${apiStatus}`,
+      );
+    }
+    if (role === "Manager") {
+      return;
+    }
+    if (role === "Admin") {
+      if (needsManager) {
+        throw new ForbiddenException(
+          "Waiting on project manager — Admin cannot skip the Manager step",
+        );
+      }
+      return;
+    }
+    throw new ForbiddenException("Admin or Manager role required");
+  }
+
+  private assertRejectOrFinalApproveAllowed(
+    role: UserRole,
+    apiStatus: string,
+    nextStatus: "Approved" | "Rolled Back",
+    needsManager: boolean,
+  ): void {
+    if (role === "Manager") {
+      if (apiStatus !== "Submitted" && apiStatus !== "Draft") {
+        throw new BadRequestException(
+          `Manager can only act on Submitted changes (current: ${apiStatus})`,
+        );
+      }
+      if (nextStatus === "Approved") {
+        throw new ForbiddenException(
+          "Manager cannot set final Approved — use approve to send to Admin",
+        );
+      }
+      return;
+    }
+
+    if (role !== "Admin") {
+      throw new ForbiddenException("Admin or Manager role required");
+    }
+
+    if (apiStatus === "PendingApproval") return;
+
+    if (apiStatus === "Submitted" || apiStatus === "Draft") {
+      if (needsManager) {
+        throw new ForbiddenException(
+          "Waiting on project manager — Admin cannot skip the Manager step",
+        );
+      }
+      return;
+    }
+
+    throw new BadRequestException(
+      `Cannot set ${nextStatus} from status ${apiStatus}`,
+    );
   }
 
   private async notifyCreator(
@@ -457,6 +571,29 @@ export class ChangesService {
             `Admin role required to set change status to ${dto.status}`,
           );
         }
+      }
+      // Phase 8 [A04]: PendingApproval is a Manager-step status — not a free Agent PATCH.
+      if (dto.status === "PendingApproval") {
+        await this.projectAccess.assertCanApprove(user, existing.projectId);
+        const needsManager = await this.projectAccess.projectRequiresManagerStep(
+          existing.projectId,
+        );
+        this.assertPendingApprovalAllowed(
+          user.role as UserRole,
+          currentApi,
+          needsManager,
+        );
+      }
+      if (dto.status === "Approved" || dto.status === "Rolled Back") {
+        const needsManager = await this.projectAccess.projectRequiresManagerStep(
+          existing.projectId,
+        );
+        this.assertRejectOrFinalApproveAllowed(
+          user.role as UserRole,
+          currentApi,
+          dto.status,
+          needsManager,
+        );
       }
       const dbStatus = API_TO_DB_STATUS[dto.status];
       if (!dbStatus) {

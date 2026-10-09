@@ -92,7 +92,7 @@ export class UpdateChangeDto extends ProjectScopeFieldsDto {
   @ApiPropertyOptional({
     enum: CHANGE_STATUSES,
     description:
-      "Lifecycle status. Approved and Rolled Back from Submitted/PendingApproval must use /approve and /reject.",
+      "Lifecycle status. Submitted may move to PendingApproval, Approved, or Rolled Back when role checks pass.",
   })
   @IsOptional()
   @IsIn(CHANGE_STATUSES)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,16 @@ export function IncidentActions({ incident }: { incident: Incident }) {
     user?.role === "Manager";
   const projectScoped = Boolean(incident.projectId);
   const { data: agents = [] } = useAgents(incident.projectId);
+  const agentItems = useMemo(
+    () =>
+      Object.fromEntries(
+        agents.map((agent) => [
+          agent.id,
+          `${agent.name} (${agent.openTicketCount} open)`,
+        ]),
+      ) as Record<string, string>,
+    [agents],
+  );
   const assign = useAssignIncident(incident.id);
   const update = useUpdateIncident(incident.id);
   const [selectedAgent, setSelectedAgent] = useState<string>("");
@@ -180,11 +190,8 @@ export function IncidentActions({ incident }: { incident: Incident }) {
               {projectScoped ? "Assign project member" : "Assign agent"}
             </Label>
             <Select
-              items={agents.map((agent) => ({
-                value: agent.id,
-                label: `${agent.name} (${agent.openTicketCount} open)`,
-              }))}
-              value={selectedAgent}
+              items={agentItems}
+              value={selectedAgent || null}
               onValueChange={(v) => setSelectedAgent(v ?? "")}
             >
               <SelectTrigger id="agent-select">
@@ -196,12 +203,22 @@ export function IncidentActions({ incident }: { incident: Incident }) {
                         : "No agents"
                       : "Select agent…"
                   }
-                />
+                >
+                  {(value: string | null) =>
+                    value && value in agentItems
+                      ? agentItems[value]
+                      : "Select agent…"
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {agents.map((agent) => (
-                  <SelectItem key={agent.id} value={agent.id}>
-                    {agent.name} ({agent.openTicketCount} open)
+                  <SelectItem
+                    key={agent.id}
+                    value={agent.id}
+                    label={agentItems[agent.id]}
+                  >
+                    {agentItems[agent.id]}
                   </SelectItem>
                 ))}
               </SelectContent>

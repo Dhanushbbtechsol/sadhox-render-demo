@@ -352,6 +352,9 @@ describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
     const projectAccess = {
       assertCanViewTicket: vi.fn().mockResolvedValue(undefined),
       assertCanApprove: vi.fn().mockResolvedValue(undefined),
+      projectRequiresManagerStep: vi.fn(async (projectId: string | null) =>
+        projectId != null && projectId !== "",
+      ),
     };
     const service = new ChangesService(
       db as never,
@@ -364,23 +367,20 @@ describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
     return { service, update, whereUpdate, projectAccess };
   }
 
-  it("PATCH status Approved/Rolled Back on Submitted and PendingApproval → 4xx for Admin and Agent", async () => {
+  it("PATCH Approved or Rolled Back is refused for Agent, and for Admin while a manager must act", async () => {
     for (const status of ["Submitted", "PendingApproval"] as const) {
-      for (const actor of [admin, agent]) {
-        for (const next of ["Approved", "Rolled Back"] as const) {
-          const { service } = createService(row(status));
-          await expect(
-            service.update(actor, ID, { status: next }),
-          ).rejects.toSatisfy(
-            (err: unknown) =>
-              err instanceof Error &&
-              (err.name === "BadRequestException" ||
-                err.name === "ForbiddenException" ||
-                err.constructor.name === "BadRequestException" ||
-                err.constructor.name === "ForbiddenException"),
-          );
-        }
+      for (const next of ["Approved", "Rolled Back"] as const) {
+        const { service } = createService(row(status));
+        await expect(
+          service.update(agent, ID, { status: next }),
+        ).rejects.toBeInstanceOf(ForbiddenException);
       }
+    }
+    for (const next of ["Approved", "Rolled Back"] as const) {
+      const { service } = createService(row("Submitted"));
+      await expect(
+        service.update(admin, ID, { status: next }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     }
   });
 
