@@ -17,6 +17,7 @@ describe("AdminService user CRUD (Phase 6)", () => {
           name: "New Agent",
           email: "agent@sadhox.local",
           role: "Agent",
+          reportsToId: null,
         },
       ]),
     }));
@@ -35,6 +36,7 @@ describe("AdminService user CRUD (Phase 6)", () => {
       name: "New Agent",
       email: "agent@sadhox.local",
       role: "Agent",
+      reportsToId: null,
     });
     expect(result).not.toHaveProperty("passwordHash");
     const values = valuesFn.mock.calls[0]![0] as {
@@ -109,6 +111,7 @@ describe("AdminService user CRUD (Phase 6)", () => {
                     email: "agent@x",
                     name: "Agent",
                     role: "Agent",
+                    reportsToId: null,
                   },
                 ],
               }),
@@ -123,6 +126,7 @@ describe("AdminService user CRUD (Phase 6)", () => {
                     email: "agent@x",
                     name: "Agent",
                     role: "Manager",
+                    reportsToId: null,
                   },
                 ],
               }),

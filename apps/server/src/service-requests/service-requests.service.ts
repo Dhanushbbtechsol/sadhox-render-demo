@@ -7,13 +7,14 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { and, desc, eq, SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, SQL } from "drizzle-orm";
 import {
   assertAgentOrAdminRole,
   canTransitionRequestFulfillment,
   isPendingServiceRequestStatus,
   resolveRejectTransition,
 } from "../common/approval-policy";
+import { nextApproval } from "../common/approval-chain";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
@@ -25,6 +26,8 @@ import {
   users,
 } from "../database/schema";
 import { MailService } from "../mail/mail.service";
+import { NotificationService } from "../notifications/notification.service";
+import { recipientIds } from "../notifications/recipients";
 import { ProjectAccessService } from "../projects/project-access.service";
 import { ProjectsService } from "../projects/projects.service";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
@@ -46,6 +49,7 @@ export class ServiceRequestsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly mail: MailService,
+    private readonly notifications: NotificationService,
     private readonly projectAccess: ProjectAccessService,
     private readonly projectsService: ProjectsService,
   ) {}
@@ -185,7 +189,6 @@ export class ServiceRequestsService {
       catalog.name,
       user,
       dto.urgency,
-      projectId,
     );
 
     return this.get(user, created.id);
@@ -242,15 +245,21 @@ export class ServiceRequestsService {
 
   async approve(user: AuthUser, id: string) {
     const existing = await this.requirePending(id);
-    await this.projectAccess.assertCanApprove(user, existing.projectId);
-    const needsManager = await this.projectAccess.projectRequiresManagerStep(
-      existing.projectId,
-    );
-    const nextStatus = this.resolveApprovalNextStatus(
-      user.role,
+    const { hasManager, actorRole } = await this.assertOrgApprover(
+      user,
+      existing.requesterId,
       existing.status,
-      needsManager,
     );
+    if (existing.status !== "Submitted" && existing.status !== "PendingApproval") {
+      throw new BadRequestException(
+        `Cannot approve a request in status ${existing.status}`,
+      );
+    }
+    const nextStatus = nextApproval({
+      status: existing.status,
+      actorRole,
+      hasManager,
+    });
 
     const [updated] = await this.db
       .update(serviceRequests)
@@ -293,18 +302,29 @@ export class ServiceRequestsService {
       throw new BadRequestException("Rejection reason is required");
     }
     const existing = await this.requirePending(id);
-    await this.projectAccess.assertCanApprove(user, existing.projectId);
+    const { hasManager, actorRole } = await this.assertOrgApprover(
+      user,
+      existing.requesterId,
+      existing.status,
+    );
+    if (existing.status !== "Submitted" && existing.status !== "PendingApproval") {
+      throw new BadRequestException(
+        `Cannot reject a request in status ${existing.status}`,
+      );
+    }
+    // Same actor/status gates as approve (discard next status — reject always ends Rejected).
+    nextApproval({
+      status: existing.status,
+      actorRole,
+      hasManager,
+    });
+
     const decision = resolveRejectTransition({
       role: user.role,
       currentStatus: existing.status,
       projectId: existing.projectId,
       rejectStatus: "Rejected",
     });
-
-    const needsManager = await this.projectAccess.projectRequiresManagerStep(
-      existing.projectId,
-    );
-    this.assertRejectAllowed(user.role, existing.status, needsManager);
 
     const [updated] = await this.db
       .update(serviceRequests)
@@ -333,75 +353,34 @@ export class ServiceRequestsService {
     return this.get(user, updated.id);
   }
 
-  /** Phase 8: Manager Submitted→PendingApproval; Admin final or Admin-only. */
-  private resolveApprovalNextStatus(
-    role: string,
-    status: string,
-    needsManager: boolean,
-  ): "PendingApproval" | "Approved" {
-    if (role === "Manager") {
-      if (status !== "Submitted") {
-        throw new BadRequestException(
-          `Manager can only approve Submitted requests (current: ${status})`,
-        );
-      }
-      return "PendingApproval";
-    }
+  /**
+   * Phase 9: Manager must be requester.reports_to_id; Admin otherwise.
+   */
+  private async assertOrgApprover(
+    user: AuthUser,
+    requesterId: string,
+    _status: string,
+  ): Promise<{ hasManager: boolean; actorRole: "Manager" | "Admin" }> {
+    const [requester] = await this.db
+      .select({ reportsToId: users.reportsToId })
+      .from(users)
+      .where(eq(users.id, requesterId))
+      .limit(1);
+    const managerId = requester?.reportsToId ?? null;
+    const hasManager = Boolean(managerId);
 
-    if (role !== "Admin") {
-      throw new ForbiddenException("Admin or Manager role required");
-    }
-
-    if (status === "PendingApproval") {
-      return "Approved";
-    }
-
-    if (status === "Submitted") {
-      if (needsManager) {
+    if (user.role === "Manager") {
+      if (!managerId || managerId !== user.userId) {
         throw new ForbiddenException(
-          "Waiting on project manager — Admin cannot skip the Manager step",
+          "Only the requester's manager can approve at this step",
         );
       }
-      return "Approved";
+      return { hasManager, actorRole: "Manager" };
     }
-
-    throw new BadRequestException(
-      `Cannot approve a request in status ${status}`,
-    );
-  }
-
-  private assertRejectAllowed(
-    role: string,
-    status: string,
-    needsManager: boolean,
-  ): void {
-    if (role === "Manager") {
-      if (status !== "Submitted") {
-        throw new BadRequestException(
-          `Manager can only reject Submitted requests (current: ${status})`,
-        );
-      }
-      return;
+    if (user.role === "Admin") {
+      return { hasManager, actorRole: "Admin" };
     }
-
-    if (role !== "Admin") {
-      throw new ForbiddenException("Admin or Manager role required");
-    }
-
-    if (status === "PendingApproval") return;
-
-    if (status === "Submitted") {
-      if (needsManager) {
-        throw new ForbiddenException(
-          "Waiting on project manager — Admin cannot skip the Manager step",
-        );
-      }
-      return;
-    }
-
-    throw new BadRequestException(
-      `Cannot reject a request in status ${status}`,
-    );
+    throw new ForbiddenException("Admin or Manager role required");
   }
 
   async startFulfillment(user: AuthUser, id: string) {
@@ -494,37 +473,49 @@ export class ServiceRequestsService {
     requestTitle: string,
     submitter: AuthUser,
     urgency: string,
-    projectId: string | null,
   ) {
     try {
-      const recipients: { email: string }[] = [];
-
+      const [requester] = await this.db
+        .select({ reportsToId: users.reportsToId })
+        .from(users)
+        .where(eq(users.id, submitter.userId))
+        .limit(1);
+      const managerId = requester?.reportsToId ?? null;
       const admins = await this.db
-        .select({ email: users.email })
+        .select({ id: users.id, email: users.email })
         .from(users)
         .where(eq(users.role, "Admin"));
-      recipients.push(...admins);
+      const ids = recipientIds({
+        type: "sr.submitted",
+        managerId,
+        adminIds: admins.map((a) => a.id),
+      });
+      if (ids.length === 0) return;
 
-      if (projectId) {
-        const managers = await this.db
-          .select({ email: users.email })
-          .from(projects)
-          .innerJoin(users, eq(projects.managerId, users.id))
-          .where(eq(projects.id, projectId));
-        recipients.push(...managers);
-      }
-
-      const unique = [...new Map(recipients.map((r) => [r.email, r])).values()];
-
+      const rows = await this.db
+        .select({ id: users.id, email: users.email })
+        .from(users)
+        .where(inArray(users.id, ids));
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      const href = `/service-requests/${requestId}`;
       await Promise.all(
-        unique.map((r) =>
-          this.mail.sendRequestReviewRequest(r.email, {
+        ids.map(async (uid) => {
+          const row = byId.get(uid);
+          if (!row?.email) return;
+          await this.mail.sendRequestReviewRequest(row.email, {
             requestId,
             requestTitle,
             submitterName: submitter.name ?? submitter.email,
             urgency,
-          }),
-        ),
+          });
+          await this.notifications.record(
+            uid,
+            "sr.submitted",
+            `Review: ${requestTitle}`,
+            `${submitter.name ?? submitter.email} submitted a service request`,
+            href,
+          );
+        }),
       );
     } catch (err) {
       this.logger.warn(
@@ -545,6 +536,7 @@ export class ServiceRequestsService {
         .select({
           title: serviceRequests.title,
           email: users.email,
+          requesterId: serviceRequests.requesterId,
         })
         .from(serviceRequests)
         .innerJoin(users, eq(serviceRequests.requesterId, users.id))
@@ -557,6 +549,13 @@ export class ServiceRequestsService {
         decision,
         reason,
       });
+      await this.notifications.record(
+        row.requesterId,
+        `sr.${decision.toLowerCase()}`,
+        `${row.title} → ${decision}`,
+        reason ?? `Service request ${decision.toLowerCase()}`,
+        `/service-requests/${requestId}`,
+      );
     } catch (err) {
       this.logger.warn(
         `Failed to enqueue request decision email for ${requestId}: ${

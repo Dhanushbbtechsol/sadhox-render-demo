@@ -160,6 +160,16 @@ async function seed() {
       role: "Manager" as const,
       name: "Casey Manager",
     },
+    {
+      email: "sameeksha@sadhox.local",
+      role: "Agent" as const,
+      name: "Sameeksha",
+    },
+    {
+      email: "vaishnavi@sadhox.local",
+      role: "EndUser" as const,
+      name: "Vaishnavi",
+    },
   ];
 
   const toCreate: typeof seedUsers = [];
@@ -313,6 +323,11 @@ async function seedPhase6Projects(db: SeedDb) {
     .from(users)
     .where(eq(users.email, "agent@sadhox.local"))
     .limit(1);
+  const [agentSameeksha] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, "sameeksha@sadhox.local"))
+    .limit(1);
 
   if (!manager) {
     console.log("skip phase6 projects (manager user missing)");
@@ -370,6 +385,13 @@ async function seedPhase6Projects(db: SeedDb) {
       .values({ projectId: PHASE6_PROJECT_ID, userId: agent.id })
       .onConflictDoNothing();
     console.log("ensured agent membership on Platform Ops");
+  }
+  if (agentSameeksha) {
+    await db
+      .insert(projectMembers)
+      .values({ projectId: PHASE6_PROJECT_ID, userId: agentSameeksha.id })
+      .onConflictDoNothing();
+    console.log("ensured sameeksha@ membership on Platform Ops");
   }
 
   // Second Manager-owned project — appears in Manager select QA as another option owner.

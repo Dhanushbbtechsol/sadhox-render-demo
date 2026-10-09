@@ -23,6 +23,8 @@ import { HealthModule } from "./health/health.module";
 import { IncidentsModule } from "./incidents/incidents.module";
 import { KnowledgeModule } from "./knowledge/knowledge.module";
 import { MailModule } from "./mail/mail.module";
+import { ManagerModule } from "./manager/manager.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { ObservabilityModule } from "./observability/observability.module";
 import { ProblemsModule } from "./problems/problems.module";
 import { ProjectsModule } from "./projects/projects.module";
@@ -58,6 +60,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     EventsModule,
     QueuesModule,
     MailModule,
+    NotificationsModule,
     HealthModule,
     IncidentsModule,
     ProblemsModule,
@@ -69,6 +72,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
     CommentsModule,
     AssetsModule,
     AdminModule,
+    ManagerModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

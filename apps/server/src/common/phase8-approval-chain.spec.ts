@@ -62,7 +62,7 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
   const chApprove = vi.fn();
   const chReject = vi.fn();
   const chUpdate = vi.fn();
-  const dashboardReportCsv = vi.fn();
+  const deskReportResponse = vi.fn();
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -125,7 +125,7 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
           provide: AdminService,
           useValue: {
             dashboardStats: vi.fn(),
-            dashboardReportCsv,
+            deskReportResponse,
             ticketsByStatus: vi.fn(),
             slaPerformance: vi.fn(),
             volumeByModule: vi.fn(),
@@ -140,6 +140,8 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
             listSlaRules: vi.fn(),
             updateSlaRule: vi.fn(),
             updateUserRole: vi.fn(),
+            listEscalationRules: vi.fn(),
+            updateEscalationRule: vi.fn(),
           },
         },
       ],
@@ -254,33 +256,31 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
   });
 
   it("(3) report route: Agent/EndUser/Manager 403, unauth 401/403, Admin 200 csv", async () => {
-    dashboardReportCsv.mockResolvedValue({
-      csv: "Meta\nrange,generatedAt,slaFrom,slaTo\n",
-      filename: "yukti-dashboard-30d-2026-10-08.csv",
+    deskReportResponse.mockResolvedValue({
+      body: "Title,Desk report\nScope,All\n",
+      filename: "desk-report-30d.csv",
     });
 
     for (const role of ["Agent", "EndUser", "Manager"] as const) {
       await request(app.getHttpServer())
-        .get("/admin/dashboard/report?range=30d")
+        .get("/admin/dashboard/report?range=30d&format=csv")
         .set("x-test-role", role)
         .expect(403);
     }
 
     await request(app.getHttpServer())
-      .get("/admin/dashboard/report?range=30d")
+      .get("/admin/dashboard/report?range=30d&format=csv")
       .expect((res) => {
         expect([401, 403]).toContain(res.status);
       });
 
     const ok = await request(app.getHttpServer())
-      .get("/admin/dashboard/report?range=30d")
+      .get("/admin/dashboard/report?range=30d&format=csv")
       .set("x-test-role", "Admin")
       .expect(200);
     expect(String(ok.headers["content-type"])).toMatch(/text\/csv/);
-    expect(ok.text).toMatch(/^Meta/);
-    expect(ok.headers["content-disposition"]).toMatch(
-      /yukti-dashboard-30d-.*\.csv/,
-    );
+    expect(ok.text).toMatch(/Title,Desk report/);
+    expect(ok.headers["content-disposition"]).toMatch(/desk-report-30d\.csv/);
     expect(String(ok.headers["cache-control"])).toMatch(/no-store/i);
   });
 });
@@ -358,8 +358,7 @@ describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
     };
     const service = new ChangesService(
       db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      projectAccess as never,
+      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,      { record: vi.fn() } as never,      projectAccess as never,
       {
         resolveTicketProjectFields: vi.fn(),
       } as never,

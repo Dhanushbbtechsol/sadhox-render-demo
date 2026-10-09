@@ -21,7 +21,7 @@ export const mockProjectMembers: ProjectMember[] = [
   {
     userId: "user-agent",
     name: "Support Agent",
-    email: "agent@sadhox.local",
+    email: "agent@offline.local",
     role: "Agent",
     createdAt: new Date().toISOString(),
   },
@@ -36,41 +36,42 @@ export const mockProjectModules: ProjectModule[] = [
   },
 ];
 
+/** Offline DEV fixtures — emails must not match production seed addresses. */
 export const mockDirectoryUsers: DirectoryUser[] = [
   {
     id: "user-admin",
     name: "Ian Admin",
-    email: "admin@sadhox.local",
+    email: "admin@offline.local",
     role: "Admin",
   },
   {
     id: "user-agent",
     name: "Support Agent",
-    email: "agent@sadhox.local",
+    email: "agent@offline.local",
     role: "Agent",
   },
   {
     id: "user-enduser",
     name: "End User",
-    email: "enduser@sadhox.local",
+    email: "enduser@offline.local",
     role: "EndUser",
   },
   {
     id: "user-portal",
     name: "Pat Portal",
-    email: "user@sadhox.local",
+    email: "user@offline.local",
     role: "EndUser",
   },
   {
     id: "user-manager",
     name: "Morgan Manager",
-    email: "manager@sadhox.local",
+    email: "manager@offline.local",
     role: "Manager",
   },
   {
     id: "user-manager-2",
     name: "Casey Manager",
-    email: "manager2@sadhox.local",
+    email: "manager2@offline.local",
     role: "Manager",
   },
 ];

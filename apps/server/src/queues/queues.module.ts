@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { BullModule } from "@nestjs/bullmq";
 import { MailModule } from "../mail/mail.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 import {
   DEFAULT_JOB_OPTIONS,
   EMAIL_QUEUE,
@@ -37,6 +38,7 @@ import { TicketLifecycleProcessor } from "./ticket-lifecycle.processor";
       { name: EMAIL_QUEUE },
     ),
     MailModule,
+    NotificationsModule,
   ],
   providers: [
     SlaProcessor,

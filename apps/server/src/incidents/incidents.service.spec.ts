@@ -88,6 +88,7 @@ describe("IncidentsService.update assignee role", () => {
       { emitTicketUpdated: vi.fn() } as never,
       { isInPool: vi.fn(async () => false) } as never,
       { sendTicketAssigned: vi.fn() } as never,
+      { record: vi.fn() } as never,
       {} as never,
       { assertCanAccessTicketProject: vi.fn(async () => undefined) } as never,
       {} as never,

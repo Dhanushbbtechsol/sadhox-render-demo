@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 import LoginForm from "@/components/ui/login-form";
+import { ApiError, isServiceReachabilityError } from "@/lib/api";
 import { homePathForRole, useAuthStore } from "@/stores/auth-store";
 
 export default function LoginPage() {
@@ -24,7 +25,17 @@ export default function LoginPage() {
       toast.success(`Signed in as ${user.role}`);
       void navigate(target, { replace: true });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Login failed");
+      const message = error instanceof Error ? error.message : "";
+      const isOffline =
+        isServiceReachabilityError(error) ||
+        /failed to fetch|network|timeout|aborted/i.test(message);
+      if (error instanceof ApiError && error.status === 401) {
+        toast.error("Wrong email or password");
+      } else if (isOffline) {
+        toast.error("Can't reach the service. Try again shortly.");
+      } else {
+        toast.error(message || "Login failed");
+      }
     } finally {
       setPending(false);
     }

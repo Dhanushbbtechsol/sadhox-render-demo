@@ -10,6 +10,7 @@ import { and, count, desc, eq, ilike, ne, or } from "drizzle-orm";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
+  assetAssignments,
   assets,
   incidents,
   serviceRequests,
@@ -18,6 +19,7 @@ import {
   type AssetType,
 } from "../database/schema";
 import { MailService } from "../mail/mail.service";
+import { assignmentChanged } from "./asset-assignment";
 import {
   isOpenIncidentStatus,
   isOpenRequestStatus,
@@ -25,6 +27,7 @@ import {
 import type { CreateAssetDto } from "./dto/create-asset.dto";
 import type { LinkTicketDto } from "./dto/link-ticket.dto";
 import type { UpdateAssetDto } from "./dto/update-asset.dto";
+import { alias } from "drizzle-orm/pg-core";
 
 export type AssetListItem = {
   id: string;
@@ -38,6 +41,9 @@ export type AssetListItem = {
   linkedTicketCount: number;
   /** Present on Admin asset APIs only. */
   purchaseCost: string | null;
+  serialNumber: string | null;
+  location: string | null;
+  assignedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -101,6 +107,9 @@ export class AssetsService {
           ownerName: users.name,
           linkedTicketId: assets.linkedTicketId,
           purchaseCost: assets.purchaseCost,
+          serialNumber: assets.serialNumber,
+          location: assets.location,
+          assignedAt: assets.assignedAt,
           createdAt: assets.createdAt,
           updatedAt: assets.updatedAt,
         })
@@ -116,6 +125,9 @@ export class AssetsService {
     const data: AssetListItem[] = rows.map((row) => ({
       ...row,
       purchaseCost: row.purchaseCost ?? null,
+      serialNumber: row.serialNumber ?? null,
+      location: row.location ?? null,
+      assignedAt: row.assignedAt ?? null,
       linkedTicketCount: row.linkedTicketId ? 1 : 0,
     }));
 
@@ -167,6 +179,9 @@ export class AssetsService {
         ownerName: users.name,
         linkedTicketId: assets.linkedTicketId,
         purchaseCost: assets.purchaseCost,
+        serialNumber: assets.serialNumber,
+        location: assets.location,
+        assignedAt: assets.assignedAt,
         createdAt: assets.createdAt,
         updatedAt: assets.updatedAt,
       })
@@ -179,14 +194,18 @@ export class AssetsService {
     return {
       ...row,
       purchaseCost: row.purchaseCost ?? null,
+      serialNumber: row.serialNumber ?? null,
+      location: row.location ?? null,
+      assignedAt: row.assignedAt ?? null,
       linkedTicketCount: row.linkedTicketId ? 1 : 0,
     };
   }
 
-  async create(dto: CreateAssetDto) {
+  async create(dto: CreateAssetDto, assignedBy?: string | null) {
     await this.ensureUniqueTag(dto.assetTag);
     if (dto.ownerId) await this.ensureOwner(dto.ownerId);
 
+    const now = new Date();
     const [created] = await this.db
       .insert(assets)
       .values({
@@ -196,10 +215,23 @@ export class AssetsService {
         status: dto.status ?? "Active",
         ownerId: dto.ownerId ?? null,
         purchaseCost: dto.purchaseCost ?? null,
+        serialNumber: dto.serialNumber?.trim() || null,
+        location: dto.location?.trim() || null,
+        assignedAt: dto.ownerId ? now : null,
       })
       .returning();
 
-    const result = await this.getById(created.id);
+    if (dto.ownerId) {
+      await this.db.insert(assetAssignments).values({
+        assetId: created!.id,
+        fromOwnerId: null,
+        toOwnerId: dto.ownerId,
+        assignedBy: assignedBy ?? null,
+        note: null,
+      });
+    }
+
+    const result = await this.getById(created!.id);
     if (result.ownerId) {
       await this.notifyOwner(result.ownerId, {
         assetId: result.id,
@@ -211,10 +243,19 @@ export class AssetsService {
     return result;
   }
 
-  async update(id: string, dto: UpdateAssetDto) {
+  async update(
+    id: string,
+    dto: UpdateAssetDto,
+    assignedBy?: string | null,
+  ) {
     const before = await this.getById(id);
     if (dto.assetTag) await this.ensureUniqueTag(dto.assetTag, id);
     if (dto.ownerId) await this.ensureOwner(dto.ownerId);
+
+    const ownerChanging =
+      dto.ownerId !== undefined &&
+      assignmentChanged(before.ownerId, dto.ownerId);
+    const now = new Date();
 
     const [updated] = await this.db
       .update(assets)
@@ -227,19 +268,37 @@ export class AssetsService {
         ...(dto.purchaseCost !== undefined
           ? { purchaseCost: dto.purchaseCost }
           : {}),
-        updatedAt: new Date(),
+        ...(dto.serialNumber !== undefined
+          ? { serialNumber: dto.serialNumber?.trim() || null }
+          : {}),
+        ...(dto.location !== undefined
+          ? { location: dto.location?.trim() || null }
+          : {}),
+        ...(ownerChanging
+          ? {
+              assignedAt: dto.ownerId ? now : null,
+            }
+          : {}),
+        updatedAt: now,
       })
       .where(eq(assets.id, id))
       .returning();
 
     if (!updated) throw new NotFoundException("Asset not found");
+
+    if (ownerChanging) {
+      await this.db.insert(assetAssignments).values({
+        assetId: id,
+        fromOwnerId: before.ownerId,
+        toOwnerId: dto.ownerId ?? null,
+        assignedBy: assignedBy ?? null,
+        note: dto.assignmentNote?.trim() || null,
+      });
+    }
+
     const result = await this.getById(updated.id);
 
-    if (
-      dto.ownerId !== undefined &&
-      result.ownerId &&
-      result.ownerId !== before.ownerId
-    ) {
+    if (ownerChanging && result.ownerId) {
       await this.notifyOwner(result.ownerId, {
         assetId: result.id,
         assetTag: result.assetTag,
@@ -249,6 +308,40 @@ export class AssetsService {
     }
 
     return result;
+  }
+
+  async listAssignments(assetId: string) {
+    await this.getById(assetId);
+    const fromOwner = alias(users, "from_owner");
+    const toOwner = alias(users, "to_owner");
+    const byUser = alias(users, "assigned_by_user");
+
+    const rows = await this.db
+      .select({
+        id: assetAssignments.id,
+        assetId: assetAssignments.assetId,
+        fromOwnerId: assetAssignments.fromOwnerId,
+        fromOwnerName: fromOwner.name,
+        toOwnerId: assetAssignments.toOwnerId,
+        toOwnerName: toOwner.name,
+        assignedBy: assetAssignments.assignedBy,
+        assignedByName: byUser.name,
+        note: assetAssignments.note,
+        createdAt: assetAssignments.createdAt,
+      })
+      .from(assetAssignments)
+      .leftJoin(fromOwner, eq(assetAssignments.fromOwnerId, fromOwner.id))
+      .leftJoin(toOwner, eq(assetAssignments.toOwnerId, toOwner.id))
+      .leftJoin(byUser, eq(assetAssignments.assignedBy, byUser.id))
+      .where(eq(assetAssignments.assetId, assetId))
+      .orderBy(desc(assetAssignments.createdAt));
+
+    return {
+      data: rows.map((row) => ({
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+      })),
+    };
   }
 
   async softDelete(id: string) {

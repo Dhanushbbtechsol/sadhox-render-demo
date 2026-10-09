@@ -47,7 +47,7 @@ Phases **1–5** merged on `Audit` (Dev-C close-out 2026-10-07): JWT/RBAC, full 
 
 **Phase 7 (designed, not coded):** EndUser desk — [Docs/Phase/phase7.md](./Docs/Phase/phase7.md).
 
-**Phase 8 (designed, not coded):** Manager-then-Admin approval + server dashboard CSV — [Docs/Phase/phase8.md](./Docs/Phase/phase8.md).
+**Phase 9 (designed, not coded):** [Docs/Phase/phase9.md](./Docs/Phase/phase9.md). Phase 8 is superseded by Phase 9.
 
 ## Better Fullstack note
 

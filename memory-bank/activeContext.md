@@ -1,6 +1,6 @@
 # Active Context
 
-**Current focus:** Phases 1–6 are in the tree. Designed only: Phase 7 EndUser desk (`Docs/Phase/phase7.md`); Phase 8 two-step approval + server dashboard report (`Docs/Phase/phase8.md`). Do not rebuild Knowledge Base. Staging/TL migrate and go-live are still deferred.
+**Current focus:** Phases 1–6 are in the tree. Next designs: Phase 7 (`Docs/Phase/phase7.md`), then Phase 9 (`Docs/Phase/phase9.md`). Phase 8 is superseded by Phase 9. Do not rebuild Knowledge Base. Staging/TL migrate and go-live are still deferred.
 
 **Branch:** local `Audit` / `Dev-C` (may be ahead of `origin/Audit`). Tracks: `Dev-A-`, `Dev-B`, `Dev-C`, `Dev-D`.
 
