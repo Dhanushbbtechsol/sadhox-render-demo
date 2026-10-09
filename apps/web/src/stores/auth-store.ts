@@ -1,61 +1,38 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { apiFetch, getAccessToken, isMockAccessToken, setAccessToken, setRefreshHandler, setUnauthorizedHandler } from "@/lib/api";
+import {
+  ApiError,
+  apiFetch,
+  getAccessToken,
+  isMockAccessToken,
+  isServiceReachabilityError,
+  setAccessToken,
+  setRefreshHandler,
+  setServiceUnavailableHandler,
+  setUnauthorizedHandler,
+} from "@/lib/api";
 import type { AuthUser, LoginResponse, UserRole } from "@/types/itsm";
-
-/** Local mock users — only referenced from DEV code paths. */
-const MOCK_USERS: Record<string, AuthUser & { password: string }> = import.meta
-  .env.DEV
-  ? {
-      "enduser@sadhox.local": {
-        id: "user-enduser",
-        email: "enduser@sadhox.local",
-        name: "End User",
-        role: "EndUser",
-        password: "password",
-      },
-      // Alias used by seed / login presets — same EndUser persona as enduser@.
-      "user@sadhox.local": {
-        id: "user-enduser",
-        email: "user@sadhox.local",
-        name: "End User",
-        role: "EndUser",
-        password: "password",
-      },
-      "agent@sadhox.local": {
-        id: "user-agent",
-        email: "agent@sadhox.local",
-        name: "Support Agent",
-        role: "Agent",
-        password: "password",
-      },
-      "admin@sadhox.local": {
-        id: "user-admin",
-        email: "admin@sadhox.local",
-        name: "IT Admin",
-        role: "Admin",
-        password: "password",
-      },
-      "manager@sadhox.local": {
-        id: "user-manager",
-        email: "manager@sadhox.local",
-        name: "Morgan Manager",
-        role: "Manager",
-        password: "password",
-      },
-    }
-  : {};
 
 interface AuthState {
   user: AuthUser | null;
   /** In-memory only — never written to localStorage (XSS mitigation). */
   accessToken: string | null;
+  /**
+   * True only after a 200 from /auth/login or /auth/refresh in this page load
+   * that deposited an in-memory access token. Never restored from storage alone.
+   */
   isAuthenticated: boolean;
+  /** Non-sensitive hint: try refresh on start. No role/user persisted. */
+  hadSession: boolean;
   isHydrated: boolean;
+  /** Backend/DB unreachable during boot or refresh — keep hint + cookie. */
+  serviceUnavailable: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refresh: () => Promise<string | null>;
+  /** Re-run refresh after a service-unavailable screen (Retry). */
+  retryRestore: () => Promise<boolean>;
   setHydrated: () => void;
   hasRole: (...roles: UserRole[]) => boolean;
 }
@@ -66,19 +43,38 @@ export function homePathForRole(role: UserRole): string {
   return "/incidents";
 }
 
-function applyMockSession(
-  set: (partial: Partial<AuthState>) => void,
-  mockUser: AuthUser & { password: string },
-) {
-  const { password: _password, ...user } = mockUser;
-  const accessToken = `mock-token-${user.role.toLowerCase()}`;
-  setAccessToken(accessToken);
+/** Legacy DEV mock personas (pre-removal). Never treat these as a live session. */
+const LEGACY_MOCK_USER_IDS = new Set([
+  "user-enduser",
+  "user-agent",
+  "user-admin",
+  "user-manager",
+]);
+
+function isLegacyMockUser(user: AuthUser | null | undefined): boolean {
+  return Boolean(user && LEGACY_MOCK_USER_IDS.has(user.id));
+}
+
+function clearVerifiedSession(set: (partial: Partial<AuthState>) => void) {
+  setAccessToken(null);
   set({
-    user,
-    accessToken,
-    isAuthenticated: true,
+    user: null,
+    accessToken: null,
+    isAuthenticated: false,
   });
 }
+
+/** 401 / logout — drop hint so the next boot does not auto-refresh. */
+function clearEverything(set: (partial: Partial<AuthState>) => void) {
+  clearVerifiedSession(set);
+  set({
+    hadSession: false,
+    serviceUnavailable: false,
+  });
+}
+
+const REFRESH_TIMEOUT_MS = 5_000;
+const HYDRATION_FAILSAFE_MS = 35_000;
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -86,7 +82,9 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       accessToken: null,
       isAuthenticated: false,
+      hadSession: false,
       isHydrated: false,
+      serviceUnavailable: false,
 
       setHydrated: () => set({ isHydrated: true }),
 
@@ -96,48 +94,22 @@ export const useAuthStore = create<AuthState>()(
       },
 
       login: async (email, password) => {
-        try {
-          const data = await apiFetch<LoginResponse>("/auth/login", {
-            method: "POST",
-            body: { email, password },
-            skipAuth: true,
-            signal: AbortSignal.timeout(5_000),
-          });
+        const data = await apiFetch<LoginResponse>("/auth/login", {
+          method: "POST",
+          body: { email, password },
+          skipAuth: true,
+          signal: AbortSignal.timeout(15_000),
+        });
 
-          setAccessToken(data.accessToken);
-          set({
-            user: data.user,
-            accessToken: data.accessToken,
-            isAuthenticated: true,
-          });
-          return data.user;
-        } catch (error) {
-          // Only mock-fallback when the API is unreachable — never on 401 invalid credentials.
-          const message = error instanceof Error ? error.message : "";
-          const isCredentialReject =
-            /invalid credentials|unauthorized|401/i.test(message);
-          const isOffline =
-            error instanceof TypeError ||
-            (error instanceof DOMException && error.name === "TimeoutError") ||
-            /failed to fetch|network|timeout|aborted/i.test(message);
-
-          if (!import.meta.env.DEV || isCredentialReject || !isOffline) {
-            throw error instanceof Error ? error : new Error("Login failed");
-          }
-        }
-
-        // Offline / DB-down fallback for local UI work (Phase stubs).
-        const mockUser = MOCK_USERS[email.toLowerCase()];
-        const allowedPasswords = new Set([mockUser?.password, "ChangeMe123!", "password"]);
-        if (!mockUser || !allowedPasswords.has(password)) {
-          throw new Error(
-            "Invalid email or password (API unreachable — try password `password` or `ChangeMe123!` in local DEV)",
-          );
-        }
-
-        applyMockSession(set, mockUser);
-        const { password: _password, ...user } = mockUser;
-        return user;
+        setAccessToken(data.accessToken);
+        set({
+          user: data.user,
+          accessToken: data.accessToken,
+          isAuthenticated: true,
+          hadSession: true,
+          serviceUnavailable: false,
+        });
+        return data.user;
       },
 
       logout: async () => {
@@ -148,14 +120,14 @@ export const useAuthStore = create<AuthState>()(
             // Clear local session even if revoke fails
           }
         }
-        setAccessToken(null);
-        set({ user: null, accessToken: null, isAuthenticated: false });
+        clearEverything(set);
       },
 
       refresh: async () => {
         const current = getAccessToken() ?? get().accessToken;
         if (isMockAccessToken(current)) {
-          return current;
+          clearEverything(set);
+          return null;
         }
 
         try {
@@ -164,7 +136,7 @@ export const useAuthStore = create<AuthState>()(
             {
               method: "POST",
               skipAuth: true,
-              signal: AbortSignal.timeout(5_000),
+              signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
             },
           );
           setAccessToken(data.accessToken);
@@ -172,68 +144,127 @@ export const useAuthStore = create<AuthState>()(
             accessToken: data.accessToken,
             user: data.user,
             isAuthenticated: true,
+            hadSession: true,
+            serviceUnavailable: false,
           });
           return data.accessToken;
-        } catch {
-          setAccessToken(null);
-          set({ user: null, accessToken: null, isAuthenticated: false });
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            clearEverything(set);
+            return null;
+          }
+          if (isServiceReachabilityError(error)) {
+            // Keep hadSession + httpOnly cookie; drop unverified in-memory identity.
+            clearVerifiedSession(set);
+            set({ serviceUnavailable: true });
+            return null;
+          }
+          clearVerifiedSession(set);
+          set({ serviceUnavailable: true });
           return null;
         }
+      },
+
+      retryRestore: async () => {
+        set({ serviceUnavailable: false });
+        const token = await get().refresh();
+        if (token) {
+          set({ serviceUnavailable: false, isHydrated: true });
+          return true;
+        }
+        // If refresh 401'd, refresh() already cleared the session — stay off the gate.
+        if (!get().hadSession) {
+          set({ serviceUnavailable: false });
+        }
+        return false;
       },
     }),
     {
       name: "sadhox-auth",
-      // Persist identity flag only — access token stays in memory; restore via refresh cookie.
+      version: 3,
+      // Persist only a non-sensitive "had a session" hint — never role/user/token.
       partialize: (state) => ({
-        isAuthenticated: state.isAuthenticated,
+        hadSession: state.hadSession,
       }),
+      migrate: (persisted, fromVersion) => {
+        const state = persisted as {
+          user?: AuthUser | null;
+          isAuthenticated?: boolean;
+          hadSession?: boolean;
+        } | null;
+        if (!state) {
+          return { hadSession: false };
+        }
+        if (fromVersion < 3) {
+          if (isLegacyMockUser(state.user)) {
+            return { hadSession: false };
+          }
+          return {
+            hadSession: Boolean(state.isAuthenticated && state.user),
+          };
+        }
+        return { hadSession: Boolean(state.hadSession) };
+      },
     },
   ),
 );
 
-function finishAuthHydration() {
+async function finishAuthHydration() {
   const state = useAuthStore.getState();
   if (state.isHydrated) return;
 
-  if (state.isAuthenticated) {
-    void state.refresh().finally(() => {
-      useAuthStore.getState().setHydrated();
-    });
-    return;
-  }
+  try {
+    if (!state.hadSession) {
+      clearVerifiedSession(useAuthStore.setState);
+      return;
+    }
 
-  state.setHydrated();
+    const token = await state.refresh();
+    if (!token && useAuthStore.getState().serviceUnavailable) {
+      // Stay on unavailable screen; hint + cookie kept.
+      return;
+    }
+    // 401 path already cleared everything inside refresh().
+  } finally {
+    useAuthStore.getState().setHydrated();
+  }
 }
 
 if (typeof window !== "undefined") {
   if (useAuthStore.persist.hasHydrated()) {
-    finishAuthHydration();
+    void finishAuthHydration();
   } else {
     useAuthStore.persist.onFinishHydration(() => {
-      finishAuthHydration();
+      void finishAuthHydration();
     });
   }
 
-  // Failsafe: never leave the app on the hydration spinner (e.g. hung refresh / DB down).
+  // Failsafe: never open the shell with an unverified session.
   window.setTimeout(() => {
-    if (!useAuthStore.getState().isHydrated) {
-      setAccessToken(null);
+    const s = useAuthStore.getState();
+    if (s.isHydrated) return;
+    if (s.hadSession) {
+      clearVerifiedSession(useAuthStore.setState);
       useAuthStore.setState({
-        user: null,
-        accessToken: null,
-        isAuthenticated: false,
+        serviceUnavailable: true,
+        isHydrated: true,
       });
-      useAuthStore.getState().setHydrated();
+      return;
     }
-  }, 5_000);
+    useAuthStore.getState().setHydrated();
+  }, HYDRATION_FAILSAFE_MS);
 }
 
 setRefreshHandler(() => useAuthStore.getState().refresh());
 setUnauthorizedHandler(() => {
-  setAccessToken(null);
-  useAuthStore.setState({
-    user: null,
-    accessToken: null,
-    isAuthenticated: false,
-  });
+  if (useAuthStore.getState().serviceUnavailable) {
+    // Refresh already marked the outage — do not wipe the session hint/cookie.
+    return;
+  }
+  clearEverything(useAuthStore.setState);
+});
+setServiceUnavailableHandler(() => {
+  // Mid-session outage (Nest/DB down): drop the shell, keep hadSession + cookie.
+  clearVerifiedSession(useAuthStore.setState);
+  useAuthStore.setState({ serviceUnavailable: true });
 });

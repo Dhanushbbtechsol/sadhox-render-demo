@@ -9,6 +9,10 @@ import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "crypto";
 import { and, eq } from "drizzle-orm";
+import {
+  isDatabaseUnavailableError,
+  throwIfDatabaseUnavailable,
+} from "../common/database-unavailable";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import { auditLog, refreshTokens, users, type User } from "../database/schema";
@@ -108,6 +112,9 @@ export class AuthService {
         },
       };
     } catch (err) {
+      if (isDatabaseUnavailableError(err)) {
+        throwIfDatabaseUnavailable(err);
+      }
       await this.recordAuthFailure(email.toLowerCase(), ip, "invalid_credentials");
       throw err;
     }
@@ -117,45 +124,50 @@ export class AuthService {
     if (!rawRefreshToken) {
       throw new UnauthorizedException("Missing refresh token");
     }
-    const tokenHash = this.hashToken(rawRefreshToken);
-    const [stored] = await this.db
-      .select()
-      .from(refreshTokens)
-      .where(eq(refreshTokens.tokenHash, tokenHash))
-      .limit(1);
+    try {
+      const tokenHash = this.hashToken(rawRefreshToken);
+      const [stored] = await this.db
+        .select()
+        .from(refreshTokens)
+        .where(eq(refreshTokens.tokenHash, tokenHash))
+        .limit(1);
 
-    if (!stored || stored.revoked || stored.expiresAt < new Date()) {
-      throw new UnauthorizedException("Invalid refresh token");
+      if (!stored || stored.revoked || stored.expiresAt < new Date()) {
+        throw new UnauthorizedException("Invalid refresh token");
+      }
+
+      await this.db
+        .update(refreshTokens)
+        .set({ revoked: true })
+        .where(eq(refreshTokens.id, stored.id));
+
+      const [user] = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.id, stored.userId))
+        .limit(1);
+      if (!user) {
+        throw new UnauthorizedException("User not found");
+      }
+
+      const accessToken = this.createAccessToken(user);
+      const next = this.generateRefreshToken();
+      await this.persistRefreshToken(user.id, next.hash, next.expiresAt);
+
+      return {
+        accessToken,
+        refreshToken: next.raw,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+      };
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      throwIfDatabaseUnavailable(err);
     }
-
-    await this.db
-      .update(refreshTokens)
-      .set({ revoked: true })
-      .where(eq(refreshTokens.id, stored.id));
-
-    const [user] = await this.db
-      .select()
-      .from(users)
-      .where(eq(users.id, stored.userId))
-      .limit(1);
-    if (!user) {
-      throw new UnauthorizedException("User not found");
-    }
-
-    const accessToken = this.createAccessToken(user);
-    const next = this.generateRefreshToken();
-    await this.persistRefreshToken(user.id, next.hash, next.expiresAt);
-
-    return {
-      accessToken,
-      refreshToken: next.raw,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-    };
   }
 
   async logout(rawRefreshToken: string | undefined) {

@@ -253,15 +253,16 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
       .expect(200);
   });
 
-  it("(3) report route: Agent/EndUser/Manager 403, unauth 401/403, Admin 200 csv", async () => {
+  it("(3) report route: Agent/EndUser/Manager 403, unauth 401/403, Admin 200 excel", async () => {
     dashboardReportCsv.mockResolvedValue({
-      csv: "Meta\nrange,generatedAt,slaFrom,slaTo\n",
-      filename: "yukti-dashboard-30d-2026-10-08.csv",
+      body: '<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"></Workbook>',
+      filename: "yukti-summary-30d-2026-10-08.xls",
+      contentType: "application/vnd.ms-excel; charset=utf-8",
     });
 
     for (const role of ["Agent", "EndUser", "Manager"] as const) {
       await request(app.getHttpServer())
-        .get("/admin/dashboard/report?range=30d")
+        .get("/admin/dashboard/report?range=30d&type=summary&format=excel")
         .set("x-test-role", role)
         .expect(403);
     }
@@ -273,15 +274,21 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
       });
 
     const ok = await request(app.getHttpServer())
-      .get("/admin/dashboard/report?range=30d")
+      .get("/admin/dashboard/report?range=30d&type=summary&format=excel")
       .set("x-test-role", "Admin")
       .expect(200);
-    expect(String(ok.headers["content-type"])).toMatch(/text\/csv/);
-    expect(ok.text).toMatch(/^Meta/);
+    expect(String(ok.headers["content-type"])).toMatch(/ms-excel|spreadsheet/i);
+    expect(ok.text).toMatch(/Workbook/);
     expect(ok.headers["content-disposition"]).toMatch(
-      /yukti-dashboard-30d-.*\.csv/,
+      /yukti-summary-30d-.*\.xls/,
     );
     expect(String(ok.headers["cache-control"])).toMatch(/no-store/i);
+    expect(dashboardReportCsv).toHaveBeenCalledWith(
+      "30d",
+      "summary",
+      ID,
+      "excel",
+    );
   });
 });
 
