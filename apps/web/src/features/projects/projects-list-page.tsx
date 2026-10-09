@@ -4,9 +4,10 @@ import {
   PlusIcon,
   UsersIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ListPagination, paginateItems } from "@/components/list-pagination";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -66,6 +67,8 @@ export default function ProjectsListPage() {
     [managerOptions],
   );
 
+  const [page, setPage] = useState(1);
+
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const rows = projects.data ?? [];
@@ -76,6 +79,12 @@ export default function ProjectsListPage() {
         (p.managerName ?? "").toLowerCase().includes(needle),
     );
   }, [projects.data, query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  const paged = paginateItems(filtered, page);
 
   const resolveManagerLabel = (
     id: string | null,
@@ -156,69 +165,78 @@ export default function ProjectsListPage() {
       ) : null}
 
       {!projects.isLoading && !projects.isError ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Manager</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((project) => (
-              <TableRow key={project.id}>
-                <TableCell className="font-medium">{project.name}</TableCell>
-                <TableCell>
-                  {resolveManagerLabel(project.managerId, project.managerName)}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {project.createdAt
-                    ? new Date(project.createdAt).toLocaleDateString()
-                    : "—"}
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap justify-end gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openForProject("edit", project)}
-                    >
-                      <PencilIcon />
-                      Edit
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openForProject("members", project)}
-                    >
-                      <UsersIcon />
-                      Members
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openForProject("modules", project)}
-                    >
-                      <BoxesIcon />
-                      Modules
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filtered.length === 0 ? (
+        <div className="flex flex-col gap-3">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={4} className="text-muted-foreground">
-                  No projects yet. Create one to get started.
-                </TableCell>
+                <TableHead>Name</TableHead>
+                <TableHead>Manager</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ) : null}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {paged.items.map((project) => (
+                <TableRow key={project.id}>
+                  <TableCell className="font-medium">{project.name}</TableCell>
+                  <TableCell>
+                    {resolveManagerLabel(project.managerId, project.managerName)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {project.createdAt
+                      ? new Date(project.createdAt).toLocaleDateString()
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap justify-end gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openForProject("edit", project)}
+                      >
+                        <PencilIcon />
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openForProject("members", project)}
+                      >
+                        <UsersIcon />
+                        Members
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openForProject("modules", project)}
+                      >
+                        <BoxesIcon />
+                        Modules
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-muted-foreground">
+                    No projects yet. Create one to get started.
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+          <ListPagination
+            page={paged.page}
+            totalPages={paged.totalPages}
+            total={paged.total}
+            onPageChange={setPage}
+            label="projects"
+          />
+        </div>
       ) : null}
 
       <Dialog

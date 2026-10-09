@@ -206,6 +206,7 @@ export const mockQueueHealth = {
   queues: [
     {
       name: "sla-queue",
+      purpose: "Every 5 minutes, marks overdue incidents and sends SLA mail.",
       counts: {
         active: 0,
         waiting: 1,
@@ -218,9 +219,16 @@ export const mockQueueHealth = {
       paused: false,
       alert: true,
       error: null,
+      lastFailure: {
+        jobName: "sla-check",
+        reason: "Connection refused",
+        failedAt: "2026-10-09T10:00:00Z",
+      },
     },
     {
       name: "ticket-lifecycle-queue",
+      purpose:
+        "Closes incidents that have stayed Resolved for the auto-close window.",
       counts: {
         active: 1,
         waiting: 0,
@@ -233,9 +241,11 @@ export const mockQueueHealth = {
       paused: false,
       alert: false,
       error: null,
+      lastFailure: null,
     },
     {
       name: "email-queue",
+      purpose: "Sends the transactional emails queued by the app.",
       counts: {
         active: 0,
         waiting: 3,
@@ -248,9 +258,21 @@ export const mockQueueHealth = {
       paused: false,
       alert: true,
       error: null,
+      lastFailure: {
+        jobName: "send-mail",
+        reason: "Resend rate limited",
+        failedAt: "2026-10-09T09:30:00Z",
+      },
     },
   ],
 };
+
+export const mockEscalationRules = [
+  { priority: "P1" as const, notifyManager: true, notifyAdmin: true },
+  { priority: "P2" as const, notifyManager: true, notifyAdmin: true },
+  { priority: "P3" as const, notifyManager: true, notifyAdmin: false },
+  { priority: "P4" as const, notifyManager: true, notifyAdmin: false },
+];
 
 /** Mutable DEV stores — Admin authoring mutates until Dev D APIs land. */
 export const mockKnowledgeCategories: KnowledgeCategory[] = [

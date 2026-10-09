@@ -39,7 +39,7 @@ export function useIncidents(params: IncidentListParams = {}) {
   const userId = useAuthStore((state) => state.user?.id);
   const {
     page = 1,
-    pageSize = 50,
+    pageSize = 10,
     status,
     priority,
     projectId,
@@ -81,7 +81,7 @@ export function useProblems(
   params: { page?: number; pageSize?: number; projectId?: string } = {},
 ) {
   const userId = useAuthStore((state) => state.user?.id);
-  const { page = 1, pageSize = 50, projectId } = params;
+  const { page = 1, pageSize = 10, projectId } = params;
 
   return useQuery({
     queryKey: [...problemsKey, userId, params],

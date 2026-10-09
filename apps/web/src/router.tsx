@@ -6,6 +6,7 @@ import AuditLogsPage from "@/features/admin/audit-logs-page";
 import DashboardPage from "@/features/admin/dashboard-page";
 import QueueMonitorPage from "@/features/admin/queue-monitor-page";
 import AdminCatalogPage from "@/features/admin/admin-catalog-page";
+import EscalationPage from "@/features/admin/escalation-page";
 import SlaRulesPage from "@/features/admin/sla-rules-page";
 import AdminUsersPage from "@/features/admin/users-page";
 import AssetRegisterPage from "@/features/assets/asset-register-page";
@@ -115,6 +116,12 @@ export const router = createBrowserRouter([
             handle: { breadcrumb: "SLA" },
             element: <ProtectedRoute roles={["Admin"]} />,
             children: [{ index: true, element: <SlaRulesPage /> }],
+          },
+          {
+            path: "admin/escalation",
+            handle: { breadcrumb: "Escalation" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <EscalationPage /> }],
           },
           {
             path: "admin/users",

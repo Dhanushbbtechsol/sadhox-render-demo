@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router";
 import { BookOpenIcon, SearchIcon } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
 import { CatalogDescriptionsSection } from "@/components/knowledge/catalog-descriptions-section";
+import { ListPagination, paginateItems } from "@/components/list-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,6 +26,7 @@ export default function KnowledgePage() {
   const role = useAuthStore((s) => s.user?.role);
   const [q, setQ] = useState("");
   const [categoryId, setCategoryId] = useState<string>("all");
+  const [page, setPage] = useState(1);
 
   const categories = useKnowledgeCategories();
   const articles = useKnowledgeArticles({
@@ -36,6 +38,12 @@ export default function KnowledgePage() {
     const rows = articles.data ?? [];
     return rows.filter((a) => a.status === "Published");
   }, [articles.data]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, categoryId]);
+
+  const paged = paginateItems(visible, page);
 
   // Admin uses the merged browse + authoring page
   if (role === "Admin") {
@@ -131,33 +139,42 @@ export default function KnowledgePage() {
           ) : null}
 
           {!articles.isLoading && visible.length > 0 ? (
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {visible.map((article, index) => (
-                <li
-                  key={article.id}
-                  className={index === 1 ? "stagger-1" : undefined}
-                >
-                  <Link
-                    to={`/knowledge/${article.slug}`}
-                    className="border-border/80 bg-card hover:border-primary/25 hover:shadow-lift group flex h-full flex-col gap-2 rounded-xl border p-4 shadow-soft transition-all duration-200 animate-in-up"
+            <div className="flex flex-col gap-3">
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {paged.items.map((article, index) => (
+                  <li
+                    key={article.id}
+                    className={index === 1 ? "stagger-1" : undefined}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="bg-muted text-muted-foreground flex size-9 items-center justify-center rounded-lg">
-                        <BookOpenIcon className="size-4" />
-                      </span>
-                      <Badge variant="outline">{article.categoryName}</Badge>
-                    </div>
-                    <p className="group-hover:text-primary text-sm font-semibold tracking-tight transition-colors">
-                      {article.title}
-                    </p>
-                    <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
-                      {article.body.replace(/\*\*/g, "").slice(0, 140)}
-                      {article.body.length > 140 ? "…" : ""}
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+                    <Link
+                      to={`/knowledge/${article.slug}`}
+                      className="border-border/80 bg-card hover:border-primary/25 hover:shadow-lift group flex h-full flex-col gap-2 rounded-xl border p-4 shadow-soft transition-all duration-200 animate-in-up"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="bg-muted text-muted-foreground flex size-9 items-center justify-center rounded-lg">
+                          <BookOpenIcon className="size-4" />
+                        </span>
+                        <Badge variant="outline">{article.categoryName}</Badge>
+                      </div>
+                      <p className="group-hover:text-primary text-sm font-semibold tracking-tight transition-colors">
+                        {article.title}
+                      </p>
+                      <p className="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
+                        {article.body.replace(/\*\*/g, "").slice(0, 140)}
+                        {article.body.length > 140 ? "…" : ""}
+                      </p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <ListPagination
+                page={paged.page}
+                totalPages={paged.totalPages}
+                total={paged.total}
+                onPageChange={setPage}
+                label="articles"
+              />
+            </div>
           ) : null}
         </TabsContent>
 

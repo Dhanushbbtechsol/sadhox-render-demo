@@ -1,7 +1,7 @@
 # Sadhox — Status & Feature Handoff (for Claude / agents)
 
-**Last updated:** 2026-10-08  
-**Next (designed, not coded):** [Phase 7 — EndUser desk](./Phase/phase7.md), then [Phase 9](./Phase/phase9.md) (org chart, approvals, escalation, notices, desk report, assets). Do not rebuild KB.  
+**Last updated:** 2026-10-09  
+**Next:** [Phase 9](./Phase/phase9.md) — Dev C UI landed (Reports-to, escalation, queues purpose/lastFailure, audit diffs, desk report, bell, asset serial/location/assignments). Dev A/B UI and remaining Dev D polish may still be open. Do not rebuild KB.  
 **Integration branch:** `Audit`. This tree is `Dev-C` after merging `Audit` (Phase 5 close-out + Phase 6 Dev A/B/D backend and Dev C project UI).
 **Memory bank:** `memory-bank/` (read all six files at task start)
 

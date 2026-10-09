@@ -1,7 +1,8 @@
 import { MoreHorizontal, PlusIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { ListPagination, paginateItems } from "@/components/list-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,7 @@ import { CatalogItemFormDialog } from "./catalog-item-form-dialog";
 
 export default function AdminCatalogPage() {
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceCatalogItem | null>(null);
 
@@ -48,6 +50,12 @@ export default function AdminCatalogPage() {
         item.description.toLowerCase().includes(needle),
     );
   }, [catalog.data, query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  const paged = paginateItems(filtered, page);
 
   async function toggleActive(item: ServiceCatalogItem) {
     const next = item.isActive === false;
@@ -112,70 +120,79 @@ export default function AdminCatalogPage() {
       ) : null}
 
       {filtered.length > 0 ? (
-        <div className="ring-foreground/10 -mx-1 overflow-x-auto bg-card ring-1 md:mx-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Subcategory</TableHead>
-                <TableHead>Fields</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((item) => {
-                const active = item.isActive !== false;
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div className="space-y-0.5">
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-muted-foreground line-clamp-1 text-xs">
-                          {item.description}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>{item.department}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {item.subcategory?.trim() || "—"}
-                    </TableCell>
-                    <TableCell>{item.formFields.length}</TableCell>
-                    <TableCell>
-                      <Badge variant={active ? "success" : "outline"}>
-                        {active ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button variant="ghost" size="icon-sm" />
-                          }
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setEditing(item);
-                              setFormOpen(true);
-                            }}
+        <div className="flex flex-col gap-3">
+          <div className="ring-foreground/10 -mx-1 overflow-x-auto bg-card ring-1 md:mx-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Subcategory</TableHead>
+                  <TableHead>Fields</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paged.items.map((item) => {
+                  const active = item.isActive !== false;
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <div className="space-y-0.5">
+                          <p className="font-medium">{item.name}</p>
+                          <p className="text-muted-foreground line-clamp-1 text-xs">
+                            {item.description}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{item.department}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {item.subcategory?.trim() || "—"}
+                      </TableCell>
+                      <TableCell>{item.formFields.length}</TableCell>
+                      <TableCell>
+                        <Badge variant={active ? "success" : "outline"}>
+                          {active ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button variant="ghost" size="icon-sm" />
+                            }
                           >
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => void toggleActive(item)}>
-                            {active ? "Deactivate" : "Reactivate"}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                            <MoreHorizontal className="size-4" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setEditing(item);
+                                setFormOpen(true);
+                              }}
+                            >
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => void toggleActive(item)}>
+                              {active ? "Deactivate" : "Reactivate"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+          <ListPagination
+            page={paged.page}
+            totalPages={paged.totalPages}
+            total={paged.total}
+            onPageChange={setPage}
+            label="items"
+          />
         </div>
       ) : null}
 

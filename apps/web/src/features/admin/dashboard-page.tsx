@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { DownloadIcon, ListFilterIcon, TrendingUp } from "lucide-react";
+import { DownloadIcon, EyeIcon, ListFilterIcon, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import {
   Area,
@@ -24,6 +24,12 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -36,12 +42,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-import {
-  DASHBOARD_REPORT_TYPES,
-  downloadDashboardReport,
-  type DashboardReportFormat,
-  type DashboardReportType,
-} from "./export-dashboard-csv";
+import { DeskReportView } from "./desk-report-view";
+import { downloadDeskReport, fetchDeskReport } from "./export-dashboard-csv";
 import {
   useAdminStats,
   useChartSlaCompliance,
@@ -49,7 +51,7 @@ import {
   useChartVolumeByModule,
 } from "./hooks";
 import { KpiCard } from "./kpi-card";
-import type { ChartRange, StatusDistributionRow } from "./types";
+import type { ChartRange, DeskReport, StatusDistributionRow } from "./types";
 
 const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
   { value: "7d", label: "Last 7 Days" },
@@ -96,22 +98,36 @@ const DONUT_COLORS = [
 export default function DashboardPage() {
   const [range, setRange] = useState<ChartRange>("30d");
   const [reportLoading, setReportLoading] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [deskReport, setDeskReport] = useState<DeskReport | null>(null);
   const stats = useAdminStats();
   const volume = useChartVolumeByModule(range);
   const statusDist = useChartStatusDistribution(range);
   const slaRate = useChartSlaCompliance(range);
 
-  async function handleGenerateReport(
-    type: DashboardReportType,
-    format: DashboardReportFormat = type === "summary" ? "excel" : "csv",
-  ) {
+  async function handleDownloadDeskReport() {
     setReportLoading(true);
     try {
-      await downloadDashboardReport(range, type, format);
-      toast.success("Report downloaded");
+      await downloadDeskReport(range, "/admin/dashboard/report");
+      toast.success("Desk report downloaded");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to generate report",
+        error instanceof Error ? error.message : "Failed to download report",
+      );
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
+  async function handleViewDeskReport() {
+    setReportLoading(true);
+    try {
+      const report = await fetchDeskReport(range, "/admin/dashboard/report");
+      setDeskReport(report);
+      setViewOpen(true);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load report",
       );
     } finally {
       setReportLoading(false);
@@ -141,42 +157,37 @@ export default function DashboardPage() {
               </Button>
             ))}
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={reportLoading}
-                />
-              }
-            >
-              <DownloadIcon />
-              {reportLoading ? "Generating…" : "Generate report"}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-44">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Report type</DropdownMenuLabel>
-                {DASHBOARD_REPORT_TYPES.map((option) => (
-                  <DropdownMenuItem
-                    key={`${option.value}-${option.format ?? "csv"}`}
-                    disabled={reportLoading}
-                    onClick={() =>
-                      void handleGenerateReport(
-                        option.value,
-                        option.format ?? "csv",
-                      )
-                    }
-                  >
-                    {option.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={reportLoading}
+            onClick={() => void handleDownloadDeskReport()}
+          >
+            <DownloadIcon />
+            {reportLoading ? "Working…" : "Download desk report"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={reportLoading}
+            onClick={() => void handleViewDeskReport()}
+          >
+            <EyeIcon />
+            View report
+          </Button>
         </div>
       </div>
+
+      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Desk report</DialogTitle>
+          </DialogHeader>
+          {deskReport ? <DeskReportView report={deskReport} /> : null}
+        </DialogContent>
+      </Dialog>
 
       {stats.isError ? (
         <p className="text-destructive text-sm">

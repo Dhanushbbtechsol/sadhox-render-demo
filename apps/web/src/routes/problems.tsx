@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
-import { ListPagination } from "@/components/list-pagination";
+import { LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 import { CreateProblemDialog } from "@/components/problems/create-problem-dialog";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,7 +17,7 @@ import { useProblems } from "@/hooks/use-tickets";
 import { cn } from "@/lib/utils";
 import { PROBLEM_STATUS_LABELS } from "@/types/itsm";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 
 export default function ProblemsPage() {
   const [page, setPage] = useState(1);

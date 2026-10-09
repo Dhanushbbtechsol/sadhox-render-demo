@@ -1,6 +1,7 @@
 import { PlusIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { ListPagination, paginateItems } from "@/components/list-pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +20,7 @@ import { useAdminUsers, type AdminUser } from "./use-admin-users";
 export default function AdminUsersPage() {
   const users = useAdminUsers();
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AdminUser | null>(null);
 
@@ -33,6 +35,12 @@ export default function AdminUsersPage() {
         user.role.toLowerCase().includes(needle),
     );
   }, [query, users.data]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
+
+  const paged = paginateItems(filtered, page);
 
   return (
     <div className="flex flex-col gap-4">
@@ -82,38 +90,47 @@ export default function AdminUsersPage() {
       ) : null}
 
       {filtered.length > 0 ? (
-        <div className="ring-foreground/10 -mx-1 overflow-x-auto bg-card ring-1 md:mx-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead className="w-24" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>{user.role}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditing(user);
-                        setFormOpen(true);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                  </TableCell>
+        <div className="flex flex-col gap-3">
+          <div className="ring-foreground/10 -mx-1 overflow-x-auto bg-card ring-1 md:mx-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead className="w-24" />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {paged.items.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>{user.name}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>{user.role}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditing(user);
+                          setFormOpen(true);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <ListPagination
+            page={paged.page}
+            totalPages={paged.totalPages}
+            total={paged.total}
+            onPageChange={setPage}
+            label="users"
+          />
         </div>
       ) : null}
 

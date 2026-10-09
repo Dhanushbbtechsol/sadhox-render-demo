@@ -6,6 +6,7 @@ import {
   mockAdminStats,
   mockAssets,
   mockAuditLogs,
+  mockEscalationRules,
   mockKnowledgeArticles,
   mockKnowledgeCategories,
   mockQueueHealth,
@@ -16,7 +17,9 @@ import {
 } from "./mocks";
 import type {
   AdminStats,
+  AppNotification,
   Asset,
+  AssetAssignment,
   AssetListResponse,
   AssetStatus,
   AssetType,
@@ -26,6 +29,7 @@ import type {
   CreateAssetInput,
   CreateKnowledgeArticleInput,
   CreateKnowledgeCategoryInput,
+  EscalationRule,
   KnowledgeArticle,
   KnowledgeArticleStatus,
   KnowledgeCategory,
@@ -36,6 +40,7 @@ import type {
   SlaRule,
   StatusDistributionResponse,
   UpdateAssetInput,
+  UpdateEscalationRuleInput,
   UpdateKnowledgeArticleInput,
   UpdateKnowledgeCategoryInput,
   UpdateSlaRuleInput,
@@ -50,6 +55,8 @@ export type AssetFilters = {
   search?: string;
   type?: AssetType | "all";
   status?: AssetStatus | "all";
+  page?: number;
+  pageSize?: number;
 };
 
 function filterMockAssets(filters: AssetFilters) {
@@ -67,22 +74,47 @@ function filterMockAssets(filters: AssetFilters) {
 }
 
 export function useAssets(filters: AssetFilters = {}) {
+  const page = filters.page ?? 1;
+  const pageSize = filters.pageSize ?? 10;
   const params = new URLSearchParams();
   if (filters.search?.trim()) params.set("search", filters.search.trim());
   if (filters.type && filters.type !== "all") params.set("type", filters.type);
   if (filters.status && filters.status !== "all") params.set("status", filters.status);
-  params.set("page", "1");
-  params.set("pageSize", "100");
+  params.set("page", String(page));
+  params.set("pageSize", String(pageSize));
   const query = params.toString();
 
   return useQuery({
     queryKey: ["assets", filters, useOfflineAdminData() ? "mock" : "live"],
-    queryFn: async () => {
+    queryFn: async (): Promise<{
+      data: Asset[];
+      page: number;
+      pageSize: number;
+      total: number;
+      totalPages: number;
+    }> => {
       if (useOfflineAdminData()) {
-        return filterMockAssets(filters);
+        const all = filterMockAssets(filters);
+        const total = all.length;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+        const start = (page - 1) * pageSize;
+        return {
+          data: all.slice(start, start + pageSize),
+          page,
+          pageSize,
+          total,
+          totalPages,
+        };
       }
       const result = await apiFetch<AssetListResponse>(`/assets?${query}`);
-      return result.data.map(normalizeAsset);
+      const total = result.total;
+      return {
+        data: result.data.map(normalizeAsset),
+        page: result.page,
+        pageSize: result.pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / result.pageSize) || 1),
+      };
     },
   });
 }
@@ -100,6 +132,9 @@ export function useCreateAsset() {
           status: input.status ?? "Active",
           ownerId: input.ownerId ?? null,
           ownerName: null,
+          serialNumber: input.serialNumber ?? null,
+          location: input.location ?? null,
+          assignedAt: input.ownerId ? new Date().toISOString() : null,
           linkedTicketId: null,
           linkedTicketCount: 0,
           purchaseCost: input.purchaseCost ?? null,
@@ -133,8 +168,11 @@ export function useUpdateAsset() {
       }
       return apiFetch<Asset>(`/assets/${id}`, { method: "PATCH", body: input });
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({ queryKey: ["assets"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["assets", variables.id, "assignments"],
+      });
     },
   });
 }
@@ -724,4 +762,133 @@ export function useUpdateSlaRule() {
 
 export function slugifyTitle(title: string) {
   return slugify(title);
+}
+
+export function useEscalationRules() {
+  return useQuery({
+    queryKey: ["admin", "escalation-rules", useOfflineAdminData() ? "mock" : "live"],
+    queryFn: async (): Promise<EscalationRule[]> => {
+      if (useOfflineAdminData()) {
+        return [...mockEscalationRules].sort((a, b) =>
+          a.priority.localeCompare(b.priority),
+        );
+      }
+      const result = await apiFetch<{ data: EscalationRule[] } | EscalationRule[]>(
+        "/admin/escalation-rules",
+      );
+      const data = Array.isArray(result) ? result : result.data;
+      return [...data].sort((a, b) => a.priority.localeCompare(b.priority));
+    },
+  });
+}
+
+export function useUpdateEscalationRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: UpdateEscalationRuleInput) => {
+      if (useOfflineAdminData()) {
+        const index = mockEscalationRules.findIndex(
+          (r) => r.priority === input.priority,
+        );
+        if (index < 0) throw new Error("Escalation rule not found");
+        mockEscalationRules[index] = {
+          ...mockEscalationRules[index],
+          notifyManager: input.notifyManager,
+          notifyAdmin: input.notifyAdmin,
+        };
+        return mockEscalationRules[index];
+      }
+      return apiFetch<EscalationRule>(
+        `/admin/escalation-rules/${input.priority}`,
+        {
+          method: "PATCH",
+          body: {
+            notifyManager: input.notifyManager,
+            notifyAdmin: input.notifyAdmin,
+          },
+        },
+      );
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "escalation-rules"],
+      });
+    },
+  });
+}
+
+export function useAssetAssignments(assetId: string | null) {
+  return useQuery({
+    queryKey: [
+      "assets",
+      assetId,
+      "assignments",
+      useOfflineAdminData() ? "mock" : "live",
+    ],
+    enabled: Boolean(assetId),
+    queryFn: async (): Promise<AssetAssignment[]> => {
+      if (!assetId) return [];
+      if (useOfflineAdminData()) {
+        return [
+          {
+            id: "asg-mock-1",
+            assetId,
+            fromOwnerId: null,
+            fromOwnerName: null,
+            toOwnerId: "user-agent",
+            toOwnerName: "Alice Chen",
+            assignedBy: "user-admin",
+            assignedByName: "Ian Admin",
+            note: "Initial assignment",
+            createdAt: "2026-09-20T10:00:00Z",
+          },
+        ];
+      }
+      const result = await apiFetch<{ data: AssetAssignment[] }>(
+        `/assets/${assetId}/assignments`,
+      );
+      return result.data;
+    },
+  });
+}
+
+export function useNotifications() {
+  return useQuery({
+    queryKey: ["notifications", useOfflineAdminData() ? "mock" : "live"],
+    refetchInterval: 30_000,
+    queryFn: async (): Promise<AppNotification[]> => {
+      if (useOfflineAdminData()) {
+        return [
+          {
+            id: "notif-1",
+            type: "incident.assigned",
+            title: "Incident assigned",
+            body: "INC-1001 was assigned to you",
+            href: "/incidents/inc-1001",
+            readAt: null,
+            createdAt: new Date().toISOString(),
+          },
+        ];
+      }
+      return apiFetch<AppNotification[]>("/notifications");
+    },
+  });
+}
+
+export function useMarkNotificationRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (useOfflineAdminData()) {
+        return { id, readAt: new Date().toISOString() };
+      }
+      return apiFetch<{ id: string; readAt: string | null }>(
+        `/notifications/${id}/read`,
+        { method: "PATCH" },
+      );
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
 }

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { DownloadIcon, EyeIcon } from "lucide-react";
+import { toast } from "sonner";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { Button } from "@/components/ui/button";
@@ -10,9 +12,20 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DeskReportView } from "@/features/admin/desk-report-view";
+import {
+  downloadDeskReport,
+  fetchDeskReport,
+} from "@/features/admin/export-dashboard-csv";
 import { KpiCard } from "@/features/admin/kpi-card";
-import type { ChartRange } from "@/features/admin/types";
+import type { ChartRange, DeskReport } from "@/features/admin/types";
 import {
   useManagerCharts,
   useManagerDashboardStats,
@@ -32,7 +45,39 @@ const volumeChartConfig = {
 export default function ManagerHomePage() {
   const stats = useManagerDashboardStats();
   const [range, setRange] = useState<ChartRange>("30d");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [deskReport, setDeskReport] = useState<DeskReport | null>(null);
   const charts = useManagerCharts(range);
+
+  async function handleDownloadDeskReport() {
+    setReportLoading(true);
+    try {
+      await downloadDeskReport(range, "/manager/reports/desk");
+      toast.success("Desk report downloaded");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to download report",
+      );
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
+  async function handleViewDeskReport() {
+    setReportLoading(true);
+    try {
+      const report = await fetchDeskReport(range, "/manager/reports/desk");
+      setDeskReport(report);
+      setViewOpen(true);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to load report",
+      );
+    } finally {
+      setReportLoading(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -43,20 +88,51 @@ export default function ManagerHomePage() {
             Numbers and charts for the projects you manage.
           </p>
         </div>
-        <div className="flex flex-wrap gap-1">
-          {RANGE_OPTIONS.map((option) => (
-            <Button
-              key={option.value}
-              type="button"
-              size="sm"
-              variant={range === option.value ? "default" : "outline"}
-              onClick={() => setRange(option.value)}
-            >
-              {option.label}
-            </Button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-1">
+            {RANGE_OPTIONS.map((option) => (
+              <Button
+                key={option.value}
+                type="button"
+                size="sm"
+                variant={range === option.value ? "default" : "outline"}
+                onClick={() => setRange(option.value)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={reportLoading}
+            onClick={() => void handleDownloadDeskReport()}
+          >
+            <DownloadIcon />
+            {reportLoading ? "Working…" : "Download desk report"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={reportLoading}
+            onClick={() => void handleViewDeskReport()}
+          >
+            <EyeIcon />
+            View report
+          </Button>
         </div>
       </div>
+
+      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Desk report</DialogTitle>
+          </DialogHeader>
+          {deskReport ? <DeskReportView report={deskReport} /> : null}
+        </DialogContent>
+      </Dialog>
 
       {stats.isLoading ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

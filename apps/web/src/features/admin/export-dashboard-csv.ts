@@ -1,28 +1,6 @@
-import { apiDownload } from "@/lib/api";
+import { apiDownload, apiFetch } from "@/lib/api";
 
-import type { ChartRange } from "./types";
-
-export type DashboardReportType =
-  | "summary"
-  | "all"
-  | "assigned"
-  | "in-progress"
-  | "approved";
-
-export type DashboardReportFormat = "excel" | "csv";
-
-export const DASHBOARD_REPORT_TYPES: {
-  value: DashboardReportType;
-  format?: DashboardReportFormat;
-  label: string;
-}[] = [
-  { value: "summary", format: "excel", label: "Summary (Excel)" },
-  { value: "summary", format: "csv", label: "Summary figures (CSV)" },
-  { value: "all", format: "csv", label: "All tickets" },
-  { value: "assigned", format: "csv", label: "Assigned" },
-  { value: "in-progress", format: "csv", label: "In progress" },
-  { value: "approved", format: "csv", label: "Approved" },
-];
+import type { ChartRange, DeskReport } from "./types";
 
 export function downloadBlob(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob);
@@ -33,24 +11,20 @@ export function downloadBlob(filename: string, blob: Blob) {
   URL.revokeObjectURL(url);
 }
 
-export async function downloadDashboardReport(
+export async function downloadDeskReport(
   range: ChartRange,
-  type: DashboardReportType = "summary",
-  format: DashboardReportFormat = type === "summary" ? "excel" : "csv",
+  path: "/admin/dashboard/report" | "/manager/reports/desk" = "/admin/dashboard/report",
 ) {
-  const params = new URLSearchParams({
-    range,
-    type,
-    format,
-  });
-  const { blob, filename } = await apiDownload(
-    `/admin/dashboard/report?${params.toString()}`,
-  );
+  const params = new URLSearchParams({ range, format: "csv" });
+  const { blob, filename } = await apiDownload(`${path}?${params.toString()}`);
   const date = new Date().toISOString().slice(0, 10);
-  const ext = type === "summary" && format === "excel" ? "xls" : "csv";
-  const fallback =
-    type === "summary" && format === "csv"
-      ? `yukti-summary-figures-${range}-${date}.${ext}`
-      : `yukti-${type}-${range}-${date}.${ext}`;
-  downloadBlob(filename ?? fallback, blob);
+  downloadBlob(filename ?? `desk-report-${range}-${date}.csv`, blob);
+}
+
+export async function fetchDeskReport(
+  range: ChartRange,
+  path: "/admin/dashboard/report" | "/manager/reports/desk" = "/admin/dashboard/report",
+): Promise<DeskReport> {
+  const params = new URLSearchParams({ range, format: "json" });
+  return apiFetch<DeskReport>(`${path}?${params.toString()}`);
 }

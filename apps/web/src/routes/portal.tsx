@@ -3,14 +3,14 @@ import { Link } from "react-router";
 
 import { CreateIncidentDialog } from "@/components/incidents/create-incident-dialog";
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
-import { ListPagination } from "@/components/list-pagination";
+import { LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { useIncidents } from "@/hooks/use-tickets";
 import { cn } from "@/lib/utils";
 import { INCIDENT_STATUS_LABELS } from "@/types/itsm";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = LIST_PAGE_SIZE;
 
 function statusVariant(status: string) {
   if (status === "Resolved" || status === "Closed") return "success" as const;

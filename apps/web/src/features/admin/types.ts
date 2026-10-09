@@ -12,12 +12,28 @@ export type Asset = {
   status: AssetStatus;
   ownerId: string | null;
   ownerName: string | null;
+  serialNumber?: string | null;
+  location?: string | null;
+  assignedAt?: string | null;
   linkedTicketId: string | null;
   linkedTicketCount: number;
   /** Admin-only financial field. */
   purchaseCost?: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type AssetAssignment = {
+  id: string;
+  assetId: string;
+  fromOwnerId: string | null;
+  fromOwnerName: string | null;
+  toOwnerId: string | null;
+  toOwnerName: string | null;
+  assignedBy: string | null;
+  assignedByName: string | null;
+  note: string | null;
+  createdAt: string;
 };
 
 export type AssetListResponse = {
@@ -32,12 +48,16 @@ export type CreateAssetInput = {
   name: string;
   type: AssetType;
   status?: AssetStatus;
-  ownerId?: string;
+  ownerId?: string | null;
+  serialNumber?: string | null;
+  location?: string | null;
   purchaseCost?: string;
 };
 
 export type UpdateAssetInput = Partial<CreateAssetInput> & {
   ownerId?: string | null;
+  serialNumber?: string | null;
+  location?: string | null;
   purchaseCost?: string | null;
 };
 
@@ -151,12 +171,20 @@ export type QueueCounts = {
   stalled: number;
 };
 
+export type QueueLastFailure = {
+  jobName: string;
+  reason: string;
+  failedAt: string;
+};
+
 export type QueueHealthRow = {
   name: string;
+  purpose?: string;
   counts: QueueCounts;
   paused: boolean;
   alert: boolean;
   error: string | null;
+  lastFailure?: QueueLastFailure | null;
 };
 
 export type QueueHealthResponse = {
@@ -221,4 +249,47 @@ export type UpdateSlaRuleInput = {
   priority: TicketPriority;
   responseMinutes: number;
   resolveMinutes: number;
+};
+
+export type EscalationRule = {
+  priority: TicketPriority;
+  notifyManager: boolean;
+  notifyAdmin: boolean;
+};
+
+export type UpdateEscalationRuleInput = {
+  priority: TicketPriority;
+  notifyManager: boolean;
+  notifyAdmin: boolean;
+};
+
+export type DeskReport = {
+  title: string;
+  generatedAt: string;
+  range: ChartRange;
+  scope: "All" | "Team";
+  kpis: {
+    incidentsOpen: number;
+    incidentsResolved: number;
+    serviceRequestsOpen: number;
+    serviceRequestsApproved: number;
+  };
+  byStatus: Array<{ status: string; count: number }>;
+  byPriority: Array<{ priority: string; count: number }>;
+  byCategory: Array<{ category: string; count: number }>;
+  sla: {
+    met: number;
+    breached: number;
+    rate: number;
+  };
+};
+
+export type AppNotification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  href: string | null;
+  readAt: string | null;
+  createdAt: string;
 };

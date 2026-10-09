@@ -1,7 +1,8 @@
-import { PlusIcon, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { ChevronDownIcon, ChevronRightIcon, MoreHorizontal, PlusIcon } from "lucide-react";
+import { Fragment, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useAssets, useRetireAsset } from "@/features/admin/hooks";
+import { useAssetAssignments, useAssets, useRetireAsset } from "@/features/admin/hooks";
 import type { Asset, AssetStatus, AssetType } from "@/features/admin/types";
 
 import { AssetFormDialog } from "./asset-form-dialog";
@@ -47,17 +48,85 @@ function statusLabel(status: AssetStatus) {
   return status === "InRepair" ? "In repair" : status;
 }
 
+function AssetAssignmentHistory({ assetId }: { assetId: string }) {
+  const assignments = useAssetAssignments(assetId);
+
+  if (assignments.isLoading) {
+    return <Skeleton className="h-16 w-full" />;
+  }
+
+  if (assignments.isError) {
+    return (
+      <p className="text-destructive text-xs">
+        {assignments.error instanceof Error
+          ? assignments.error.message
+          : "Failed to load assignment history"}
+      </p>
+    );
+  }
+
+  if (!assignments.data || assignments.data.length === 0) {
+    return (
+      <p className="text-muted-foreground text-xs">No assignment history.</p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>From</TableHead>
+            <TableHead>To</TableHead>
+            <TableHead>Note</TableHead>
+            <TableHead>Time</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {assignments.data.map((row) => (
+            <TableRow key={row.id}>
+              <TableCell>{row.fromOwnerName ?? "—"}</TableCell>
+              <TableCell>{row.toOwnerName ?? "—"}</TableCell>
+              <TableCell className="max-w-[16rem] truncate">
+                {row.note ?? "—"}
+              </TableCell>
+              <TableCell className="whitespace-nowrap text-xs">
+                {new Date(row.createdAt).toLocaleString()}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
 export default function AssetRegisterPage() {
   const [query, setQuery] = useState("");
   const [type, setType] = useState<AssetType | "all">("all");
   const [status, setStatus] = useState<AssetStatus | "all">("all");
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
   const [linking, setLinking] = useState<Asset | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const assets = useAssets({ search: query, type, status });
+  useEffect(() => {
+    setPage(1);
+  }, [query, type, status]);
+
+  const assets = useAssets({
+    search: query,
+    type,
+    status,
+    page,
+    pageSize: LIST_PAGE_SIZE,
+  });
   const retireAsset = useRetireAsset();
+  const rows = assets.data?.data ?? [];
+  const total = assets.data?.total ?? 0;
+  const totalPages = assets.data?.totalPages ?? 1;
 
   async function handleRetire(asset: Asset) {
     try {
@@ -133,15 +202,17 @@ export default function AssetRegisterPage() {
         </p>
       ) : null}
 
-      {assets.data && assets.data.length === 0 ? (
+      {assets.data && rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">No assets match these filters.</p>
       ) : null}
 
-      {assets.data && assets.data.length > 0 ? (
+      {rows.length > 0 ? (
+        <div className="flex flex-col gap-3">
         <div className="ring-foreground/10 -mx-1 overflow-x-auto bg-card ring-1 md:mx-0">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10" />
                 <TableHead>Asset Tag</TableHead>
                 <TableHead>Asset Name</TableHead>
                 <TableHead>Type</TableHead>
@@ -153,66 +224,120 @@ export default function AssetRegisterPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {assets.data.map((asset) => (
-                <TableRow key={asset.id}>
-                  <TableCell className="font-medium whitespace-nowrap">{asset.assetTag}</TableCell>
-                  <TableCell className="max-w-[12rem] truncate md:max-w-none">{asset.name}</TableCell>
-                  <TableCell>{asset.type}</TableCell>
-                  <TableCell>{asset.ownerName ?? "Unassigned"}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariant(asset.status)}>
-                      {statusLabel(asset.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="tabular-nums whitespace-nowrap">
-                    {asset.purchaseCost != null && asset.purchaseCost !== ""
-                      ? `$${asset.purchaseCost}`
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">
-                    {asset.linkedTicketId ? asset.linkedTicketId.slice(0, 8) : "—"}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button variant="ghost" size="icon-sm" aria-label="Asset actions" />
-                        }
-                      >
-                        <MoreHorizontal />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setEditing(asset);
-                            setFormOpen(true);
-                          }}
+              {rows.map((asset) => {
+                const expanded = expandedId === asset.id;
+                return (
+                  <Fragment key={asset.id}>
+                    <TableRow>
+                      <TableCell>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={
+                            expanded
+                              ? "Collapse assignment history"
+                              : "Expand assignment history"
+                          }
+                          onClick={() =>
+                            setExpandedId(expanded ? null : asset.id)
+                          }
                         >
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setLinking(asset);
-                            setLinkOpen(true);
-                          }}
-                        >
-                          Link / unlink ticket
-                        </DropdownMenuItem>
-                        {asset.status !== "Retired" ? (
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => void handleRetire(asset)}
+                          {expanded ? (
+                            <ChevronDownIcon className="size-4" />
+                          ) : (
+                            <ChevronRightIcon className="size-4" />
+                          )}
+                        </Button>
+                      </TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">
+                        {asset.assetTag}
+                      </TableCell>
+                      <TableCell className="max-w-[12rem] truncate md:max-w-none">
+                        {asset.name}
+                      </TableCell>
+                      <TableCell>{asset.type}</TableCell>
+                      <TableCell>{asset.ownerName ?? "Unassigned"}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariant(asset.status)}>
+                          {statusLabel(asset.status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="tabular-nums whitespace-nowrap">
+                        {asset.purchaseCost != null && asset.purchaseCost !== ""
+                          ? `$${asset.purchaseCost}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {asset.linkedTicketId
+                          ? asset.linkedTicketId.slice(0, 8)
+                          : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label="Asset actions"
+                              />
+                            }
                           >
-                            Retire
-                          </DropdownMenuItem>
-                        ) : null}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
+                            <MoreHorizontal />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setEditing(asset);
+                                setFormOpen(true);
+                              }}
+                            >
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setLinking(asset);
+                                setLinkOpen(true);
+                              }}
+                            >
+                              Link / unlink ticket
+                            </DropdownMenuItem>
+                            {asset.status !== "Retired" ? (
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => void handleRetire(asset)}
+                              >
+                                Retire
+                              </DropdownMenuItem>
+                            ) : null}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                    {expanded ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="bg-muted/30 p-4">
+                          <p className="mb-2 text-sm font-medium">
+                            Assignment history
+                          </p>
+                          <AssetAssignmentHistory assetId={asset.id} />
+                        </TableCell>
+                      </TableRow>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
             </TableBody>
           </Table>
+        </div>
+        <ListPagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          onPageChange={setPage}
+          label="assets"
+        />
         </div>
       ) : null}
 

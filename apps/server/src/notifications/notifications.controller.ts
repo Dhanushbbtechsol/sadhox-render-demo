@@ -11,10 +11,12 @@ import {
   CurrentUser,
   type AuthUser,
 } from "../common/decorators/current-user.decorator";
+import { Roles } from "../common/decorators/roles.decorator";
 import { NotificationService } from "./notification.service";
 
 @ApiTags("notifications")
 @ApiBearerAuth()
+@Roles("Admin", "Agent", "EndUser", "Manager")
 @Controller("notifications")
 export class NotificationsController {
   constructor(private readonly notifications: NotificationService) {}
