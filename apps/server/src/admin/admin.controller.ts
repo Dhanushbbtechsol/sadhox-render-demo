@@ -15,11 +15,14 @@ import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from "@nest
 import { Throttle } from "@nestjs/throttler";
 import { IsIn, IsOptional } from "class-validator";
 import type { Response } from "express";
-import { CurrentUser, type AuthUser } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { AdminService } from "./admin.service";
 import { ChartRangeQueryDto } from "./dto/chart-range-query.dto";
-import { DashboardReportQueryDto } from "./dto/dashboard-report-query.dto";
+import { DeskReportQueryDto } from "./dto/desk-report-query.dto";
+import {
+  UpdateEscalationRuleBodyDto,
+  UpdateEscalationRuleDto,
+} from "./dto/escalation-rule.dto";
 import { ListAuditLogsQueryDto } from "./dto/list-audit-logs-query.dto";
 import {
   UpdateSlaRuleDto,
@@ -54,28 +57,25 @@ export class AdminController {
   @Header("Cache-Control", "no-store")
   @ApiOperation({
     summary:
-      "Dashboard report (range=7d|30d|ytd, type=summary|all|assigned|in-progress|approved, format=excel|csv).",
+      "Phase 9 desk report (range=7d|30d|ytd, format=json|csv). Scope All.",
   })
   async dashboardReport(
-    @Query() query: DashboardReportQueryDto,
-    @CurrentUser() user: AuthUser,
+    @Query() query: DeskReportQueryDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const type = query.type ?? "summary";
-    const format =
-      type === "summary" ? (query.format ?? "excel") : (query.format ?? "csv");
-    const { body, filename, contentType } = await this.admin.dashboardReportCsv(
-      query.range ?? "30d",
-      type,
-      user.userId,
-      format,
-    );
-    res.setHeader("Content-Type", contentType);
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${filename}"`,
-    );
-    return body;
+    const range = query.range ?? "30d";
+    const format = query.format ?? "json";
+    const result = await this.admin.deskReportResponse(range, format, "All");
+    if (format === "csv") {
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${result.filename}"`,
+      );
+      return result.body;
+    }
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    return result.body;
   }
 
   @Get("dashboard/tickets-by-status")
@@ -131,7 +131,8 @@ export class AdminController {
   @Post("users")
   @HttpCode(201)
   @ApiOperation({
-    summary: "Create a user (Admin). Unique email → 409.",
+    summary:
+      "Create a user (Admin). Optional reportsToId (Manager/Admin). Unique email → 409.",
   })
   createUser(@Body() dto: CreateUserDto) {
     return this.admin.createUser(dto);
@@ -146,7 +147,7 @@ export class AdminController {
   @Patch("users/:id")
   @ApiOperation({
     summary:
-      "Update name, email, password, and/or role (Admin). Promoting to Manager clears project_members.",
+      "Update name, email, password, role, and/or reportsToId (Admin). Promoting to Manager clears project_members.",
   })
   updateUser(
     @Param("id", ParseUUIDPipe) id: string,
@@ -196,5 +197,32 @@ export class AdminController {
     @Body() dto: UpdateSlaRulePathBodyDto,
   ) {
     return this.admin.updateSlaRule(priority, dto);
+  }
+
+  @Get("escalation-rules")
+  @ApiOperation({
+    summary: "List SLA escalation notify flags per priority (Admin)",
+  })
+  listEscalationRules() {
+    return this.admin.listEscalationRules();
+  }
+
+  @Patch("escalation-rules")
+  @ApiOperation({
+    summary: "Update escalation rule by priority in body (Admin)",
+  })
+  updateEscalationRuleBody(@Body() dto: UpdateEscalationRuleBodyDto) {
+    return this.admin.updateEscalationRule(dto.priority, dto);
+  }
+
+  @Patch("escalation-rules/:priority")
+  @ApiOperation({
+    summary: "Update escalation notifyManager/notifyAdmin for a priority",
+  })
+  updateEscalationRuleByPriority(
+    @Param("priority") priority: string,
+    @Body() dto: UpdateEscalationRuleDto,
+  ) {
+    return this.admin.updateEscalationRule(priority, dto);
   }
 }

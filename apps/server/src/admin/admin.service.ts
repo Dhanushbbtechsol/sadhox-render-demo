@@ -37,6 +37,12 @@ import {
   type OverviewMetric,
   type SummaryWorkbookData,
 } from "./dashboard-report-workbook";
+import {
+  deskReportToCsv,
+  type DeskReport,
+  type DeskReportRange,
+} from "./desk-report";
+import { assertReportsTo } from "./org-chart";
 import { assertPasswordComplexity } from "../common/password-policy";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
 import type { UserRole } from "../common/types/roles";
@@ -45,6 +51,7 @@ import type { DrizzleDB } from "../database/database.module";
 import {
   auditLog,
   changes,
+  escalationRules,
   incidents,
   projectMembers,
   projects,
@@ -55,6 +62,11 @@ import {
   type Priority,
 } from "../database/schema";
 import type { ListAuditLogsQueryDto } from "./dto/list-audit-logs-query.dto";
+import {
+  ESCALATION_PRIORITIES,
+  type EscalationPriority,
+  type UpdateEscalationRuleDto,
+} from "./dto/escalation-rule.dto";
 import {
   SLA_PRIORITIES,
   type SlaPriority,
@@ -72,7 +84,24 @@ export type AdminUserView = {
   name: string;
   email: string;
   role: UserRole;
+  reportsToId: string | null;
 };
+
+const QUEUE_PURPOSE: Record<string, string> = {
+  [SLA_QUEUE]:
+    "Every 5 minutes, marks overdue incidents and sends SLA mail.",
+  [TICKET_LIFECYCLE_QUEUE]:
+    "Closes incidents that have stayed Resolved for the auto-close window.",
+  [EMAIL_QUEUE]: "Sends the transactional emails queued by the app.",
+};
+
+const USER_PUBLIC_COLS = {
+  id: users.id,
+  name: users.name,
+  email: users.email,
+  role: users.role,
+  reportsToId: users.reportsToId,
+} as const;
 
 function formatSlaWeekLabel(weekStart: string): string {
   const date = new Date(`${weekStart}T12:00:00Z`);
@@ -1238,22 +1267,12 @@ export class AdminService {
   ): Promise<{ data: AdminUserView[] }> {
     const rows = role
       ? await this.db
-          .select({
-            id: users.id,
-            name: users.name,
-            email: users.email,
-            role: users.role,
-          })
+          .select(USER_PUBLIC_COLS)
           .from(users)
           .where(eq(users.role, role))
           .orderBy(asc(users.name))
       : await this.db
-          .select({
-            id: users.id,
-            name: users.name,
-            email: users.email,
-            role: users.role,
-          })
+          .select(USER_PUBLIC_COLS)
           .from(users)
           .orderBy(asc(users.name));
 
@@ -1262,12 +1281,7 @@ export class AdminService {
 
   async getUser(userId: string): Promise<AdminUserView> {
     const [row] = await this.db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        role: users.role,
-      })
+      .select(USER_PUBLIC_COLS)
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
@@ -1282,6 +1296,14 @@ export class AdminService {
     this.assertPasswordOrThrow(dto.password);
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
+    let reportsToId: string | null = null;
+    if (dto.reportsToId) {
+      const manager = await this.loadReportsToTarget(dto.reportsToId);
+      // Create has no id yet — empty string cannot equal a UUID reportsToId.
+      assertReportsTo(dto.reportsToId, "", manager.role);
+      reportsToId = dto.reportsToId;
+    }
+
     try {
       const [created] = await this.db
         .insert(users)
@@ -1290,13 +1312,9 @@ export class AdminService {
           email,
           passwordHash,
           role: dto.role,
+          reportsToId,
         })
-        .returning({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-          role: users.role,
-        });
+        .returning(USER_PUBLIC_COLS);
       return created!;
     } catch (err) {
       if (this.isUniqueViolation(err)) {
@@ -1320,7 +1338,8 @@ export class AdminService {
       dto.name === undefined &&
       dto.email === undefined &&
       dto.password === undefined &&
-      dto.role === undefined
+      dto.role === undefined &&
+      dto.reportsToId === undefined
     ) {
       throw new BadRequestException("No fields to update");
     }
@@ -1332,6 +1351,7 @@ export class AdminService {
           email: users.email,
           name: users.name,
           role: users.role,
+          reportsToId: users.reportsToId,
         })
         .from(users)
         .where(eq(users.id, userId))
@@ -1345,6 +1365,7 @@ export class AdminService {
         email?: string;
         passwordHash?: string;
         role?: UserRole;
+        reportsToId?: string | null;
         updatedAt: Date;
       } = { updatedAt: new Date() };
 
@@ -1363,6 +1384,22 @@ export class AdminService {
       if (dto.role !== undefined) {
         patch.role = dto.role;
       }
+      if (dto.reportsToId !== undefined) {
+        if (dto.reportsToId === null) {
+          patch.reportsToId = null;
+        } else {
+          const [manager] = await tx
+            .select({ id: users.id, role: users.role })
+            .from(users)
+            .where(eq(users.id, dto.reportsToId))
+            .limit(1);
+          if (!manager) {
+            throw new BadRequestException("reportsToId user not found");
+          }
+          assertReportsTo(dto.reportsToId, userId, manager.role);
+          patch.reportsToId = dto.reportsToId;
+        }
+      }
 
       let updated: AdminUserView;
       try {
@@ -1370,12 +1407,7 @@ export class AdminService {
           .update(users)
           .set(patch)
           .where(eq(users.id, userId))
-          .returning({
-            id: users.id,
-            email: users.email,
-            name: users.name,
-            role: users.role,
-          });
+          .returning(USER_PUBLIC_COLS);
         updated = row!;
       } catch (err) {
         if (this.isUniqueViolation(err)) {
@@ -1399,6 +1431,18 @@ export class AdminService {
         membershipsRemoved,
       };
     });
+  }
+
+  private async loadReportsToTarget(reportsToId: string) {
+    const [manager] = await this.db
+      .select({ id: users.id, role: users.role })
+      .from(users)
+      .where(eq(users.id, reportsToId))
+      .limit(1);
+    if (!manager) {
+      throw new BadRequestException("reportsToId user not found");
+    }
+    return manager;
   }
 
   private assertPasswordOrThrow(password: string): void {
@@ -1495,6 +1539,200 @@ export class AdminService {
     };
   }
 
+  async listEscalationRules() {
+    const rows = await this.db
+      .select({
+        priority: escalationRules.priority,
+        notifyManager: escalationRules.notifyManager,
+        notifyAdmin: escalationRules.notifyAdmin,
+      })
+      .from(escalationRules)
+      .orderBy(asc(escalationRules.priority));
+    return rows;
+  }
+
+  async updateEscalationRule(
+    priority: string,
+    dto: UpdateEscalationRuleDto,
+  ) {
+    if (!ESCALATION_PRIORITIES.includes(priority as EscalationPriority)) {
+      throw new BadRequestException(
+        `priority must be one of ${ESCALATION_PRIORITIES.join(", ")}`,
+      );
+    }
+    const p = priority as Priority;
+    const [existing] = await this.db
+      .select({ priority: escalationRules.priority })
+      .from(escalationRules)
+      .where(eq(escalationRules.priority, p))
+      .limit(1);
+    if (!existing) {
+      throw new NotFoundException(`Escalation rule not found for ${p}`);
+    }
+    const [row] = await this.db
+      .update(escalationRules)
+      .set({
+        notifyManager: dto.notifyManager,
+        notifyAdmin: dto.notifyAdmin,
+      })
+      .where(eq(escalationRules.priority, p))
+      .returning({
+        priority: escalationRules.priority,
+        notifyManager: escalationRules.notifyManager,
+        notifyAdmin: escalationRules.notifyAdmin,
+      });
+    return row!;
+  }
+
+  /**
+   * Phase 9 desk report — Admin scope All, or Manager scope Team (direct reports).
+   */
+  async buildDeskReport(opts: {
+    range: DeskReportRange;
+    scope: "All" | "Team";
+    managerId?: string;
+  }): Promise<DeskReport> {
+    const { range, from, to } = resolveChartRange(opts.range);
+    const teamFilter =
+      opts.scope === "Team" && opts.managerId
+        ? eq(users.reportsToId, opts.managerId)
+        : null;
+
+    const incidentBase = this.db
+      .select({
+        status: incidents.status,
+        priority: incidents.priority,
+        category: incidents.category,
+        slaBreached: incidents.slaBreached,
+        resolvedAt: incidents.resolvedAt,
+      })
+      .from(incidents);
+
+    const incidentRows =
+      teamFilter != null
+        ? await incidentBase
+            .innerJoin(users, eq(incidents.assignedTo, users.id))
+            .where(
+              and(
+                gte(incidents.createdAt, from),
+                lte(incidents.createdAt, to),
+                teamFilter,
+              ),
+            )
+        : await incidentBase.where(
+            and(gte(incidents.createdAt, from), lte(incidents.createdAt, to)),
+          );
+
+    const srBase = this.db
+      .select({
+        status: serviceRequests.status,
+      })
+      .from(serviceRequests);
+
+    const srRows =
+      teamFilter != null
+        ? await srBase
+            .innerJoin(users, eq(serviceRequests.requesterId, users.id))
+            .where(
+              and(
+                gte(serviceRequests.createdAt, from),
+                lte(serviceRequests.createdAt, to),
+                teamFilter,
+              ),
+            )
+        : await srBase.where(
+            and(
+              gte(serviceRequests.createdAt, from),
+              lte(serviceRequests.createdAt, to),
+            ),
+          );
+
+    const openIncidentStatuses = new Set(["New", "Assigned", "InProgress"]);
+    const openSrStatuses = new Set([
+      "Submitted",
+      "PendingApproval",
+      "Approved",
+      "InFulfillment",
+    ]);
+
+    let incidentsOpen = 0;
+    let incidentsResolved = 0;
+    let slaMet = 0;
+    let slaBreached = 0;
+    const byStatus = new Map<string, number>();
+    const byPriority = new Map<string, number>();
+    const byCategory = new Map<string, number>();
+
+    for (const row of incidentRows) {
+      byStatus.set(row.status, (byStatus.get(row.status) ?? 0) + 1);
+      byPriority.set(row.priority, (byPriority.get(row.priority) ?? 0) + 1);
+      byCategory.set(row.category, (byCategory.get(row.category) ?? 0) + 1);
+      if (openIncidentStatuses.has(row.status)) incidentsOpen += 1;
+      if (row.status === "Resolved" || row.resolvedAt) incidentsResolved += 1;
+      if (row.slaBreached) slaBreached += 1;
+      else if (row.resolvedAt) slaMet += 1;
+    }
+
+    let serviceRequestsOpen = 0;
+    let serviceRequestsApproved = 0;
+    for (const row of srRows) {
+      if (openSrStatuses.has(row.status)) serviceRequestsOpen += 1;
+      if (
+        row.status === "Approved" ||
+        row.status === "InFulfillment" ||
+        row.status === "Fulfilled"
+      ) {
+        serviceRequestsApproved += 1;
+      }
+    }
+
+    return {
+      title: "Desk report",
+      generatedAt: new Date().toISOString(),
+      range,
+      scope: opts.scope,
+      kpis: {
+        incidentsOpen,
+        incidentsResolved,
+        serviceRequestsOpen,
+        serviceRequestsApproved,
+      },
+      byStatus: [...byStatus.entries()].map(([status, count]) => ({
+        status,
+        count,
+      })),
+      byPriority: [...byPriority.entries()].map(([priority, count]) => ({
+        priority,
+        count,
+      })),
+      byCategory: [...byCategory.entries()].map(([category, count]) => ({
+        category,
+        count,
+      })),
+      sla: {
+        met: slaMet,
+        breached: slaBreached,
+        rate: computeSlaComplianceRate(slaMet, slaBreached),
+      },
+    };
+  }
+
+  async deskReportResponse(
+    range: DeskReportRange,
+    format: "json" | "csv",
+    scope: "All" | "Team",
+    managerId?: string,
+  ): Promise<{ body: DeskReport | string; filename?: string }> {
+    const report = await this.buildDeskReport({ range, scope, managerId });
+    if (format === "csv") {
+      return {
+        body: deskReportToCsv(report),
+        filename: `desk-report-${range}.csv`,
+      };
+    }
+    return { body: report };
+  }
+
   async queueHealth() {
     const queues = [
       { name: SLA_QUEUE, queue: this.slaQueue },
@@ -1515,9 +1753,11 @@ export class AdminService {
           const paused = await queue.isPaused();
           const failed = counts.failed ?? 0;
           const stalled = await this.countStalledFailures(queue);
+          const lastFailure = await this.newestFailedJob(queue);
           const alert = failed > 0 || paused || stalled > 0;
           return {
             name,
+            purpose: QUEUE_PURPOSE[name] ?? "",
             counts: {
               active: counts.active ?? 0,
               waiting: counts.waiting ?? 0,
@@ -1529,11 +1769,13 @@ export class AdminService {
             },
             paused,
             alert,
+            lastFailure,
             error: null as string | null,
           };
         } catch (err) {
           return {
             name,
+            purpose: QUEUE_PURPOSE[name] ?? "",
             counts: {
               active: 0,
               waiting: 0,
@@ -1545,6 +1787,7 @@ export class AdminService {
             },
             paused: false,
             alert: true,
+            lastFailure: null,
             error: err instanceof Error ? err.message : String(err),
           };
         }
@@ -1566,6 +1809,24 @@ export class AdminService {
       ).length;
     } catch {
       return 0;
+    }
+  }
+
+  private async newestFailedJob(
+    queue: Queue,
+  ): Promise<{ jobName: string; reason: string; failedAt: string } | null> {
+    try {
+      const failedJobs = await queue.getJobs(["failed"], 0, 0, false);
+      const job = failedJobs[0];
+      if (!job) return null;
+      const failedAtMs = job.finishedOn ?? job.timestamp ?? Date.now();
+      return {
+        jobName: job.name,
+        reason: job.failedReason ?? "unknown",
+        failedAt: new Date(failedAtMs).toISOString(),
+      };
+    } catch {
+      return null;
     }
   }
 }

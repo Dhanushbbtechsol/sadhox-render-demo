@@ -14,6 +14,7 @@ import {
   requiresAdminForChangeStatus,
   resolveRejectTransition,
 } from "../common/approval-policy";
+import { nextApproval } from "../common/approval-chain";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
 import { DRIZZLE } from "../database/database.constants";
@@ -26,6 +27,7 @@ import {
   type UserRole,
 } from "../database/schema";
 import { MailService } from "../mail/mail.service";
+import { NotificationService } from "../notifications/notification.service";
 import { ProjectAccessService } from "../projects/project-access.service";
 import { ProjectsService } from "../projects/projects.service";
 import type {
@@ -72,6 +74,7 @@ export class ChangesService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly mail: MailService,
+    private readonly notifications: NotificationService,
     private readonly projectAccess: ProjectAccessService,
     private readonly projectsService: ProjectsService,
   ) {}
@@ -288,17 +291,50 @@ export class ChangesService {
       .limit(1);
     if (!existing) throw new NotFoundException("Change not found");
 
-    await this.projectAccess.assertCanApprove(user, existing.projectId);
-
     const apiStatus = DB_TO_API_STATUS[existing.status] ?? existing.status;
-    const needsManager = await this.projectAccess.projectRequiresManagerStep(
-      existing.projectId,
-    );
-    const nextStatus = this.resolveApprovalNextStatus(
-      user.role as UserRole,
-      apiStatus,
-      needsManager,
-    );
+    const chainStatus =
+      apiStatus === "Draft" || apiStatus === "Submitted"
+        ? "Submitted"
+        : apiStatus === "PendingApproval"
+          ? "PendingApproval"
+          : null;
+    if (!chainStatus) {
+      throw new BadRequestException(
+        `Cannot approve a change in status ${apiStatus}`,
+      );
+    }
+
+    const creatorId = existing.createdBy;
+    if (!creatorId) {
+      throw new BadRequestException("Change has no creator");
+    }
+    const [creator] = await this.db
+      .select({ reportsToId: users.reportsToId })
+      .from(users)
+      .where(eq(users.id, creatorId))
+      .limit(1);
+    const managerId = creator?.reportsToId ?? null;
+    const hasManager = Boolean(managerId);
+
+    let actorRole: "Manager" | "Admin";
+    if (user.role === "Manager") {
+      if (!managerId || managerId !== user.userId) {
+        throw new ForbiddenException(
+          "Only the creator's manager can approve at this step",
+        );
+      }
+      actorRole = "Manager";
+    } else if (user.role === "Admin") {
+      actorRole = "Admin";
+    } else {
+      throw new ForbiddenException("Admin or Manager role required");
+    }
+
+    const nextStatus = nextApproval({
+      status: chainStatus,
+      actorRole,
+      hasManager,
+    });
 
     const [updated] = await this.db
       .update(changes)
@@ -519,6 +555,13 @@ export class ChangesService {
         outcome: info.outcome,
         reason: info.reason,
       });
+      await this.notifications.record(
+        createdBy,
+        `change.${info.outcome}`,
+        `${info.entityTitle} → ${info.outcome}`,
+        info.reason ?? `Change ${info.outcome}`,
+        `/changes/${info.entityId}`,
+      );
     } catch (err) {
       this.logger.warn(
         `approval mail enqueue failed change=${info.entityId}: ${

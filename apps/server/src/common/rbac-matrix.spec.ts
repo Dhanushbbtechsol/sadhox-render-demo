@@ -208,32 +208,12 @@ const MATRIX: MatrixRow[] = [
   },
   {
     method: "get",
-    path: "/admin/dashboard/report?type=summary&format=excel&range=30d",
+    path: "/admin/dashboard/report?range=30d&format=json",
     allowed: ["Admin"],
   },
   {
     method: "get",
-    path: "/admin/dashboard/report?type=summary&format=csv&range=30d",
-    allowed: ["Admin"],
-  },
-  {
-    method: "get",
-    path: "/admin/dashboard/report?type=all&format=csv&range=30d",
-    allowed: ["Admin"],
-  },
-  {
-    method: "get",
-    path: "/admin/dashboard/report?type=assigned&format=csv&range=30d",
-    allowed: ["Admin"],
-  },
-  {
-    method: "get",
-    path: "/admin/dashboard/report?type=in-progress&format=csv&range=30d",
-    allowed: ["Admin"],
-  },
-  {
-    method: "get",
-    path: "/admin/dashboard/report?type=approved&format=csv&range=30d",
+    path: "/admin/dashboard/report?range=30d&format=csv",
     allowed: ["Admin"],
   },
   { method: "get", path: "/assets", allowed: ["Admin"] },
@@ -533,10 +513,9 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
               "updateSlaRule",
               "updateUserRole",
             ]),
-            dashboardReportCsv: vi.fn().mockResolvedValue({
-              body: "ok",
-              filename: "yukti-summary-30d-2026-10-09.xls",
-              contentType: "application/vnd.ms-excel; charset=utf-8",
+            deskReportResponse: vi.fn().mockResolvedValue({
+              body: { title: "Desk report" },
+              filename: "desk-report-30d.csv",
             }),
           },
         },

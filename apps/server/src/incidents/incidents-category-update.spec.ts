@@ -55,6 +55,7 @@ function buildService(incident: Record<string, unknown>) {
     { emitTicketUpdated: vi.fn() } as never,
     {} as never,
     {} as never,
+    { record: vi.fn() } as never,
     {} as never,
     { assertCanAccessTicketProject: vi.fn(async () => undefined) } as never,
     {} as never,

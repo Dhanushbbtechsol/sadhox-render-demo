@@ -109,8 +109,7 @@ describe("ChangesService.update Admin gates", () => {
     const db = createDbMock(submitted);
     const service = new ChangesService(
       db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      createProjectAccessMock() as never,
+      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,      { record: vi.fn() } as never,      createProjectAccessMock() as never,
       createProjectsServiceMock() as never,
     );
     await expect(
@@ -122,8 +121,7 @@ describe("ChangesService.update Admin gates", () => {
     const db = createDbMock(approved);
     const service = new ChangesService(
       db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      createProjectAccessMock() as never,
+      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,      { record: vi.fn() } as never,      createProjectAccessMock() as never,
       createProjectsServiceMock() as never,
     );
     await expect(
@@ -135,8 +133,7 @@ describe("ChangesService.update Admin gates", () => {
     const db = createDbMock(submitted);
     const service = new ChangesService(
       db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      createProjectAccessMock() as never,
+      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,      { record: vi.fn() } as never,      createProjectAccessMock() as never,
       createProjectsServiceMock() as never,
     );
     await expect(
@@ -150,8 +147,7 @@ describe("ChangesService.update Admin gates", () => {
     const access = createProjectAccessMock();
     const service = new ChangesService(
       db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      access as never,
+      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,      { record: vi.fn() } as never,      access as never,
       createProjectsServiceMock() as never,
     );
     await expect(
@@ -167,8 +163,7 @@ describe("ChangesService.update Admin gates", () => {
     const db = createDbMock(withProject);
     const service = new ChangesService(
       db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      createProjectAccessMock() as never,
+      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,      { record: vi.fn() } as never,      createProjectAccessMock() as never,
       createProjectsServiceMock() as never,
     );
     await expect(
@@ -182,8 +177,7 @@ describe("ChangesService.update Admin gates", () => {
     const db = createDbMock(submitted);
     const service = new ChangesService(
       db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      createProjectAccessMock() as never,
+      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,      { record: vi.fn() } as never,      createProjectAccessMock() as never,
       createProjectsServiceMock() as never,
     );
     await expect(
@@ -238,8 +232,7 @@ describe("ChangesService.update Admin gates", () => {
 
     const service = new ChangesService(
       db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      createProjectAccessMock() as never,
+      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,      { record: vi.fn() } as never,      createProjectAccessMock() as never,
       createProjectsServiceMock() as never,
     );
     const result = await service.update(admin, approved.id as string, {
@@ -257,8 +250,7 @@ describe("ChangesService.update Admin gates", () => {
     };
     const service = new ChangesService(
       {} as never,
-      { sendApprovalOutcome: vi.fn() } as never,
-      createProjectAccessMock() as never,
+      { sendApprovalOutcome: vi.fn() } as never,      { record: vi.fn() } as never,      createProjectAccessMock() as never,
       projectsService as never,
     );
     await expect(

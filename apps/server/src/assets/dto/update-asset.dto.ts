@@ -37,12 +37,34 @@ export class UpdateAssetDto {
 
   @ApiPropertyOptional({ format: "uuid", nullable: true })
   @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
   @IsUUID()
   ownerId?: string | null;
+
+  @ApiPropertyOptional({ maxLength: 128, nullable: true })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsString()
+  @MaxLength(128)
+  serialNumber?: string | null;
+
+  @ApiPropertyOptional({ maxLength: 128, nullable: true })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsString()
+  @MaxLength(128)
+  location?: string | null;
 
   @ApiPropertyOptional({ example: "1299.00", nullable: true })
   @IsOptional()
   @ValidateIf((_, v) => v !== null && v !== undefined)
   @IsNumberString()
   purchaseCost?: string | null;
+
+  @ApiPropertyOptional({ maxLength: 500, nullable: true })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @IsString()
+  @MaxLength(500)
+  assignmentNote?: string | null;
 }

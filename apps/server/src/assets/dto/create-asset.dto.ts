@@ -36,6 +36,18 @@ export class CreateAssetDto {
   @IsUUID()
   ownerId?: string;
 
+  @ApiPropertyOptional({ maxLength: 128 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  serialNumber?: string;
+
+  @ApiPropertyOptional({ maxLength: 128 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  location?: string;
+
   /** Admin-only financial field (string decimal for numeric column). */
   @ApiPropertyOptional({ example: "1299.00" })
   @IsOptional()

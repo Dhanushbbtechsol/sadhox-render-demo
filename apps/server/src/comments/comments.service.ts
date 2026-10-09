@@ -19,6 +19,8 @@ import {
   users,
 } from "../database/schema";
 import { EventsService } from "../events/events.service";
+import { NotificationService } from "../notifications/notification.service";
+import { recipientIds } from "../notifications/recipients";
 import type {
   CommentTicketType,
   CreatePolymorphicCommentDto,
@@ -39,6 +41,7 @@ export class CommentsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly events: EventsService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async list(
@@ -113,7 +116,67 @@ export class CommentsService {
     };
 
     this.events.emitCommentCreated(dto.ticketId, view);
+    await this.notifyCommentRecipients(dto.ticketType, dto.ticketId, user.userId);
     return view;
+  }
+
+  private async notifyCommentRecipients(
+    ticketType: CommentTicketType,
+    ticketId: string,
+    authorId: string,
+  ) {
+    try {
+      let reporterId: string | null = null;
+      let assigneeId: string | null = null;
+      let href = `/${ticketType}s/${ticketId}`;
+
+      if (ticketType === "incident") {
+        const [row] = await this.db
+          .select({
+            reporterId: incidents.reporterId,
+            assignedTo: incidents.assignedTo,
+          })
+          .from(incidents)
+          .where(eq(incidents.id, ticketId))
+          .limit(1);
+        reporterId = row?.reporterId ?? null;
+        assigneeId = row?.assignedTo ?? null;
+        href = `/incidents/${ticketId}`;
+      } else if (ticketType === "service_request") {
+        const [row] = await this.db
+          .select({
+            requesterId: serviceRequests.requesterId,
+            assigneeId: serviceRequests.assigneeId,
+          })
+          .from(serviceRequests)
+          .where(eq(serviceRequests.id, ticketId))
+          .limit(1);
+        reporterId = row?.requesterId ?? null;
+        assigneeId = row?.assigneeId ?? null;
+        href = `/service-requests/${ticketId}`;
+      } else {
+        return;
+      }
+
+      if (!reporterId) return;
+      const ids = recipientIds({
+        type: "comment.created",
+        reporterId,
+        assigneeId,
+        authorId,
+      });
+      for (const uid of ids) {
+        await this.notifications.record(
+          uid,
+          "comment.created",
+          "New comment",
+          "A comment was added on your ticket",
+          href,
+        );
+      }
+    } catch {
+      // Best-effort in-app notice
+    }
   }
 
   private async assertCanAccess(

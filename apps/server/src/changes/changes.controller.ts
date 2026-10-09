@@ -61,7 +61,7 @@ export class ChangesController {
   @Roles("Admin", "Manager")
   @ApiOperation({
     summary:
-      "Phase 8 approve: Manager Submitted/Draft→PendingApproval; Admin PendingApproval→Approved (or Submitted/Draft when no project)",
+      "Phase 9 approve: creator manager Submitted/Draft→PendingApproval; Admin PendingApproval→Approved (or Submitted/Draft when no manager)",
   })
   approve(
     @CurrentUser() user: AuthUser,

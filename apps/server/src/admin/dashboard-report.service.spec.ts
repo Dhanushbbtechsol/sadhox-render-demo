@@ -68,9 +68,9 @@ describe("REPORT_STATUS_FILTER mapping", () => {
   });
 });
 
-describe("GET /admin/dashboard/report validation + audit", () => {
+describe("GET /admin/dashboard/report Phase 9 desk report", () => {
   let app: INestApplication;
-  const dashboardReportCsv = vi.fn();
+  const deskReportResponse = vi.fn();
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -85,7 +85,7 @@ describe("GET /admin/dashboard/report validation + audit", () => {
         {
           provide: AdminService,
           useValue: {
-            dashboardReportCsv,
+            deskReportResponse,
             dashboardStats: vi.fn(),
             ticketsByStatus: vi.fn(),
             slaPerformance: vi.fn(),
@@ -101,6 +101,8 @@ describe("GET /admin/dashboard/report validation + audit", () => {
             listSlaRules: vi.fn(),
             updateSlaRule: vi.fn(),
             updateUserRole: vi.fn(),
+            listEscalationRules: vi.fn(),
+            updateEscalationRule: vi.fn(),
           },
         },
       ],
@@ -121,63 +123,42 @@ describe("GET /admin/dashboard/report validation + audit", () => {
     if (app) await app.close();
   });
 
-  it("rejects invalid type and range with 400", async () => {
-    dashboardReportCsv.mockReset();
+  it("rejects invalid range/format with 400", async () => {
+    deskReportResponse.mockReset();
     await request(app.getHttpServer())
-      .get("/admin/dashboard/report?type=nope&range=30d")
+      .get("/admin/dashboard/report?range=forever")
       .set("x-test-role", "Admin")
       .expect(400);
     await request(app.getHttpServer())
-      .get("/admin/dashboard/report?type=all&range=forever")
+      .get("/admin/dashboard/report?range=30d&format=pdf")
       .set("x-test-role", "Admin")
       .expect(400);
-    expect(dashboardReportCsv).not.toHaveBeenCalled();
+    expect(deskReportResponse).not.toHaveBeenCalled();
   });
 
-  it("defaults type to summary excel and passes actor id", async () => {
-    dashboardReportCsv.mockResolvedValue({
-      body: "<Workbook/>",
-      filename: "yukti-summary-7d-2026-10-09.xls",
-      contentType: "application/vnd.ms-excel; charset=utf-8",
+  it("defaults to json desk report scope All", async () => {
+    deskReportResponse.mockResolvedValue({
+      body: { title: "Desk report", scope: "All" },
     });
     await request(app.getHttpServer())
       .get("/admin/dashboard/report?range=7d")
       .set("x-test-role", "Admin")
       .expect(200);
-    expect(dashboardReportCsv).toHaveBeenCalledWith(
-      "7d",
-      "summary",
-      ACTOR,
-      "excel",
-    );
+    expect(deskReportResponse).toHaveBeenCalledWith("7d", "json", "All");
   });
 
-  it("forwards each confirmed type with format", async () => {
-    dashboardReportCsv.mockResolvedValue({
-      body: "\uFEFFTicket ID,Module\r\n",
-      filename: "yukti-all-30d-2026-10-09.csv",
-      contentType: "text/csv; charset=utf-8",
+  it("returns csv attachment for format=csv", async () => {
+    deskReportResponse.mockResolvedValue({
+      body: "Title,Desk report\nScope,All\n",
+      filename: "desk-report-30d.csv",
     });
-    for (const type of [
-      "summary",
-      "all",
-      "assigned",
-      "in-progress",
-      "approved",
-    ] as const) {
-      dashboardReportCsv.mockClear();
-      const format = type === "summary" ? "excel" : "csv";
-      await request(app.getHttpServer())
-        .get(`/admin/dashboard/report?range=30d&type=${type}&format=${format}`)
-        .set("x-test-role", "Admin")
-        .expect(200);
-      expect(dashboardReportCsv).toHaveBeenCalledWith(
-        "30d",
-        type,
-        ACTOR,
-        format,
-      );
-    }
+    const res = await request(app.getHttpServer())
+      .get("/admin/dashboard/report?range=30d&format=csv")
+      .set("x-test-role", "Admin")
+      .expect(200);
+    expect(deskReportResponse).toHaveBeenCalledWith("30d", "csv", "All");
+    expect(String(res.headers["content-type"])).toMatch(/text\/csv/);
+    expect(res.headers["content-disposition"]).toMatch(/desk-report-30d\.csv/);
   });
 });
 
