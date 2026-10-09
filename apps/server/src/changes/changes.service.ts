@@ -427,6 +427,34 @@ export class ChangesService {
     );
   }
 
+  /**
+   * PATCH → PendingApproval must match approve(): Manager (own project), or Admin
+   * only when there is no manager step. Agent → 403 via assertCanApprove.
+   */
+  private assertPendingApprovalAllowed(
+    role: UserRole,
+    apiStatus: string,
+    needsManager: boolean,
+  ): void {
+    if (apiStatus !== "Submitted" && apiStatus !== "Draft") {
+      throw new BadRequestException(
+        `Cannot set PendingApproval from status ${apiStatus}`,
+      );
+    }
+    if (role === "Manager") {
+      return;
+    }
+    if (role === "Admin") {
+      if (needsManager) {
+        throw new ForbiddenException(
+          "Waiting on project manager — Admin cannot skip the Manager step",
+        );
+      }
+      return;
+    }
+    throw new ForbiddenException("Admin or Manager role required");
+  }
+
   private assertRejectOrFinalApproveAllowed(
     role: UserRole,
     apiStatus: string,
@@ -543,6 +571,18 @@ export class ChangesService {
             `Admin role required to set change status to ${dto.status}`,
           );
         }
+      }
+      // Phase 8 [A04]: PendingApproval is a Manager-step status — not a free Agent PATCH.
+      if (dto.status === "PendingApproval") {
+        await this.projectAccess.assertCanApprove(user, existing.projectId);
+        const needsManager = await this.projectAccess.projectRequiresManagerStep(
+          existing.projectId,
+        );
+        this.assertPendingApprovalAllowed(
+          user.role as UserRole,
+          currentApi,
+          needsManager,
+        );
       }
       if (dto.status === "Approved" || dto.status === "Rolled Back") {
         const needsManager = await this.projectAccess.projectRequiresManagerStep(

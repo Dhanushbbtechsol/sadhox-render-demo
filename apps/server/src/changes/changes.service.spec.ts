@@ -144,6 +144,40 @@ describe("ChangesService.update Admin gates", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it("rejects Agent Submitted → PendingApproval via PATCH (Phase 8 A04)", async () => {
+    const withProject = { ...submitted, projectId: "proj-managed" };
+    const db = createDbMock(withProject);
+    const access = createProjectAccessMock();
+    const service = new ChangesService(
+      db as never,
+      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
+      access as never,
+      createProjectsServiceMock() as never,
+    );
+    await expect(
+      service.update(agent, withProject.id as string, {
+        status: "PendingApproval",
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(access.assertCanApprove).toHaveBeenCalled();
+  });
+
+  it("rejects Admin Submitted → PendingApproval when a manager must act first", async () => {
+    const withProject = { ...submitted, projectId: "proj-managed" };
+    const db = createDbMock(withProject);
+    const service = new ChangesService(
+      db as never,
+      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
+      createProjectAccessMock() as never,
+      createProjectsServiceMock() as never,
+    );
+    await expect(
+      service.update(admin, withProject.id as string, {
+        status: "PendingApproval",
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it("rejects Agent Rolled Back from Submitted (Admin rejection gate)", async () => {
     const db = createDbMock(submitted);
     const service = new ChangesService(
