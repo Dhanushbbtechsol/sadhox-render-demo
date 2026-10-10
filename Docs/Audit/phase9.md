@@ -1,6 +1,6 @@
-# Phase 9 audit — 2026-10-09
+# Phase 9 reaudit — 2026-10-10
 
-Scope: `Audit` at `70c8ab9` (org chart, approval chain, escalation, notifications, desk report, assets). Stack: NestJS + Drizzle + Passport JWT + React/Vite. No `.review.yml` (Sonar defaults).
+Scope: `Audit` at `3de2a9c` (Dev D fix `f00c060` on top of `70c8ab9`). Stack: NestJS + Drizzle + Passport JWT + React/Vite. No `.review.yml` (Sonar defaults).
 
 **Open findings (Phase 9): 0 Critical · 0 High · 0 Medium · 0 Low.**
 **Pass/fail:** Dev A **PASS** · Dev B **PASS** · Dev C **PASS** · Dev D **PASS**.
@@ -26,7 +26,7 @@ New tickets are no longer filed with a project on the create forms. Service-requ
 
 ### [A04] Change PATCH still uses the project manager — Dev D — **FIXED**
 
-`PATCH /changes/:id` for `PendingApproval`, `Approved`, and `Rolled Back` now uses `resolveOrgApprovalActor` + `nextApproval` (creator `reports_to_id`), same as `/approve` and `/reject`. Project-manager helpers are not used for those statuses.
+`ChangesService.update` calls `resolveOrgApprovalActor` then `nextApproval` before writing `PendingApproval`, `Approved`, or `Rolled Back` (`changes.service.ts`). The actor must be the creator’s `reports_to_id` or an Admin who is not skipping that manager. `assertCanApprove` is not called. `changes.service.spec.ts`, `approval-chain.spec.ts`, and `phase8-approval-chain.spec.ts`: 21 passed.
 
 ## Review checklist (Sonar)
 
