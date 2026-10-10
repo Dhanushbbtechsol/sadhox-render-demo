@@ -9,6 +9,7 @@ export const REPORT_TYPES = [
   "assigned",
   "in-progress",
   "approved",
+  "open",
 ] as const;
 
 export type ReportType = (typeof REPORT_TYPES)[number];
@@ -149,6 +150,25 @@ export const REPORT_STATUS_FILTER: Record<
     incidents: [],
     serviceRequests: ["Approved"],
     changes: ["Approved"],
+  },
+  open: {
+    incidents: ["New", "Assigned", "InProgress"],
+    serviceRequests: [
+      "Draft",
+      "Submitted",
+      "PendingApproval",
+      "Approved",
+      "InFulfillment",
+    ],
+    changes: [
+      "Draft",
+      "Submitted",
+      "PendingApproval",
+      "Approved",
+      "Scheduled",
+      "Implementing",
+      "Implemented",
+    ],
   },
 };
 

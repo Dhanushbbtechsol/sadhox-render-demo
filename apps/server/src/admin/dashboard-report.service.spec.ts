@@ -65,6 +65,13 @@ describe("REPORT_STATUS_FILTER mapping", () => {
       serviceRequests: ["Approved"],
       changes: ["Approved"],
     });
+    expect(REPORT_STATUS_FILTER.open.incidents).toEqual([
+      "New",
+      "Assigned",
+      "InProgress",
+    ]);
+    expect(REPORT_STATUS_FILTER.open.serviceRequests).toContain("Submitted");
+    expect(REPORT_STATUS_FILTER.open.changes).toContain("Scheduled");
   });
 });
 
@@ -86,6 +93,7 @@ describe("GET /admin/dashboard/report Phase 9 desk report", () => {
           provide: AdminService,
           useValue: {
             deskReportResponse,
+            dashboardReportCsv: vi.fn(),
             dashboardStats: vi.fn(),
             ticketsByStatus: vi.fn(),
             slaPerformance: vi.fn(),

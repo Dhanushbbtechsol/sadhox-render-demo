@@ -126,8 +126,8 @@ export default function ManagerHomePage() {
       </div>
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto sm:max-w-3xl">
+          <DialogHeader className="sr-only">
             <DialogTitle>Desk report</DialogTitle>
           </DialogHeader>
           {deskReport ? <DeskReportView report={deskReport} /> : null}
