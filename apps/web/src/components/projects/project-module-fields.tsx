@@ -31,6 +31,8 @@ type ControlledProps = {
   moduleId: string;
   onProjectChange: (projectId: string) => void;
   onModuleChange: (moduleId: string) => void;
+  /** When true, project is required even for Admin/Agent/EndUser. */
+  requireProject?: boolean;
 };
 
 function isRhfProps<T extends FieldValues>(
@@ -193,10 +195,11 @@ function ControlledProjectModuleFields({
   moduleId,
   onProjectChange,
   onModuleChange,
+  requireProject = false,
 }: ControlledProps) {
   const { data: projects = [] } = useProjects();
   const { data: modules = [] } = useProjectModules(projectId || undefined);
-  const allowUnscoped = useAllowUnscopedProject();
+  const allowUnscoped = useAllowUnscopedProject() && !requireProject;
 
   const projectItems = {
     ...(allowUnscoped ? { [NONE]: "Select" } : {}),
@@ -208,6 +211,7 @@ function ControlledProjectModuleFields({
   } as Record<string, string>;
 
   return (
+    <div className="space-y-1.5">
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-1.5">
         <Label>{allowUnscoped ? "Project (optional)" : "Project"}</Label>
@@ -286,6 +290,12 @@ function ControlledProjectModuleFields({
           </SelectContent>
         </Select>
       </div>
+    </div>
+      {requireProject ? (
+        <p className="text-muted-foreground text-xs">
+          Pick a project so its Manager can review this change request.
+        </p>
+      ) : null}
     </div>
   );
 }

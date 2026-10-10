@@ -24,6 +24,14 @@ function statusVariant(status: string) {
   return "outline" as const;
 }
 
+function isPendingApproval(status: string) {
+  return (
+    status === "Submitted" ||
+    status === "Draft" ||
+    status === "PendingApproval"
+  );
+}
+
 export default function ChangeDetailPage() {
   const { id } = useParams();
   const { data, isLoading, isError, error } = useChange(id);
@@ -93,7 +101,7 @@ export default function ChangeDetailPage() {
                 <div className="sm:col-span-2">
                   <dt className="text-muted-foreground mb-1 flex items-center gap-1.5 text-xs">
                     <CalendarClockIcon className="size-3.5" />
-                    Maintenance window
+                    Requested window
                   </dt>
                   <dd className="text-sm">
                     {data.scheduledStart
@@ -107,67 +115,45 @@ export default function ChangeDetailPage() {
                 </div>
               </dl>
 
-              <Can roles={["Admin", "Agent", "Manager"]}>
-                <div className="flex flex-wrap gap-2 border-t pt-4">
-                  <Can roles={["Admin", "Manager"]}>
-                    {data.status === "Submitted" || data.status === "Draft" ? (
-                      <Button
-                        disabled={approveChange.isPending}
-                        onClick={async () => {
-                          try {
-                            await approveChange.mutateAsync(data.id);
-                            toast.success("Change approved");
-                          } catch (err) {
-                            toast.error(err instanceof Error ? err.message : "Approve failed");
-                          }
-                        }}
-                      >
-                        Approve
-                      </Button>
-                    ) : null}
-                  </Can>
-                  <Can roles={["Admin"]}>
-                    {data.status === "Approved" ? (
-                      <Button
-                        variant="outline"
-                        disabled={updateStatus.isPending}
-                        onClick={async () => {
-                          try {
-                            await updateStatus.mutateAsync({
-                              id: data.id,
-                              status: "Scheduled",
-                            });
-                            toast.success("Change scheduled");
-                          } catch (err) {
-                            toast.error(err instanceof Error ? err.message : "Schedule failed");
-                          }
-                        }}
-                      >
-                        Mark scheduled
-                      </Button>
-                    ) : null}
-                  </Can>
-                  {data.status === "Scheduled" ? (
+              <Can roles={["Admin", "Manager"]}>
+                {isPendingApproval(data.status) ? (
+                  <div className="flex flex-wrap gap-2 border-t pt-4">
                     <Button
+                      disabled={approveChange.isPending}
+                      onClick={async () => {
+                        try {
+                          await approveChange.mutateAsync(data.id);
+                          toast.success("Change approved");
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error ? err.message : "Approve failed",
+                          );
+                        }
+                      }}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      variant="destructive"
                       disabled={updateStatus.isPending}
                       onClick={async () => {
                         try {
                           await updateStatus.mutateAsync({
                             id: data.id,
-                            status: "Implemented",
+                            status: "Rolled Back",
                           });
-                          toast.success("Change marked implemented");
+                          toast.message("Change rejected");
                         } catch (err) {
                           toast.error(
-                            err instanceof Error ? err.message : "Update failed",
+                            err instanceof Error ? err.message : "Reject failed",
                           );
                         }
                       }}
                     >
-                      Mark implemented
+                      Reject
                     </Button>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </Can>
             </TabsContent>
 

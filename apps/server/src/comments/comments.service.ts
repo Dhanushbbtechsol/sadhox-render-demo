@@ -223,15 +223,21 @@ export class CommentsService {
     }
 
     if (ticketType === "change") {
-      if (user.role === "EndUser") {
-        throw new ForbiddenException("EndUser cannot access changes");
-      }
       const [row] = await this.db
-        .select({ id: changes.id })
+        .select({
+          id: changes.id,
+          createdBy: changes.createdBy,
+        })
         .from(changes)
         .where(eq(changes.id, ticketId))
         .limit(1);
       if (!row) throw new NotFoundException("Change not found");
+      if (
+        user.role === "EndUser" &&
+        row.createdBy !== user.userId
+      ) {
+        throw new ForbiddenException("Cannot access this change");
+      }
       return;
     }
 

@@ -33,6 +33,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ProjectModuleFields } from "@/components/projects/project-module-fields";
 import {
   useApproveChange,
   useChanges,
@@ -53,6 +54,8 @@ export function ChangesTable() {
   const [scheduledStart, setScheduledStart] = useState("");
   const [scheduledEnd, setScheduledEnd] = useState("");
   const [rollbackPlan, setRollbackPlan] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [moduleId, setModuleId] = useState("");
   const [page, setPage] = useState(1);
 
   const paged = useMemo(
@@ -67,6 +70,10 @@ export function ChangesTable() {
       toast.error("Rollback plan is required for Normal and Emergency changes");
       return;
     }
+    if (!projectId) {
+      toast.error("Select a project so the project Manager can review this change");
+      return;
+    }
     if (!scheduledStart || !scheduledEnd) {
       toast.error("Scheduled start and end are required");
       return;
@@ -78,7 +85,6 @@ export function ChangesTable() {
       return;
     }
     try {
-      // Phase 9: no project/module on new change forms.
       await createChange.mutateAsync({
         title,
         description,
@@ -86,12 +92,16 @@ export function ChangesTable() {
         scheduledStart: start.toISOString(),
         scheduledEnd: end.toISOString(),
         rollbackPlan: rollbackPlan.trim(),
+        projectId: projectId || null,
+        moduleId: moduleId || null,
       });
-      toast.success("Change created");
+      toast.success("Change requested — waiting on Admin approval");
       setOpen(false);
       setTitle("");
       setDescription("");
       setRollbackPlan("");
+      setProjectId("");
+      setModuleId("");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Create failed");
     }
@@ -105,18 +115,27 @@ export function ChangesTable() {
     return <p className="text-destructive text-sm">Failed to load changes.</p>;
   }
 
+  function canDecide(status: string) {
+    return (
+      status === "Submitted" ||
+      status === "Draft" ||
+      status === "PendingApproval"
+    );
+  }
+
   return (
     <div className="min-w-0 space-y-4 self-start">
       <div className="flex justify-end">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger render={<Button size="sm" />}>
-            New change
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create change</DialogTitle>
-            </DialogHeader>
-            <form className="space-y-3" onSubmit={handleCreate}>
+        <Can roles={["Admin", "Agent", "EndUser"]}>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger render={<Button size="sm" />}>
+              Request change
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Request change</DialogTitle>
+              </DialogHeader>
+              <form className="space-y-3" onSubmit={handleCreate}>
               <div className="space-y-1.5">
                 <Label htmlFor="chg-title">Title</Label>
                 <Input
@@ -136,6 +155,13 @@ export function ChangesTable() {
                   required
                 />
               </div>
+              <ProjectModuleFields
+                projectId={projectId}
+                moduleId={moduleId}
+                onProjectChange={setProjectId}
+                onModuleChange={setModuleId}
+                requireProject
+              />
               <div className="space-y-1.5">
                 <Label>Type</Label>
                 <Select
@@ -187,20 +213,21 @@ export function ChangesTable() {
                   required={type === "Normal" || type === "Emergency"}
                 />
               </div>
-              <DialogFooter>
-                <Button type="submit" disabled={createChange.isPending}>
-                  {createChange.isPending ? "Saving..." : "Submit"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <Button type="submit" disabled={createChange.isPending}>
+                    {createChange.isPending ? "Submitting..." : "Submit request"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </Can>
       </div>
 
       {!data?.length ? (
         <EmptyState
           title="No changes yet"
-          description="Create a Normal or Emergency change with a rollback plan and maintenance window to get started."
+          description="Request a change with a type, rollback plan (when required), and requested window. An Admin or project Manager can approve or reject it."
         />
       ) : (
         <div className="flex w-full min-w-0 flex-col gap-3">
@@ -212,9 +239,11 @@ export function ChangesTable() {
                   <TableHead>Project</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Schedule</TableHead>
+                  <TableHead>Requested window</TableHead>
                   <TableHead>Created by</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <Can roles={["Admin", "Manager"]}>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </Can>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -253,59 +282,59 @@ export function ChangesTable() {
                         : "—"}
                     </TableCell>
                     <TableCell>{change.createdByName}</TableCell>
-                    <TableCell className="whitespace-normal">
-                      <Can roles={["Admin", "Manager"]}>
-                        <div className="flex flex-wrap justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={
-                            approveChange.isPending ||
-                            change.status === "Approved"
-                          }
-                          onClick={async () => {
-                            try {
-                              await approveChange.mutateAsync(change.id);
-                              toast.success("Change approved");
-                            } catch (error) {
-                              toast.error(
-                                error instanceof Error
-                                  ? error.message
-                                  : "Approve failed",
-                              );
-                            }
-                          }}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          disabled={
-                            updateStatus.isPending ||
-                            change.status === "Rolled Back"
-                          }
-                          onClick={async () => {
-                            try {
-                              await updateStatus.mutateAsync({
-                                id: change.id,
-                                status: "Rolled Back",
-                              });
-                              toast.message("Change rolled back");
-                            } catch (error) {
-                              toast.error(
-                                error instanceof Error
-                                  ? error.message
-                                  : "Reject failed",
-                              );
-                            }
-                          }}
-                        >
-                          Reject
-                        </Button>
-                        </div>
-                      </Can>
-                    </TableCell>
+                    <Can roles={["Admin", "Manager"]}>
+                      <TableCell className="whitespace-normal text-right">
+                        {canDecide(change.status) ? (
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={approveChange.isPending}
+                              onClick={async () => {
+                                try {
+                                  await approveChange.mutateAsync(change.id);
+                                  toast.success("Change approved");
+                                } catch (error) {
+                                  toast.error(
+                                    error instanceof Error
+                                      ? error.message
+                                      : "Approve failed",
+                                  );
+                                }
+                              }}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={updateStatus.isPending}
+                              onClick={async () => {
+                                try {
+                                  await updateStatus.mutateAsync({
+                                    id: change.id,
+                                    status: "Rolled Back",
+                                  });
+                                  toast.message("Change rejected");
+                                } catch (error) {
+                                  toast.error(
+                                    error instanceof Error
+                                      ? error.message
+                                      : "Reject failed",
+                                  );
+                                }
+                              }}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            {change.status === "Rolled Back" ? "Rejected" : "Approved"}
+                          </span>
+                        )}
+                      </TableCell>
+                    </Can>
                   </TableRow>
                 ))}
               </TableBody>

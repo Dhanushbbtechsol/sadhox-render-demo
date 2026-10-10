@@ -2,15 +2,17 @@ import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChangesService } from "./changes.service";
 
-function createDbMock(
-  existing: Record<string, unknown>,
-  creatorReportsToId: string | null = null,
-) {
-  let selectCalls = 0;
+function createDbMock(existing: Record<string, unknown>) {
+  const limit = vi.fn(async () => [existing]);
+  const whereSelect = vi.fn(() => ({ limit }));
+  const from = vi.fn(() => ({ where: whereSelect }));
+  const select = vi.fn(() => ({ from }));
+
   const whereUpdate = vi.fn(async () => undefined);
   const set = vi.fn(() => ({ where: whereUpdate }));
   const update = vi.fn(() => ({ set }));
 
+  // get() after update — return mapped row via leftJoin chain
   const leftJoin = vi.fn(() => ({
     where: vi.fn(() => ({
       limit: vi.fn(async () => [
@@ -32,20 +34,14 @@ function createDbMock(
   return {
     select: vi.fn(() => ({
       from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn(async () => {
-            selectCalls += 1;
-            // 1st: load change; later org-chart lookups return reportsToId
-            if (selectCalls === 1) return [existing];
-            return [{ reportsToId: creatorReportsToId }];
-          }),
-        })),
+        where: whereSelect,
         leftJoin,
       })),
     })),
     update,
     set,
     whereUpdate,
+    _select: select,
   };
 }
 
@@ -72,7 +68,7 @@ function createProjectsServiceMock() {
   };
 }
 
-describe("ChangesService.update Admin gates", () => {
+describe("ChangesService — Admin-only approve, no actions", () => {
   const agent = {
     userId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     email: "agent@sadhox.local",
@@ -85,17 +81,11 @@ describe("ChangesService.update Admin gates", () => {
     role: "Admin" as const,
     name: "Admin",
   };
-  const manager = {
+  const endUser = {
     userId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
-    email: "mgr@sadhox.local",
-    role: "Manager" as const,
-    name: "Manager",
-  };
-  const projectManager = {
-    userId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
-    email: "pm@sadhox.local",
-    role: "Manager" as const,
-    name: "ProjectMgr",
+    email: "user@sadhox.local",
+    role: "EndUser" as const,
+    name: "End User",
   };
 
   const submitted = {
@@ -135,7 +125,7 @@ describe("ChangesService.update Admin gates", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it("rejects Agent transition to Scheduled even from Approved", async () => {
+  it("rejects Admin schedule after Approved (actions disabled)", async () => {
     const db = createDbMock(approved);
     const service = new ChangesService(
       db as never,
@@ -145,8 +135,8 @@ describe("ChangesService.update Admin gates", () => {
       createProjectsServiceMock() as never,
     );
     await expect(
-      service.update(agent, approved.id as string, { status: "Scheduled" }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+      service.update(admin, approved.id as string, { status: "Scheduled" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("rejects Agent transition to Approved via PATCH", async () => {
@@ -166,25 +156,23 @@ describe("ChangesService.update Admin gates", () => {
   it("rejects Agent Submitted → PendingApproval via PATCH", async () => {
     const withProject = { ...submitted, projectId: "proj-managed" };
     const db = createDbMock(withProject);
-    const access = createProjectAccessMock();
     const service = new ChangesService(
       db as never,
       { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
       { record: vi.fn() } as never,
-      access as never,
+      createProjectAccessMock() as never,
       createProjectsServiceMock() as never,
     );
     await expect(
       service.update(agent, withProject.id as string, {
         status: "PendingApproval",
       }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-    expect(access.assertCanApprove).not.toHaveBeenCalled();
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it("rejects Admin Submitted → PendingApproval when creator has a manager (A04)", async () => {
+  it("rejects Admin Submitted → PendingApproval (unused for changes)", async () => {
     const withProject = { ...submitted, projectId: "proj-managed" };
-    const db = createDbMock(withProject, manager.userId);
+    const db = createDbMock(withProject);
     const service = new ChangesService(
       db as never,
       { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
@@ -196,102 +184,7 @@ describe("ChangesService.update Admin gates", () => {
       service.update(admin, withProject.id as string, {
         status: "PendingApproval",
       }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-  });
-
-  it("rejects Admin Submitted → Approved when creator has manager and no project (A04)", async () => {
-    const db = createDbMock(submitted, manager.userId);
-    const service = new ChangesService(
-      db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      { record: vi.fn() } as never,
-      createProjectAccessMock() as never,
-      createProjectsServiceMock() as never,
-    );
-    await expect(
-      service.update(admin, submitted.id as string, { status: "Approved" }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-  });
-
-  it("rejects project manager who is not reports_to_id from PendingApproval (A04)", async () => {
-    const withProject = { ...submitted, projectId: "proj-managed" };
-    const db = createDbMock(withProject, manager.userId);
-    const service = new ChangesService(
-      db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      { record: vi.fn() } as never,
-      createProjectAccessMock() as never,
-      createProjectsServiceMock() as never,
-    );
-    await expect(
-      service.update(projectManager, withProject.id as string, {
-        status: "PendingApproval",
-      }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-  });
-
-  it("allows creator reports_to_id Manager to set PendingApproval via PATCH", async () => {
-    const db = createDbMock(submitted, manager.userId);
-    let selectCalls = 0;
-    db.select = vi.fn(() => {
-      selectCalls += 1;
-      if (selectCalls === 1) {
-        return {
-          from: vi.fn(() => ({
-            where: vi.fn(() => ({
-              limit: vi.fn(async () => [submitted]),
-            })),
-          })),
-        };
-      }
-      if (selectCalls === 2) {
-        return {
-          from: vi.fn(() => ({
-            where: vi.fn(() => ({
-              limit: vi.fn(async () => [{ reportsToId: manager.userId }]),
-            })),
-          })),
-        };
-      }
-      const mapped = {
-        ...submitted,
-        status: "PendingApproval",
-        createdByName: "Agent",
-        description: "d",
-        rollbackPlan: "rollback",
-        scheduledStart: submitted.scheduledStart,
-        scheduledEnd: submitted.scheduledEnd,
-        createdAt: submitted.createdAt,
-        projectId: null,
-        projectName: null,
-        moduleId: null,
-        moduleName: null,
-      };
-      return {
-        from: vi.fn(() => ({
-          leftJoin: vi.fn(() => ({
-            leftJoin: vi.fn(() => ({
-              leftJoin: vi.fn(() => ({
-                where: vi.fn(() => ({
-                  limit: vi.fn(async () => [mapped]),
-                })),
-              })),
-            })),
-          })),
-        })),
-      };
-    });
-    const service = new ChangesService(
-      db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
-      { record: vi.fn() } as never,
-      createProjectAccessMock() as never,
-      createProjectsServiceMock() as never,
-    );
-    const result = await service.update(manager, submitted.id as string, {
-      status: "PendingApproval",
-    });
-    expect(result.status).toBe("PendingApproval");
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("rejects Agent Rolled Back from Submitted (Admin rejection gate)", async () => {
@@ -308,66 +201,114 @@ describe("ChangesService.update Admin gates", () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it("allows Admin to schedule after Approved", async () => {
-    const db = createDbMock(approved);
-    let selectCalls = 0;
-    db.select = vi.fn(() => {
-      selectCalls += 1;
-      if (selectCalls === 1) {
-        return {
-          from: vi.fn(() => ({
-            where: vi.fn(() => ({
-              limit: vi.fn(async () => [approved]),
-            })),
-          })),
-        };
-      }
-      const mapped = {
-        ...approved,
-        status: "Scheduled",
-        createdByName: "Admin",
-        description: "d",
-        rollbackPlan: "rollback",
-        scheduledStart: approved.scheduledStart,
-        scheduledEnd: approved.scheduledEnd,
-        createdAt: approved.createdAt,
-        projectId: null,
-        projectName: null,
-        moduleId: null,
-        moduleName: null,
-      };
-      return {
+  it("Admin can approve Submitted even when change has a project", async () => {
+    const withProject = { ...submitted, projectId: "proj-managed" };
+    const returning = vi.fn(async () => [{ ...withProject, status: "Approved" }]);
+    const whereUpdate = vi.fn(() => ({ returning }));
+    const set = vi.fn(() => ({ where: whereUpdate }));
+    const update = vi.fn(() => ({ set }));
+
+    const mapped = {
+      ...withProject,
+      status: "Approved",
+      createdByName: "Agent",
+      projectName: "P",
+      moduleName: null,
+    };
+    const afterJoins = {
+      where: vi.fn(() => ({
+        limit: vi.fn(async () => [mapped]),
+      })),
+    };
+    const db = {
+      select: vi.fn(() => ({
         from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            limit: vi.fn(async () => [withProject]),
+          })),
           leftJoin: vi.fn(() => ({
             leftJoin: vi.fn(() => ({
-              leftJoin: vi.fn(() => ({
-                where: vi.fn(() => ({
-                  limit: vi.fn(async () => [mapped]),
-                })),
-              })),
+              leftJoin: vi.fn(() => afterJoins),
             })),
           })),
         })),
-      };
-    });
+      })),
+      update,
+    };
+
     const service = new ChangesService(
       db as never,
-      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
+      {
+        sendApprovalOutcome: vi.fn().mockResolvedValue(undefined),
+        sendChangeReviewRequest: vi.fn(),
+      } as never,
       { record: vi.fn() } as never,
       createProjectAccessMock() as never,
       createProjectsServiceMock() as never,
     );
-    const result = await service.update(admin, approved.id as string, {
-      status: "Scheduled",
-    });
-    expect(result.status).toBe("Scheduled");
+    const result = await service.approve(admin, withProject.id as string);
+    expect(result.status).toBe("Approved");
+  });
+
+  it("allows Manager to approve a project change (Admin fallback)", async () => {
+    const withProject = { ...submitted, projectId: "proj-managed" };
+    const returning = vi.fn(async () => [{ ...withProject, status: "Approved" }]);
+    const whereUpdate = vi.fn(() => ({ returning }));
+    const set = vi.fn(() => ({ where: whereUpdate }));
+    const update = vi.fn(() => ({ set }));
+    const mapped = {
+      ...withProject,
+      status: "Approved",
+      createdByName: "Agent",
+      projectName: "P",
+      moduleName: null,
+    };
+    const afterJoins = {
+      where: vi.fn(() => ({
+        limit: vi.fn(async () => [mapped]),
+      })),
+    };
+    const db = {
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            limit: vi.fn(async () => [withProject]),
+          })),
+          leftJoin: vi.fn(() => ({
+            leftJoin: vi.fn(() => ({
+              leftJoin: vi.fn(() => afterJoins),
+            })),
+          })),
+        })),
+      })),
+      update,
+    };
+    const access = createProjectAccessMock();
+    const service = new ChangesService(
+      db as never,
+      { sendApprovalOutcome: vi.fn().mockResolvedValue(undefined) } as never,
+      { record: vi.fn() } as never,
+      access as never,
+      createProjectsServiceMock() as never,
+    );
+    const result = await service.approve(
+      {
+        userId: "mgr",
+        email: "mgr@sadhox.local",
+        role: "Manager",
+        name: "Mgr",
+      },
+      withProject.id as string,
+    );
+    expect(result.status).toBe("Approved");
+    expect(access.assertCanApprove).toHaveBeenCalled();
   });
 
   it("rejects Agent create with foreign projectId (A01/A04)", async () => {
     const projectsService = {
-      resolveTicketProjectFields: vi
-        .fn()
-        .mockRejectedValue(new ForbiddenException("Cannot access this project")),
+      resolveTicketProjectFields: vi.fn().mockRejectedValue(
+        new ForbiddenException("Cannot access this project"),
+      ),
     };
     const service = new ChangesService(
       {} as never,
@@ -378,14 +319,77 @@ describe("ChangesService.update Admin gates", () => {
     );
     await expect(
       service.create(agent, {
-        title: "Change",
-        description: "enough text here",
-        type: "Normal",
+        title: "x",
+        description: "y",
+        type: "Standard",
         scheduledStart: "2030-01-01T10:00:00.000Z",
         scheduledEnd: "2030-01-01T12:00:00.000Z",
-        rollbackPlan: "rollback plan text",
+        rollbackPlan: "",
         projectId: "ffffffff-ffff-4fff-8fff-ffffffffffff",
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(projectsService.resolveTicketProjectFields).toHaveBeenCalled();
+  });
+
+  it("rejects create without a project (Manager must be able to review)", async () => {
+    const projectsService = createProjectsServiceMock();
+    const service = new ChangesService(
+      {} as never,
+      { sendApprovalOutcome: vi.fn() } as never,
+      { record: vi.fn() } as never,
+      createProjectAccessMock() as never,
+      projectsService as never,
+    );
+    await expect(
+      service.create(endUser, {
+        title: "User change",
+        description: "please",
+        type: "Standard",
+        scheduledStart: "2030-01-01T10:00:00.000Z",
+        scheduledEnd: "2030-01-01T12:00:00.000Z",
+        rollbackPlan: "",
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(projectsService.resolveTicketProjectFields).toHaveBeenCalled();
+  });
+
+  it("EndUser create with project proceeds past resolver", async () => {
+    const projectsService = {
+      resolveTicketProjectFields: vi.fn().mockResolvedValue({
+        projectId: "proj-1",
+        moduleId: null,
+      }),
+    };
+    const service = new ChangesService(
+      {
+        insert: vi.fn(() => ({
+          values: vi.fn(() => ({
+            returning: vi.fn(async () => {
+              throw new Error("stop after resolve");
+            }),
+          })),
+        })),
+      } as never,
+      { sendApprovalOutcome: vi.fn() } as never,
+      { record: vi.fn() } as never,
+      createProjectAccessMock() as never,
+      projectsService as never,
+    );
+    await expect(
+      service.create(endUser, {
+        title: "User change",
+        description: "please",
+        type: "Standard",
+        scheduledStart: "2030-01-01T10:00:00.000Z",
+        scheduledEnd: "2030-01-01T12:00:00.000Z",
+        rollbackPlan: "",
+        projectId: "proj-1",
+      }),
+    ).rejects.toThrow("stop after resolve");
+    expect(projectsService.resolveTicketProjectFields).toHaveBeenCalledWith(
+      endUser,
+      "proj-1",
+      undefined,
+    );
   });
 });

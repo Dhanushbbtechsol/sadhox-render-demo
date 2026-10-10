@@ -184,12 +184,20 @@ const MATRIX: MatrixRow[] = [
     path: `/service-requests/${ID}/reject`,
     allowed: ["Admin", "Manager"],
   },
-  { method: "get", path: "/changes", allowed: ["Admin", "Agent", "Manager"] },
-  { method: "post", path: "/changes", allowed: ["Admin", "Agent"] },
+  {
+    method: "get",
+    path: "/changes",
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
+  },
+  {
+    method: "post",
+    path: "/changes",
+    allowed: ["Admin", "Agent", "EndUser"],
+  },
   {
     method: "get",
     path: `/changes/${ID}`,
-    allowed: ["Admin", "Agent", "Manager"],
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
   },
   {
     method: "patch",
