@@ -43,7 +43,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 import { DeskReportView } from "./desk-report-view";
-import { downloadDeskReport, fetchDeskReport } from "./export-dashboard-csv";
+import {
+  DASHBOARD_REPORT_TYPES,
+  downloadDashboardReport,
+  fetchDeskReport,
+  type DashboardReportFormat,
+  type DashboardReportType,
+} from "./export-dashboard-csv";
 import {
   useAdminStats,
   useChartSlaCompliance,
@@ -105,11 +111,14 @@ export default function DashboardPage() {
   const statusDist = useChartStatusDistribution(range);
   const slaRate = useChartSlaCompliance(range);
 
-  async function handleDownloadDeskReport() {
+  async function handleGenerateReport(
+    type: DashboardReportType,
+    format: DashboardReportFormat,
+  ) {
     setReportLoading(true);
     try {
-      await downloadDeskReport(range, "/admin/dashboard/report");
-      toast.success("Desk report downloaded");
+      await downloadDashboardReport(range, type, format);
+      toast.success("Report downloaded");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to download report",
@@ -157,16 +166,37 @@ export default function DashboardPage() {
               </Button>
             ))}
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={reportLoading}
-            onClick={() => void handleDownloadDeskReport()}
-          >
-            <DownloadIcon />
-            {reportLoading ? "Working…" : "Download desk report"}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={reportLoading}
+                />
+              }
+            >
+              <DownloadIcon />
+              {reportLoading ? "Working…" : "Download report"}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Report type</DropdownMenuLabel>
+                {DASHBOARD_REPORT_TYPES.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    disabled={reportLoading}
+                    onClick={() =>
+                      void handleGenerateReport(option.value, option.format)
+                    }
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             type="button"
             size="sm"
@@ -181,8 +211,8 @@ export default function DashboardPage() {
       </div>
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto sm:max-w-3xl">
+          <DialogHeader className="sr-only">
             <DialogTitle>Desk report</DialogTitle>
           </DialogHeader>
           {deskReport ? <DeskReportView report={deskReport} /> : null}

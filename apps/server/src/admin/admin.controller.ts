@@ -15,10 +15,17 @@ import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from "@nest
 import { Throttle } from "@nestjs/throttler";
 import { IsIn, IsOptional } from "class-validator";
 import type { Response } from "express";
+import {
+  CurrentUser,
+  type AuthUser,
+} from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { AdminService } from "./admin.service";
 import { ChartRangeQueryDto } from "./dto/chart-range-query.dto";
-import { DeskReportQueryDto } from "./dto/desk-report-query.dto";
+import {
+  DashboardReportQueryDto,
+  resolveTypedReportFormat,
+} from "./dto/dashboard-report-query.dto";
 import {
   UpdateEscalationRuleBodyDto,
   UpdateEscalationRuleDto,
@@ -57,16 +64,38 @@ export class AdminController {
   @Header("Cache-Control", "no-store")
   @ApiOperation({
     summary:
-      "Phase 9 desk report (range=7d|30d|ytd, format=json|csv). Scope All.",
+      "Desk report (no type: format=json|csv) or typed export (type=summary|all|assigned|in-progress|approved|open).",
   })
   async dashboardReport(
-    @Query() query: DeskReportQueryDto,
+    @Query() query: DashboardReportQueryDto,
+    @CurrentUser() user: AuthUser,
     @Res({ passthrough: true }) res: Response,
   ) {
     const range = query.range ?? "30d";
-    const format = query.format ?? "json";
-    const result = await this.admin.deskReportResponse(range, format, "All");
-    if (format === "csv") {
+
+    if (query.type) {
+      const typedFormat = resolveTypedReportFormat(query.type, query.format);
+      const result = await this.admin.dashboardReportCsv(
+        range,
+        query.type,
+        user.userId,
+        typedFormat,
+      );
+      res.setHeader("Content-Type", result.contentType);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${result.filename}"`,
+      );
+      return result.body;
+    }
+
+    const deskFormat = query.format === "csv" ? "csv" : "json";
+    const result = await this.admin.deskReportResponse(
+      range,
+      deskFormat,
+      "All",
+    );
+    if (deskFormat === "csv") {
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader(
         "Content-Disposition",
