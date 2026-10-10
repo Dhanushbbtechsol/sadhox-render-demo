@@ -52,10 +52,10 @@ function inManagerInbox(item: {
 }
 
 /**
- * Admin inbox: PendingApproval, plus Submitted with no project (Admin-only step).
+ * Admin inbox for service requests: PendingApproval, plus Submitted with no project.
  * Submitted tickets that still need a manager stay out of the Admin queue.
  */
-function inAdminInbox(item: {
+function inAdminRequestInbox(item: {
   status: string;
   projectId?: string | null;
 }): boolean {
@@ -63,12 +63,31 @@ function inAdminInbox(item: {
   return item.status === "Submitted" && !hasProject(item);
 }
 
-function filterForRole<T extends { status: string; projectId?: string | null }>(
+/** Waiting change requests — Admin sees all; Manager list is already project-scoped. */
+function inChangeInbox(item: { status: string }): boolean {
+  return (
+    item.status === "Submitted" ||
+    item.status === "Draft" ||
+    item.status === "PendingApproval"
+  );
+}
+
+function filterRequestsForRole<
+  T extends { status: string; projectId?: string | null },
+>(items: T[], role: UserRole | undefined): T[] {
+  if (role === "Manager") return items.filter(inManagerInbox);
+  if (role === "Admin") return items.filter(inAdminRequestInbox);
+  return [];
+}
+
+function filterChangesForRole<T extends { status: string }>(
   items: T[],
   role: UserRole | undefined,
 ): T[] {
-  if (role === "Manager") return items.filter(inManagerInbox);
-  if (role === "Admin") return items.filter(inAdminInbox);
+  // Admin or Manager can final-approve changes (Manager = fallback on own projects).
+  if (role === "Admin" || role === "Manager") {
+    return items.filter(inChangeInbox);
+  }
   return [];
 }
 
@@ -86,11 +105,11 @@ export function ApprovalInboxTable() {
   } | null>(null);
 
   const pendingRequests = useMemo(
-    () => filterForRole(requests ?? [], role),
+    () => filterRequestsForRole(requests ?? [], role),
     [requests, role],
   );
   const pendingChanges = useMemo(
-    () => filterForRole(changes ?? [], role),
+    () => filterChangesForRole(changes ?? [], role),
     [changes, role],
   );
 
@@ -111,12 +130,8 @@ export function ApprovalInboxTable() {
 
   async function handleApproveChange(change: ChangeRecord) {
     try {
-      const result = await approveChange.mutateAsync(change.id);
-      if (result.status === "PendingApproval") {
-        toast.success("Sent to admin for final approval");
-      } else {
-        toast.success("Change approved");
-      }
+      await approveChange.mutateAsync(change.id);
+      toast.success("Change approved");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Approve failed",
@@ -224,8 +239,8 @@ export function ApprovalInboxTable() {
               title="No pending changes"
               description={
                 isManager
-                  ? "Submitted changes on projects you manage will appear here."
-                  : "Changes waiting on admin (after manager approval, or with no project) will appear here."
+                  ? "Submitted changes on projects you manage will appear here so you can approve if Admin has not."
+                  : "Requested changes waiting on Admin or Manager approval will appear here."
               }
             />
           ) : (
@@ -234,9 +249,8 @@ export function ApprovalInboxTable() {
                 <TableRow>
                   <TableHead>Title</TableHead>
                   <TableHead>Project</TableHead>
-                  <TableHead>Waiting on</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Schedule</TableHead>
+                  <TableHead>Requested window</TableHead>
                   <TableHead>Created by</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -257,9 +271,6 @@ export function ApprovalInboxTable() {
                       {change.moduleName ? ` / ${change.moduleName}` : ""}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{waitingLabel(change)}</Badge>
-                    </TableCell>
-                    <TableCell>
                       <Badge variant="outline">{change.type}</Badge>
                     </TableCell>
                     <TableCell className="text-xs">
@@ -278,7 +289,7 @@ export function ApprovalInboxTable() {
                         disabled={approveChange.isPending}
                         onClick={() => void handleApproveChange(change)}
                       >
-                        {approveLabel}
+                        Approve
                       </Button>
                       <Button
                         size="sm"

@@ -134,8 +134,8 @@ const NAV_ITEMS: NavItem[] = [
       },
       {
         to: "/changes",
-        label: "Changes",
-        roles: ["Admin", "Agent", "Manager"],
+        label: "Change of Management",
+        roles: ["Admin", "Agent", "Manager", "EndUser"],
       },
       {
         to: "/assets",

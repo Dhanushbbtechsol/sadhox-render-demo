@@ -226,8 +226,12 @@ export const router = createBrowserRouter([
           },
           {
             path: "changes",
-            handle: { breadcrumb: "Changes" },
-            element: <ProtectedRoute roles={["Admin", "Agent", "Manager"]} />,
+            handle: { breadcrumb: "Change of Management" },
+            element: (
+              <ProtectedRoute
+                roles={["Admin", "Agent", "Manager", "EndUser"]}
+              />
+            ),
             children: [
               { index: true, element: <ChangesPage /> },
               {

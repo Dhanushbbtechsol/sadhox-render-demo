@@ -28,8 +28,11 @@ export class ChangesController {
   constructor(private readonly changes: ChangesService) {}
 
   @Get()
-  @Roles("Admin", "Agent", "Manager")
-  @ApiOperation({ summary: "List changes with optional type/status filters" })
+  @Roles("Admin", "Agent", "Manager", "EndUser")
+  @ApiOperation({
+    summary:
+      "List changes (EndUser: own; Admin: all; Agent/Manager: project-scoped)",
+  })
   @ApiQuery({ name: "type", required: false })
   @ApiQuery({ name: "status", required: false })
   list(
@@ -41,15 +44,18 @@ export class ChangesController {
   }
 
   @Post()
-  @Roles("Admin", "Agent")
-  @ApiOperation({ summary: "Create a change record" })
+  @Roles("Admin", "Agent", "EndUser")
+  @ApiOperation({ summary: "Request / create a change record (lands on Submitted)" })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateChangeDto) {
     return this.changes.create(user, dto);
   }
 
   @Get(":id")
-  @Roles("Admin", "Agent", "Manager")
-  @ApiOperation({ summary: "Get change by id (project-scoped for Manager/Agent)" })
+  @Roles("Admin", "Agent", "Manager", "EndUser")
+  @ApiOperation({
+    summary:
+      "Get change by id (EndUser: own; Manager/Agent: project-scoped)",
+  })
   get(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
@@ -61,7 +67,7 @@ export class ChangesController {
   @Roles("Admin", "Manager")
   @ApiOperation({
     summary:
-      "Phase 8 approve: Manager Submitted/Draft→PendingApproval; Admin PendingApproval→Approved (or Submitted/Draft when no project)",
+      "Approve change: Admin any, or Manager on own project. Submitted/Draft/PendingApproval → Approved (no schedule/implement)",
   })
   approve(
     @CurrentUser() user: AuthUser,
@@ -74,7 +80,7 @@ export class ChangesController {
   @Roles("Admin", "Manager")
   @ApiOperation({
     summary:
-      "Phase 8 reject: Manager on Submitted/Draft; Admin on PendingApproval (or Submitted/Draft when no project). DB status RolledBack.",
+      "Reject change: Admin any, or Manager on own project. → RolledBack",
   })
   reject(
     @CurrentUser() user: AuthUser,

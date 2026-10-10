@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   type INestApplication,
@@ -153,15 +154,12 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
     if (app) await app.close();
   });
 
-  it("(1) Manager SR/Change approve → PendingApproval; final approve 403", async () => {
+  it("(1) Manager SR → PendingApproval; Manager can final-approve changes; final SR approve 403", async () => {
     srApprove.mockResolvedValueOnce({ status: "PendingApproval" });
-    chApprove.mockResolvedValueOnce({ status: "PendingApproval" });
+    chApprove.mockResolvedValueOnce({ status: "Approved" });
     srApprove.mockRejectedValueOnce(
       new ForbiddenException("Manager cannot final-approve; waiting on Admin"),
     );
-    chApprove.mockRejectedValueOnce(
-      new ForbiddenException("Manager cannot final-approve; waiting on Admin"),
-    );
 
     await request(app.getHttpServer())
       .patch(`/service-requests/${ID}/approve`)
@@ -171,32 +169,23 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
         expect(body.status).toBe("PendingApproval");
       });
 
+    // Changes: Manager may final-approve (fallback if Admin has not).
     await request(app.getHttpServer())
       .patch(`/changes/${ID}/approve`)
       .set("x-test-role", "Manager")
       .expect(200)
       .expect(({ body }) => {
-        expect(body.status).toBe("PendingApproval");
+        expect(body.status).toBe("Approved");
       });
 
     await request(app.getHttpServer())
       .patch(`/service-requests/${ID}/approve`)
-      .set("x-test-role", "Manager")
-      .expect(403);
-
-    await request(app.getHttpServer())
-      .patch(`/changes/${ID}/approve`)
       .set("x-test-role", "Manager")
       .expect(403);
   });
 
-  it("(2) Admin 403 on managed Submitted; succeeds on PendingApproval; direct when no project", async () => {
+  it("(2) Admin: SR still Manager-gated; Changes Admin-direct approve/reject", async () => {
     srApprove.mockRejectedValueOnce(
-      new ForbiddenException(
-        "Admin cannot approve while a project manager must act first",
-      ),
-    );
-    chApprove.mockRejectedValueOnce(
       new ForbiddenException(
         "Admin cannot approve while a project manager must act first",
       ),
@@ -206,11 +195,8 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
         "Admin cannot reject while a project manager must act first",
       ),
     );
-    chReject.mockRejectedValueOnce(
-      new ForbiddenException(
-        "Admin cannot reject while a project manager must act first",
-      ),
-    );
+    chApprove.mockResolvedValueOnce({ status: "Approved" });
+    chReject.mockResolvedValueOnce({ status: "Rolled Back" });
     srApprove.mockResolvedValueOnce({ status: "Approved" });
     chApprove.mockResolvedValueOnce({ status: "Approved" });
     srApprove.mockResolvedValueOnce({ status: "Approved" });
@@ -221,19 +207,21 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
       .set("x-test-role", "Admin")
       .expect(403);
     await request(app.getHttpServer())
-      .patch(`/changes/${ID}/approve`)
-      .set("x-test-role", "Admin")
-      .expect(403);
-    await request(app.getHttpServer())
       .patch(`/service-requests/${ID}/reject`)
       .set("x-test-role", "Admin")
       .send({ reason: "nope" })
       .expect(403);
+
+    // Changes: Admin approves/rejects Submitted directly (no Manager step).
+    await request(app.getHttpServer())
+      .patch(`/changes/${ID}/approve`)
+      .set("x-test-role", "Admin")
+      .expect(200);
     await request(app.getHttpServer())
       .patch(`/changes/${ID}/reject`)
       .set("x-test-role", "Admin")
       .send({ reason: "nope" })
-      .expect(403);
+      .expect(200);
 
     await request(app.getHttpServer())
       .patch(`/service-requests/${ID}/approve`)
@@ -374,7 +362,7 @@ describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
     return { service, update, whereUpdate, projectAccess };
   }
 
-  it("PATCH Approved or Rolled Back is refused for Agent, and for Admin while a manager must act", async () => {
+  it("PATCH Approved or Rolled Back is refused for Agent; Admin may decide Submitted with a project", async () => {
     for (const status of ["Submitted", "PendingApproval"] as const) {
       for (const next of ["Approved", "Rolled Back"] as const) {
         const { service } = createService(row(status));
@@ -384,11 +372,25 @@ describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
       }
     }
     for (const next of ["Approved", "Rolled Back"] as const) {
-      const { service } = createService(row("Submitted"));
+      const existing = row("Submitted");
+      const { service, update } = createService(existing, [
+        { ...existing, status: next === "Rolled Back" ? "RolledBack" : "Approved" },
+      ]);
       await expect(
         service.update(admin, ID, { status: next }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).resolves.toBeTruthy();
+      expect(update).toHaveBeenCalled();
     }
+  });
+
+  it("PATCH Scheduled / Implemented is refused (actions disabled)", async () => {
+    const { service } = createService(row("Approved"));
+    await expect(
+      service.update(admin, ID, { status: "Scheduled" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.update(admin, ID, { status: "Implemented" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("second concurrent approve gets ConflictException", async () => {
