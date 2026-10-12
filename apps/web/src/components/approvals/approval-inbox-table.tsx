@@ -166,7 +166,7 @@ export function ApprovalInboxTable() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="requests">
-            Service Requests ({pendingRequests.length})
+            Requests ({pendingRequests.length})
           </TabsTrigger>
           <TabsTrigger value="changes">
             Changes ({pendingChanges.length})
