@@ -125,21 +125,25 @@ export function ProjectEditDialog({
   }, [open, project]);
 
   // Populate staged members/modules from the server once per dialog open,
-  // the first time both queries have resolved for this project.
+  // only after both queries succeed (errors must not stage empty lists).
   useEffect(() => {
     if (!open || !project) return;
     if (initializedProjectId.current === project.id) return;
     if (members.isLoading || modulesQuery.isLoading) return;
-    setStagedMemberIds((members.data ?? []).map((m) => m.userId));
+    if (members.isError || modulesQuery.isError) return;
+    if (!members.isSuccess || !modulesQuery.isSuccess) return;
+    const memberRows = members.data ?? [];
+    const moduleRows = modulesQuery.data ?? [];
+    setStagedMemberIds(memberRows.map((m) => m.userId));
     setStagedMembers(
-      (members.data ?? []).map((m) => ({
+      memberRows.map((m) => ({
         userId: m.userId,
         name: m.name,
         email: m.email,
       })),
     );
     setStagedModules(
-      (modulesQuery.data ?? []).map((m) => ({
+      moduleRows.map((m) => ({
         id: m.id,
         name: m.name,
         tempKey: m.id,
@@ -150,14 +154,28 @@ export function ProjectEditDialog({
     open,
     project,
     members.isLoading,
+    members.isError,
+    members.isSuccess,
     members.data,
     modulesQuery.isLoading,
+    modulesQuery.isError,
+    modulesQuery.isSuccess,
     modulesQuery.data,
   ]);
 
   async function onSave() {
     if (!project) return;
     if (initializedProjectId.current !== project.id) {
+      if (members.isLoading || modulesQuery.isLoading) {
+        toast.error("Members and modules are still loading");
+        return;
+      }
+      if (members.isError || modulesQuery.isError) {
+        toast.error(
+          "Could not load members or modules. Fix the error before saving.",
+        );
+        return;
+      }
       toast.error("Members and modules are still loading");
       return;
     }
