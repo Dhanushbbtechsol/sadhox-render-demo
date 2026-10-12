@@ -22,6 +22,7 @@ import {
 } from "../src/common/password-policy";
 import { users, slaRules, serviceCatalog } from "../src/database/schema";
 import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
+import { responseMinutesForSeed } from "../src/incidents/priority";
 
 const ADMIN_EMAIL = "admin@sadhox.local";
 
@@ -78,16 +79,21 @@ async function seedProduction() {
   }
 
   for (const rule of SLA_DEFAULTS) {
-    await db
-      .insert(slaRules)
-      .values(rule)
-      .onConflictDoUpdate({
-        target: slaRules.priority,
-        set: {
-          responseMinutes: rule.responseMinutes,
-          resolveMinutes: rule.resolveMinutes,
-        },
-      });
+    const [existing] = await db
+      .select({ responseMinutes: slaRules.responseMinutes })
+      .from(slaRules)
+      .where(eq(slaRules.priority, rule.priority))
+      .limit(1);
+    const responseMinutes = responseMinutesForSeed(
+      existing?.responseMinutes ?? null,
+      rule.responseMinutes,
+    );
+    if (responseMinutes === null) continue;
+    await db.insert(slaRules).values({
+      priority: rule.priority,
+      responseMinutes,
+      resolveMinutes: rule.resolveMinutes,
+    });
   }
   console.log("SLA rules ensured (P1–P4 baselines)");
 

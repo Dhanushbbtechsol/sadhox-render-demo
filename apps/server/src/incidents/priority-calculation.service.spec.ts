@@ -1,7 +1,11 @@
 import {
   calculatePriority,
+  categoryFloorPriority,
+  countsTowardCategoryFloor,
   DEFAULT_RESOLVE_MINUTES,
+  higherPriority,
   resolveDueAt,
+  responseMinutesForSeed,
 } from "./priority";
 
 describe("calculatePriority", () => {
@@ -39,5 +43,36 @@ describe("resolveDueAt", () => {
     const from = new Date("2026-01-01T00:00:00.000Z");
     const due = resolveDueAt("P4", from, 100);
     expect(due.toISOString()).toBe("2026-01-01T01:40:00.000Z");
+  });
+});
+
+describe("category floor", () => {
+  const now = new Date("2026-06-08T00:00:00.000Z");
+
+  it("raises a third open Low/Low ticket to P3", () => {
+    expect(higherPriority(calculatePriority("Low", "Low"), categoryFloorPriority(3))).toBe("P3");
+  });
+
+  it("keeps a lone High/High ticket at P1", () => {
+    expect(higherPriority(calculatePriority("High", "High"), categoryFloorPriority(1))).toBe("P1");
+  });
+
+  it("raises the eleventh open ticket to P1", () => {
+    expect(higherPriority(calculatePriority("Low", "Low"), categoryFloorPriority(11))).toBe("P1");
+  });
+
+  it("does not count a closed ticket", () => {
+    expect(countsTowardCategoryFloor("Closed", now, now)).toBe(false);
+    expect(countsTowardCategoryFloor("Resolved", now, now)).toBe(false);
+    expect(countsTowardCategoryFloor("New", now, now)).toBe(true);
+  });
+
+  it("keeps High/High at P1 when two other tickets are already open", () => {
+    expect(higherPriority(calculatePriority("High", "High"), categoryFloorPriority(3))).toBe("P1");
+  });
+
+  it("does not replace a response-minute value that is already set", () => {
+    expect(responseMinutesForSeed(30, 15)).toBe(null);
+    expect(responseMinutesForSeed(null, 15)).toBe(15);
   });
 });

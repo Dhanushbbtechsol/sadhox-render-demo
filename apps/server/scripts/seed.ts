@@ -34,6 +34,7 @@ import {
 } from "../src/knowledge/knowledge.seed";
 import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
 import { claimReference } from "../src/incidents/reference";
+import { responseMinutesForSeed } from "../src/incidents/priority";
 
 /** Valid Phase 7 pairs for NEW showcase/scenario inserts only (existing rows untouched). */
 const PHASE7_INCIDENT_PAIRS = [
@@ -236,16 +237,21 @@ async function seed() {
     { priority: "P4" as const, responseMinutes: 480, resolveMinutes: 4320 },
   ];
   for (const rule of defaults) {
-    await db
-      .insert(slaRules)
-      .values(rule)
-      .onConflictDoUpdate({
-        target: slaRules.priority,
-        set: {
-          responseMinutes: rule.responseMinutes,
-          resolveMinutes: rule.resolveMinutes,
-        },
-      });
+    const [existing] = await db
+      .select({ responseMinutes: slaRules.responseMinutes })
+      .from(slaRules)
+      .where(eq(slaRules.priority, rule.priority))
+      .limit(1);
+    const responseMinutes = responseMinutesForSeed(
+      existing?.responseMinutes ?? null,
+      rule.responseMinutes,
+    );
+    if (responseMinutes === null) continue;
+    await db.insert(slaRules).values({
+      priority: rule.priority,
+      responseMinutes,
+      resolveMinutes: rule.resolveMinutes,
+    });
   }
   console.log("SLA rules ensured");
 

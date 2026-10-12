@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { and, asc, count, desc, eq, isNull, SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNull, SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { AssignmentService } from "../assignment/assignment.service";
 import { AssetsService } from "../assets/assets.service";
@@ -47,6 +47,7 @@ import {
 } from "./incident-category-map";
 import { PriorityCalculationService } from "./priority-calculation.service";
 import { claimReference } from "./reference";
+import { categoryFloorPriority, higherPriority } from "./priority";
 
 type UserSnippet = {
   id: string;
@@ -241,14 +242,8 @@ export class IncidentsService {
       );
     }
 
-    const priority = this.priorityCalc.calculate(dto.impact, dto.urgency);
+    const matrix = this.priorityCalc.calculate(dto.impact, dto.urgency);
     const now = new Date();
-    const resolveMinutes = await this.lookupResolveMinutes(priority);
-    const slaDueAt = this.priorityCalc.resolveDueAt(
-      priority,
-      now,
-      resolveMinutes,
-    );
 
     const scope = await this.projectsService.resolveTicketProjectFields(
       user,
@@ -267,9 +262,31 @@ export class IncidentsService {
       );
     }
 
-    const [created] = await this.db.transaction(async (tx) => {
+    const saved = await this.db.transaction(async (tx) => {
+      const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const [counted] = await tx
+        .select({ n: count() })
+        .from(incidents)
+        .where(
+          and(
+            eq(incidents.category, dto.category),
+            gte(incidents.createdAt, since),
+            inArray(incidents.status, ["New", "Assigned", "InProgress"]),
+          ),
+        );
+      const openIncludingThis = Number(counted?.n ?? 0) + 1;
+      const priority = higherPriority(
+        matrix,
+        categoryFloorPriority(openIncludingThis),
+      );
+      const resolveMinutes = await this.lookupResolveMinutes(priority);
+      const slaDueAt = this.priorityCalc.resolveDueAt(
+        priority,
+        now,
+        resolveMinutes,
+      );
       const referenceCode = await claimReference(tx, "INC");
-      return tx
+      const [created] = await tx
         .insert(incidents)
         .values({
           referenceCode,
@@ -291,7 +308,10 @@ export class IncidentsService {
           updatedAt: now,
         })
         .returning();
+      return { created, priority };
     });
+    const created = saved.created;
+    const priority = saved.priority;
 
     if (assignee) {
       try {
@@ -315,7 +335,7 @@ export class IncidentsService {
     }
 
     if (priority === "P1") {
-      await this.notifyP1Created(created!.id, title);
+      await this.notifyP1Created(created!.id, title, user.userId);
     }
 
     return this.get(user, created!.id);
@@ -670,16 +690,27 @@ export class IncidentsService {
     }
   }
 
-  private async notifyP1Created(ticketId: string, ticketTitle: string) {
+  private async notifyP1Created(
+    ticketId: string,
+    ticketTitle: string,
+    reporterId: string,
+  ) {
     try {
       const admins = await this.db
         .select({ id: users.id })
         .from(users)
         .where(eq(users.role, "Admin"));
+      const [reporter] = await this.db
+        .select({ reportsToId: users.reportsToId })
+        .from(users)
+        .where(eq(users.id, reporterId))
+        .limit(1);
       const ids = recipientIds({
         type: "incident.p1_created",
         adminIds: admins.map((a) => a.id),
       });
+      const managerId = reporter?.reportsToId ?? null;
+      if (managerId && !ids.includes(managerId)) ids.push(managerId);
       const href = `/incidents/${ticketId}`;
       for (const uid of ids) {
         await this.notifications.record(
@@ -691,7 +722,7 @@ export class IncidentsService {
         );
       }
     } catch {
-      // Best-effort
+      // Best-effort. A missing manager does not fail the create.
     }
   }
 

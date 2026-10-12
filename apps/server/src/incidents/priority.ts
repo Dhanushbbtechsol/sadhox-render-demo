@@ -1,4 +1,4 @@
-import type { ImpactUrgency, Priority } from "../database/schema";
+import type { ImpactUrgency, IncidentStatus, Priority } from "../database/schema";
 
 /** Phase 2 matrix defaults when sla_rules rows are missing. */
 export const DEFAULT_RESOLVE_MINUTES: Record<Priority, number> = {
@@ -32,6 +32,39 @@ export function calculatePriority(
     return "P3";
   }
   return "P4";
+}
+
+const PRIORITY_RANK: Record<Priority, number> = { P1: 4, P2: 3, P3: 2, P4: 1 };
+
+const CATEGORY_FLOOR_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function categoryFloorPriority(openCountIncludingThis: number): Priority | null {
+  if (openCountIncludingThis >= 10) return "P1";
+  if (openCountIncludingThis >= 5) return "P2";
+  if (openCountIncludingThis >= 3) return "P3";
+  return null;
+}
+
+export function higherPriority(matrix: Priority, floor: Priority | null): Priority {
+  if (floor === null) return matrix;
+  return PRIORITY_RANK[floor] > PRIORITY_RANK[matrix] ? floor : matrix;
+}
+
+export function countsTowardCategoryFloor(
+  status: IncidentStatus,
+  createdAt: Date,
+  now: Date,
+): boolean {
+  if (status === "Resolved" || status === "Closed") return false;
+  return now.getTime() - createdAt.getTime() <= CATEGORY_FLOOR_WINDOW_MS;
+}
+
+export function responseMinutesForSeed(
+  existing: number | null,
+  proposed: number,
+): number | null {
+  if (existing !== null) return null;
+  return proposed;
 }
 
 export function resolveDueAt(
