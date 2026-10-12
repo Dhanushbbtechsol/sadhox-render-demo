@@ -87,6 +87,7 @@ export class ChangesService {
 
   private mapRow(row: {
     id: string;
+    referenceCode: string;
     title: string;
     description: string | null;
     type: string;
@@ -106,6 +107,7 @@ export class ChangesService {
   }) {
     return {
       id: row.id,
+      referenceCode: row.referenceCode,
       title: row.title,
       description: row.description ?? "",
       type: row.type,
@@ -128,6 +130,7 @@ export class ChangesService {
   private selectColumns() {
     return {
       id: changes.id,
+      referenceCode: changes.referenceCode,
       title: changes.title,
       description: changes.description,
       type: changes.type,

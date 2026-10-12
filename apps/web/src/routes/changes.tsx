@@ -6,7 +6,7 @@ export default function ChangesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Change of Management</h1>
+        <h1 className="text-2xl font-semibold">Change requests</h1>
         <p className="text-muted-foreground text-sm">
           Request a change for review. Admin or the project Manager can approve
           or reject — there is no schedule or implement step.

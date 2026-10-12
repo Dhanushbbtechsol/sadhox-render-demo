@@ -40,6 +40,7 @@ import {
   useCreateChange,
   useUpdateChangeStatus,
 } from "@/hooks/use-changes";
+import { recordReference } from "@/lib/record-reference";
 import type { ChangeType } from "@/types/api";
 
 export function ChangesTable() {
@@ -257,6 +258,9 @@ export function ChangesTable() {
                         >
                           {change.title}
                         </Link>
+                        <p className="text-muted-foreground font-mono text-[11px]">
+                          {recordReference(change.referenceCode, change.id)}
+                        </p>
                         <p className="text-muted-foreground line-clamp-1 text-xs">
                           {change.description}
                         </p>

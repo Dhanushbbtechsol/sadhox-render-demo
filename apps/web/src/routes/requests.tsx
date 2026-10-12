@@ -6,7 +6,7 @@ export default function RequestsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4 animate-in-up">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Service Requests</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Requests</h1>
           <p className="text-muted-foreground text-sm">
             Track submitted requests and their approval status.
           </p>

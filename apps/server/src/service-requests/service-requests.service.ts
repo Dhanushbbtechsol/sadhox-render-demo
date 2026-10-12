@@ -58,6 +58,7 @@ export class ServiceRequestsService {
   private async mapRow(
     row: {
       id: string;
+      referenceCode: string;
       catalogId: string;
       catalogName: string | null;
       requesterId: string;
@@ -83,6 +84,7 @@ export class ServiceRequestsService {
   ) {
     const base = {
       id: row.id,
+      referenceCode: row.referenceCode,
       catalogId: row.catalogId,
       catalogName: row.catalogName ?? "Unknown service",
       requesterId: row.requesterId,
@@ -115,6 +117,7 @@ export class ServiceRequestsService {
   private selectListColumns() {
     return {
       id: serviceRequests.id,
+      referenceCode: serviceRequests.referenceCode,
       catalogId: serviceRequests.catalogId,
       catalogName: serviceCatalog.name,
       requesterId: serviceRequests.requesterId,

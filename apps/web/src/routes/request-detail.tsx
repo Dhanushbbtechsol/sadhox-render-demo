@@ -15,6 +15,7 @@ import {
   useServiceRequest,
   useStartFulfillment,
 } from "@/hooks/use-service-requests";
+import { recordReference } from "@/lib/record-reference";
 
 function statusVariant(status: string) {
   if (status === "Approved" || status === "Fulfilled") return "success" as const;
@@ -53,11 +54,14 @@ export default function RequestDetailPage() {
         <CardHeader className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-muted-foreground bg-muted rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-              {data.id.slice(0, 8)}
+              {recordReference(data.referenceCode, data.id)}
             </span>
             <Badge variant={statusVariant(data.status)}>{data.status}</Badge>
             <Badge variant="outline">{data.urgency}</Badge>
           </div>
+          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            Request
+          </p>
           <CardTitle className="text-xl">{data.catalogName}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">

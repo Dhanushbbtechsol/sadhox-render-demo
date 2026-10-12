@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useServiceRequests } from "@/hooks/use-service-requests";
+import { recordReference } from "@/lib/record-reference";
 import type { ServiceRequest } from "@/types/api";
 
 function statusVariant(status: string) {
@@ -43,7 +44,7 @@ function RequestsDataTable({
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>ID</TableHead>
+              <TableHead>Reference</TableHead>
               <TableHead>Service</TableHead>
               <TableHead>Project</TableHead>
               <TableHead>Requester</TableHead>
@@ -63,7 +64,7 @@ function RequestsDataTable({
                     to={`/requests/${request.id}`}
                     className="text-primary hover:underline"
                   >
-                    {request.id.slice(0, 8)}
+                    {recordReference(request.referenceCode, request.id)}
                   </Link>
                 </TableCell>
                 <TableCell className="font-medium">

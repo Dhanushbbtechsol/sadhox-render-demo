@@ -1,8 +1,11 @@
-/** Shown on screen. Falls back to a short id only when a row has no reference yet. */
+/**
+ * Shown on screen. Never falls back to a sliced id — a row with no
+ * referenceCode yet renders the empty-state placeholder instead.
+ */
 export function recordReference(
   referenceCode: string | null | undefined,
-  id: string,
+  _id: string,
 ): string {
   if (referenceCode && referenceCode.length > 0) return referenceCode;
-  return id.slice(0, 8);
+  return "—";
 }

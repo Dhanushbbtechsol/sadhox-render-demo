@@ -85,6 +85,7 @@ export interface ProjectModule {
 
 export interface ServiceRequest {
   id: string;
+  referenceCode?: string | null;
   catalogId: string;
   catalogName: string;
   requesterId: string;
@@ -110,6 +111,7 @@ export interface ServiceRequest {
 
 export interface ChangeRecord {
   id: string;
+  referenceCode?: string | null;
   title: string;
   description: string;
   type: ChangeType;
