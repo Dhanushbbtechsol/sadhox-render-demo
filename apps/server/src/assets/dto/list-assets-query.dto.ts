@@ -1,6 +1,7 @@
-import { ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
+  IsDateString,
   IsIn,
   IsInt,
   IsOptional,
@@ -45,4 +46,19 @@ export class ListAssetsQueryDto {
   @Min(1)
   @Max(100)
   pageSize?: number;
+}
+
+/** Admin-only person holding report (R3, KTD5 interval overlap). */
+export class PersonReportQueryDto {
+  @ApiProperty({ format: "uuid" })
+  @IsUUID()
+  personId!: string;
+
+  @ApiProperty()
+  @IsDateString()
+  from!: string;
+
+  @ApiProperty()
+  @IsDateString()
+  to!: string;
 }

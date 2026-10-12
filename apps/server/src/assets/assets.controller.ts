@@ -20,7 +20,10 @@ import { ASSET_ADMIN_ROLES } from "./assets.roles";
 import { AssetsService } from "./assets.service";
 import { CreateAssetDto } from "./dto/create-asset.dto";
 import { LinkTicketDto } from "./dto/link-ticket.dto";
-import { ListAssetsQueryDto } from "./dto/list-assets-query.dto";
+import {
+  ListAssetsQueryDto,
+  PersonReportQueryDto,
+} from "./dto/list-assets-query.dto";
 import { UpdateAssetDto } from "./dto/update-asset.dto";
 
 @ApiTags("assets")
@@ -41,6 +44,15 @@ export class AssetsController {
   @ApiOperation({ summary: "Create asset" })
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateAssetDto) {
     return this.assets.create(dto, user.userId);
+  }
+
+  @Get("report/person")
+  @ApiOperation({
+    summary:
+      "Person holding report across a date range (Admin, KTD5 interval overlap)",
+  })
+  personReport(@Query() query: PersonReportQueryDto) {
+    return this.assets.personReport(query);
   }
 
   @Get(":id/assignments")

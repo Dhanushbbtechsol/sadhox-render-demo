@@ -6,7 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { and, count, desc, eq, ilike, ne, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, ne, or } from "drizzle-orm";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
@@ -27,12 +27,14 @@ import {
 } from "./assets.roles";
 import type { CreateAssetDto } from "./dto/create-asset.dto";
 import type { LinkTicketDto } from "./dto/link-ticket.dto";
+import type { PersonReportQueryDto } from "./dto/list-assets-query.dto";
 import type { UpdateAssetDto } from "./dto/update-asset.dto";
 import { alias } from "drizzle-orm/pg-core";
 
 export type AssetListItem = {
   id: string;
   assetTag: string;
+  referenceCode: string;
   name: string;
   type: AssetType;
   status: AssetStatus;
@@ -48,6 +50,77 @@ export type AssetListItem = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+type AssignmentEvent = {
+  createdAt: Date;
+  fromOwnerId: string | null;
+  toOwnerId: string | null;
+};
+
+type HoldingWindow = {
+  assetId: string;
+  assetTag: string;
+  referenceCode: string;
+  name: string;
+  from: Date;
+  to: Date | null;
+};
+
+export type PersonReportRow = {
+  assetId: string;
+  assetTag: string;
+  referenceCode: string;
+  name: string;
+  from: string;
+  to: string | null;
+};
+
+/**
+ * Pure interval-overlap logic (KTD5): a person's holding window for an asset
+ * starts when an assignment row makes them the owner and ends at the next
+ * assignment row for that asset (or stays open when there is none yet).
+ * Exported for direct unit testing without a database.
+ */
+export function computeHoldingWindows(
+  eventsByAsset: Map<string, AssignmentEvent[]>,
+  assetInfo: Map<string, { assetTag: string; referenceCode: string; name: string }>,
+  personId: string,
+): HoldingWindow[] {
+  const windows: HoldingWindow[] = [];
+  for (const [assetId, events] of eventsByAsset) {
+    const info = assetInfo.get(assetId);
+    if (!info) continue;
+    const sorted = [...events].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+    for (let i = 0; i < sorted.length; i += 1) {
+      const event = sorted[i]!;
+      if (event.toOwnerId !== personId) continue;
+      const next = sorted[i + 1];
+      windows.push({
+        assetId,
+        assetTag: info.assetTag,
+        referenceCode: info.referenceCode,
+        name: info.name,
+        from: event.createdAt,
+        to: next ? next.createdAt : null,
+      });
+    }
+  }
+  return windows;
+}
+
+/** Inclusive interval overlap: open-ended windows (to === null) overlap any range that has started. */
+export function windowOverlapsRange(
+  window: { from: Date; to: Date | null },
+  rangeFrom: Date,
+  rangeTo: Date,
+): boolean {
+  const startsBeforeRangeEnds = window.from.getTime() <= rangeTo.getTime();
+  const endsAfterRangeStarts =
+    window.to === null || window.to.getTime() >= rangeFrom.getTime();
+  return startsBeforeRangeEnds && endsAfterRangeStarts;
+}
 
 /** Agent-safe projection — never includes purchaseCost. */
 export type LinkedAssetPublic = {
@@ -101,6 +174,7 @@ export class AssetsService {
         .select({
           id: assets.id,
           assetTag: assets.assetTag,
+          referenceCode: assets.referenceCode,
           name: assets.name,
           type: assets.type,
           status: assets.status,
@@ -347,6 +421,76 @@ export class AssetsService {
         createdAt: row.createdAt.toISOString(),
       })),
     };
+  }
+
+  /** Admin-only dated person report (R3, KTD5): interval overlap, not just current owner. */
+  async personReport(query: PersonReportQueryDto): Promise<{ data: PersonReportRow[] }> {
+    const from = new Date(query.from);
+    const to = new Date(query.to);
+    if (from.getTime() > to.getTime()) {
+      throw new BadRequestException("from must not be after to");
+    }
+
+    const touched = await this.db
+      .selectDistinct({ assetId: assetAssignments.assetId })
+      .from(assetAssignments)
+      .where(
+        or(
+          eq(assetAssignments.fromOwnerId, query.personId),
+          eq(assetAssignments.toOwnerId, query.personId),
+        ),
+      );
+    const assetIds = touched.map((row) => row.assetId);
+    if (assetIds.length === 0) return { data: [] };
+
+    const rows = await this.db
+      .select({
+        assetId: assetAssignments.assetId,
+        assetTag: assets.assetTag,
+        referenceCode: assets.referenceCode,
+        name: assets.name,
+        fromOwnerId: assetAssignments.fromOwnerId,
+        toOwnerId: assetAssignments.toOwnerId,
+        createdAt: assetAssignments.createdAt,
+      })
+      .from(assetAssignments)
+      .innerJoin(assets, eq(assetAssignments.assetId, assets.id))
+      .where(inArray(assetAssignments.assetId, assetIds))
+      .orderBy(asc(assetAssignments.assetId), asc(assetAssignments.createdAt));
+
+    const eventsByAsset = new Map<string, AssignmentEvent[]>();
+    const assetInfo = new Map<
+      string,
+      { assetTag: string; referenceCode: string; name: string }
+    >();
+    for (const row of rows) {
+      const events = eventsByAsset.get(row.assetId) ?? [];
+      events.push({
+        createdAt: row.createdAt,
+        fromOwnerId: row.fromOwnerId,
+        toOwnerId: row.toOwnerId,
+      });
+      eventsByAsset.set(row.assetId, events);
+      assetInfo.set(row.assetId, {
+        assetTag: row.assetTag,
+        referenceCode: row.referenceCode,
+        name: row.name,
+      });
+    }
+
+    const windows = computeHoldingWindows(eventsByAsset, assetInfo, query.personId);
+    const data: PersonReportRow[] = windows
+      .filter((window) => windowOverlapsRange(window, from, to))
+      .map((window) => ({
+        assetId: window.assetId,
+        assetTag: window.assetTag,
+        referenceCode: window.referenceCode,
+        name: window.name,
+        from: window.from.toISOString(),
+        to: window.to ? window.to.toISOString() : null,
+      }));
+
+    return { data };
   }
 
   async softDelete(id: string) {

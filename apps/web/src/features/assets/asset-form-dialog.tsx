@@ -57,7 +57,7 @@ export function AssetFormDialog({
 }) {
   const createAsset = useCreateAsset();
   const updateAsset = useUpdateAsset();
-  const agents = useDirectoryUsers("Agent");
+  const holders = useDirectoryUsers();
   const isEdit = Boolean(asset);
 
   const form = useForm<AssetFormValues>({
@@ -264,9 +264,9 @@ export function AssetFormDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NONE_OWNER}>Unassigned</SelectItem>
-                {(agents.data ?? []).map((agent) => (
-                  <SelectItem key={agent.id} value={agent.id}>
-                    {agent.name}
+                {(holders.data ?? []).map((holder) => (
+                  <SelectItem key={holder.id} value={holder.id}>
+                    {holder.name}
                   </SelectItem>
                 ))}
               </SelectContent>

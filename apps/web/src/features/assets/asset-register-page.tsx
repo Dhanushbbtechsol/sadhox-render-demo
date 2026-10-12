@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDownIcon, ChevronRightIcon, MoreHorizontal, PlusIcon } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -12,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -30,9 +32,25 @@ import {
 } from "@/components/ui/table";
 import { useAssetAssignments, useAssets, useRetireAsset } from "@/features/admin/hooks";
 import type { Asset, AssetStatus, AssetType } from "@/features/admin/types";
+import { useDirectoryUsers } from "@/features/projects/hooks";
+import { apiFetch } from "@/lib/api";
+import { recordReference } from "@/lib/record-reference";
 
 import { AssetFormDialog } from "./asset-form-dialog";
 import { AssetLinkTicketDialog } from "./asset-link-ticket-dialog";
+
+/** An asset row as returned by the API — includes the AST reference (R2) not yet in the shared Asset type. */
+type AssetWithReference = Asset & { referenceCode?: string | null };
+
+/** A single holding window for one asset in a person report (R3, KTD5). */
+type PersonReportRow = {
+  assetId: string;
+  assetTag: string;
+  referenceCode: string | null;
+  name: string;
+  from: string;
+  to: string | null;
+};
 
 const types: Array<AssetType | "all"> = ["all", "Hardware", "Software"];
 const statuses: Array<AssetStatus | "all"> = ["all", "Active", "InRepair", "Retired"];
@@ -97,6 +115,153 @@ function AssetAssignmentHistory({ assetId }: { assetId: string }) {
           ))}
         </TableBody>
       </Table>
+    </div>
+  );
+}
+
+/** Admin person holding report (R3, KTD5): an interval-overlap view, not just the current owner. */
+function AssetPersonReportSection() {
+  const holders = useDirectoryUsers();
+  const [personId, setPersonId] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [submitted, setSubmitted] = useState<{
+    personId: string;
+    from: string;
+    to: string;
+  } | null>(null);
+
+  const fieldError =
+    fromDate && toDate && fromDate > toDate
+      ? "From date must be on or before the to date."
+      : null;
+
+  const report = useQuery({
+    queryKey: ["assets", "report", "person", submitted],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        personId: submitted!.personId,
+        from: new Date(`${submitted!.from}T00:00:00.000Z`).toISOString(),
+        to: new Date(`${submitted!.to}T23:59:59.999Z`).toISOString(),
+      });
+      return apiFetch<{ data: PersonReportRow[] }>(
+        `/assets/report/person?${params.toString()}`,
+      );
+    },
+    enabled: Boolean(submitted),
+  });
+
+  const rows = report.data?.data ?? [];
+
+  return (
+    <div className="ring-foreground/10 rounded-md bg-card p-4 ring-1">
+      <h2 className="text-lg font-semibold">Person holding report</h2>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Every asset a person held at any moment in the selected date range.
+      </p>
+
+      <form
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!personId || !fromDate || !toDate || fieldError) return;
+          setSubmitted({ personId, from: fromDate, to: toDate });
+        }}
+      >
+        <div className="space-y-1">
+          <Label>Person</Label>
+          <Select
+            value={personId}
+            onValueChange={(value) => setPersonId(value ?? "")}
+          >
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder="Select a person" />
+            </SelectTrigger>
+            <SelectContent>
+              {(holders.data ?? []).map((holder) => (
+                <SelectItem key={holder.id} value={holder.id}>
+                  {holder.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="person-report-from">From</Label>
+          <Input
+            id="person-report-from"
+            type="date"
+            value={fromDate}
+            onChange={(event) => setFromDate(event.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="person-report-to">To</Label>
+          <Input
+            id="person-report-to"
+            type="date"
+            value={toDate}
+            onChange={(event) => setToDate(event.target.value)}
+          />
+        </div>
+        <Button
+          type="submit"
+          disabled={!personId || !fromDate || !toDate || Boolean(fieldError)}
+        >
+          Run report
+        </Button>
+      </form>
+
+      {fieldError ? (
+        <p className="mt-2 text-xs text-destructive">{fieldError}</p>
+      ) : null}
+
+      {report.isFetching ? <Skeleton className="mt-3 h-16 w-full" /> : null}
+
+      {report.isError ? (
+        <p className="mt-3 text-sm text-destructive">
+          {report.error instanceof Error
+            ? report.error.message
+            : "Failed to load report"}
+        </p>
+      ) : null}
+
+      {submitted && report.isSuccess && rows.length === 0 ? (
+        <p className="mt-3 text-sm text-muted-foreground">
+          No holding windows in this range.
+        </p>
+      ) : null}
+
+      {rows.length > 0 ? (
+        <div className="mt-3 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Asset</TableHead>
+                <TableHead>Reference</TableHead>
+                <TableHead>From</TableHead>
+                <TableHead>To</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={`${row.assetId}-${row.from}`}>
+                  <TableCell>{row.name}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {recordReference(row.referenceCode, row.assetId)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-xs">
+                    {new Date(row.from).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-xs">
+                    {row.to ? new Date(row.to).toLocaleString() : "Current"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -213,6 +378,7 @@ export default function AssetRegisterPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10" />
+                <TableHead>Reference</TableHead>
                 <TableHead>Asset Tag</TableHead>
                 <TableHead>Asset Name</TableHead>
                 <TableHead>Type</TableHead>
@@ -224,7 +390,7 @@ export default function AssetRegisterPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((asset) => {
+              {rows.map((asset: AssetWithReference) => {
                 const expanded = expandedId === asset.id;
                 return (
                   <Fragment key={asset.id}>
@@ -249,6 +415,9 @@ export default function AssetRegisterPage() {
                             <ChevronRightIcon className="size-4" />
                           )}
                         </Button>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs whitespace-nowrap">
+                        {recordReference(asset.referenceCode, asset.id)}
                       </TableCell>
                       <TableCell className="font-medium whitespace-nowrap">
                         {asset.assetTag}
@@ -317,7 +486,7 @@ export default function AssetRegisterPage() {
                     </TableRow>
                     {expanded ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="bg-muted/30 p-4">
+                        <TableCell colSpan={10} className="bg-muted/30 p-4">
                           <p className="mb-2 text-sm font-medium">
                             Assignment history
                           </p>
@@ -340,6 +509,8 @@ export default function AssetRegisterPage() {
         />
         </div>
       ) : null}
+
+      <AssetPersonReportSection />
 
       <AssetFormDialog open={formOpen} onOpenChange={setFormOpen} asset={editing} />
       <AssetLinkTicketDialog open={linkOpen} onOpenChange={setLinkOpen} asset={linking} />
