@@ -28,6 +28,7 @@ import { MailService } from "../mail/mail.service";
 import { NotificationService } from "../notifications/notification.service";
 import { ProjectAccessService } from "../projects/project-access.service";
 import { ProjectsService } from "../projects/projects.service";
+import { claimReference } from "../incidents/reference";
 import type {
   CreateChangeDto,
   RejectChangeDto,
@@ -185,21 +186,25 @@ export class ChangesService {
       );
     }
 
-    const [created] = await this.db
-      .insert(changes)
-      .values({
-        title: dto.title,
-        description: dto.description,
-        type: dto.type,
-        scheduledStart: start,
-        scheduledEnd: end,
-        rollbackPlan,
-        status: "Submitted",
-        createdBy: user.userId,
-        projectId,
-        moduleId,
-      })
-      .returning();
+    const [created] = await this.db.transaction(async (tx) => {
+      const referenceCode = await claimReference(tx, "CHG");
+      return tx
+        .insert(changes)
+        .values({
+          referenceCode,
+          title: dto.title,
+          description: dto.description,
+          type: dto.type,
+          scheduledStart: start,
+          scheduledEnd: end,
+          rollbackPlan,
+          status: "Submitted",
+          createdBy: user.userId,
+          projectId,
+          moduleId,
+        })
+        .returning();
+    });
 
     await this.notifyApproversOfSubmission(created.id, user, projectId);
     return this.get(user, created.id);

@@ -33,6 +33,7 @@ import {
   PHASE7_KNOWLEDGE_CATEGORY_SEED,
 } from "../src/knowledge/knowledge.seed";
 import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
+import { claimReference } from "../src/incidents/reference";
 
 /** Valid Phase 7 pairs for NEW showcase/scenario inserts only (existing rows untouched). */
 const PHASE7_INCIDENT_PAIRS = [
@@ -666,6 +667,7 @@ async function seedShowcaseData(db: SeedDb) {
       : new Date(slaDueAt.getTime() + 3 * 60 * 60 * 1000);
 
     await db.insert(incidents).values({
+      referenceCode: await claimReference(db, "INC"),
       title: row.title,
       description: "Dashboard showcase seed — safe to delete.",
       category: row.category,
@@ -685,6 +687,7 @@ async function seedShowcaseData(db: SeedDb) {
 
   for (const [i, row] of openShowcase.entries()) {
     await db.insert(incidents).values({
+      referenceCode: await claimReference(db, "INC"),
       title: row.title,
       description: "Dashboard showcase seed — open ticket.",
       category: row.category,
@@ -710,6 +713,7 @@ async function seedShowcaseData(db: SeedDb) {
         : null;
     const closedAt = row.status === "Closed" ? new Date(now - day / 2) : null;
     await db.insert(incidents).values({
+      referenceCode: await claimReference(db, "INC"),
       title: row.title,
       description:
         "Phase 4 staging seed — P1–P4 across New/Assigned/InProgress/Resolved/Closed.",
@@ -745,6 +749,7 @@ async function seedShowcaseData(db: SeedDb) {
     for (let n = 0; n < 2 + (i % 2); n++) {
       const requesterId = n % 2 === 0 ? endUser.id : altReporter;
       await db.insert(serviceRequests).values({
+        referenceCode: await claimReference(db, "REQ"),
         catalogId,
         requesterId,
         approverId: status === "Submitted" || status === "PendingApproval" ? null : admin.id,
@@ -779,6 +784,7 @@ async function seedShowcaseData(db: SeedDb) {
 
   for (const row of changeRows) {
     await db.insert(changes).values({
+      referenceCode: await claimReference(db, "CHG"),
       title: row.title,
       description: "Showcase change for admin dashboard",
       type: row.type,
@@ -871,6 +877,7 @@ async function seedPhase4Assets(db: SeedDb) {
     const ownerId = i % 5 === 0 ? admin?.id ?? null : i % 3 === 0 ? agent?.id ?? null : null;
     const cost = (150 + (i % 40) * 37.5).toFixed(2);
     rows.push({
+      referenceCode: await claimReference(db, "AST"),
       assetTag: tag,
       name: `${SHOWCASE_PREFIX} ${names[i % names.length]} #${i}`,
       type,
@@ -1168,6 +1175,7 @@ async function seedScenarioNarrative(db: SeedDb) {
 
   for (const row of incidentRows) {
     await db.insert(incidents).values({
+      referenceCode: await claimReference(db, "INC"),
       id: row.id,
       title: row.title,
       description: row.description,
@@ -1190,6 +1198,7 @@ async function seedScenarioNarrative(db: SeedDb) {
 
   await db.insert(problems).values([
     {
+      referenceCode: await claimReference(db, "ISS"),
       id: SCENARIO_PROBLEM_IDS.vpnRoot,
       title: `${SCENARIO_PREFIX} Recurring VPN disconnect pattern`,
       description:
@@ -1202,6 +1211,7 @@ async function seedScenarioNarrative(db: SeedDb) {
       moduleId: PHASE6_MODULE_ID,
     },
     {
+      referenceCode: await claimReference(db, "ISS"),
       id: SCENARIO_PROBLEM_IDS.emailRoot,
       title: `${SCENARIO_PREFIX} Mail relay queue backlog mornings`,
       description: "Outbound delays correlate with nightly archive job overlapping SMTP peak.",
@@ -1213,6 +1223,7 @@ async function seedScenarioNarrative(db: SeedDb) {
       moduleId: PHASE6_MODULE_ID,
     },
     {
+      referenceCode: await claimReference(db, "ISS"),
       id: SCENARIO_PROBLEM_IDS.wifiKnown,
       title: `${SCENARIO_PREFIX} Known error — conference AP channel overlap`,
       description: "Documented channel clash between adjacent APs in standup rooms.",
@@ -1253,6 +1264,7 @@ async function seedScenarioNarrative(db: SeedDb) {
     const needsApprover =
       status !== "Submitted" && status !== "PendingApproval";
     await db.insert(serviceRequests).values({
+      referenceCode: await claimReference(db, "REQ"),
       catalogId,
       requesterId: portalUser.id,
       approverId: needsApprover ? (i % 2 === 0 ? manager.id : admin.id) : null,
@@ -1345,6 +1357,7 @@ async function seedScenarioNarrative(db: SeedDb) {
 
   for (const row of changeRows) {
     await db.insert(changes).values({
+      referenceCode: await claimReference(db, "CHG"),
       title: row.title,
       description: "Scenario change for Platform Ops / Shared Infra walkthroughs.",
       type: row.type,
@@ -1456,6 +1469,7 @@ async function seedScenarioNarrative(db: SeedDb) {
 
   await db.insert(assets).values([
     {
+      referenceCode: await claimReference(db, "AST"),
       assetTag: `${SCENARIO_ASSET_PREFIX}HW-0001`,
       name: `${SCENARIO_PREFIX} Docking station (Pat Portal)`,
       type: "Hardware",
@@ -1465,6 +1479,7 @@ async function seedScenarioNarrative(db: SeedDb) {
       linkedTicketId: SCENARIO_INCIDENT_IDS.laptopBroken,
     },
     {
+      referenceCode: await claimReference(db, "AST"),
       assetTag: `${SCENARIO_ASSET_PREFIX}HW-0002`,
       name: `${SCENARIO_PREFIX} Softphone headset`,
       type: "Hardware",
@@ -1474,6 +1489,7 @@ async function seedScenarioNarrative(db: SeedDb) {
       linkedTicketId: SCENARIO_INCIDENT_IDS.appCrash,
     },
     {
+      referenceCode: await claimReference(db, "AST"),
       assetTag: `${SCENARIO_ASSET_PREFIX}SW-0001`,
       name: `${SCENARIO_PREFIX} Softphone license seat`,
       type: "Software",
@@ -1483,6 +1499,7 @@ async function seedScenarioNarrative(db: SeedDb) {
       linkedTicketId: null,
     },
     {
+      referenceCode: await claimReference(db, "AST"),
       assetTag: `${SCENARIO_ASSET_PREFIX}HW-0003`,
       name: `${SCENARIO_PREFIX} VPN token fob`,
       type: "Hardware",
@@ -1700,6 +1717,7 @@ async function seedRoleVisibleDemo(db: SeedDb) {
     await db
       .insert(incidents)
       .values({
+        referenceCode: await claimReference(db, "INC"),
         id: row.id,
         title: row.title,
         description:
@@ -1726,6 +1744,7 @@ async function seedRoleVisibleDemo(db: SeedDb) {
     .insert(problems)
     .values([
       {
+        referenceCode: await claimReference(db, "ISS"),
         id: DEMO_PROBLEM_IDS.agentQueue,
         title: `${DEMO_PREFIX} Recurring MFA delivery failures`,
         description:
@@ -1738,6 +1757,7 @@ async function seedRoleVisibleDemo(db: SeedDb) {
         moduleId: PHASE6_MODULE_ID,
       },
       {
+        referenceCode: await claimReference(db, "ISS"),
         id: DEMO_PROBLEM_IDS.agentKnown,
         title: `${DEMO_PREFIX} Known error — dock firmware 2.1.4 black screen`,
         description: "Documented workaround: force DisplayPort preferred path.",
@@ -1844,6 +1864,7 @@ async function seedRoleVisibleDemo(db: SeedDb) {
     await db
       .insert(serviceRequests)
       .values({
+        referenceCode: await claimReference(db, "REQ"),
         id: row.id,
         catalogId,
         requesterId: row.requesterId,
@@ -1874,6 +1895,7 @@ async function seedRoleVisibleDemo(db: SeedDb) {
     .insert(changes)
     .values([
       {
+        referenceCode: await claimReference(db, "CHG"),
         id: DEMO_CHANGE_IDS.submitted,
         title: `${DEMO_PREFIX} Patch VPN clients on Ops laptops`,
         description: "Demo change for Agent Changes tab.",
@@ -1889,6 +1911,7 @@ async function seedRoleVisibleDemo(db: SeedDb) {
         moduleId: PHASE6_MODULE_ID,
       },
       {
+        referenceCode: await claimReference(db, "CHG"),
         id: DEMO_CHANGE_IDS.approved,
         title: `${DEMO_PREFIX} Enable SSO for softphone`,
         description: "Demo approved change.",
@@ -1904,6 +1927,7 @@ async function seedRoleVisibleDemo(db: SeedDb) {
         moduleId: PHASE6_MODULE_2_ID,
       },
       {
+        referenceCode: await claimReference(db, "CHG"),
         id: DEMO_CHANGE_IDS.scheduled,
         title: `${DEMO_PREFIX} AP channel rebalance floor 3`,
         description: "Demo scheduled change.",
@@ -1919,6 +1943,7 @@ async function seedRoleVisibleDemo(db: SeedDb) {
         moduleId: PHASE6_MODULE_ID,
       },
       {
+        referenceCode: await claimReference(db, "CHG"),
         id: DEMO_CHANGE_IDS.closed,
         title: `${DEMO_PREFIX} Mail archive window shift — done`,
         description: "Demo closed change.",

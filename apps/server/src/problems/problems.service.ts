@@ -18,6 +18,7 @@ import {
 } from "../database/schema";
 import { ProjectAccessService } from "../projects/project-access.service";
 import { ProjectsService } from "../projects/projects.service";
+import { claimReference } from "../incidents/reference";
 import type {
   CreateProblemDto,
   ListProblemsQueryDto,
@@ -186,21 +187,25 @@ export class ProblemsService {
     }
 
     const now = new Date();
-    const [created] = await this.db
-      .insert(problems)
-      .values({
-        title: dto.title,
-        description: dto.description,
-        rootCause: dto.rootCause ?? null,
-        knownError: dto.knownError ?? false,
-        status: dto.status ?? "Open",
-        assignedTo: dto.assignedTo ?? null,
-        projectId: scope.projectId,
-        moduleId: scope.moduleId,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
+    const [created] = await this.db.transaction(async (tx) => {
+      const referenceCode = await claimReference(tx, "ISS");
+      return tx
+        .insert(problems)
+        .values({
+          referenceCode,
+          title: dto.title,
+          description: dto.description,
+          rootCause: dto.rootCause ?? null,
+          knownError: dto.knownError ?? false,
+          status: dto.status ?? "Open",
+          assignedTo: dto.assignedTo ?? null,
+          projectId: scope.projectId,
+          moduleId: scope.moduleId,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+    });
 
     if (dto.linkedIncidentIds?.length) {
       await this.replaceLinks(created!.id, dto.linkedIncidentIds);

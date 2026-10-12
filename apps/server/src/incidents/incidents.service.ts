@@ -46,6 +46,7 @@ import {
   isValidIncidentCategorySubcategory,
 } from "./incident-category-map";
 import { PriorityCalculationService } from "./priority-calculation.service";
+import { claimReference } from "./reference";
 
 type UserSnippet = {
   id: string;
@@ -266,27 +267,31 @@ export class IncidentsService {
       );
     }
 
-    const [created] = await this.db
-      .insert(incidents)
-      .values({
-        title,
-        description,
-        category: dto.category,
-        subcategory: dto.subcategory,
-        impact: dto.impact,
-        urgency: dto.urgency,
-        priority,
-        status: assignee ? "Assigned" : "New",
-        reporterId: user.userId,
-        assignedTo: assignee?.id ?? null,
-        projectId: scope.projectId,
-        moduleId: scope.moduleId,
-        slaDueAt,
-        slaBreached: false,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
+    const [created] = await this.db.transaction(async (tx) => {
+      const referenceCode = await claimReference(tx, "INC");
+      return tx
+        .insert(incidents)
+        .values({
+          referenceCode,
+          title,
+          description,
+          category: dto.category,
+          subcategory: dto.subcategory,
+          impact: dto.impact,
+          urgency: dto.urgency,
+          priority,
+          status: assignee ? "Assigned" : "New",
+          reporterId: user.userId,
+          assignedTo: assignee?.id ?? null,
+          projectId: scope.projectId,
+          moduleId: scope.moduleId,
+          slaDueAt,
+          slaBreached: false,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+    });
 
     if (assignee) {
       try {

@@ -18,6 +18,7 @@ import {
   type AssetStatus,
   type AssetType,
 } from "../database/schema";
+import { claimReference } from "../incidents/reference";
 import { MailService } from "../mail/mail.service";
 import { assignmentChanged } from "./asset-assignment";
 import {
@@ -206,20 +207,24 @@ export class AssetsService {
     if (dto.ownerId) await this.ensureOwner(dto.ownerId);
 
     const now = new Date();
-    const [created] = await this.db
-      .insert(assets)
-      .values({
-        assetTag: dto.assetTag.trim(),
-        name: dto.name.trim(),
-        type: dto.type,
-        status: dto.status ?? "Active",
-        ownerId: dto.ownerId ?? null,
-        purchaseCost: dto.purchaseCost ?? null,
-        serialNumber: dto.serialNumber?.trim() || null,
-        location: dto.location?.trim() || null,
-        assignedAt: dto.ownerId ? now : null,
-      })
-      .returning();
+    const [created] = await this.db.transaction(async (tx) => {
+      const referenceCode = await claimReference(tx, "AST");
+      return tx
+        .insert(assets)
+        .values({
+          referenceCode,
+          assetTag: dto.assetTag.trim(),
+          name: dto.name.trim(),
+          type: dto.type,
+          status: dto.status ?? "Active",
+          ownerId: dto.ownerId ?? null,
+          purchaseCost: dto.purchaseCost ?? null,
+          serialNumber: dto.serialNumber?.trim() || null,
+          location: dto.location?.trim() || null,
+          assignedAt: dto.ownerId ? now : null,
+        })
+        .returning();
+    });
 
     if (dto.ownerId) {
       await this.db.insert(assetAssignments).values({

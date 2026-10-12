@@ -209,10 +209,16 @@ export const auditLog = pgTable(
   (t) => [index("audit_log_entity_idx").on(t.entityType, t.entityId)],
 );
 
+export const referenceCounters = pgTable("reference_counters", {
+  prefix: varchar("prefix", { length: 8 }).primaryKey(),
+  value: integer("value").notNull(),
+});
+
 export const incidents = pgTable(
   "incidents",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    referenceCode: varchar("reference_code", { length: 16 }).notNull().unique(),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description").notNull(),
     category: varchar("category", { length: 64 }).notNull().default("Other"),
@@ -261,6 +267,7 @@ export const problems = pgTable(
   "problems",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    referenceCode: varchar("reference_code", { length: 16 }).notNull().unique(),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description").notNull(),
     rootCause: text("root_cause"),
@@ -345,6 +352,7 @@ export const serviceRequests = pgTable(
   "service_requests",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    referenceCode: varchar("reference_code", { length: 16 }).notNull().unique(),
     catalogId: uuid("catalog_id")
       .notNull()
       .references(() => serviceCatalog.id),
@@ -394,6 +402,7 @@ export const changes = pgTable(
   "changes",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    referenceCode: varchar("reference_code", { length: 16 }).notNull().unique(),
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
     type: changeTypeEnum("type").notNull().default("Normal"),
@@ -432,6 +441,7 @@ export const assets = pgTable(
   "assets",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    referenceCode: varchar("reference_code", { length: 16 }).notNull().unique(),
     assetTag: varchar("asset_tag", { length: 64 }).notNull().unique(),
     name: varchar("name", { length: 255 }).notNull(),
     type: assetTypeEnum("type").notNull(),

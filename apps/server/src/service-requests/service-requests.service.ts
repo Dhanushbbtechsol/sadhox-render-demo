@@ -30,6 +30,7 @@ import { NotificationService } from "../notifications/notification.service";
 import { recipientIds } from "../notifications/recipients";
 import { ProjectAccessService } from "../projects/project-access.service";
 import { ProjectsService } from "../projects/projects.service";
+import { claimReference } from "../incidents/reference";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
 import type {
   CreateServiceRequestDto,
@@ -171,21 +172,25 @@ export class ServiceRequestsService {
         dto.moduleId,
       );
 
-    const [created] = await this.db
-      .insert(serviceRequests)
-      .values({
-        catalogId: catalog.id,
-        requesterId: user.userId,
-        title: catalog.name,
-        description: dto.justification,
-        justification: dto.justification,
-        urgency: dto.urgency,
-        fields: dto.fields ?? {},
-        status: "Submitted",
-        projectId,
-        moduleId,
-      })
-      .returning();
+    const [created] = await this.db.transaction(async (tx) => {
+      const referenceCode = await claimReference(tx, "REQ");
+      return tx
+        .insert(serviceRequests)
+        .values({
+          referenceCode,
+          catalogId: catalog.id,
+          requesterId: user.userId,
+          title: catalog.name,
+          description: dto.justification,
+          justification: dto.justification,
+          urgency: dto.urgency,
+          fields: dto.fields ?? {},
+          status: "Submitted",
+          projectId,
+          moduleId,
+        })
+        .returning();
+    });
 
     await this.notifyApproversOfSubmission(
       created.id,
