@@ -7,6 +7,7 @@ This directory contains the detailed phase-by-phase execution plan for the Sadho
 **Phase 7 (EndUser desk — designed):** [phase7.md](./phase7.md)  
 **Phase 8:** superseded by Phase 9.  
 **Phase 9 (dev-wise plan):** [phase9.md](./phase9.md) — [Dev D](./Dev%20D/phase9.md) · [Dev A](./Dev%20A/phase9.md) · [Dev B](./Dev%20B/phase9.md) · [Dev C](./Dev%20C/phase9.md)  
+**Client follow-on (after Phase 9):** [client-follow-on.md](./client-follow-on.md) — [Dev D](./Dev%20D/client-follow-on.md) · [Dev A](./Dev%20A/client-follow-on.md) · [Dev B](./Dev%20B/client-follow-on.md) · [Dev C](./Dev%20C/client-follow-on.md)  
 **Requirements coverage (Phases 1–4 vs Phase 5 gaps):** [coverage-matrix.md](./coverage-matrix.md)  
 **Latest audit:** [../Audit/phase5.md](../Audit/phase5.md)
 
