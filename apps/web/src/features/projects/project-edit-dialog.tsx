@@ -157,6 +157,10 @@ export function ProjectEditDialog({
 
   async function onSave() {
     if (!project) return;
+    if (initializedProjectId.current !== project.id) {
+      toast.error("Members and modules are still loading");
+      return;
+    }
     if (!name.trim()) {
       toast.error("Project name is required");
       return;
@@ -261,6 +265,8 @@ export function ProjectEditDialog({
   }
 
   const membersLoading = members.isLoading || modulesQuery.isLoading;
+  const stagingInitialized =
+    project != null && initializedProjectId.current === project.id;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -511,7 +517,7 @@ export function ProjectEditDialog({
             <Button
               type="button"
               onClick={() => void onSave()}
-              disabled={saveSummary.isPending}
+              disabled={saveSummary.isPending || !stagingInitialized}
             >
               {saveSummary.isPending ? "Saving…" : "Save"}
             </Button>
