@@ -40,7 +40,7 @@ import {
   assertCanTransitionIncident,
   requiresResolutionNotes,
 } from "./incident-transitions";
-import { canAssignIncident, canMutateIncident } from "./incident-rbac";
+import { canMutateIncident, canSetIncidentAssignee } from "./incident-rbac";
 import {
   invalidCategorySubcategoryMessage,
   isValidIncidentCategorySubcategory,
@@ -253,8 +253,12 @@ export class IncidentsService {
 
     let assignee: { id: string; email: string; name: string } | null = null;
     if (dto.assignedTo) {
-      if (!canAssignIncident(user.role)) {
-        throw new ForbiddenException("End users cannot assign incidents");
+      if (!canSetIncidentAssignee(user.role, scope.projectId)) {
+        throw new ForbiddenException(
+          scope.projectId
+            ? "Only an Admin can assign a project ticket"
+            : "End users cannot assign incidents",
+        );
       }
       assignee = await this.assertAssigneeInPool(
         dto.assignedTo,
@@ -342,12 +346,15 @@ export class IncidentsService {
   }
 
   async assign(user: AuthUser, id: string, dto: AssignIncidentDto) {
-    if (!canAssignIncident(user.role)) {
-      throw new ForbiddenException("End users cannot assign incidents");
-    }
-
     const existing = await this.loadIncidentRow(id);
     if (!existing) throw new NotFoundException("Incident not found");
+    if (!canSetIncidentAssignee(user.role, existing.incident.projectId)) {
+      throw new ForbiddenException(
+        existing.incident.projectId
+          ? "Only an Admin can assign a project ticket"
+          : "End users cannot assign incidents",
+      );
+    }
     await this.projectAccess.assertCanAccessTicketProject(
       user,
       existing.incident.projectId,
@@ -539,6 +546,13 @@ export class IncidentsService {
       dto.assignedTo !== undefined
         ? dto.assignedTo
         : existing.incident.assignedTo;
+    if (dto.assignedTo !== undefined && !canSetIncidentAssignee(user.role, nextProjectId)) {
+      throw new ForbiddenException(
+        nextProjectId
+          ? "Only an Admin can assign a project ticket"
+          : "End users cannot assign incidents",
+      );
+    }
     if (nextAssignee) {
       await this.assertAssigneeInPool(nextAssignee, nextProjectId);
     }

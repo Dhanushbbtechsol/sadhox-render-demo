@@ -2,6 +2,7 @@ import {
   canAssignIncident,
   canLinkProblems,
   canMutateIncident,
+  canSetIncidentAssignee,
 } from "./incident-rbac";
 
 describe("Incident RBAC helpers (Phase 6 Manager)", () => {
@@ -22,5 +23,17 @@ describe("Incident RBAC helpers (Phase 6 Manager)", () => {
     expect(canLinkProblems("EndUser")).toBe(false);
     expect(canLinkProblems("Agent")).toBe(true);
     expect(canLinkProblems("Manager")).toBe(true);
+  });
+
+  it("lets only an Admin assign a project ticket", () => {
+    expect(canSetIncidentAssignee("Agent", "project-1")).toBe(false);
+    expect(canSetIncidentAssignee("Manager", "project-1")).toBe(false);
+    expect(canSetIncidentAssignee("Admin", "project-1")).toBe(true);
+  });
+
+  it("keeps the current pool for a ticket with no project", () => {
+    expect(canSetIncidentAssignee("Agent", null)).toBe(true);
+    expect(canSetIncidentAssignee("Manager", null)).toBe(true);
+    expect(canSetIncidentAssignee("EndUser", null)).toBe(false);
   });
 });

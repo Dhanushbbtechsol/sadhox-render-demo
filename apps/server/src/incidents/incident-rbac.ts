@@ -13,3 +13,11 @@ export function canLinkProblems(role: string): boolean {
 export function canAssignIncident(role: string): boolean {
   return role === "Admin" || role === "Agent" || role === "Manager";
 }
+
+export function canSetIncidentAssignee(
+  role: string,
+  projectId: string | null,
+): boolean {
+  if (projectId) return role === "Admin";
+  return canAssignIncident(role);
+}
