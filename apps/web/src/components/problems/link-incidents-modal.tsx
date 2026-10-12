@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useIncidents, useUpdateProblem } from "@/hooks/use-tickets";
+import { recordReference } from "@/lib/record-reference";
 import type { Problem } from "@/types/itsm";
 
 export function LinkIncidentsModal({ problem }: { problem: Problem }) {
@@ -93,7 +94,7 @@ export function LinkIncidentsModal({ problem }: { problem: Problem }) {
                       {incident.title}
                     </span>
                     <span className="text-muted-foreground font-mono text-[11px]">
-                      {incident.id.slice(0, 8)} · {incident.status} ·{" "}
+                      {recordReference(incident.referenceCode, incident.id)} · {incident.status} ·{" "}
                       {incident.priority}
                     </span>
                   </span>

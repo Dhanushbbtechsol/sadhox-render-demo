@@ -7,6 +7,7 @@ import { LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { useIncidents } from "@/hooks/use-tickets";
+import { recordReference } from "@/lib/record-reference";
 import { cn } from "@/lib/utils";
 import { INCIDENT_STATUS_LABELS } from "@/types/itsm";
 
@@ -36,7 +37,7 @@ export default function EndUserIncidentsPage() {
               Report an issue and track status of your tickets without leaving this page.
             </p>
           </div>
-          <CreateIncidentDialog triggerLabel="Report Incident" />
+          <CreateIncidentDialog triggerLabel="Report a ticket" />
         </div>
         <div className="bg-primary/5 pointer-events-none absolute -top-10 -right-10 size-40 rounded-full blur-2xl" />
       </div>
@@ -46,8 +47,8 @@ export default function EndUserIncidentsPage() {
       {!isLoading && (!mine || mine.length === 0) ? (
         <EmptyState
           title="No tickets yet"
-          description="When you report an incident it will show up here with live status."
-          action={<CreateIncidentDialog triggerLabel="Report Incident" />}
+          description="When you report a ticket it will show up here with live status."
+          action={<CreateIncidentDialog triggerLabel="Report a ticket" />}
         />
       ) : null}
 
@@ -67,7 +68,7 @@ export default function EndUserIncidentsPage() {
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-muted-foreground bg-muted/80 rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-                      {incident.id.slice(0, 8)}
+                      {recordReference(incident.referenceCode, incident.id)}
                     </span>
                     <PriorityBadge priority={incident.priority} showLabel={false} />
                     <Badge variant={statusVariant(incident.status)}>

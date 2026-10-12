@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { useProjects } from "@/hooks/use-projects";
 import { useIncidents } from "@/hooks/use-tickets";
+import { recordReference } from "@/lib/record-reference";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { INCIDENT_STATUS_LABELS, type IncidentStatus } from "@/types/itsm";
@@ -175,9 +176,9 @@ function AgentIncidentsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4 animate-in-up">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Incident queue</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Tickets</h1>
           <p className="text-muted-foreground text-sm">
-            Prioritize work, watch SLA pressure, and open tickets in one place.
+            Prioritize work, watch response time, and open tickets in one place.
           </p>
         </div>
         <CreateIncidentDialog />
@@ -278,7 +279,7 @@ function AgentIncidentsPage() {
             { value: "createdAt", label: "Created" },
             { value: "priority", label: "Priority" },
             { value: "status", label: "Status" },
-            { value: "slaDueAt", label: "SLA due" },
+            { value: "slaDueAt", label: "Response due" },
           ]}
           value={sortBy}
           onValueChange={(v) => v && setSortBy(v as SortKey)}
@@ -290,7 +291,7 @@ function AgentIncidentsPage() {
             <SelectItem value="createdAt">Created</SelectItem>
             <SelectItem value="priority">Priority</SelectItem>
             <SelectItem value="status">Status</SelectItem>
-            <SelectItem value="slaDueAt">SLA due</SelectItem>
+            <SelectItem value="slaDueAt">Response due</SelectItem>
           </SelectContent>
         </Select>
 
@@ -409,7 +410,7 @@ function AgentIncidentsPage() {
                           {incident.title}
                         </Link>
                         <p className="text-muted-foreground mt-0.5 font-mono text-[11px]">
-                          {incident.id.slice(0, 8)}
+                          {recordReference(incident.referenceCode, incident.id)}
                         </p>
                       </td>
                       <td className="px-4 py-3">

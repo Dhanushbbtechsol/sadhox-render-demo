@@ -70,7 +70,7 @@ const DEFAULT_STATUS_SERIES_COUNT = 6;
 
 const slaChartConfig = {
   met: {
-    label: "SLA met",
+    label: "Response time met",
     color: "var(--chart-sla-met)",
   },
   breached: {
@@ -265,7 +265,7 @@ export default function DashboardPage() {
 
         <section className="bg-card ring-foreground/10 flex min-w-0 flex-col gap-4 overflow-hidden rounded-xl p-5 ring-1">
           <div>
-            <h2 className="text-base font-semibold tracking-tight">SLA compliance</h2>
+            <h2 className="text-base font-semibold tracking-tight">Response time met</h2>
             <p className="text-muted-foreground text-sm">Resolved incidents in range</p>
           </div>
           {slaRate.isLoading ? <Skeleton className="h-40" /> : null}
@@ -283,7 +283,7 @@ export default function DashboardPage() {
 
         <section className="bg-card ring-foreground/10 flex min-w-0 flex-col gap-4 overflow-hidden rounded-xl p-5 ring-1">
           <div>
-            <h2 className="text-base font-semibold tracking-tight">SLA performance</h2>
+            <h2 className="text-base font-semibold tracking-tight">Response time</h2>
             <p className="text-muted-foreground text-sm">Tickets that met or missed the deadline, by week</p>
           </div>
           {stats.isLoading ? <Skeleton className="h-72" /> : null}
@@ -337,7 +337,7 @@ export default function DashboardPage() {
           ) : null}
           <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
             <TrendingUp className="size-3.5" />
-            Based on resolved incidents with an SLA due date
+            Based on resolved tickets with a response-time due date
           </p>
         </section>
       </div>
@@ -568,7 +568,7 @@ function SlaGauge({
         aria-valuenow={clamped}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label="SLA compliance rate"
+        aria-label="Response time met rate"
       >
         <div
           className={cn(

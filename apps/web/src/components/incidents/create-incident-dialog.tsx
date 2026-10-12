@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAgents, useCreateIncident } from "@/hooks/use-tickets";
+import { recordReference } from "@/lib/record-reference";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   INCIDENT_CATEGORIES,
@@ -83,15 +84,13 @@ function buildCreateIncidentSchema(requireProject: boolean) {
 type CreateIncidentForm = z.infer<ReturnType<typeof buildCreateIncidentSchema>>;
 
 export function CreateIncidentDialog({
-  triggerLabel = "New Incident",
+  triggerLabel = "New ticket",
 }: {
   triggerLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const createIncident = useCreateIncident();
   const role = useAuthStore((s) => s.user?.role);
-  const canAssign =
-    role === "Admin" || role === "Agent" || role === "Manager";
   const requireProject = role === "Manager";
   const schema = useMemo(
     () => buildCreateIncidentSchema(requireProject),
@@ -120,6 +119,9 @@ export function CreateIncidentDialog({
     name: "category",
   }) as IncidentCategory;
   const projectId = useWatch({ control: form.control, name: "projectId" });
+  const canAssign =
+    role === "Admin" ||
+    ((role === "Agent" || role === "Manager") && !projectId);
   const { data: agents = [] } = useAgents(projectId, { enabled: canAssign });
   const agentItems = useMemo(
     () =>
@@ -159,9 +161,12 @@ export function CreateIncidentDialog({
           ? { assignedTo: values.assignedTo }
           : {}),
       });
-      toast.success(`Incident ${created.id} created`, {
-        description: `Priority ${created.priority} assigned automatically.`,
-      });
+      toast.success(
+        `Ticket ${recordReference(created.referenceCode, created.id)} created`,
+        {
+          description: `Priority ${created.priority} assigned automatically.`,
+        },
+      );
       form.reset();
       setOpen(false);
     } catch (error) {
@@ -178,7 +183,7 @@ export function CreateIncidentDialog({
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>
-            {role === "EndUser" ? "Report incident" : "Create incident"}
+            {role === "EndUser" ? "Report a ticket" : "Create a ticket"}
           </DialogTitle>
           <DialogDescription>
             Priority is calculated from Impact × Urgency as you fill the form.
@@ -418,8 +423,8 @@ export function CreateIncidentDialog({
               {createIncident.isPending
                 ? "Submitting…"
                 : role === "EndUser"
-                  ? "Report incident"
-                  : "Create incident"}
+                  ? "Report a ticket"
+                  : "Create a ticket"}
             </Button>
           </DialogFooter>
         </form>

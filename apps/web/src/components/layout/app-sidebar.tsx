@@ -109,32 +109,32 @@ const NAV_ITEMS: NavItem[] = [
       {
         kind: "group",
         id: "incident-desk",
-        label: "Incident Desk",
+        label: "Ticket desk",
         roles: ["Admin", "Agent", "Manager"],
         children: [
           {
             to: "/incidents",
-            label: "Incidents",
+            label: "Tickets",
           },
           {
             to: "/problems",
-            label: "Problems",
+            label: "Issues",
           },
         ],
       },
       {
         to: "/incidents",
-        label: "Incidents",
+        label: "Tickets",
         roles: ["EndUser"],
       },
       {
         to: "/requests",
-        label: "Service Requests",
+        label: "Requests",
         roles: ["Admin", "Agent", "EndUser", "Manager"],
       },
       {
         to: "/changes",
-        label: "Change of Management",
+        label: "Change requests",
         roles: ["Admin", "Agent", "Manager", "EndUser"],
       },
       {
@@ -151,7 +151,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     to: "/admin/sla-rules",
-    label: "SLA",
+    label: "Response time",
     roles: ["Admin"],
   },
   {

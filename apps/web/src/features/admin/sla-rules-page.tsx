@@ -78,7 +78,7 @@ export default function SlaRulesPage() {
         responseMinutes,
         resolveMinutes,
       });
-      toast.success(`${row.priority} SLA rule saved`);
+      toast.success(`${row.priority} response time saved`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Save failed");
     } finally {
@@ -98,7 +98,7 @@ export default function SlaRulesPage() {
         <div className="min-w-0">
           <h1 className="flex items-center gap-2 text-xl font-semibold">
             <TimerIcon className="size-5" />
-            SLA
+            Response time
           </h1>
           <p className="text-sm text-muted-foreground">
             Set how quickly each priority should get a first reply and a resolution.
@@ -119,7 +119,7 @@ export default function SlaRulesPage() {
 
       {slaRules.isError ? (
         <p className="text-destructive text-sm">
-          {slaRules.error instanceof Error ? slaRules.error.message : "Failed to load SLA rules"}
+          {slaRules.error instanceof Error ? slaRules.error.message : "Failed to load response times"}
         </p>
       ) : null}
 

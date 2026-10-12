@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useProjects } from "@/hooks/use-projects";
+import { recordReference } from "@/lib/record-reference";
 import { useProblems } from "@/hooks/use-tickets";
 import { cn } from "@/lib/utils";
 import { PROBLEM_STATUS_LABELS } from "@/types/itsm";
@@ -46,9 +47,9 @@ export default function ProblemsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3 animate-in-up">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Problems</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Issues</h1>
           <p className="text-muted-foreground text-sm">
-            Root-cause records linked to recurring incidents.
+            Root-cause records linked to recurring tickets.
           </p>
         </div>
         <CreateProblemDialog />
@@ -123,7 +124,7 @@ export default function ProblemsPage() {
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-muted-foreground bg-muted/80 rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-                    {problem.id.slice(0, 8)}
+                    {recordReference(problem.referenceCode, problem.id)}
                   </span>
                   <Badge variant="outline">
                     {PROBLEM_STATUS_LABELS[problem.status]}
@@ -142,10 +143,10 @@ export default function ProblemsPage() {
                   {problem.description}
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  Linked incidents:{" "}
-                  {problem.linkedIncidentIds.length
-                    ? problem.linkedIncidentIds
-                        .map((id) => id.slice(0, 8))
+                  Linked issues:{" "}
+                  {problem.linkedIncidents?.length
+                    ? problem.linkedIncidents
+                        .map((item) => recordReference(item.referenceCode, item.id))
                         .join(", ")
                     : "None"}
                 </p>

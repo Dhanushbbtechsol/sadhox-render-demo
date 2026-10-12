@@ -57,6 +57,7 @@ type UserSnippet = {
 
 export type IncidentListItem = {
   id: string;
+  referenceCode: string;
   title: string;
   description: string;
   category: string;
@@ -82,6 +83,7 @@ export type IncidentListItem = {
 
 export type LinkedProblemSnippet = {
   id: string;
+  referenceCode: string;
   title: string;
   status: string;
   knownError: boolean;
@@ -182,6 +184,7 @@ export class IncidentsService {
     const [linked] = await this.db
       .select({
         id: problems.id,
+        referenceCode: problems.referenceCode,
         title: problems.title,
         status: problems.status,
         knownError: problems.knownError,
@@ -203,6 +206,7 @@ export class IncidentsService {
       linkedProblem: linked
         ? {
             id: linked.id,
+            referenceCode: linked.referenceCode,
             title: linked.title,
             status: linked.status,
             knownError: linked.knownError,
@@ -937,6 +941,7 @@ export class IncidentsService {
   ): IncidentListItem {
     return {
       id: row.id,
+      referenceCode: row.referenceCode,
       title: row.title,
       description: row.description,
       category: row.category,

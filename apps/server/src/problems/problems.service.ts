@@ -27,6 +27,7 @@ import type {
 
 export type LinkedIncidentSnippet = {
   id: string;
+  referenceCode: string;
   title: string;
   status: string;
   priority: string;
@@ -34,6 +35,7 @@ export type LinkedIncidentSnippet = {
 
 export type ProblemView = {
   id: string;
+  referenceCode: string;
   title: string;
   description: string;
   rootCause: string | null;
@@ -376,6 +378,7 @@ export class ProblemsService {
     const rows = await this.db
       .select({
         id: incidents.id,
+        referenceCode: incidents.referenceCode,
         title: incidents.title,
         status: incidents.status,
         priority: incidents.priority,
@@ -388,6 +391,7 @@ export class ProblemsService {
       if (!(await this.canViewIncidentProject(user, row.projectId))) continue;
       map.set(row.id, {
         id: row.id,
+        referenceCode: row.referenceCode,
         title: row.title,
         status: row.status,
         priority: row.priority,
@@ -504,6 +508,7 @@ export class ProblemsService {
   ): ProblemView {
     return {
       id: row.id,
+      referenceCode: row.referenceCode,
       title: row.title,
       description: row.description,
       rootCause: row.rootCause,

@@ -90,7 +90,7 @@ export default function EscalationPage() {
             Escalation
           </h1>
           <p className="text-sm text-muted-foreground">
-            Choose who gets notified when each priority hits an SLA warning or
+            Choose who gets notified when each priority hits a response-time warning or
             breach.
           </p>
         </div>

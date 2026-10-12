@@ -125,12 +125,12 @@ export function DeskReportView({ report }: { report: DeskReport }) {
         </h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <KpiTile
-            label="Incidents open"
+            label="Tickets open"
             value={report.kpis.incidentsOpen}
             hint="Active incident backlog"
           />
           <KpiTile
-            label="Incidents resolved"
+            label="Tickets resolved"
             value={report.kpis.incidentsResolved}
             hint="Resolved in period"
           />
@@ -183,7 +183,7 @@ export function DeskReportView({ report }: { report: DeskReport }) {
       {/* SLA */}
       <section>
         <h3 className="text-muted-foreground mb-2 text-[11px] font-semibold tracking-[0.14em] uppercase">
-          6. SLA performance
+          6. Response time
         </h3>
         <div className="border-border overflow-hidden rounded-lg border">
           <div className="bg-muted/40 flex flex-wrap items-end justify-between gap-3 border-b px-4 py-4">
@@ -196,7 +196,7 @@ export function DeskReportView({ report }: { report: DeskReport }) {
               </p>
             </div>
             <p className="text-muted-foreground max-w-xs text-right text-xs">
-              {slaTotal.toLocaleString()} SLA-tracked outcomes in this period
+              {slaTotal.toLocaleString()} response-time outcomes in this period
             </p>
           </div>
           <div className="px-4 py-3">
@@ -217,7 +217,7 @@ export function DeskReportView({ report }: { report: DeskReport }) {
             </thead>
             <tbody>
               <tr className="border-border/70 border-t">
-                <td className="px-4 py-2.5 font-medium">SLA met</td>
+                <td className="px-4 py-2.5 font-medium">Response time met</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">
                   {report.sla.met.toLocaleString()}
                 </td>
@@ -226,7 +226,7 @@ export function DeskReportView({ report }: { report: DeskReport }) {
                 </td>
               </tr>
               <tr className="border-border/70 border-t">
-                <td className="px-4 py-2.5 font-medium">SLA breached</td>
+                <td className="px-4 py-2.5 font-medium">Response time missed</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">
                   {report.sla.breached.toLocaleString()}
                 </td>

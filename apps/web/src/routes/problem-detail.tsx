@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useProjectModules, useProjects } from "@/hooks/use-projects";
 import { useProblem, useUpdateProblem } from "@/hooks/use-tickets";
+import { recordReference } from "@/lib/record-reference";
 import { PROBLEM_STATUS_LABELS, type Priority } from "@/types/itsm";
 
 export default function ProblemDetailPage() {
@@ -62,7 +63,7 @@ export default function ProblemDetailPage() {
         <CardHeader className="space-y-3 pt-5">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-muted-foreground bg-muted rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-              {data.id.slice(0, 8)}
+              {recordReference(data.referenceCode, data.id)}
             </span>
             <Badge variant="outline">{PROBLEM_STATUS_LABELS[data.status]}</Badge>
             {data.knownError ? (
@@ -153,7 +154,14 @@ export default function ProblemDetailPage() {
                         {incident.title}
                       </span>
                       <span className="text-muted-foreground font-mono text-[11px]">
-                        {incident.id.slice(0, 8)} · {incident.status}
+                        {recordReference(
+                          "referenceCode" in incident &&
+                            typeof incident.referenceCode === "string"
+                            ? incident.referenceCode
+                            : null,
+                          incident.id,
+                        )}{" "}
+                        · {incident.status}
                       </span>
                     </span>
                     {["P1", "P2", "P3", "P4"].includes(incident.priority) ? (

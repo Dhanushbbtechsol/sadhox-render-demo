@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useProjects } from "@/hooks/use-projects";
 import { useCreateProblem, useIncidents } from "@/hooks/use-tickets";
+import { recordReference } from "@/lib/record-reference";
 
 const createProblemSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters").max(120),
@@ -105,7 +106,9 @@ export function CreateProblemDialog({
         description: values.description,
         linkedIncidentIds: values.incidentIds,
       });
-      toast.success(`Problem ${created.id.slice(0, 8)} created`);
+      toast.success(
+        `Issue ${recordReference(created.referenceCode, created.id)} created`,
+      );
       form.reset({
         title: "",
         description: "",
@@ -141,7 +144,7 @@ export function CreateProblemDialog({
         <DialogHeader>
           <DialogTitle>Create problem</DialogTitle>
           <DialogDescription>
-            Link one or more related incidents. The problem inherits their
+            Link one or more related tickets. The issue inherits their
             shared project when set; unscoped incidents stay in the global Agent
             pool.
           </DialogDescription>
@@ -178,7 +181,7 @@ export function CreateProblemDialog({
           </div>
 
           <div className="space-y-2">
-            <Label id="problem-incidents-label">Related incidents</Label>
+            <Label id="problem-incidents-label">Related tickets</Label>
             <Controller
               control={form.control}
               name="incidentIds"

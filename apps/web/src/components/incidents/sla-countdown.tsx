@@ -21,7 +21,7 @@ export function slaCountdownState(input: {
   if (input.slaBreached) {
     return {
       tone: "red",
-      label: "SLA breached",
+      label: "Response time missed",
       remainingMs: 0,
       percentRemaining: 0,
     };
@@ -30,7 +30,7 @@ export function slaCountdownState(input: {
   if (!input.slaDueAt) {
     return {
       tone: "green",
-      label: "No SLA",
+      label: "No response time",
       remainingMs: Number.POSITIVE_INFINITY,
       percentRemaining: null,
     };
@@ -130,7 +130,7 @@ export function SlaCountdown({
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium tracking-wide uppercase opacity-80">
-          SLA countdown
+          Response time
         </p>
         <Badge
           variant={

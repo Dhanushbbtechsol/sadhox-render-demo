@@ -125,16 +125,17 @@ export function IncidentActions({ incident }: { incident: Incident }) {
   if (!canManage) return null;
 
   const canAssign =
-    incident.status === "New" ||
-    incident.status === "Assigned" ||
-    incident.status === "InProgress";
+    (incident.status === "New" ||
+      incident.status === "Assigned" ||
+      incident.status === "InProgress") &&
+    (!projectScoped || user?.role === "Admin");
 
   return (
     <div className="border-border/80 bg-muted/30 space-y-4 rounded-xl border p-4">
       <div>
         <h3 className="text-sm font-semibold tracking-tight">Workflow</h3>
         <p className="text-muted-foreground mt-0.5 text-xs">
-          Assign agents and advance through the ITIL lifecycle.
+          Assign someone and move the ticket forward.
           {projectScoped
             ? " Assignee pool is this project's members."
             : " Unscoped ticket — global Agent pool (Admin)."}

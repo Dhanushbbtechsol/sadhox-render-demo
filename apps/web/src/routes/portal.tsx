@@ -7,6 +7,7 @@ import { LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 import { PriorityBadge } from "@/components/priority-badge";
 import { Badge } from "@/components/ui/badge";
 import { useIncidents } from "@/hooks/use-tickets";
+import { recordReference } from "@/lib/record-reference";
 import { cn } from "@/lib/utils";
 import { INCIDENT_STATUS_LABELS } from "@/types/itsm";
 
@@ -45,7 +46,7 @@ export default function PortalPage() {
       {!isLoading && (!mine || mine.length === 0) ? (
         <EmptyState
           title="No tickets yet"
-          description="When you report an incident it will show up here with live status."
+          description="When you report a ticket it will show up here with live status."
           action={<CreateIncidentDialog triggerLabel="Report an issue" />}
         />
       ) : null}
@@ -66,7 +67,7 @@ export default function PortalPage() {
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-muted-foreground bg-muted/80 rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-                      {incident.id.slice(0, 8)}
+                      {recordReference(incident.referenceCode, incident.id)}
                     </span>
                     <PriorityBadge priority={incident.priority} showLabel={false} />
                     <Badge variant={statusVariant(incident.status)}>

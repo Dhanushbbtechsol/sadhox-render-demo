@@ -34,6 +34,7 @@ export interface LoginResponse {
 
 export interface Incident {
   id: string;
+  referenceCode?: string | null;
   title: string;
   description: string;
   category: string;
@@ -61,6 +62,7 @@ export interface Incident {
   /** Present on incident detail when linked via problem_incidents. */
   linkedProblem?: {
     id: string;
+    referenceCode?: string | null;
     title: string;
     status: string;
     knownError: boolean;
@@ -117,6 +119,7 @@ export interface UpdateIncidentInput {
 
 export interface LinkedIncidentSnippet {
   id: string;
+  referenceCode?: string | null;
   title: string;
   status: string;
   priority: string;
@@ -124,6 +127,7 @@ export interface LinkedIncidentSnippet {
 
 export interface Problem {
   id: string;
+  referenceCode?: string | null;
   title: string;
   description: string;
   rootCause: string | null;

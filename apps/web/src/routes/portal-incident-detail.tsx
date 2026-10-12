@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useIncident } from "@/hooks/use-tickets";
+import { recordReference } from "@/lib/record-reference";
 import { INCIDENT_STATUS_LABELS } from "@/types/itsm";
 
 function statusVariant(status: string) {
@@ -56,7 +57,7 @@ export default function PortalIncidentDetailPage() {
         <CardHeader className="space-y-3 pt-5">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-muted-foreground bg-muted rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-              {data.id.slice(0, 8)}
+              {recordReference(data.referenceCode, data.id)}
             </span>
             <PriorityBadge priority={data.priority} />
             <Badge variant={statusVariant(data.status)}>

@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useIncidentLinkedAssets } from "@/features/admin/hooks";
 import { useProjectModules, useProjects } from "@/hooks/use-projects";
 import { useIncident, useUpdateIncident } from "@/hooks/use-tickets";
+import { recordReference } from "@/lib/record-reference";
 import { useAuthStore } from "@/stores/auth-store";
 import { INCIDENT_STATUS_LABELS } from "@/types/itsm";
 
@@ -63,7 +64,7 @@ export default function IncidentDetailPage() {
         <CardHeader className="space-y-3 pt-5">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-muted-foreground bg-muted rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-              {data.id.slice(0, 8)}
+              {recordReference(data.referenceCode, data.id)}
             </span>
             <PriorityBadge priority={data.priority} />
             <Badge variant={statusVariant(data.status)}>
@@ -116,7 +117,7 @@ export default function IncidentDetailPage() {
                 icon: UserIcon,
               },
               {
-                label: "SLA target",
+                label: "Response time",
                 value:
                   data.slaTargetMinutes != null
                     ? `${Math.round(data.slaTargetMinutes / 60)}h resolve`
@@ -139,7 +140,7 @@ export default function IncidentDetailPage() {
           {canSeeLinkedAssets ? (
             <section className="space-y-3">
               <h2 className="text-sm font-semibold tracking-tight">
-                Related problem
+                Related issue
               </h2>
               {data.linkedProblem ? (
                 <Link
@@ -149,7 +150,11 @@ export default function IncidentDetailPage() {
                   <div className="min-w-0">
                     <p className="font-medium">{data.linkedProblem.title}</p>
                     <p className="text-muted-foreground font-mono text-[11px]">
-                      {data.linkedProblem.id.slice(0, 8)} ·{" "}
+                      {recordReference(
+                        data.linkedProblem.referenceCode,
+                        data.linkedProblem.id,
+                      )}{" "}
+                      ·{" "}
                       {data.linkedProblem.status}
                       {data.linkedProblem.knownError ? " · Known error" : ""}
                     </p>
@@ -159,11 +164,11 @@ export default function IncidentDetailPage() {
               ) : (
                 <>
                   <p className="text-muted-foreground text-sm">
-                    No problem linked to this incident yet.
+                    No issue linked to this ticket yet.
                   </p>
                   <CreateProblemDialog
                     defaultIncidentId={data.id}
-                    triggerLabel="Create problem"
+                    triggerLabel="Create issue"
                     triggerSize="sm"
                     triggerVariant="outline"
                   />
