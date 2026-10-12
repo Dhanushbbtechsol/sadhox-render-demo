@@ -6,6 +6,7 @@ export type AssetStatus = "Active" | "InRepair" | "Retired";
 
 export type Asset = {
   id: string;
+  referenceCode?: string | null;
   assetTag: string;
   name: string;
   type: AssetType;

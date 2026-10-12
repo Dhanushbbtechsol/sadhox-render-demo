@@ -35,7 +35,7 @@ function RequestsDataTable({
   const paged = paginateItems(rows, page);
 
   if (!rows.length) {
-    return <p className="text-muted-foreground text-sm">No service requests in this view.</p>;
+    return <p className="text-muted-foreground text-sm">No requests in this view.</p>;
   }
 
   return (
@@ -64,7 +64,7 @@ function RequestsDataTable({
                     to={`/requests/${request.id}`}
                     className="text-primary hover:underline"
                   >
-                    {recordReference(request.referenceCode, request.id)}
+                    {recordReference(request.referenceCode)}
                   </Link>
                 </TableCell>
                 <TableCell className="font-medium">
@@ -123,13 +123,13 @@ export function RequestsTable() {
   }
 
   if (isError) {
-    return <p className="text-destructive text-sm">Failed to load service requests.</p>;
+    return <p className="text-destructive text-sm">Failed to load requests.</p>;
   }
 
   if (!data?.length) {
     return (
       <p className="text-muted-foreground text-sm">
-        No service requests yet. Browse the catalog to submit one.
+        No requests yet. Browse the catalog to submit one.
       </p>
     );
   }

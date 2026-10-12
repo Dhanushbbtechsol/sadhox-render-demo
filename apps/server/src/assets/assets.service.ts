@@ -283,7 +283,7 @@ export class AssetsService {
     const now = new Date();
     const [created] = await this.db.transaction(async (tx) => {
       const referenceCode = await claimReference(tx, "AST");
-      return tx
+      const rows = await tx
         .insert(assets)
         .values({
           referenceCode,
@@ -298,17 +298,18 @@ export class AssetsService {
           assignedAt: dto.ownerId ? now : null,
         })
         .returning();
+      const row = rows[0];
+      if (row && dto.ownerId) {
+        await tx.insert(assetAssignments).values({
+          assetId: row.id,
+          fromOwnerId: null,
+          toOwnerId: dto.ownerId,
+          assignedBy: assignedBy ?? null,
+          note: null,
+        });
+      }
+      return rows;
     });
-
-    if (dto.ownerId) {
-      await this.db.insert(assetAssignments).values({
-        assetId: created!.id,
-        fromOwnerId: null,
-        toOwnerId: dto.ownerId,
-        assignedBy: assignedBy ?? null,
-        note: null,
-      });
-    }
 
     const result = await this.getById(created!.id);
     if (result.ownerId) {
@@ -336,44 +337,47 @@ export class AssetsService {
       assignmentChanged(before.ownerId, dto.ownerId);
     const now = new Date();
 
-    const [updated] = await this.db
-      .update(assets)
-      .set({
-        ...(dto.assetTag !== undefined ? { assetTag: dto.assetTag.trim() } : {}),
-        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-        ...(dto.type !== undefined ? { type: dto.type } : {}),
-        ...(dto.status !== undefined ? { status: dto.status } : {}),
-        ...(dto.ownerId !== undefined ? { ownerId: dto.ownerId } : {}),
-        ...(dto.purchaseCost !== undefined
-          ? { purchaseCost: dto.purchaseCost }
-          : {}),
-        ...(dto.serialNumber !== undefined
-          ? { serialNumber: dto.serialNumber?.trim() || null }
-          : {}),
-        ...(dto.location !== undefined
-          ? { location: dto.location?.trim() || null }
-          : {}),
-        ...(ownerChanging
-          ? {
-              assignedAt: dto.ownerId ? now : null,
-            }
-          : {}),
-        updatedAt: now,
-      })
-      .where(eq(assets.id, id))
-      .returning();
+    const [updated] = await this.db.transaction(async (tx) => {
+      const rows = await tx
+        .update(assets)
+        .set({
+          ...(dto.assetTag !== undefined ? { assetTag: dto.assetTag.trim() } : {}),
+          ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+          ...(dto.type !== undefined ? { type: dto.type } : {}),
+          ...(dto.status !== undefined ? { status: dto.status } : {}),
+          ...(dto.ownerId !== undefined ? { ownerId: dto.ownerId } : {}),
+          ...(dto.purchaseCost !== undefined
+            ? { purchaseCost: dto.purchaseCost }
+            : {}),
+          ...(dto.serialNumber !== undefined
+            ? { serialNumber: dto.serialNumber?.trim() || null }
+            : {}),
+          ...(dto.location !== undefined
+            ? { location: dto.location?.trim() || null }
+            : {}),
+          ...(ownerChanging
+            ? {
+                assignedAt: dto.ownerId ? now : null,
+              }
+            : {}),
+          updatedAt: now,
+        })
+        .where(eq(assets.id, id))
+        .returning();
+      const row = rows[0];
+      if (row && ownerChanging) {
+        await tx.insert(assetAssignments).values({
+          assetId: id,
+          fromOwnerId: before.ownerId,
+          toOwnerId: dto.ownerId ?? null,
+          assignedBy: assignedBy ?? null,
+          note: dto.assignmentNote?.trim() || null,
+        });
+      }
+      return rows;
+    });
 
     if (!updated) throw new NotFoundException("Asset not found");
-
-    if (ownerChanging) {
-      await this.db.insert(assetAssignments).values({
-        assetId: id,
-        fromOwnerId: before.ownerId,
-        toOwnerId: dto.ownerId ?? null,
-        assignedBy: assignedBy ?? null,
-        note: dto.assignmentNote?.trim() || null,
-      });
-    }
 
     const result = await this.getById(updated.id);
 

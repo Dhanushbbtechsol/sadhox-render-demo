@@ -75,7 +75,7 @@ export function CatalogDescriptionsSection() {
   if (isError) {
     return (
       <p className="text-destructive text-sm">
-        Failed to load service catalog descriptions.
+        Failed to load catalog descriptions.
       </p>
     );
   }

@@ -95,7 +95,7 @@ export function AssetLinkTicketDialog({
         <DialogHeader>
           <DialogTitle>Link ticket</DialogTitle>
           <DialogDescription>
-            Associate {asset?.assetTag ?? "asset"} with an active incident or service request.
+            Associate {asset?.assetTag ?? "asset"} with an active ticket or request.
           </DialogDescription>
         </DialogHeader>
 

@@ -259,7 +259,7 @@ export function ChangesTable() {
                           {change.title}
                         </Link>
                         <p className="text-muted-foreground font-mono text-[11px]">
-                          {recordReference(change.referenceCode, change.id)}
+                          {recordReference(change.referenceCode)}
                         </p>
                         <p className="text-muted-foreground line-clamp-1 text-xs">
                           {change.description}

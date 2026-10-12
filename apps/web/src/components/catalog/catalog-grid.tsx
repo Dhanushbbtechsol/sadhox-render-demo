@@ -63,7 +63,7 @@ export function CatalogGrid() {
 
   if (isError) {
     return (
-      <p className="text-destructive text-sm">Failed to load service catalog.</p>
+      <p className="text-destructive text-sm">Failed to load the catalog.</p>
     );
   }
 
@@ -71,7 +71,7 @@ export function CatalogGrid() {
     return (
       <EmptyState
         title="No active catalog items"
-        description="There are no active service catalog items to request right now. Check back later or contact an administrator."
+        description="There are no active catalog items to request right now. Check back later or contact an administrator."
       />
     );
   }

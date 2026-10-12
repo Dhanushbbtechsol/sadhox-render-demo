@@ -3,9 +3,10 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { and, asc, count, desc, eq, gte, inArray, isNull, SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNull, SQL, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { AssignmentService } from "../assignment/assignment.service";
 import { AssetsService } from "../assets/assets.service";
@@ -40,7 +41,11 @@ import {
   assertCanTransitionIncident,
   requiresResolutionNotes,
 } from "./incident-transitions";
-import { canMutateIncident, canSetIncidentAssignee } from "./incident-rbac";
+import {
+  assigneeProjectId,
+  canMutateIncident,
+  canSetIncidentAssignee,
+} from "./incident-rbac";
 import {
   invalidCategorySubcategoryMessage,
   isValidIncidentCategorySubcategory,
@@ -109,6 +114,8 @@ export type CommentView = {
 
 @Injectable()
 export class IncidentsService {
+  private readonly logger = new Logger(IncidentsService.name);
+
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly priorityCalc: PriorityCalculationService,
@@ -271,6 +278,9 @@ export class IncidentsService {
     }
 
     const saved = await this.db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext(${`inc-floor:${dto.category}`})::bigint)`,
+      );
       const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const [counted] = await tx
         .select({ n: count() })
@@ -550,9 +560,16 @@ export class IncidentsService {
       dto.assignedTo !== undefined
         ? dto.assignedTo
         : existing.incident.assignedTo;
-    if (dto.assignedTo !== undefined && !canSetIncidentAssignee(user.role, nextProjectId)) {
+    const assigneeGateProjectId = assigneeProjectId(
+      existing.incident.projectId,
+      nextProjectId,
+    );
+    if (
+      dto.assignedTo !== undefined &&
+      !canSetIncidentAssignee(user.role, assigneeGateProjectId)
+    ) {
       throw new ForbiddenException(
-        nextProjectId
+        assigneeGateProjectId
           ? "Only an Admin can assign a project ticket"
           : "End users cannot assign incidents",
       );
@@ -739,8 +756,11 @@ export class IncidentsService {
           href,
         );
       }
-    } catch {
-      // Best-effort. A missing manager does not fail the create.
+    } catch (err) {
+      this.logger.error(
+        `P1 notification failed for ${ticketId}`,
+        err instanceof Error ? err.stack : String(err),
+      );
     }
   }
 

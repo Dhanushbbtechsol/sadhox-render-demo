@@ -348,7 +348,7 @@ export function useManagerCharts(range: "7d" | "30d" | "ytd") {
           projectIds: mockProjects.map((p) => p.id),
           volume: [
             { module: "Incident", open: 0, closed: 0 },
-            { module: "Service Request", open: 0, closed: 0 },
+            { module: "Request", open: 0, closed: 0 },
             { module: "Change", open: 0, closed: 0 },
           ],
           sla: { met: 0, breached: 0, rate: 100 },

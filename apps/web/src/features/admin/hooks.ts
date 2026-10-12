@@ -726,7 +726,7 @@ export function useUpdateSlaRule() {
     mutationFn: async (input: UpdateSlaRuleInput) => {
       if (useOfflineAdminData()) {
         const index = mockSlaRules.findIndex((r) => r.priority === input.priority);
-        if (index < 0) throw new Error("SLA rule not found");
+        if (index < 0) throw new Error("Response time rule not found");
         mockSlaRules[index] = {
           ...mockSlaRules[index],
           responseMinutes: input.responseMinutes,

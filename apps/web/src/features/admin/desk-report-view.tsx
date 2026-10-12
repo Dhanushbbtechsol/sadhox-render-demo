@@ -127,7 +127,7 @@ export function DeskReportView({ report }: { report: DeskReport }) {
           <KpiTile
             label="Tickets open"
             value={report.kpis.incidentsOpen}
-            hint="Active incident backlog"
+            hint="Active ticket backlog"
           />
           <KpiTile
             label="Tickets resolved"

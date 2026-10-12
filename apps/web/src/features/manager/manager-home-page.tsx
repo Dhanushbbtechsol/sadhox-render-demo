@@ -166,7 +166,7 @@ export default function ManagerHomePage() {
           <p className="text-muted-foreground text-sm">
             Open vs closed in owned projects
             {charts.data
-              ? ` · SLA ${charts.data.sla.rate}% (${charts.data.sla.met} met / ${charts.data.sla.breached} breached)`
+              ? ` · Response time ${charts.data.sla.rate}% (${charts.data.sla.met} met / ${charts.data.sla.breached} missed)`
               : ""}
           </p>
         </div>

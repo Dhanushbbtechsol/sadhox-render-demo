@@ -113,7 +113,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "admin/sla-rules",
-            handle: { breadcrumb: "SLA" },
+            handle: { breadcrumb: "Response time" },
             element: <ProtectedRoute roles={["Admin"]} />,
             children: [{ index: true, element: <SlaRulesPage /> }],
           },
@@ -148,7 +148,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "incidents",
-            handle: { breadcrumb: "Incidents" },
+            handle: { breadcrumb: "Tickets" },
             element: (
               <ProtectedRoute
                 roles={["Admin", "Agent", "Manager", "EndUser"]}
@@ -165,7 +165,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "problems",
-            handle: { breadcrumb: "Problems" },
+            handle: { breadcrumb: "Issues" },
             element: <ProtectedRoute roles={["Admin", "Agent", "Manager"]} />,
             children: [
               { index: true, element: <ProblemsPage /> },
@@ -185,7 +185,7 @@ export const router = createBrowserRouter([
               {
                 path: "incidents/:id",
                 element: <PortalIncidentRedirect />,
-                handle: { breadcrumb: "Incident" },
+                handle: { breadcrumb: "Ticket" },
               },
             ],
           },

@@ -179,7 +179,7 @@ export function ApprovalInboxTable() {
               title="No pending approvals"
               description={
                 isManager
-                  ? "Submitted service requests from people who report to you will show up here."
+                  ? "Submitted requests from people who report to you will show up here."
                   : "Requests waiting on admin (after manager approval, or with no manager) will show up here."
               }
             />

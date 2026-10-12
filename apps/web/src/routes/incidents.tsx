@@ -410,7 +410,7 @@ function AgentIncidentsPage() {
                           {incident.title}
                         </Link>
                         <p className="text-muted-foreground mt-0.5 font-mono text-[11px]">
-                          {recordReference(incident.referenceCode, incident.id)}
+                          {recordReference(incident.referenceCode)}
                         </p>
                       </td>
                       <td className="px-4 py-3">

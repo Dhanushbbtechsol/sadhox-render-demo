@@ -68,7 +68,7 @@ export function RejectRequestDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {kind === "change" ? "Reject change" : "Reject service request"}
+            {kind === "change" ? "Reject change request" : "Reject request"}
           </DialogTitle>
           <DialogDescription>
             {label

@@ -119,7 +119,7 @@ function describeActivity(entry: AuditLog): {
 
 const SYSTEM_ACTIONS: Record<string, string> = {
   "auth.login_failed": "Someone tried to sign in and failed",
-  "system.sla_breach": "System marked an SLA breach",
+  "system.sla_breach": "System marked a missed response time",
   "system.auto_close": "System auto-closed a ticket",
 };
 
@@ -238,29 +238,29 @@ const ACTIVITY_RULES: ActivityRule[] = [
   {
     re: /^POST \/service-requests$/,
     verb: "created",
-    object: "a service request",
+    object: "a request",
     nameKeys: ["title", "name"],
   },
   {
     re: /^PATCH \/service-requests\/:id$/,
     verb: "updated",
-    object: "a service request",
+    object: "a request",
     nameKeys: ["title", "name"],
   },
   {
     re: /^POST \/service-requests\/:id\/approve$/,
     verb: "approved",
-    object: "a service request",
+    object: "a request",
   },
   {
     re: /^POST \/service-requests\/:id\/reject$/,
     verb: "rejected",
-    object: "a service request",
+    object: "a request",
   },
   {
     re: /^POST \/service-requests\/:id\/fulfill$/,
     verb: "fulfilled",
-    object: "a service request",
+    object: "a request",
   },
 
   {
@@ -369,13 +369,13 @@ const ACTIVITY_RULES: ActivityRule[] = [
   {
     re: /^PATCH \/admin\/sla-rules$/,
     verb: "updated",
-    object: "an SLA rule",
+    object: "a response time",
     nameKeys: ["priority"],
   },
   {
     re: /^PATCH \/admin\/sla-rules\/:id$/,
     verb: "updated",
-    object: "an SLA rule",
+    object: "a response time",
     nameKeys: ["priority"],
   },
 
@@ -447,16 +447,16 @@ function humanResource(path: string, entityType: string): string {
     projects: "project",
     members: "project member",
     modules: "module",
-    incidents: "incident",
-    problems: "problem",
-    "service-requests": "service request",
-    changes: "change",
+    incidents: "ticket",
+    problems: "issue",
+    "service-requests": "request",
+    changes: "change request",
     assets: "asset",
     "service-catalog": "catalog item",
     articles: "knowledge article",
     categories: "knowledge category",
     comments: "comment",
-    "sla-rules": "SLA rule",
+    "sla-rules": "response time",
     admin: "admin record",
   };
   return map[last] ?? last.replace(/-/g, " ").toLowerCase();

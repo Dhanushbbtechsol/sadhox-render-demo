@@ -68,7 +68,7 @@ export default function EndUserIncidentsPage() {
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-muted-foreground bg-muted/80 rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-                      {recordReference(incident.referenceCode, incident.id)}
+                      {recordReference(incident.referenceCode)}
                     </span>
                     <PriorityBadge priority={incident.priority} showLabel={false} />
                     <Badge variant={statusVariant(incident.status)}>

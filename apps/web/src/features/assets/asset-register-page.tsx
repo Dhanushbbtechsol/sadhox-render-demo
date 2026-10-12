@@ -39,9 +39,6 @@ import { recordReference } from "@/lib/record-reference";
 import { AssetFormDialog } from "./asset-form-dialog";
 import { AssetLinkTicketDialog } from "./asset-link-ticket-dialog";
 
-/** An asset row as returned by the API — includes the AST reference (R2) not yet in the shared Asset type. */
-type AssetWithReference = Asset & { referenceCode?: string | null };
-
 /** A single holding window for one asset in a person report (R3, KTD5). */
 type PersonReportRow = {
   assetId: string;
@@ -248,7 +245,7 @@ function AssetPersonReportSection() {
                 <TableRow key={`${row.assetId}-${row.from}`}>
                   <TableCell>{row.name}</TableCell>
                   <TableCell className="font-mono text-xs">
-                    {recordReference(row.referenceCode, row.assetId)}
+                    {recordReference(row.referenceCode)}
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-xs">
                     {new Date(row.from).toLocaleString()}
@@ -390,7 +387,7 @@ export default function AssetRegisterPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((asset: AssetWithReference) => {
+              {rows.map((asset) => {
                 const expanded = expandedId === asset.id;
                 return (
                   <Fragment key={asset.id}>
@@ -417,7 +414,7 @@ export default function AssetRegisterPage() {
                         </Button>
                       </TableCell>
                       <TableCell className="font-mono text-xs whitespace-nowrap">
-                        {recordReference(asset.referenceCode, asset.id)}
+                        {recordReference(asset.referenceCode)}
                       </TableCell>
                       <TableCell className="font-medium whitespace-nowrap">
                         {asset.assetTag}

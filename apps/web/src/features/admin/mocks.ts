@@ -80,8 +80,8 @@ export const mockAdminStats: AdminStats = {
   kpis: [
     { id: "total", label: "Total tickets", value: "186", delta: "Offline mock", trend: "flat" },
     { id: "open", label: "Open tickets", value: "47", delta: "Offline mock", trend: "down" },
-    { id: "p1", label: "P1 incidents", value: "3", delta: "Offline mock", trend: "flat" },
-    { id: "sla", label: "SLA compliance", value: "94%", delta: "Offline mock", trend: "up" },
+    { id: "p1", label: "P1 tickets", value: "3", delta: "Offline mock", trend: "flat" },
+    { id: "sla", label: "Response time met", value: "94%", delta: "Offline mock", trend: "up" },
   ],
   ticketsByStatus: [
     { label: "New", count: 18 },
@@ -96,9 +96,9 @@ export const mockAdminStats: AdminStats = {
     { label: "P4", count: 88 },
   ],
   ticketsByModule: [
-    { label: "Incident", count: 92 },
-    { label: "Service Request", count: 61 },
-    { label: "Change", count: 33 },
+    { label: "Ticket", count: 92 },
+    { label: "Request", count: 61 },
+    { label: "Change request", count: 33 },
   ],
   slaPerformance: [
     { weekStart: "2026-08-03", label: "Aug 3", met: 6, breached: 3 },
@@ -173,8 +173,8 @@ export const mockVolumeByModule = {
   from: "2026-08-30T00:00:00.000Z",
   to: "2026-09-29T00:00:00.000Z",
   data: [
-    { module: "Incident", open: 18, closed: 74, total: 92 },
-    { module: "Service Request", open: 12, closed: 49, total: 61 },
+    { module: "Ticket", open: 18, closed: 74, total: 92 },
+    { module: "Request", open: 12, closed: 49, total: 61 },
     { module: "Change", open: 6, closed: 27, total: 33 },
   ],
 };
@@ -184,10 +184,10 @@ export const mockStatusDistribution = {
   from: "2026-08-30T00:00:00.000Z",
   to: "2026-09-29T00:00:00.000Z",
   data: [
-    { status: "Incident:New", module: "Incident", label: "New", count: 18 },
-    { status: "Incident:InProgress", module: "Incident", label: "InProgress", count: 29 },
-    { status: "Incident:Resolved", module: "Incident", label: "Resolved", count: 45 },
-    { status: "ServiceRequest:Submitted", module: "Service Request", label: "Submitted", count: 14 },
+    { status: "Incident:New", module: "Ticket", label: "New", count: 18 },
+    { status: "Incident:InProgress", module: "Ticket", label: "InProgress", count: 29 },
+    { status: "Incident:Resolved", module: "Ticket", label: "Resolved", count: 45 },
+    { status: "ServiceRequest:Submitted", module: "Request", label: "Submitted", count: 14 },
     { status: "Change:Scheduled", module: "Change", label: "Scheduled", count: 8 },
   ],
 };
@@ -206,7 +206,7 @@ export const mockQueueHealth = {
   queues: [
     {
       name: "sla-queue",
-      purpose: "Every 5 minutes, marks overdue incidents and sends SLA mail.",
+      purpose: "Every 5 minutes, marks overdue tickets and sends response-time mail.",
       counts: {
         active: 0,
         waiting: 1,

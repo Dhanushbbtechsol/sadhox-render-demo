@@ -56,7 +56,7 @@ export default function LoginForm({
           />
           <p className="text-2xl font-semibold tracking-tight">Yukti Service Desk</p>
           <p className="max-w-sm text-sm text-white/75">
-            Resolve incidents faster with a clear queue, priorities, and service catalog.
+            Resolve tickets faster with a clear queue, priorities, and catalog.
           </p>
         </div>
       </div>

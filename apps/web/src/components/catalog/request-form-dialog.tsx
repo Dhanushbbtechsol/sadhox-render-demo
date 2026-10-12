@@ -167,7 +167,7 @@ export function RequestFormDialog({
             ]
               .filter(Boolean)
               .join(" — ") ||
-              "Complete the form to submit a service request."}
+              "Complete the form to submit a request."}
           </DialogDescription>
         </DialogHeader>
         {item ? (

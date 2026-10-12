@@ -124,7 +124,7 @@ export default function ProblemsPage() {
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-muted-foreground bg-muted/80 rounded-md px-1.5 py-0.5 font-mono text-[11px]">
-                    {recordReference(problem.referenceCode, problem.id)}
+                    {recordReference(problem.referenceCode)}
                   </span>
                   <Badge variant="outline">
                     {PROBLEM_STATUS_LABELS[problem.status]}
@@ -146,7 +146,7 @@ export default function ProblemsPage() {
                   Linked issues:{" "}
                   {problem.linkedIncidents?.length
                     ? problem.linkedIncidents
-                        .map((item) => recordReference(item.referenceCode, item.id))
+                        .map((item) => recordReference(item.referenceCode))
                         .join(", ")
                     : "None"}
                 </p>

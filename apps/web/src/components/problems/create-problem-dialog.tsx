@@ -28,7 +28,7 @@ const createProblemSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters"),
   incidentIds: z
     .array(z.string().uuid())
-    .min(1, "Select at least one related incident"),
+    .min(1, "Select at least one related ticket"),
 });
 
 type CreateProblemForm = z.infer<typeof createProblemSchema>;
@@ -38,7 +38,7 @@ function defaultIncidentIds(defaultIncidentId?: string) {
 }
 
 export function CreateProblemDialog({
-  triggerLabel = "New Problem",
+  triggerLabel = "New issue",
   defaultIncidentId,
   triggerSize,
   triggerVariant,
@@ -107,7 +107,7 @@ export function CreateProblemDialog({
         linkedIncidentIds: values.incidentIds,
       });
       toast.success(
-        `Issue ${recordReference(created.referenceCode, created.id)} created`,
+        `Issue ${recordReference(created.referenceCode)} created`,
       );
       form.reset({
         title: "",
@@ -197,7 +197,7 @@ export function CreateProblemDialog({
                     </p>
                   ) : incidentOptions.length === 0 ? (
                     <p className="text-muted-foreground px-1 py-2 text-sm">
-                      No incidents available to link. Report an incident first.
+                      No tickets available to link. Report a ticket first.
                     </p>
                   ) : (
                     incidentOptions.map((incident) => {

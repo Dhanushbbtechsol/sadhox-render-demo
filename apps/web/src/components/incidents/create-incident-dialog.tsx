@@ -162,7 +162,7 @@ export function CreateIncidentDialog({
           : {}),
       });
       toast.success(
-        `Ticket ${recordReference(created.referenceCode, created.id)} created`,
+        `Ticket ${recordReference(created.referenceCode)} created`,
         {
           description: `Priority ${created.priority} assigned automatically.`,
         },
@@ -406,7 +406,7 @@ export function CreateIncidentDialog({
           </div>
 
           <div className="from-primary/10 via-accent/50 to-muted/40 flex items-center justify-between rounded-xl border border-primary/10 bg-gradient-to-r px-4 py-3">
-            <span className="text-muted-foreground text-sm">Priority preview</span>
+            <span className="text-muted-foreground text-sm">At least</span>
             <PriorityBadge priority={previewPriority} />
           </div>
 

@@ -21,3 +21,12 @@ export function canSetIncidentAssignee(
   if (projectId) return role === "Admin";
   return canAssignIncident(role);
 }
+
+/** Current project wins so a same-request detach cannot skip the Admin gate. */
+export function assigneeProjectId(
+  currentProjectId: string | null,
+  nextProjectId: string | null,
+): string | null {
+  if (currentProjectId) return currentProjectId;
+  return nextProjectId;
+}

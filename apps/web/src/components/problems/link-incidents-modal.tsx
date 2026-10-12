@@ -94,7 +94,7 @@ export function LinkIncidentsModal({ problem }: { problem: Problem }) {
                       {incident.title}
                     </span>
                     <span className="text-muted-foreground font-mono text-[11px]">
-                      {recordReference(incident.referenceCode, incident.id)} · {incident.status} ·{" "}
+                      {recordReference(incident.referenceCode)} · {incident.status} ·{" "}
                       {incident.priority}
                     </span>
                   </span>

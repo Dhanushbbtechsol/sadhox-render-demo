@@ -1,4 +1,5 @@
 import {
+  assigneeProjectId,
   canAssignIncident,
   canLinkProblems,
   canMutateIncident,
@@ -35,5 +36,19 @@ describe("Incident RBAC helpers (Phase 6 Manager)", () => {
     expect(canSetIncidentAssignee("Agent", null)).toBe(true);
     expect(canSetIncidentAssignee("Manager", null)).toBe(true);
     expect(canSetIncidentAssignee("EndUser", null)).toBe(false);
+  });
+
+  it("keeps the current project when an update also clears it", () => {
+    expect(assigneeProjectId("project-1", null)).toBe("project-1");
+    expect(canSetIncidentAssignee("Agent", assigneeProjectId("project-1", null))).toBe(
+      false,
+    );
+  });
+
+  it("uses the destination project when the ticket has none yet", () => {
+    expect(assigneeProjectId(null, "project-1")).toBe("project-1");
+    expect(canSetIncidentAssignee("Agent", assigneeProjectId(null, "project-1"))).toBe(
+      false,
+    );
   });
 });
