@@ -1,5 +1,5 @@
-import { PencilIcon, PlusIcon, Trash2Icon, UserMinusIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { PlusIcon, Trash2Icon, UserMinusIcon } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -25,24 +25,17 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
 
 import {
-  useAddProjectMember,
-  useCreateProjectModule,
   useDeleteProject,
-  useDeleteProjectModule,
   useDirectoryUsers,
   useProjectMembers,
   useProjectModules,
-  useRemoveProjectMember,
-  useUpdateProject,
-  useUpdateProjectModule,
+  useSaveProjectSummary,
 } from "./hooks";
-import type { Project } from "./types";
+import type { Project, ProjectSummaryModuleInput } from "./types";
 
 type ProjectEditDialogProps = {
   open: boolean;
@@ -50,11 +43,17 @@ type ProjectEditDialogProps = {
   project: Project | null;
 };
 
+/** A staged module row: `id` present means an existing module (rename/keep);
+ * `tempKey` is a client-only key for React lists / editing new rows. */
+type StagedModule = ProjectSummaryModuleInput & { tempKey: string };
+
 /**
- * U8 — the project summary. Shows and saves name, manager, members, and
- * modules in one place (Edit / Members / Modules dialogs are retired).
- * KTD6: members are Agent users only; Managers supervise, they are never
- * project members.
+ * U8 — the project summary. One Save persists the name, the manager, the
+ * member changes, and the module changes together (requirement, verbatim:
+ * "One save updates the name, the manager, the members, and the modules.").
+ * Member/module edits below only change local staged state; nothing is
+ * written to the server until Save. KTD6: members are Agent users only;
+ * Managers supervise, they are never project members.
  */
 export function ProjectEditDialog({
   open,
@@ -64,24 +63,28 @@ export function ProjectEditDialog({
   const projectId = open ? project?.id : undefined;
   const managers = useDirectoryUsers("Manager");
   const agents = useDirectoryUsers("Agent");
-  const updateProject = useUpdateProject();
+  const saveSummary = useSaveProjectSummary(projectId ?? "");
   const deleteProject = useDeleteProject();
 
   const members = useProjectMembers(projectId);
-  const addMember = useAddProjectMember(projectId ?? "");
-  const removeMember = useRemoveProjectMember(projectId ?? "");
-
   const modulesQuery = useProjectModules(projectId);
-  const createModule = useCreateProjectModule(projectId ?? "");
-  const updateModule = useUpdateProjectModule(projectId ?? "");
-  const deleteModule = useDeleteProjectModule(projectId ?? "");
 
   const [name, setName] = useState("");
   const [managerId, setManagerId] = useState("");
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [moduleName, setModuleName] = useState("");
-  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
+  const [editingModuleKey, setEditingModuleKey] = useState<string | null>(
+    null,
+  );
   const [editingModuleName, setEditingModuleName] = useState("");
+
+  // Staged (not-yet-saved) member and module state.
+  const [stagedMemberIds, setStagedMemberIds] = useState<string[]>([]);
+  const [stagedMembers, setStagedMembers] = useState<
+    { userId: string; name: string; email: string }[]
+  >([]);
+  const [stagedModules, setStagedModules] = useState<StagedModule[]>([]);
+  const initializedProjectId = useRef<string | null>(null);
 
   const managerOptions = managers.data ?? [];
   const managerSelectItems = useMemo(
@@ -94,9 +97,9 @@ export function ProjectEditDialog({
   );
 
   const availableAgents = useMemo(() => {
-    const taken = new Set((members.data ?? []).map((m) => m.userId));
+    const taken = new Set(stagedMemberIds);
     return (agents.data ?? []).filter((a) => !taken.has(a.id));
-  }, [agents.data, members.data]);
+  }, [agents.data, stagedMemberIds]);
 
   const agentSelectItems = useMemo(
     () =>
@@ -106,15 +109,51 @@ export function ProjectEditDialog({
     [availableAgents],
   );
 
+  // Reset staging when the dialog closes / a different project opens.
   useEffect(() => {
-    if (!open || !project) return;
+    if (!open || !project) {
+      initializedProjectId.current = null;
+      return;
+    }
+    if (initializedProjectId.current === project.id) return;
     setName(project.name);
     setManagerId(project.managerId ?? "");
     setSelectedAgentId("");
     setModuleName("");
-    setEditingModuleId(null);
+    setEditingModuleKey(null);
     setEditingModuleName("");
   }, [open, project]);
+
+  // Populate staged members/modules from the server once per dialog open,
+  // the first time both queries have resolved for this project.
+  useEffect(() => {
+    if (!open || !project) return;
+    if (initializedProjectId.current === project.id) return;
+    if (members.isLoading || modulesQuery.isLoading) return;
+    setStagedMemberIds((members.data ?? []).map((m) => m.userId));
+    setStagedMembers(
+      (members.data ?? []).map((m) => ({
+        userId: m.userId,
+        name: m.name,
+        email: m.email,
+      })),
+    );
+    setStagedModules(
+      (modulesQuery.data ?? []).map((m) => ({
+        id: m.id,
+        name: m.name,
+        tempKey: m.id,
+      })),
+    );
+    initializedProjectId.current = project.id;
+  }, [
+    open,
+    project,
+    members.isLoading,
+    members.data,
+    modulesQuery.isLoading,
+    modulesQuery.data,
+  ]);
 
   async function onSave() {
     if (!project) return;
@@ -126,10 +165,19 @@ export function ProjectEditDialog({
       toast.error("Manager is required");
       return;
     }
+    if (stagedModules.some((m) => !m.name.trim())) {
+      toast.error("Module name is required");
+      return;
+    }
     try {
-      await updateProject.mutateAsync({
-        id: project.id,
-        input: { name: name.trim(), managerId },
+      await saveSummary.mutateAsync({
+        name: name.trim(),
+        managerId,
+        memberUserIds: stagedMemberIds,
+        modules: stagedModules.map((m) => ({
+          id: m.id,
+          name: m.name.trim(),
+        })),
       });
       toast.success("Project updated");
       onOpenChange(false);
@@ -152,77 +200,67 @@ export function ProjectEditDialog({
     }
   }
 
-  async function onAddMember() {
+  function onAddMember() {
     if (!selectedAgentId) return;
-    try {
-      await addMember.mutateAsync(selectedAgentId);
-      toast.success("Member added");
-      setSelectedAgentId("");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Add failed");
-    }
+    const agent = (agents.data ?? []).find((a) => a.id === selectedAgentId);
+    if (!agent) return;
+    setStagedMemberIds((ids) => [...ids, agent.id]);
+    setStagedMembers((rows) => [
+      ...rows,
+      { userId: agent.id, name: agent.name, email: agent.email },
+    ]);
+    setSelectedAgentId("");
   }
 
-  async function onRemoveMember(userId: string) {
-    try {
-      await removeMember.mutateAsync(userId);
-      toast.success("Member removed");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Remove failed");
-    }
+  function onRemoveMember(userId: string) {
+    setStagedMemberIds((ids) => ids.filter((id) => id !== userId));
+    setStagedMembers((rows) => rows.filter((m) => m.userId !== userId));
   }
 
-  async function onAddModule() {
+  function onAddModule() {
     if (!moduleName.trim()) {
       toast.error("Module name is required");
       return;
     }
-    try {
-      await createModule.mutateAsync(moduleName.trim());
-      toast.success("Module added");
-      setModuleName("");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Add failed");
-    }
+    setStagedModules((rows) => [
+      ...rows,
+      { name: moduleName.trim(), tempKey: `new-${Date.now()}-${rows.length}` },
+    ]);
+    setModuleName("");
   }
 
-  function startEditModule(id: string, currentName: string) {
-    setEditingModuleId(id);
+  function startEditModule(tempKey: string, currentName: string) {
+    setEditingModuleKey(tempKey);
     setEditingModuleName(currentName);
   }
 
-  async function onSaveModule() {
-    if (!editingModuleId) return;
+  function onSaveModuleName() {
+    if (!editingModuleKey) return;
     if (!editingModuleName.trim()) {
       toast.error("Module name is required");
       return;
     }
-    try {
-      await updateModule.mutateAsync({
-        id: editingModuleId,
-        name: editingModuleName.trim(),
-      });
-      toast.success("Module updated");
-      setEditingModuleId(null);
+    setStagedModules((rows) =>
+      rows.map((r) =>
+        r.tempKey === editingModuleKey
+          ? { ...r, name: editingModuleName.trim() }
+          : r,
+      ),
+    );
+    setEditingModuleKey(null);
+    setEditingModuleName("");
+  }
+
+  function onDeleteModule(tempKey: string, currentName: string) {
+    if (!confirm(`Delete module “${currentName}”?`)) return;
+    setStagedModules((rows) => rows.filter((r) => r.tempKey !== tempKey));
+    if (editingModuleKey === tempKey) {
+      setEditingModuleKey(null);
       setEditingModuleName("");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Update failed");
     }
   }
 
-  async function onDeleteModule(moduleId: string, currentName: string) {
-    if (!confirm(`Delete module “${currentName}”?`)) return;
-    try {
-      await deleteModule.mutateAsync(moduleId);
-      toast.success("Module deleted");
-      if (editingModuleId === moduleId) {
-        setEditingModuleId(null);
-        setEditingModuleName("");
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Delete failed");
-    }
-  }
+  const membersLoading = members.isLoading || modulesQuery.isLoading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -232,9 +270,9 @@ export function ProjectEditDialog({
             Project summary{project ? ` · ${project.name}` : ""}
           </DialogTitle>
           <DialogDescription>
-            Update the name, Manager, members, and modules together. Managers
-            supervise and are not project members — only Agent users can be
-            added as members.
+            One save updates the name, the Manager, the members, and the
+            modules together. Managers supervise and are not project members
+            — only Agent users can be added as members.
           </DialogDescription>
         </DialogHeader>
 
@@ -275,7 +313,8 @@ export function ProjectEditDialog({
           </div>
           <p className="text-muted-foreground mb-3 text-xs">
             Members are Agent users. Managers supervise this project and are
-            not listed here.
+            not listed here. Changes here are saved with the Save button
+            below.
           </p>
 
           <div className="mb-3 flex gap-2">
@@ -297,15 +336,15 @@ export function ProjectEditDialog({
             </Select>
             <Button
               type="button"
-              onClick={() => void onAddMember()}
-              disabled={!selectedAgentId || addMember.isPending}
+              onClick={onAddMember}
+              disabled={!selectedAgentId}
             >
               <PlusIcon />
               Add
             </Button>
           </div>
 
-          {members.isLoading ? <Skeleton className="h-20" /> : null}
+          {membersLoading ? <Skeleton className="h-20" /> : null}
           {members.isError ? (
             <p className="text-destructive text-sm">
               {members.error instanceof Error
@@ -313,10 +352,10 @@ export function ProjectEditDialog({
                 : "Failed to load members"}
             </p>
           ) : null}
-          {!members.isLoading && !members.isError ? (
+          {!membersLoading && !members.isError ? (
             <Table>
               <TableBody>
-                {(members.data ?? []).map((m) => (
+                {stagedMembers.map((m) => (
                   <TableRow key={m.userId}>
                     <TableCell className="font-medium">{m.name}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">
@@ -328,8 +367,7 @@ export function ProjectEditDialog({
                         variant="ghost"
                         size="icon-sm"
                         className="text-muted-foreground hover:text-destructive"
-                        onClick={() => void onRemoveMember(m.userId)}
-                        disabled={removeMember.isPending}
+                        onClick={() => onRemoveMember(m.userId)}
                         aria-label={`Remove ${m.name}`}
                       >
                         <UserMinusIcon />
@@ -337,7 +375,7 @@ export function ProjectEditDialog({
                     </TableCell>
                   </TableRow>
                 ))}
-                {(members.data ?? []).length === 0 ? (
+                {stagedMembers.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={3}
@@ -363,21 +401,17 @@ export function ProjectEditDialog({
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  void onAddModule();
+                  onAddModule();
                 }
               }}
             />
-            <Button
-              type="button"
-              onClick={() => void onAddModule()}
-              disabled={createModule.isPending}
-            >
+            <Button type="button" onClick={onAddModule}>
               <PlusIcon />
               Add
             </Button>
           </div>
 
-          {modulesQuery.isLoading ? <Skeleton className="h-20" /> : null}
+          {membersLoading ? <Skeleton className="h-20" /> : null}
           {modulesQuery.isError ? (
             <p className="text-destructive text-sm">
               {modulesQuery.error instanceof Error
@@ -385,13 +419,13 @@ export function ProjectEditDialog({
                 : "Failed to load modules"}
             </p>
           ) : null}
-          {!modulesQuery.isLoading && !modulesQuery.isError ? (
+          {!membersLoading && !modulesQuery.isError ? (
             <Table>
               <TableBody>
-                {(modulesQuery.data ?? []).map((mod) => (
-                  <TableRow key={mod.id}>
+                {stagedModules.map((mod) => (
+                  <TableRow key={mod.tempKey}>
                     <TableCell className="font-medium">
-                      {editingModuleId === mod.id ? (
+                      {editingModuleKey === mod.tempKey ? (
                         <Input
                           value={editingModuleName}
                           onChange={(e) =>
@@ -401,7 +435,7 @@ export function ProjectEditDialog({
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
                               e.preventDefault();
-                              void onSaveModule();
+                              onSaveModuleName();
                             }
                           }}
                         />
@@ -410,39 +444,39 @@ export function ProjectEditDialog({
                       )}
                     </TableCell>
                     <TableCell className="space-x-1 text-right">
-                      {editingModuleId === mod.id ? (
+                      {editingModuleKey === mod.tempKey ? (
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => void onSaveModule()}
-                          disabled={updateModule.isPending}
+                          onClick={onSaveModuleName}
                         >
-                          Save
+                          Done
                         </Button>
                       ) : (
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => startEditModule(mod.id, mod.name)}
+                          onClick={() =>
+                            startEditModule(mod.tempKey, mod.name)
+                          }
                         >
-                          <PencilIcon />
+                          Rename
                         </Button>
                       )}
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => void onDeleteModule(mod.id, mod.name)}
-                        disabled={deleteModule.isPending}
+                        onClick={() => onDeleteModule(mod.tempKey, mod.name)}
                       >
                         <Trash2Icon />
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))}
-                {(modulesQuery.data ?? []).length === 0 ? (
+                {stagedModules.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={2}
@@ -477,9 +511,9 @@ export function ProjectEditDialog({
             <Button
               type="button"
               onClick={() => void onSave()}
-              disabled={updateProject.isPending}
+              disabled={saveSummary.isPending}
             >
-              {updateProject.isPending ? "Saving…" : "Save"}
+              {saveSummary.isPending ? "Saving…" : "Save"}
             </Button>
           </div>
         </DialogFooter>

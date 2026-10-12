@@ -40,3 +40,27 @@ export type UpdateProjectInput = {
   name?: string;
   managerId?: string | null;
 };
+
+/** One module in the desired full set for {@link SaveProjectSummaryInput}. Omit `id` to create. */
+export type ProjectSummaryModuleInput = {
+  id?: string;
+  name: string;
+};
+
+/**
+ * U8 — one save for the project summary dialog. Carries the full desired
+ * state for name, manager, members, and modules so a single submit
+ * persists all four together.
+ */
+export type SaveProjectSummaryInput = {
+  name: string;
+  managerId: string;
+  memberUserIds: string[];
+  modules: ProjectSummaryModuleInput[];
+};
+
+export type ProjectSummary = {
+  project: Project;
+  members: ProjectMember[];
+  modules: ProjectModule[];
+};

@@ -19,6 +19,7 @@ import {
   AddProjectMemberDto,
   CreateModuleDto,
   CreateProjectDto,
+  SaveProjectSummaryDto,
   UpdateModuleDto,
   UpdateProjectDto,
 } from "./dto/project.dto";
@@ -75,6 +76,19 @@ export class ProjectsController {
   @ApiOperation({ summary: "Delete project (Admin)" })
   remove(@Param("id", ParseUUIDPipe) id: string) {
     return this.projects.remove(id);
+  }
+
+  @Patch(":id/summary")
+  @Roles("Admin")
+  @ApiOperation({
+    summary:
+      "U8 — one save for name, manager, members, and modules together (Admin)",
+  })
+  saveSummary(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: SaveProjectSummaryDto,
+  ) {
+    return this.projects.saveSummary(id, dto);
   }
 
   @Get(":id/members")

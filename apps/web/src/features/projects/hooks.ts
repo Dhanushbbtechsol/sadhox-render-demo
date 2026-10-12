@@ -14,7 +14,7 @@ import type {
   Project,
   ProjectMember,
   ProjectModule,
-  UpdateProjectInput,
+  SaveProjectSummaryInput,
 } from "./types";
 
 function useOfflineAdminData() {
@@ -85,44 +85,98 @@ export function useCreateProject() {
   });
 }
 
-export function useUpdateProject() {
+/**
+ * U8 — one save for the project summary dialog. A single submit persists
+ * the name, the manager, the member changes, and the module changes
+ * together (server: `PATCH /projects/:id/summary`, one transaction).
+ */
+export function useSaveProjectSummary(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({
-      id,
-      input,
-    }: {
-      id: string;
-      input: UpdateProjectInput;
-    }) => {
+    mutationFn: async (input: SaveProjectSummaryInput) => {
       if (useOfflineAdminData()) {
-        const index = mockProjects.findIndex((p) => p.id === id);
+        const index = mockProjects.findIndex((p) => p.id === projectId);
         if (index < 0) throw new Error("Project not found");
-        const nextManagerId =
-          input.managerId !== undefined
-            ? input.managerId
-            : mockProjects[index].managerId;
         const managerName =
-          nextManagerId == null
-            ? null
-            : (mockDirectoryUsers.find((u) => u.id === nextManagerId)?.name ??
-              mockProjects[index].managerName ??
-              null);
+          mockDirectoryUsers.find((u) => u.id === input.managerId)?.name ??
+          null;
         mockProjects[index] = {
           ...mockProjects[index],
-          ...input,
+          name: input.name,
+          managerId: input.managerId,
           managerName,
         };
-        return mockProjects[index];
+
+        const memberIds = new Set(input.memberUserIds);
+        for (let i = mockProjectMembers.length - 1; i >= 0; i -= 1) {
+          if (!memberIds.has(mockProjectMembers[i].userId)) {
+            mockProjectMembers.splice(i, 1);
+          }
+        }
+        for (const userId of input.memberUserIds) {
+          if (!mockProjectMembers.some((m) => m.userId === userId)) {
+            const user = mockDirectoryUsers.find((u) => u.id === userId);
+            if (!user) throw new Error("User not found");
+            if (user.role !== "Agent") {
+              throw new Error("Only Agent users can be added as project members");
+            }
+            mockProjectMembers.push({
+              userId: user.id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
+
+        const desiredModuleIds = new Set(
+          input.modules.filter((m) => m.id).map((m) => m.id as string),
+        );
+        for (let i = mockProjectModules.length - 1; i >= 0; i -= 1) {
+          const mod = mockProjectModules[i];
+          if (mod.projectId === projectId && !desiredModuleIds.has(mod.id)) {
+            mockProjectModules.splice(i, 1);
+          }
+        }
+        for (const mod of input.modules) {
+          if (mod.id) {
+            const existing = mockProjectModules.find((m) => m.id === mod.id);
+            if (existing) existing.name = mod.name;
+          } else {
+            mockProjectModules.push({
+              id: `mod-${Date.now()}-${Math.random()}`,
+              projectId,
+              name: mod.name,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
+
+        return {
+          project: mockProjects[index],
+          members: mockProjectMembers,
+          modules: mockProjectModules.filter((m) => m.projectId === projectId),
+        };
       }
-      return await apiFetch<Project>(`/projects/${id}`, {
+      return await apiFetch<{
+        project: Project;
+        members: ProjectMember[];
+        modules: ProjectModule[];
+      }>(`/projects/${projectId}/summary`, {
         method: "PATCH",
         body: input,
       });
     },
-    onSuccess: async (_data, vars) => {
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
-      await queryClient.invalidateQueries({ queryKey: ["projects", vars.id] });
+      await queryClient.invalidateQueries({ queryKey: ["projects", projectId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["projects", projectId, "members"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["projects", projectId, "modules"],
+      });
     },
   });
 }
@@ -166,59 +220,6 @@ export function useProjectMembers(projectId: string | undefined) {
   });
 }
 
-export function useAddProjectMember(projectId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (userId: string) => {
-      if (useOfflineAdminData()) {
-        const user = mockDirectoryUsers.find((u) => u.id === userId);
-        if (!user) throw new Error("User not found");
-        if (!mockProjectMembers.some((m) => m.userId === userId)) {
-          mockProjectMembers.push({
-            userId: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            createdAt: new Date().toISOString(),
-          });
-        }
-        return mockProjectMembers.find((m) => m.userId === userId)!;
-      }
-      return await apiFetch<ProjectMember>(`/projects/${projectId}/members`, {
-        method: "POST",
-        body: { userId },
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["projects", projectId, "members"],
-      });
-    },
-  });
-}
-
-export function useRemoveProjectMember(projectId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (userId: string) => {
-      if (useOfflineAdminData()) {
-        const index = mockProjectMembers.findIndex((m) => m.userId === userId);
-        if (index >= 0) mockProjectMembers.splice(index, 1);
-        return { userId };
-      }
-      await apiFetch(`/projects/${projectId}/members/${userId}`, {
-        method: "DELETE",
-      });
-      return { userId };
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["projects", projectId, "members"],
-      });
-    },
-  });
-}
-
 export function useProjectModules(projectId: string | undefined) {
   return useQuery({
     queryKey: [
@@ -237,78 +238,6 @@ export function useProjectModules(projectId: string | undefined) {
         { data: ProjectModule[] } | ProjectModule[]
       >(`/projects/${projectId}/modules`);
       return unwrapList(result);
-    },
-  });
-}
-
-export function useCreateProjectModule(projectId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (name: string) => {
-      if (useOfflineAdminData()) {
-        const created: ProjectModule = {
-          id: `mod-${Date.now()}`,
-          projectId,
-          name,
-          createdAt: new Date().toISOString(),
-        };
-        mockProjectModules.push(created);
-        return created;
-      }
-      return await apiFetch<ProjectModule>(`/projects/${projectId}/modules`, {
-        method: "POST",
-        body: { name },
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["projects", projectId, "modules"],
-      });
-    },
-  });
-}
-
-export function useUpdateProjectModule(projectId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      if (useOfflineAdminData()) {
-        const index = mockProjectModules.findIndex((m) => m.id === id);
-        if (index < 0) throw new Error("Module not found");
-        mockProjectModules[index] = { ...mockProjectModules[index], name };
-        return mockProjectModules[index];
-      }
-      return await apiFetch<ProjectModule>(
-        `/projects/${projectId}/modules/${id}`,
-        { method: "PATCH", body: { name } },
-      );
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["projects", projectId, "modules"],
-      });
-    },
-  });
-}
-
-export function useDeleteProjectModule(projectId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      if (useOfflineAdminData()) {
-        const index = mockProjectModules.findIndex((m) => m.id === id);
-        if (index >= 0) mockProjectModules.splice(index, 1);
-        return { id };
-      }
-      await apiFetch(`/projects/${projectId}/modules/${id}`, {
-        method: "DELETE",
-      });
-      return { id };
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["projects", projectId, "modules"],
-      });
     },
   });
 }

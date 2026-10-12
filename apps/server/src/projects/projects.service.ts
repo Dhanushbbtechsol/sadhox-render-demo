@@ -32,6 +32,7 @@ import type {
   AddProjectMemberDto,
   CreateModuleDto,
   CreateProjectDto,
+  SaveProjectSummaryDto,
   UpdateModuleDto,
   UpdateProjectDto,
 } from "./dto/project.dto";
@@ -160,6 +161,169 @@ export class ProjectsService {
       throw new NotFoundException("Project not found");
     }
     return { ok: true };
+  }
+
+  /**
+   * U8 — one save for the project summary dialog. Validates name, manager,
+   * the desired member set (KTD6 — Agent only), and the desired module set
+   * up front, then persists all four in one transaction (diffed against
+   * current state) — a single submit covers name + manager + members +
+   * modules together instead of a PATCH plus separate per-item calls.
+   */
+  async saveSummary(projectId: string, dto: SaveProjectSummaryDto) {
+    return this.db.transaction(async (tx) => {
+      const [existingProject] = await tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.id, projectId))
+        .limit(1);
+      if (!existingProject) throw new NotFoundException("Project not found");
+
+      const [manager] = await tx
+        .select({ id: users.id, role: users.role })
+        .from(users)
+        .where(eq(users.id, dto.managerId))
+        .limit(1);
+      if (!manager) throw new NotFoundException("Manager user not found");
+      if (manager.role !== "Manager") {
+        throw new BadRequestException(
+          "managerId must reference a user with role Manager",
+        );
+      }
+
+      const name = sanitizePlainText(dto.name, 255);
+      if (!name) throw new BadRequestException("Project name is required");
+
+      // Members: diff the desired full set (KTD6 — Agent only) against current rows.
+      const desiredMemberIds = Array.from(new Set(dto.memberUserIds));
+      const existingMembers = await tx
+        .select({ userId: projectMembers.userId })
+        .from(projectMembers)
+        .where(eq(projectMembers.projectId, projectId));
+      const existingMemberIds = new Set(existingMembers.map((m) => m.userId));
+      const memberIdsToAdd = desiredMemberIds.filter(
+        (id) => !existingMemberIds.has(id),
+      );
+      const memberIdsToRemove = [...existingMemberIds].filter(
+        (id) => !desiredMemberIds.includes(id),
+      );
+
+      if (memberIdsToAdd.length > 0) {
+        const candidates = await tx
+          .select({ id: users.id, role: users.role })
+          .from(users)
+          .where(inArray(users.id, memberIdsToAdd));
+        const candidateById = new Map(candidates.map((u) => [u.id, u]));
+        for (const id of memberIdsToAdd) {
+          const candidate = candidateById.get(id);
+          if (!candidate) throw new NotFoundException("User not found");
+          if (candidate.role !== "Agent") {
+            throw new BadRequestException(
+              "Only Agent users can be added as project members",
+            );
+          }
+        }
+      }
+
+      // Modules: desired items with `id` are kept/renamed; without `id` are
+      // created; existing modules absent from the desired set are deleted.
+      const existingModules = await tx
+        .select()
+        .from(modules)
+        .where(eq(modules.projectId, projectId));
+      const existingModuleById = new Map(
+        existingModules.map((m) => [m.id, m]),
+      );
+      const desiredModuleIds = new Set(
+        dto.modules.filter((m) => m.id).map((m) => m.id as string),
+      );
+      const sanitizedModules: { id?: string; name: string }[] = [];
+      for (const mod of dto.modules) {
+        const moduleName = sanitizePlainText(mod.name, 255);
+        if (!moduleName) {
+          throw new BadRequestException("Module name is required");
+        }
+        if (mod.id && !existingModuleById.has(mod.id)) {
+          throw new NotFoundException("Module not found");
+        }
+        sanitizedModules.push({ id: mod.id, name: moduleName });
+      }
+
+      // Validation passed — persist name, manager, members, and modules together.
+      await tx
+        .update(projects)
+        .set({ name, managerId: dto.managerId })
+        .where(eq(projects.id, projectId));
+
+      if (memberIdsToAdd.length > 0) {
+        await tx
+          .insert(projectMembers)
+          .values(memberIdsToAdd.map((userId) => ({ projectId, userId })));
+      }
+      if (memberIdsToRemove.length > 0) {
+        await tx
+          .delete(projectMembers)
+          .where(
+            and(
+              eq(projectMembers.projectId, projectId),
+              inArray(projectMembers.userId, memberIdsToRemove),
+            ),
+          );
+      }
+
+      for (const mod of sanitizedModules) {
+        if (mod.id) {
+          const existing = existingModuleById.get(mod.id);
+          if (existing && existing.name !== mod.name) {
+            await tx
+              .update(modules)
+              .set({ name: mod.name })
+              .where(eq(modules.id, mod.id));
+          }
+        } else {
+          await tx.insert(modules).values({ projectId, name: mod.name });
+        }
+      }
+      const moduleIdsToRemove = existingModules
+        .filter((m) => !desiredModuleIds.has(m.id))
+        .map((m) => m.id);
+      if (moduleIdsToRemove.length > 0) {
+        await tx
+          .delete(modules)
+          .where(
+            and(
+              eq(modules.projectId, projectId),
+              inArray(modules.id, moduleIdsToRemove),
+            ),
+          );
+      }
+
+      const [project] = await tx
+        .select(this.projectWithManagerSelect())
+        .from(projects)
+        .leftJoin(users, eq(projects.managerId, users.id))
+        .where(eq(projects.id, projectId))
+        .limit(1);
+
+      const memberRows = await tx
+        .select({
+          projectId: projectMembers.projectId,
+          userId: projectMembers.userId,
+          name: users.name,
+          email: users.email,
+          role: users.role,
+        })
+        .from(projectMembers)
+        .innerJoin(users, eq(users.id, projectMembers.userId))
+        .where(eq(projectMembers.projectId, projectId));
+
+      const moduleRows = await tx
+        .select()
+        .from(modules)
+        .where(eq(modules.projectId, projectId));
+
+      return { project, members: memberRows, modules: moduleRows };
+    });
   }
 
   async addMember(projectId: string, dto: AddProjectMemberDto) {
