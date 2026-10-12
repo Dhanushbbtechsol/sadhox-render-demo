@@ -1,4 +1,4 @@
-import { Navigate, createBrowserRouter } from "react-router";
+import { createBrowserRouter } from "react-router";
 
 import AppShell from "./app-shell";
 import { GuestRoute, ProtectedRoute } from "@/components/auth/protected-route";
@@ -135,11 +135,9 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute roles={["Admin"]} />,
             children: [
               { index: true, element: <ProjectsListPage /> },
-              // Legacy detail/tab URLs → list (Edit / Members / Modules are dialogs).
-              {
-                path: ":id/*",
-                element: <Navigate to="/admin/projects" replace />,
-              },
+              // Opening a project by id shows its summary (name, manager,
+              // members, modules) via the combined edit dialog on this page.
+              { path: ":id/*", element: <ProjectsListPage /> },
             ],
           },
           {

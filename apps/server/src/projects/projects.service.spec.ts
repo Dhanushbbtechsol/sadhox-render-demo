@@ -4,8 +4,10 @@ import { ProjectAccessService } from "./project-access.service";
 import { ProjectScopeService } from "./project-scope.service";
 import { ProjectsService } from "./projects.service";
 
-describe("ProjectsService.addMember (Phase 6)", () => {
-  it("allows Manager as project member", async () => {
+describe("ProjectsService.addMember (Phase 6 / U8 KTD6)", () => {
+  // U8/KTD6: project_members are Agent users only. A Manager or Admin is
+  // rejected — the earlier "any role" behavior here was reverted.
+  it("rejects Manager as project member", async () => {
     const db = {
       select: vi.fn(() => ({
         from: vi.fn(() => ({
@@ -14,13 +16,7 @@ describe("ProjectsService.addMember (Phase 6)", () => {
           })),
         })),
       })),
-      insert: vi.fn(() => ({
-        values: vi.fn(() => ({
-          returning: vi.fn(async () => [
-            { projectId: "proj-1", userId: "user-mgr" },
-          ]),
-        })),
-      })),
+      insert: vi.fn(),
       _queue: [
         [{ id: "proj-1" }],
         [{ id: "user-mgr", role: "Manager" }],
@@ -32,13 +28,11 @@ describe("ProjectsService.addMember (Phase 6)", () => {
 
     await expect(
       svc.addMember("proj-1", { userId: "user-mgr" }),
-    ).resolves.toEqual({
-      projectId: "proj-1",
-      userId: "user-mgr",
-    });
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(db.insert).not.toHaveBeenCalled();
   });
 
-  it("allows Admin as project member", async () => {
+  it("rejects Admin as project member", async () => {
     const db = {
       select: vi.fn(() => ({
         from: vi.fn(() => ({
@@ -47,13 +41,7 @@ describe("ProjectsService.addMember (Phase 6)", () => {
           })),
         })),
       })),
-      insert: vi.fn(() => ({
-        values: vi.fn(() => ({
-          returning: vi.fn(async () => [
-            { projectId: "proj-1", userId: "user-admin" },
-          ]),
-        })),
-      })),
+      insert: vi.fn(),
       _queue: [[{ id: "proj-1" }], [{ id: "user-admin", role: "Admin" }]],
     };
     const scope = new ProjectScopeService(db as never);
@@ -62,10 +50,8 @@ describe("ProjectsService.addMember (Phase 6)", () => {
 
     await expect(
       svc.addMember("proj-1", { userId: "user-admin" }),
-    ).resolves.toEqual({
-      projectId: "proj-1",
-      userId: "user-admin",
-    });
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(db.insert).not.toHaveBeenCalled();
   });
 
   it("allows Agent membership insert", async () => {

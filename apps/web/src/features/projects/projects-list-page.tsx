@@ -1,10 +1,6 @@
-import {
-  BoxesIcon,
-  PencilIcon,
-  PlusIcon,
-  UsersIcon,
-} from "lucide-react";
+import { PencilIcon, PlusIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
 import { ListPagination, paginateItems } from "@/components/list-pagination";
@@ -38,22 +34,34 @@ import {
 
 import { useCreateProject, useDirectoryUsers, useProjects } from "./hooks";
 import { ProjectEditDialog } from "./project-edit-dialog";
-import { ProjectMembersDialog } from "./project-members-dialog";
-import { ProjectModulesDialog } from "./project-modules-dialog";
 import type { Project } from "./types";
 
-type ActiveDialog = "create" | "edit" | "members" | "modules" | null;
+type ActiveDialog = "create" | "edit" | null;
 
 export default function ProjectsListPage() {
   const projects = useProjects();
   const managers = useDirectoryUsers("Manager");
   const createProject = useCreateProject();
+  const navigate = useNavigate();
+  const { id: routeProjectId } = useParams<{ id: string }>();
 
   const [query, setQuery] = useState("");
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [name, setName] = useState("");
   const [managerId, setManagerId] = useState("");
+
+  // Opening /admin/projects/:id shows that project's summary dialog.
+  useEffect(() => {
+    if (!routeProjectId || projects.isLoading) return;
+    const found = (projects.data ?? []).find((p) => p.id === routeProjectId);
+    if (found) {
+      setSelectedProject(found);
+      setActiveDialog("edit");
+    } else {
+      navigate("/admin/projects", { replace: true });
+    }
+  }, [routeProjectId, projects.data, projects.isLoading, navigate]);
 
   const managerOptions = managers.data ?? [];
 
@@ -106,9 +114,17 @@ export default function ProjectsListPage() {
     setActiveDialog("create");
   }
 
-  function openForProject(dialog: Exclude<ActiveDialog, "create" | null>, project: Project) {
-    setSelectedProject(project);
-    setActiveDialog(dialog);
+  function openSummary(project: Project) {
+    navigate(`/admin/projects/${project.id}`);
+  }
+
+  function closeSummary(open: boolean) {
+    if (open) return;
+    setActiveDialog(null);
+    setSelectedProject(null);
+    if (routeProjectId) {
+      navigate("/admin/projects", { replace: true });
+    }
   }
 
   async function onCreate() {
@@ -139,7 +155,8 @@ export default function ProjectsListPage() {
         <div className="min-w-0">
           <h1 className="text-xl font-semibold">Projects</h1>
           <p className="text-sm text-muted-foreground">
-            Create a project, then use Edit, Members, or Modules on each row.
+            Create a project, then open it to manage its name, Manager,
+            members, and modules.
           </p>
         </div>
         <Button className="shrink-0" onClick={openCreate}>
@@ -193,28 +210,10 @@ export default function ProjectsListPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => openForProject("edit", project)}
+                        onClick={() => openSummary(project)}
                       >
                         <PencilIcon />
                         Edit
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openForProject("members", project)}
-                      >
-                        <UsersIcon />
-                        Members
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openForProject("modules", project)}
-                      >
-                        <BoxesIcon />
-                        Modules
                       </Button>
                     </div>
                   </TableCell>
@@ -252,8 +251,8 @@ export default function ProjectsListPage() {
           <DialogHeader>
             <DialogTitle>New project</DialogTitle>
             <DialogDescription>
-              Set a name and assign a Manager. Use Members and Modules on the
-              list after creating.
+              Set a name and assign a Manager. Open it afterward to add
+              members and modules.
             </DialogDescription>
           </DialogHeader>
 
@@ -329,34 +328,7 @@ export default function ProjectsListPage() {
 
       <ProjectEditDialog
         open={activeDialog === "edit"}
-        onOpenChange={(open) => {
-          if (!open) {
-            setActiveDialog(null);
-            setSelectedProject(null);
-          }
-        }}
-        project={selectedProject}
-      />
-
-      <ProjectMembersDialog
-        open={activeDialog === "members"}
-        onOpenChange={(open) => {
-          if (!open) {
-            setActiveDialog(null);
-            setSelectedProject(null);
-          }
-        }}
-        project={selectedProject}
-      />
-
-      <ProjectModulesDialog
-        open={activeDialog === "modules"}
-        onOpenChange={(open) => {
-          if (!open) {
-            setActiveDialog(null);
-            setSelectedProject(null);
-          }
-        }}
+        onOpenChange={closeSummary}
         project={selectedProject}
       />
     </div>

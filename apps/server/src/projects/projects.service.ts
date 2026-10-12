@@ -164,8 +164,19 @@ export class ProjectsService {
 
   async addMember(projectId: string, dto: AddProjectMemberDto) {
     await this.scope.assertProjectExists(projectId);
-    // Design authority: service rejects non-Agent inserts; Managers cannot be members.
-    await this.scope.assertUserEligibleForMembership(dto.userId);
+    // KTD6: project_members are Agent users only. Managers supervise projects
+    // via projects.manager_id and are never members.
+    const [member] = await this.db
+      .select({ id: users.id, role: users.role })
+      .from(users)
+      .where(eq(users.id, dto.userId))
+      .limit(1);
+    if (!member) throw new NotFoundException("User not found");
+    if (member.role !== "Agent") {
+      throw new BadRequestException(
+        "Only Agent users can be added as project members",
+      );
+    }
 
     try {
       const [row] = await this.db
