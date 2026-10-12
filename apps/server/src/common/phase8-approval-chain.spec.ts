@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   type INestApplication,
@@ -155,14 +156,14 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
     if (app) await app.close();
   });
 
-  it("(1) Manager SR/Change approve → PendingApproval; final approve 403", async () => {
+  it("(1) Manager SR/Change → PendingApproval; Manager final-approve 403", async () => {
     srApprove.mockResolvedValueOnce({ status: "PendingApproval" });
     chApprove.mockResolvedValueOnce({ status: "PendingApproval" });
     srApprove.mockRejectedValueOnce(
-      new ForbiddenException("Manager cannot final-approve; waiting on Admin"),
+      new ForbiddenException("Only Admin can final-approve"),
     );
     chApprove.mockRejectedValueOnce(
-      new ForbiddenException("Manager cannot final-approve; waiting on Admin"),
+      new ForbiddenException("Only Admin can final-approve"),
     );
 
     await request(app.getHttpServer())
@@ -185,45 +186,38 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
       .patch(`/service-requests/${ID}/approve`)
       .set("x-test-role", "Manager")
       .expect(403);
-
     await request(app.getHttpServer())
       .patch(`/changes/${ID}/approve`)
       .set("x-test-role", "Manager")
       .expect(403);
   });
 
-  it("(2) Admin 403 on managed Submitted; succeeds on PendingApproval; direct when no project", async () => {
+  it("(2) Admin cannot skip manager on SR/Change; may act when no manager", async () => {
     srApprove.mockRejectedValueOnce(
       new ForbiddenException(
-        "Admin cannot approve while a project manager must act first",
-      ),
-    );
-    chApprove.mockRejectedValueOnce(
-      new ForbiddenException(
-        "Admin cannot approve while a project manager must act first",
+        "Admin cannot skip manager approval when the requester has a manager",
       ),
     );
     srReject.mockRejectedValueOnce(
       new ForbiddenException(
-        "Admin cannot reject while a project manager must act first",
+        "Admin cannot skip manager approval when the requester has a manager",
+      ),
+    );
+    chApprove.mockRejectedValueOnce(
+      new ForbiddenException(
+        "Admin cannot skip manager approval when the requester has a manager",
       ),
     );
     chReject.mockRejectedValueOnce(
       new ForbiddenException(
-        "Admin cannot reject while a project manager must act first",
+        "Admin cannot skip manager approval when the requester has a manager",
       ),
     );
-    srApprove.mockResolvedValueOnce({ status: "Approved" });
-    chApprove.mockResolvedValueOnce({ status: "Approved" });
     srApprove.mockResolvedValueOnce({ status: "Approved" });
     chApprove.mockResolvedValueOnce({ status: "Approved" });
 
     await request(app.getHttpServer())
       .patch(`/service-requests/${ID}/approve`)
-      .set("x-test-role", "Admin")
-      .expect(403);
-    await request(app.getHttpServer())
-      .patch(`/changes/${ID}/approve`)
       .set("x-test-role", "Admin")
       .expect(403);
     await request(app.getHttpServer())
@@ -232,19 +226,15 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
       .send({ reason: "nope" })
       .expect(403);
     await request(app.getHttpServer())
+      .patch(`/changes/${ID}/approve`)
+      .set("x-test-role", "Admin")
+      .expect(403);
+    await request(app.getHttpServer())
       .patch(`/changes/${ID}/reject`)
       .set("x-test-role", "Admin")
       .send({ reason: "nope" })
       .expect(403);
 
-    await request(app.getHttpServer())
-      .patch(`/service-requests/${ID}/approve`)
-      .set("x-test-role", "Admin")
-      .expect(200);
-    await request(app.getHttpServer())
-      .patch(`/changes/${ID}/approve`)
-      .set("x-test-role", "Admin")
-      .expect(200);
     await request(app.getHttpServer())
       .patch(`/service-requests/${ID}/approve`)
       .set("x-test-role", "Admin")
@@ -285,7 +275,7 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
   });
 });
 
-describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
+describe("Phase 9 ChangesService unit: org-chart + concurrency", () => {
   const admin = {
     userId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
     email: "admin@sadhox.local",
@@ -346,6 +336,7 @@ describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
                     {
                       ...existing,
                       createdByName: "Agent",
+                      creatorReportsToId,
                       projectName: null,
                       moduleName: null,
                     },
@@ -377,7 +368,7 @@ describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
     return { service, update, whereUpdate, projectAccess };
   }
 
-  it("PATCH Approved or Rolled Back is refused for Agent, and for Admin when creator has a manager (A04)", async () => {
+  it("PATCH Approved/Rolled Back refused for Agent; Admin blocked when creator has manager", async () => {
     for (const status of ["Submitted", "PendingApproval"] as const) {
       for (const next of ["Approved", "Rolled Back"] as const) {
         const { service } = createService(row(status));
@@ -386,18 +377,38 @@ describe("Phase 8 ChangesService unit: bypass + concurrency", () => {
         ).rejects.toBeInstanceOf(ForbiddenException);
       }
     }
-    // Admin cannot skip creator's reports_to_id on Submitted (even with null project).
+    // Admin cannot skip manager on Submitted (has reports_to).
     for (const next of ["Approved", "Rolled Back"] as const) {
-      const { service } = createService(row("Submitted", null));
+      const existing = row("Submitted");
+      const { service } = createService(existing, [], "mgr-exists");
       await expect(
         service.update(admin, ID, { status: next }),
       ).rejects.toBeInstanceOf(ForbiddenException);
     }
+    // Admin may decide when creator has no manager.
+    for (const next of ["Approved", "Rolled Back"] as const) {
+      const existing = row("Submitted");
+      const { service, update } = createService(existing, [], null);
+      await expect(
+        service.update(admin, ID, { status: next }),
+      ).resolves.toBeTruthy();
+      expect(update).toHaveBeenCalled();
+    }
+  });
+
+  it("PATCH Scheduled / Implemented is refused (actions disabled)", async () => {
+    const { service } = createService(row("Approved"));
+    await expect(
+      service.update(admin, ID, { status: "Scheduled" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.update(admin, ID, { status: "Implemented" }),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("second concurrent approve gets ConflictException", async () => {
     const existing = row("PendingApproval", null);
-    const { service } = createService(existing, []); // empty returning = lost race
+    const { service } = createService(existing, [], null);
     await expect(service.approve(admin, ID)).rejects.toBeInstanceOf(
       ConflictException,
     );

@@ -20,3 +20,8 @@ export function resolveThrottleGlobal(opts?: {
 export const THROTTLE_AUTH_LOGIN = {
   default: { limit: 5, ttl: 60_000 },
 };
+
+/** Desk report export (Admin + Manager) — 10 per minute. */
+export const THROTTLE_DESK_REPORT = {
+  default: { limit: 10, ttl: 60_000 },
+};

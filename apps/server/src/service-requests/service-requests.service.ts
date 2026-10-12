@@ -12,7 +12,6 @@ import {
   assertAgentOrAdminRole,
   canTransitionRequestFulfillment,
   isPendingServiceRequestStatus,
-  resolveRejectTransition,
 } from "../common/approval-policy";
 import { nextApproval } from "../common/approval-chain";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
@@ -237,9 +236,10 @@ export class ServiceRequestsService {
     if (user.role === "EndUser" && row.requesterId !== user.userId) {
       throw new ForbiddenException("Cannot view this service request");
     }
+    // Phase 9: Manager team = requester.reports_to_id only (no project fallback).
     if (user.role === "Manager") {
       if (row.requesterReportsToId !== user.userId) {
-        await this.projectAccess.assertCanViewTicket(user, row.projectId);
+        throw new ForbiddenException("Cannot view this service request");
       }
     } else if (user.role !== "EndUser") {
       await this.projectAccess.assertCanViewTicket(user, row.projectId);
@@ -323,17 +323,10 @@ export class ServiceRequestsService {
       hasManager,
     });
 
-    const decision = resolveRejectTransition({
-      role: user.role,
-      currentStatus: existing.status,
-      projectId: existing.projectId,
-      rejectStatus: "Rejected",
-    });
-
     const [updated] = await this.db
       .update(serviceRequests)
       .set({
-        status: decision.nextStatus,
+        status: "Rejected",
         approverId: user.userId,
         approvedAt: new Date(),
         rejectionReason: reason,

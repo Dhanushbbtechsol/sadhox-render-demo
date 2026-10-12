@@ -26,6 +26,7 @@ import type { UserRole } from "./types/roles";
 import { DrizzleHealthIndicator } from "../health/drizzle.health";
 import { HealthController } from "../health/health.controller";
 import { ManagerDashboardController } from "../projects/manager-dashboard.controller";
+import { ManagerController } from "../manager/manager.controller";
 import { RedisHealthIndicator } from "../health/redis.health";
 import { IncidentsController } from "../incidents/incidents.controller";
 import { IncidentsService } from "../incidents/incidents.service";
@@ -146,6 +147,11 @@ const MATRIX: MatrixRow[] = [
   },
   { method: "get", path: "/manager/dashboard/stats", allowed: ["Manager"] },
   { method: "get", path: "/manager/dashboard/charts", allowed: ["Manager"] },
+  {
+    method: "get",
+    path: "/manager/reports/desk?range=30d&format=json",
+    allowed: ["Manager"],
+  },
   { method: "get", path: "/admin/users", allowed: ["Admin"] },
   { method: "post", path: "/admin/users", allowed: ["Admin"] },
   { method: "get", path: `/admin/users/${ID}`, allowed: ["Admin"] },
@@ -184,12 +190,16 @@ const MATRIX: MatrixRow[] = [
     path: `/service-requests/${ID}/reject`,
     allowed: ["Admin", "Manager"],
   },
-  { method: "get", path: "/changes", allowed: ["Admin", "Agent", "Manager"] },
-  { method: "post", path: "/changes", allowed: ["Admin", "Agent"] },
+  {
+    method: "get",
+    path: "/changes",
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
+  },
+  { method: "post", path: "/changes", allowed: ["Admin", "Agent", "EndUser"] },
   {
     method: "get",
     path: `/changes/${ID}`,
-    allowed: ["Admin", "Agent", "Manager"],
+    allowed: ["Admin", "Agent", "Manager", "EndUser"],
   },
   {
     method: "patch",
@@ -356,6 +366,7 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         KnowledgeController,
         AdminController,
         ManagerDashboardController,
+        ManagerController,
       ],
       providers: [
         {

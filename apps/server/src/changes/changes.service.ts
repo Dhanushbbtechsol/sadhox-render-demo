@@ -12,7 +12,6 @@ import {
   canTransitionChange,
   CHANGE_API_TO_DB_STATUS,
   requiresAdminForChangeStatus,
-  resolveRejectTransition,
 } from "../common/approval-policy";
 import { nextApproval } from "../common/approval-chain";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
@@ -35,6 +34,13 @@ import type {
   RejectChangeDto,
   UpdateChangeDto,
 } from "./dto/change.dto";
+
+/** Post-approval lifecycle actions are disabled — request + Admin approve/reject only. */
+const CHANGE_ACTION_STATUSES = new Set([
+  "Scheduled",
+  "Implemented",
+  "Closed",
+]);
 
 type DbChangeStatus =
   | "Draft"
@@ -165,8 +171,7 @@ export class ChangesService {
       );
     }
 
-    // Agent/Manager must canAccess project; EndUser would existence-check only
-    // (Change create is Admin/Agent today — still enforce membership).
+    // Optional project: Agent/Admin must canAccess; EndUser existence-check only.
     const { projectId, moduleId } =
       await this.projectsService.resolveTicketProjectFields(
         user,
@@ -190,14 +195,13 @@ export class ChangesService {
       })
       .returning();
 
-    await this.notifyApproversOfSubmission(created.id, user, projectId);
+    await this.notifyApproversOfSubmission(created.id, user);
     return this.get(user, created.id);
   }
 
   private async notifyApproversOfSubmission(
     changeId: string,
     submitter: AuthUser,
-    projectId: string | null,
   ) {
     try {
       const [change] = await this.db
@@ -210,20 +214,28 @@ export class ChangesService {
         .limit(1);
       if (!change) return;
 
-      const recipients: { email: string }[] = [];
-      const admins = await this.db
-        .select({ email: users.email })
+      // Phase 9: next actor — creator's reports_to_id, else Admins.
+      const [creator] = await this.db
+        .select({ reportsToId: users.reportsToId })
         .from(users)
-        .where(eq(users.role, "Admin"));
-      recipients.push(...admins);
+        .where(eq(users.id, submitter.userId))
+        .limit(1);
+      const managerId = creator?.reportsToId ?? null;
 
-      if (projectId) {
-        const managers = await this.db
+      const recipients: { email: string }[] = [];
+      if (managerId) {
+        const [mgr] = await this.db
           .select({ email: users.email })
-          .from(projects)
-          .innerJoin(users, eq(projects.managerId, users.id))
-          .where(eq(projects.id, projectId));
-        recipients.push(...managers);
+          .from(users)
+          .where(eq(users.id, managerId))
+          .limit(1);
+        if (mgr?.email) recipients.push(mgr);
+      } else {
+        const admins = await this.db
+          .select({ email: users.email })
+          .from(users)
+          .where(eq(users.role, "Admin"));
+        recipients.push(...admins);
       }
 
       const unique = [...new Map(recipients.map((r) => [r.email, r])).values()];
@@ -260,7 +272,9 @@ export class ChangesService {
       conditions.push(eq(changes.status, dbStatus as never));
     }
 
-    if (user.role === "Manager") {
+    if (user.role === "EndUser") {
+      conditions.push(eq(changes.createdBy, user.userId));
+    } else if (user.role === "Manager") {
       // Phase 9: Manager team = creator's reports_to_id.
       conditions.push(eq(users.reportsToId, user.userId));
     } else if (user.role === "Agent") {
@@ -285,13 +299,20 @@ export class ChangesService {
     const [row] = await this.baseQuery().where(eq(changes.id, id)).limit(1);
 
     if (!row) throw new NotFoundException("Change not found");
+    if (user.role === "EndUser") {
+      if (row.createdBy !== user.userId) {
+        throw new ForbiddenException("Cannot view this change");
+      }
+      return this.mapRow(row);
+    }
+    // Phase 9: Manager team = creator.reports_to_id only (no project fallback).
     if (user.role === "Manager") {
       if (row.creatorReportsToId !== user.userId) {
-        await this.projectAccess.assertCanViewTicket(user, row.projectId);
+        throw new ForbiddenException("Cannot view this change");
       }
-    } else {
-      await this.projectAccess.assertCanViewTicket(user, row.projectId);
+      return this.mapRow(row);
     }
+    await this.projectAccess.assertCanViewTicket(user, row.projectId);
     return this.mapRow(row);
   }
 
@@ -381,20 +402,13 @@ export class ChangesService {
       user,
       existing.createdBy,
     );
+    // Auth gate only — reject always ends RolledBack.
     nextApproval({ status: chainStatus, actorRole, hasManager });
-
-    const decision = resolveRejectTransition({
-      role: user.role,
-      currentStatus: existing.status,
-      projectId: hasManager ? "org-manager" : null,
-      rejectStatus: "RolledBack",
-      allowDraft: true,
-    });
 
     const [updated] = await this.db
       .update(changes)
       .set({
-        status: decision.nextStatus,
+        status: "RolledBack",
         approvedBy: user.userId,
         approvedAt: new Date(),
         updatedAt: new Date(),
@@ -528,6 +542,12 @@ export class ChangesService {
     }
 
     if (dto.status !== undefined) {
+      if (CHANGE_ACTION_STATUSES.has(dto.status)) {
+        throw new BadRequestException(
+          "Change actions are disabled; only Admin or Manager approval/rejection is allowed",
+        );
+      }
+
       const currentApi = DB_TO_API_STATUS[existing.status] ?? existing.status;
       if (
         !canTransitionChange(existing.status, dto.status) &&
@@ -538,8 +558,7 @@ export class ChangesService {
         );
       }
 
-      // Phase 9 [A04]: PendingApproval / Approved / Rolled Back use reports_to_id
-      // (same as approve/reject) — not project.manager_id.
+      // Phase 9: PendingApproval / Approved / Rolled Back use creator.reports_to_id.
       if (
         dto.status === "PendingApproval" ||
         dto.status === "Approved" ||
@@ -576,13 +595,12 @@ export class ChangesService {
           );
         }
       }
-
       const dbStatus = API_TO_DB_STATUS[dto.status];
       if (!dbStatus) {
         throw new BadRequestException(`Unknown status ${dto.status}`);
       }
       patch.status = dbStatus;
-      if (dto.status === "Approved") {
+      if (dto.status === "Approved" || dto.status === "Rolled Back") {
         patch.approvedBy = user.userId;
         patch.approvedAt = new Date();
       }

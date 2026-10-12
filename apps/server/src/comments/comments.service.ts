@@ -208,8 +208,10 @@ export class CommentsService {
         .select({
           id: serviceRequests.id,
           requesterId: serviceRequests.requesterId,
+          requesterReportsToId: users.reportsToId,
         })
         .from(serviceRequests)
+        .leftJoin(users, eq(serviceRequests.requesterId, users.id))
         .where(eq(serviceRequests.id, ticketId))
         .limit(1);
       if (!row) throw new NotFoundException("Service request not found");
@@ -219,19 +221,39 @@ export class CommentsService {
       ) {
         throw new ForbiddenException("Cannot access this service request");
       }
+      if (
+        user.role === "Manager" &&
+        row.requesterReportsToId !== user.userId
+      ) {
+        throw new ForbiddenException("Cannot access this service request");
+      }
       return;
     }
 
     if (ticketType === "change") {
-      if (user.role === "EndUser") {
-        throw new ForbiddenException("EndUser cannot access changes");
-      }
       const [row] = await this.db
-        .select({ id: changes.id })
+        .select({
+          id: changes.id,
+          createdBy: changes.createdBy,
+          creatorReportsToId: users.reportsToId,
+        })
         .from(changes)
+        .leftJoin(users, eq(changes.createdBy, users.id))
         .where(eq(changes.id, ticketId))
         .limit(1);
       if (!row) throw new NotFoundException("Change not found");
+      if (
+        user.role === "EndUser" &&
+        row.createdBy !== user.userId
+      ) {
+        throw new ForbiddenException("Cannot access this change");
+      }
+      if (
+        user.role === "Manager" &&
+        row.creatorReportsToId !== user.userId
+      ) {
+        throw new ForbiddenException("Cannot access this change");
+      }
       return;
     }
 

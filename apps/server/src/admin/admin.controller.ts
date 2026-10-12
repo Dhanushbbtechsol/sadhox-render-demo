@@ -16,6 +16,7 @@ import { Throttle } from "@nestjs/throttler";
 import { IsIn, IsOptional } from "class-validator";
 import type { Response } from "express";
 import { Roles } from "../common/decorators/roles.decorator";
+import { THROTTLE_DESK_REPORT } from "../common/throttle.constants";
 import { AdminService } from "./admin.service";
 import { ChartRangeQueryDto } from "./dto/chart-range-query.dto";
 import { DeskReportQueryDto } from "./dto/desk-report-query.dto";
@@ -53,7 +54,7 @@ export class AdminController {
 
   @Get("dashboard/report")
   @Roles("Admin")
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle(THROTTLE_DESK_REPORT)
   @Header("Cache-Control", "no-store")
   @ApiOperation({
     summary:

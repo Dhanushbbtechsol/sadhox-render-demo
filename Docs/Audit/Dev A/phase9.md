@@ -1,5 +1,11 @@
 # Security Audit: Dev A (Phase 9)
 
-Audit 2026-10-09. Combined: [phase9.md](../phase9.md). **PASS / CLEAN.**
+Reaudit remediation 2026-10-10. Combined: [phase9.md](../phase9.md). **PASS / CLEAN.**
 
-Incident and problem create forms do not send `projectId` or `moduleId`. EndUser incident list stays own tickets. The incident page still uses shared `POST /comments` and the existing status PATCH. No second mail call in the web app.
+EndUser may create a change and comment only on their own change. Schedule, implement, and close stay disabled.
+
+## High — Resolved
+
+### [A01 / A04] Change approve skips the creator's manager — **FIXED**
+
+`ChangesService.approve`, `reject`, and the `PendingApproval` / `Approved` / `Rolled Back` branch of `update` call `resolveOrgApprovalActor` then `nextApproval`. Manager must be the creator’s `reports_to_id`. Admin cannot skip that manager on `Submitted`. Manager list/get are scoped to `reports_to_id` (no project fallback).
