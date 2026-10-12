@@ -3,6 +3,7 @@ import {
   canAssignIncident,
   canLinkProblems,
   canMutateIncident,
+  canReopenTicket,
   canSetIncidentAssignee,
 } from "./incident-rbac";
 
@@ -43,6 +44,13 @@ describe("Incident RBAC helpers (Phase 6 Manager)", () => {
     expect(canSetIncidentAssignee("Agent", assigneeProjectId("project-1", null))).toBe(
       false,
     );
+  });
+
+  it("lets only the reporter reopen a resolved ticket", () => {
+    expect(canReopenTicket("user-1", "user-1", "Resolved")).toBe(true);
+    expect(canReopenTicket("user-2", "user-1", "Resolved")).toBe(false);
+    expect(canReopenTicket("user-1", "user-1", "Closed")).toBe(false);
+    expect(canReopenTicket("user-1", "user-1", "InProgress")).toBe(false);
   });
 
   it("uses the destination project when the ticket has none yet", () => {

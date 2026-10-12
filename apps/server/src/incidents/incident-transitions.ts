@@ -6,7 +6,8 @@ import type { IncidentStatus } from "../database/schema";
  * New → Assigned (on agent assignment)
  * Assigned → InProgress
  * InProgress → Resolved (requires resolution notes)
- * Resolved → Closed
+ * Resolved → Closed, or Resolved → Assigned when the reporter reopens it
+ * Closed is terminal
  */
 export const INCIDENT_ALLOWED_TRANSITIONS: Record<
   IncidentStatus,
@@ -15,7 +16,7 @@ export const INCIDENT_ALLOWED_TRANSITIONS: Record<
   New: ["Assigned"],
   Assigned: ["InProgress"],
   InProgress: ["Resolved"],
-  Resolved: ["Closed"],
+  Resolved: ["Closed", "Assigned"],
   Closed: [],
 };
 

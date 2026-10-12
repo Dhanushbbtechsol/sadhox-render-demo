@@ -158,6 +158,24 @@ export function useAssignIncident(incidentId: string) {
   });
 }
 
+export function useReopenIncident(incidentId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<Incident>(`/incidents/${incidentId}/reopen`, {
+        method: "POST",
+      }),
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: incidentsKey });
+      queryClient.setQueryData(
+        [...incidentsKey, incidentId, useAuthStore.getState().user?.id],
+        data,
+      );
+    },
+  });
+}
+
 export function useUpdateIncident(incidentId: string) {
   const queryClient = useQueryClient();
 

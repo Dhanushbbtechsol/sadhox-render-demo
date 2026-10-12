@@ -44,6 +44,7 @@ import {
 import {
   assigneeProjectId,
   canMutateIncident,
+  canReopenTicket,
   canSetIncidentAssignee,
 } from "./incident-rbac";
 import {
@@ -433,6 +434,61 @@ export class IncidentsService {
     } catch {
       // Assignment succeeded; mail enqueue failures are logged by MailService.
     }
+
+    const detail = await this.get(user, id);
+    this.events.emitTicketUpdated(id, detail);
+    return detail;
+  }
+
+  async reopen(user: AuthUser, id: string) {
+    const existing = await this.loadIncidentRow(id);
+    if (!existing) throw new NotFoundException("Incident not found");
+    if (
+      !canReopenTicket(
+        user.userId,
+        existing.incident.reporterId,
+        existing.incident.status,
+      )
+    ) {
+      throw new ForbiddenException(
+        existing.incident.status === "Closed"
+          ? "A closed ticket cannot be reopened"
+          : "Only the person who opened a resolved ticket can reopen it",
+      );
+    }
+
+    try {
+      assertCanTransitionIncident(existing.incident.status, "Assigned");
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : "Invalid status transition",
+      );
+    }
+
+    const now = new Date();
+    const resolveMinutes = await this.lookupResolveMinutes(
+      existing.incident.priority,
+    );
+    const slaDueAt = this.priorityCalc.resolveDueAt(
+      existing.incident.priority,
+      now,
+      resolveMinutes,
+    );
+
+    const [updated] = await this.db
+      .update(incidents)
+      .set({
+        status: "Assigned",
+        resolvedAt: null,
+        closedAt: null,
+        slaDueAt,
+        slaBreached: false,
+        updatedAt: now,
+      })
+      .where(eq(incidents.id, id))
+      .returning();
+
+    if (!updated) throw new NotFoundException("Incident not found");
 
     const detail = await this.get(user, id);
     this.events.emitTicketUpdated(id, detail);

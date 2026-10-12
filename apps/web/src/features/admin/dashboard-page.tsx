@@ -266,7 +266,7 @@ export default function DashboardPage() {
         <section className="bg-card ring-foreground/10 flex min-w-0 flex-col gap-4 overflow-hidden rounded-xl p-5 ring-1">
           <div>
             <h2 className="text-base font-semibold tracking-tight">Response time met</h2>
-            <p className="text-muted-foreground text-sm">Resolved incidents in range</p>
+            <p className="text-muted-foreground text-sm">Resolved tickets in range</p>
           </div>
           {slaRate.isLoading ? <Skeleton className="h-40" /> : null}
           {slaRate.data ? <SlaGauge rate={slaRate.data.rate} met={slaRate.data.met} breached={slaRate.data.breached} /> : null}

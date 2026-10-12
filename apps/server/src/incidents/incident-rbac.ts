@@ -22,6 +22,15 @@ export function canSetIncidentAssignee(
   return canAssignIncident(role);
 }
 
+/** Reporter only, and only while the ticket is Resolved. Closed stays terminal. */
+export function canReopenTicket(
+  userId: string,
+  reporterId: string,
+  status: string,
+): boolean {
+  return userId === reporterId && status === "Resolved";
+}
+
 /** Current project wins so a same-request detach cannot skip the Admin gate. */
 export function assigneeProjectId(
   currentProjectId: string | null,

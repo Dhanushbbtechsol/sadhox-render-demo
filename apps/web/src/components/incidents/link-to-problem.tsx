@@ -48,7 +48,7 @@ export function LinkToProblem({ incidentId }: { incidentId: string }) {
     const selected = problems.find((p) => p.id === problemId);
     if (!selected) return;
     if (selected.linkedIncidentIds.includes(incidentId)) {
-      toast.message("Already linked to this problem");
+      toast.message("Already linked to this issue");
       setOpen(false);
       return;
     }
@@ -61,7 +61,7 @@ export function LinkToProblem({ incidentId }: { incidentId: string }) {
       );
       void queryClient.invalidateQueries({ queryKey: ["problems"] });
       void queryClient.invalidateQueries({ queryKey: ["incidents"] });
-      toast.success("Incident linked to problem");
+      toast.success("Ticket linked to issue");
       setOpen(false);
       setProblemId("");
     } catch (err) {
@@ -80,37 +80,37 @@ export function LinkToProblem({ incidentId }: { incidentId: string }) {
       }}
     >
       <DialogTrigger render={<Button size="sm" variant="outline" />}>
-        Link to problem
+        Link to issue
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Link to problem</DialogTitle>
+          <DialogTitle>Link to issue</DialogTitle>
           <DialogDescription>
-            Attach this incident to an existing problem record for root-cause tracking.
+            Attach this ticket to an existing issue for root-cause tracking.
           </DialogDescription>
         </DialogHeader>
         <Select
           items={
             problems.length === 0
-              ? { __none: "No problems yet" }
+              ? { __none: "No issues yet" }
               : problemItems
           }
           value={problemId || null}
           onValueChange={(v) => setProblemId(v ?? "")}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Select problem…">
+            <SelectValue placeholder="Select issue…">
               {(value: string | null) =>
                 value && value in problemItems
                   ? problemItems[value]
-                  : "Select problem…"
+                  : "Select issue…"
               }
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {problems.length === 0 ? (
-              <SelectItem value="__none" disabled label="No problems yet">
-                No problems yet
+              <SelectItem value="__none" disabled label="No issues yet">
+                No issues yet
               </SelectItem>
             ) : (
               problems.map((problem) => (

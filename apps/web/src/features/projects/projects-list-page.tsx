@@ -195,7 +195,15 @@ export default function ProjectsListPage() {
             <TableBody>
               {paged.items.map((project) => (
                 <TableRow key={project.id}>
-                  <TableCell className="font-medium">{project.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <button
+                      type="button"
+                      className="text-left hover:underline"
+                      onClick={() => openSummary(project)}
+                    >
+                      {project.name}
+                    </button>
+                  </TableCell>
                   <TableCell>
                     {resolveManagerLabel(project.managerId, project.managerName)}
                   </TableCell>

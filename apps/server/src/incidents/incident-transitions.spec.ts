@@ -18,6 +18,13 @@ describe("incident status transitions", () => {
     expect(canTransitionIncident("New", "Resolved")).toBe(false);
     expect(canTransitionIncident("Assigned", "Closed")).toBe(false);
     expect(canTransitionIncident("Closed", "New")).toBe(false);
+    expect(canTransitionIncident("Closed", "Assigned")).toBe(false);
+  });
+
+  it("lets a resolved ticket return to Assigned, and keeps Closed terminal", () => {
+    expect(canTransitionIncident("Resolved", "Assigned")).toBe(true);
+    expect(canTransitionIncident("Resolved", "Closed")).toBe(true);
+    expect(INCIDENT_ALLOWED_TRANSITIONS.Closed).toEqual([]);
   });
 
   it("allows no-op same-status updates", () => {

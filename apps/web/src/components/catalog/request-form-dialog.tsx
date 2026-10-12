@@ -69,7 +69,7 @@ export function RequestFormBody({
           urgency,
           fields,
         });
-        toast.success("Service request submitted");
+        toast.success("Request submitted");
         onOpenChange(false);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to submit request");

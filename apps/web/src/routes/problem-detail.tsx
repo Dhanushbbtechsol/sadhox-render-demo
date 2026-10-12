@@ -26,12 +26,12 @@ export default function ProblemDetailPage() {
   if (isError || !data) {
     return (
       <EmptyState
-        title="Problem not found"
+        title="Issue not found"
         description={
-          error instanceof Error ? error.message : "This problem does not exist."
+          error instanceof Error ? error.message : "This issue does not exist."
         }
         action={
-          <Button render={<Link to="/problems" />}>Back to problems</Button>
+          <Button render={<Link to="/problems" />}>Back to issues</Button>
         }
       />
     );
@@ -55,7 +55,7 @@ export default function ProblemDetailPage() {
         className="-ml-2"
       >
         <ArrowLeftIcon />
-        Back to problems
+        Back to issues
       </Button>
 
       <Card className="overflow-hidden">
@@ -127,7 +127,7 @@ export default function ProblemDetailPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold tracking-tight">
-                Affected incidents
+                Affected tickets
               </h3>
               <p className="text-muted-foreground text-xs">
                 {linked.length} linked ticket{linked.length === 1 ? "" : "s"}
@@ -138,8 +138,8 @@ export default function ProblemDetailPage() {
 
           {linked.length === 0 ? (
             <EmptyState
-              title="No linked incidents"
-              description="Use Link incidents to attach related tickets."
+              title="No linked tickets"
+              description="Use Link tickets to attach related tickets."
             />
           ) : (
             <ul className="space-y-2">

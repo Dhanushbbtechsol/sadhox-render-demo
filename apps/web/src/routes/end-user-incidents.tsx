@@ -32,7 +32,7 @@ export default function EndUserIncidentsPage() {
       <div className="from-primary/10 via-card to-card border-border/80 relative overflow-hidden rounded-2xl border bg-gradient-to-br p-5 shadow-soft sm:p-6 animate-in-up">
         <div className="relative z-10 flex flex-wrap items-end justify-between gap-4">
           <div className="space-y-1.5">
-            <h1 className="text-2xl font-semibold tracking-tight">Incidents</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Tickets</h1>
             <p className="text-muted-foreground max-w-md text-sm">
               Report an issue and track status of your tickets without leaving this page.
             </p>

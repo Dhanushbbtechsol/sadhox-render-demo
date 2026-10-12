@@ -63,7 +63,7 @@ export default function KnowledgePage() {
       <Tabs defaultValue="articles" className="gap-4">
         <TabsList>
           <TabsTrigger value="articles">Articles</TabsTrigger>
-          <TabsTrigger value="catalog">Service catalog</TabsTrigger>
+          <TabsTrigger value="catalog">Catalog</TabsTrigger>
         </TabsList>
 
         <TabsContent value="articles" className="space-y-4">
@@ -181,7 +181,7 @@ export default function KnowledgePage() {
         <TabsContent value="catalog" className="space-y-3">
           <div className="space-y-1">
             <h2 className="text-sm font-semibold tracking-tight">
-              Service catalog reference
+              Catalog reference
             </h2>
             <p className="text-muted-foreground text-sm">
               Read-only descriptions of active catalog services, grouped by

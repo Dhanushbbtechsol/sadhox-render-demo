@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
 import { TicketComments } from "@/components/comments/ticket-comments";
+import { ReopenTicketButton } from "@/components/incidents/incident-actions";
 import { SlaCountdown } from "@/components/incidents/sla-countdown";
 import { RelatedArticles } from "@/components/knowledge/related-articles";
 import { PriorityBadge } from "@/components/priority-badge";
@@ -29,12 +30,12 @@ export default function PortalIncidentDetailPage() {
   if (isError || !data) {
     return (
       <EmptyState
-        title="Incident not found"
+        title="Ticket not found"
         description={
           error instanceof Error ? error.message : "This ticket does not exist."
         }
         action={
-          <Button render={<Link to="/incidents" />}>Back to incidents</Button>
+          <Button render={<Link to="/incidents" />}>Back to tickets</Button>
         }
       />
     );
@@ -49,7 +50,7 @@ export default function PortalIncidentDetailPage() {
         className="-ml-2"
       >
         <ArrowLeftIcon />
-        Back to incidents
+        Back to tickets
       </Button>
 
       <Card className="overflow-hidden">
@@ -76,6 +77,8 @@ export default function PortalIncidentDetailPage() {
           <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap">
             {data.description}
           </p>
+
+          <ReopenTicketButton incident={data} />
 
           <SlaCountdown
             slaDueAt={data.slaDueAt}

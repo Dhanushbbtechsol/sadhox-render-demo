@@ -76,7 +76,7 @@ export default function AdminCatalogPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold">Service catalog admin</h1>
+          <h1 className="text-xl font-semibold">Catalog admin</h1>
           <p className="text-sm text-muted-foreground">
             Create, edit, and deactivate catalog items. Inactive items stay
             hidden from End User browse.

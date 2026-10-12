@@ -97,15 +97,15 @@ export default function ProblemsPage() {
 
       {isError ? (
         <EmptyState
-          title="Could not load problems"
+          title="Could not load issues"
           description={error instanceof Error ? error.message : "Unknown error"}
         />
       ) : null}
 
       {!isLoading && !isError && problems?.length === 0 ? (
         <EmptyState
-          title="No problems recorded"
-          description="Problem records will appear here once agents link recurring incidents."
+          title="No issues recorded"
+          description="Issues will appear here once agents link recurring tickets."
         />
       ) : null}
 
@@ -159,7 +159,7 @@ export default function ProblemsPage() {
             totalPages={totalPages}
             total={meta?.total ?? problems.length}
             onPageChange={setPage}
-            label="problems"
+            label="issues"
           />
         </div>
       ) : null}

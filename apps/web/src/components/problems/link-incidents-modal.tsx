@@ -46,7 +46,7 @@ export function LinkIncidentsModal({ problem }: { problem: Problem }) {
       await update.mutateAsync({
         linkedIncidentIds: [...selected],
       });
-      toast.success("Linked incidents updated");
+      toast.success("Linked tickets updated");
       setOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Link failed");
@@ -64,18 +64,18 @@ export function LinkIncidentsModal({ problem }: { problem: Problem }) {
       <DialogTrigger
         render={<Button size="sm" variant="outline" />}
       >
-        Link incidents
+        Link tickets
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Link related incidents</DialogTitle>
+          <DialogTitle>Link related tickets</DialogTitle>
           <DialogDescription>
-            Select incident tickets affected by this problem.
+            Select tickets affected by this issue.
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
           {sorted.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No incidents found.</p>
+            <p className="text-muted-foreground text-sm">No tickets found.</p>
           ) : (
             sorted.map((incident) => {
               const checked = selected.has(incident.id);

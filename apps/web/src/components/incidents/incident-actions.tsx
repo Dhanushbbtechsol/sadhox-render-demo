@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   useAgents,
   useAssignIncident,
+  useReopenIncident,
   useUpdateIncident,
 } from "@/hooks/use-tickets";
 import { useAuthStore } from "@/stores/auth-store";
@@ -22,6 +23,35 @@ import {
   type Incident,
   type IncidentStatus,
 } from "@/types/itsm";
+
+export function ReopenTicketButton({ incident }: { incident: Incident }) {
+  const user = useAuthStore((s) => s.user);
+  const reopen = useReopenIncident(incident.id);
+  if (incident.status !== "Resolved" || user?.id !== incident.reporterId) {
+    return null;
+  }
+
+  async function handleReopen() {
+    try {
+      await reopen.mutateAsync();
+      toast.success("Ticket reopened");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Reopen failed");
+    }
+  }
+
+  return (
+    <div className="border-border/80 bg-muted/30 space-y-2 rounded-xl border p-4">
+      <p className="text-muted-foreground text-sm">
+        If this happened again, reopen the ticket. It goes back to Assigned and
+        follows the same steps. A closed ticket cannot be reopened.
+      </p>
+      <Button size="sm" disabled={reopen.isPending} onClick={() => void handleReopen()}>
+        Reopen ticket
+      </Button>
+    </div>
+  );
+}
 
 const NEXT_STATUS: Partial<Record<IncidentStatus, IncidentStatus>> = {
   Assigned: "InProgress",
@@ -122,7 +152,7 @@ export function IncidentActions({ incident }: { incident: Incident }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage, next, busy, resolutionNotes, incident.status]);
 
-  if (!canManage) return null;
+  if (!canManage || incident.status === "Closed") return null;
 
   const canAssign =
     (incident.status === "New" ||

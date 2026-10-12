@@ -135,12 +135,12 @@ export function DeskReportView({ report }: { report: DeskReport }) {
             hint="Resolved in period"
           />
           <KpiTile
-            label="Service requests open"
+            label="Requests open"
             value={report.kpis.serviceRequestsOpen}
             hint="Active request backlog"
           />
           <KpiTile
-            label="Service requests approved"
+            label="Requests approved"
             value={report.kpis.serviceRequestsApproved}
             hint="Approved in period"
           />

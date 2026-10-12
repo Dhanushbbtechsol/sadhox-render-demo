@@ -102,6 +102,20 @@ export class IncidentsController {
     return this.incidents.assign(user, id, dto);
   }
 
+  @Post(":id/reopen")
+  @HttpCode(200)
+  @Roles("Admin", "Agent", "Manager", "EndUser")
+  @ApiOperation({
+    summary:
+      "Reporter reopens a resolved ticket back to Assigned. Closed tickets stay closed.",
+  })
+  reopen(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.incidents.reopen(user, id);
+  }
+
   @Get(":id/comments")
   @Roles("Admin", "Agent", "Manager", "EndUser")
   @ApiOperation({ summary: "List comments for an incident" })

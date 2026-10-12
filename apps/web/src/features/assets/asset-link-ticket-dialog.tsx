@@ -101,8 +101,8 @@ export function AssetLinkTicketDialog({
 
         <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
           <div className="space-y-2">
-            <Label htmlFor="ticketId">Ticket ID (UUID)</Label>
-            <Input id="ticketId" placeholder="Incident UUID" {...form.register("ticketId")} />
+            <Label htmlFor="ticketId">Ticket id</Label>
+            <Input id="ticketId" placeholder="Ticket id" {...form.register("ticketId")} />
             {form.formState.errors.ticketId ? (
               <p className="text-destructive text-xs">
                 {form.formState.errors.ticketId.message}
@@ -122,8 +122,8 @@ export function AssetLinkTicketDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="incident">Incident</SelectItem>
-                <SelectItem value="service_request">Service request</SelectItem>
+                <SelectItem value="incident">Ticket</SelectItem>
+                <SelectItem value="service_request">Request</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -321,7 +321,7 @@ function AgentIncidentsPage() {
 
       {isError ? (
         <EmptyState
-          title="Could not load incidents"
+          title="Could not load tickets"
           description={error instanceof Error ? error.message : "Unknown error"}
         />
       ) : null}
@@ -330,8 +330,8 @@ function AgentIncidentsPage() {
         <EmptyState
           title={
             projectFilter !== "all"
-              ? "No incidents in this project"
-              : "No incidents yet"
+              ? "No tickets in this project"
+              : "No tickets yet"
           }
           description={
             projectFilter !== "all"
@@ -340,7 +340,7 @@ function AgentIncidentsPage() {
           }
           action={
             projectFilter === "all" ? (
-              <CreateIncidentDialog triggerLabel="Create first incident" />
+              <CreateIncidentDialog triggerLabel="Create first ticket" />
             ) : undefined
           }
         />
@@ -445,7 +445,7 @@ function AgentIncidentsPage() {
             totalPages={totalPages}
             total={meta?.total ?? incidents.length}
             onPageChange={setPage}
-            label="incidents"
+            label="tickets"
           />
         </div>
       ) : null}

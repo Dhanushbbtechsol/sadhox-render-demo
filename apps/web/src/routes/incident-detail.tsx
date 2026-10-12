@@ -2,7 +2,7 @@ import { ArrowLeftIcon, UserIcon } from "lucide-react";
 import { Link, useParams } from "react-router";
 
 import { EmptyState, TicketListSkeleton } from "@/components/empty-state";
-import { IncidentActions } from "@/components/incidents/incident-actions";
+import { IncidentActions, ReopenTicketButton } from "@/components/incidents/incident-actions";
 import { TicketComments } from "@/components/comments/ticket-comments";
 import { LinkToProblem } from "@/components/incidents/link-to-problem";
 import { CreateProblemDialog } from "@/components/problems/create-problem-dialog";
@@ -43,7 +43,7 @@ export default function IncidentDetailPage() {
   if (isError || !data) {
     return (
       <EmptyState
-        title="Incident not found"
+        title="Ticket not found"
         description={error instanceof Error ? error.message : "This ticket does not exist."}
         action={
           <Button render={<Link to="/incidents" />}>Back to queue</Button>
@@ -184,6 +184,7 @@ export default function IncidentDetailPage() {
             }}
           />
 
+          <ReopenTicketButton incident={data} />
           <IncidentActions incident={data} />
 
           <RelatedArticles ticketType="incident" ticketId={data.id} />
@@ -199,7 +200,7 @@ export default function IncidentDetailPage() {
               ) : null}
               {linkedAssets.data && linkedAssets.data.length === 0 ? (
                 <p className="text-muted-foreground text-sm">
-                  No assets linked to this incident.
+                  No assets linked to this ticket.
                 </p>
               ) : null}
               {linkedAssets.data && linkedAssets.data.length > 0 ? (

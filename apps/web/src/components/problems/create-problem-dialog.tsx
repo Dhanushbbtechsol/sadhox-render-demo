@@ -96,7 +96,7 @@ export function CreateProblemDialog({
   async function onSubmit(values: CreateProblemForm) {
     if (scopeConflict) {
       toast.error(
-        "Selected incidents must share the same project and module",
+        "Selected tickets must share the same project and module",
       );
       return;
     }
@@ -142,10 +142,10 @@ export function CreateProblemDialog({
       </DialogTrigger>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>Create problem</DialogTitle>
+          <DialogTitle>Create issue</DialogTitle>
           <DialogDescription>
             Link one or more related tickets. The issue inherits their
-            shared project when set; unscoped incidents stay in the global Agent
+            shared project when set; unscoped tickets stay in the global Agent
             pool.
           </DialogDescription>
         </DialogHeader>
@@ -193,7 +193,7 @@ export function CreateProblemDialog({
                 >
                   {loadingIncidents ? (
                     <p className="text-muted-foreground px-1 py-2 text-sm">
-                      Loading incidents…
+                      Loading tickets…
                     </p>
                   ) : incidentOptions.length === 0 ? (
                     <p className="text-muted-foreground px-1 py-2 text-sm">
@@ -239,16 +239,16 @@ export function CreateProblemDialog({
             ) : null}
             {scopeConflict ? (
               <p className="text-destructive text-xs">
-                Selected incidents must belong to the same project and module.
+                Selected tickets must belong to the same project and module.
               </p>
             ) : selectedIncidents.length > 0 && projectLabel ? (
               <p className="text-muted-foreground text-xs">
                 Project scope: {projectLabel}
                 {selectedIncidents[0]?.moduleId
-                  ? " (module from incident)"
+                  ? " (module from ticket)"
                   : null}
                 {selectedIncidents.length > 1
-                  ? ` · ${selectedIncidents.length} incidents selected`
+                  ? ` · ${selectedIncidents.length} tickets selected`
                   : null}
               </p>
             ) : selectedIncidents.length > 0 &&
@@ -257,7 +257,7 @@ export function CreateProblemDialog({
                 No project on selection — the problem will stay in the global
                 (unscoped) Agent pool
                 {selectedIncidents.length > 1
-                  ? ` · ${selectedIncidents.length} incidents selected`
+                  ? ` · ${selectedIncidents.length} tickets selected`
                   : null}
                 .
               </p>
@@ -277,7 +277,7 @@ export function CreateProblemDialog({
               type="submit"
               disabled={createProblem.isPending || scopeConflict}
             >
-              {createProblem.isPending ? "Creating…" : "Create problem"}
+              {createProblem.isPending ? "Creating…" : "Create issue"}
             </Button>
           </DialogFooter>
         </form>
