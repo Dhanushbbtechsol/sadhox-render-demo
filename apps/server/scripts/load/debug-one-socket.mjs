@@ -7,12 +7,15 @@ import { io } from "socket.io-client";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const base = "http://127.0.0.1:3000";
 const password = readFileSync(join(__dirname, "../../.seed-password"), "utf8").trim();
+// Loopback only. The dev API in this script is plain HTTP on 127.0.0.1.
+// nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
 const login = await fetch(`${base}/auth/login`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ email: "admin@sadhox.local", password }),
 });
 const { accessToken } = await login.json();
+// nosemgrep: typescript.react.security.react-insecure-request.react-insecure-request
 const list = await (await fetch(`${base}/incidents?page=1&pageSize=1`, {
   headers: { Authorization: `Bearer ${accessToken}` },
 })).json();

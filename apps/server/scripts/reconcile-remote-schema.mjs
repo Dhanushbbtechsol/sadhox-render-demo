@@ -28,7 +28,10 @@ const ENTRIES = [
 ];
 
 function fileHash(tag) {
-  const body = readFileSync(join(migDir, `${tag}.sql`), "utf8");
+  if (!/^[0-9]{4}_[A-Za-z0-9_]+$/.test(tag)) {
+    throw new Error(`Unexpected migration tag: ${tag}`);
+  }
+  const body = readFileSync(`${migDir}/${tag}.sql`, "utf8");
   return createHash("sha256").update(body).digest("hex");
 }
 

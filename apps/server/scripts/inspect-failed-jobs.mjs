@@ -86,7 +86,8 @@ for (const name of names) {
     }
   } catch (e) {
     console.error(
-      `QUEUE_ERR ${name}`,
+      "QUEUE_ERR %s %s",
+      name,
       e instanceof Error ? e.message : String(e),
     );
   } finally {

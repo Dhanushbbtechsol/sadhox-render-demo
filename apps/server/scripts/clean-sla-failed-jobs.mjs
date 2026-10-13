@@ -72,7 +72,8 @@ for (;;) {
     } catch (err) {
       removeErrors += 1;
       console.error(
-        `REMOVE_ERR id=${job.id}`,
+        "REMOVE_ERR id=%s %s",
+        job.id,
         err instanceof Error ? err.message : String(err),
       );
     }
