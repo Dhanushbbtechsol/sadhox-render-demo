@@ -12,12 +12,19 @@ import postgres from "postgres";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migDir = join(__dirname, "../drizzle/migrations");
 
+function migrationSqlPath(fileName) {
+  if (!/^[0-9]{4}_[A-Za-z0-9_]+\.sql$/.test(fileName)) {
+    throw new Error(`Unexpected migration file name: ${fileName}`);
+  }
+  return `${migDir}/${fileName}`;
+}
+
 const known = new Set(
   readdirSync(migDir)
     .filter((f) => f.endsWith(".sql"))
     .map((f) =>
       createHash("sha256")
-        .update(readFileSync(join(migDir, f), "utf8"))
+        .update(readFileSync(migrationSqlPath(f), "utf8"))
         .digest("hex"),
     ),
 );

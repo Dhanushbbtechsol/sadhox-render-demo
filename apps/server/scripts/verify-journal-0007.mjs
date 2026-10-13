@@ -19,8 +19,11 @@ const EXPECTED = [
 ];
 
 function fileHash(tag) {
+  if (!/^[0-9]{4}_[A-Za-z0-9_]+$/.test(tag)) {
+    throw new Error(`Unexpected migration tag: ${tag}`);
+  }
   return createHash("sha256")
-    .update(readFileSync(join(migDir, `${tag}.sql`), "utf8"))
+    .update(readFileSync(`${migDir}/${tag}.sql`, "utf8"))
     .digest("hex");
 }
 
