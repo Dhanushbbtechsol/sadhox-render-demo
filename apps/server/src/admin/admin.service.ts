@@ -21,7 +21,6 @@ import {
 import type { UserActivityQueryDto } from "./dto/user-activity-query.dto";
 import {
   buildTidyFiguresCsvDocument,
-  dashboardReportFilename,
   REPORT_ROW_CAP,
   REPORT_STATUS_FILTER,
   type ReportType,
