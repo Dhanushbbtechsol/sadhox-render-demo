@@ -1,4 +1,4 @@
-import { env } from "@sadhox/env/web";
+import { getServerUrl } from "@/lib/server-url";
 
 type RequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
@@ -87,7 +87,7 @@ export async function apiFetch<T>(
   const { body, skipAuth, headers, ...rest } = options;
 
   const makeRequest = (token: string | null) =>
-    fetch(`${env.VITE_SERVER_URL}${path}`, {
+    fetch(`${getServerUrl()}${path}`, {
       ...rest,
       credentials: "include",
       headers: {
@@ -174,7 +174,7 @@ export async function apiDownload(
   const { skipAuth, headers, ...rest } = options;
 
   const makeRequest = (token: string | null) =>
-    fetch(`${env.VITE_SERVER_URL}${path}`, {
+    fetch(`${getServerUrl()}${path}`, {
       ...rest,
       method: rest.method ?? "GET",
       credentials: "include",

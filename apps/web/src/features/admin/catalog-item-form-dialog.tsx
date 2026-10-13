@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -29,41 +29,15 @@ import {
 } from "@/hooks/use-service-catalog";
 import type { ServiceCatalogItem } from "@/types/api";
 
-const formFieldSchema = z.object({
-  name: z.string().min(1).max(64),
-  label: z.string().min(1).max(128),
-  type: z.enum(["text", "textarea", "select"]),
-  required: z.boolean(),
-  optionsText: z.string().optional(),
-});
-
 const catalogSchema = z.object({
   name: z.string().min(2).max(255),
   description: z.string().min(1).max(4000),
   department: z.string().min(1).max(128),
   subcategory: z.string().max(128).optional(),
   isActive: z.boolean(),
-  formFields: z.array(formFieldSchema).min(1),
 });
 
 type CatalogFormValues = z.infer<typeof catalogSchema>;
-
-const DEFAULT_FIELDS: CatalogFormValues["formFields"] = [
-  {
-    name: "justification",
-    label: "Justification",
-    type: "textarea",
-    required: true,
-    optionsText: "",
-  },
-  {
-    name: "urgency",
-    label: "Urgency",
-    type: "select",
-    required: true,
-    optionsText: "Low, Medium, High",
-  },
-];
 
 function toFormValues(item?: ServiceCatalogItem | null): CatalogFormValues {
   if (!item) {
@@ -73,7 +47,6 @@ function toFormValues(item?: ServiceCatalogItem | null): CatalogFormValues {
       department: "",
       subcategory: "",
       isActive: true,
-      formFields: DEFAULT_FIELDS,
     };
   }
   return {
@@ -82,38 +55,6 @@ function toFormValues(item?: ServiceCatalogItem | null): CatalogFormValues {
     department: item.department,
     subcategory: item.subcategory ?? "",
     isActive: item.isActive !== false,
-    formFields: item.formFields.map((field) => ({
-      name: field.name,
-      label: field.label,
-      type: field.type,
-      required: field.required !== false,
-      optionsText: field.options?.join(", ") ?? "",
-    })),
-  };
-}
-
-function toPayload(values: CatalogFormValues) {
-  const subcategory = values.subcategory?.trim() ?? "";
-  return {
-    name: values.name.trim(),
-    description: values.description.trim(),
-    department: values.department.trim(),
-    subcategory: subcategory.length > 0 ? subcategory : null,
-    isActive: values.isActive,
-    formFields: values.formFields.map((field) => ({
-      name: field.name.trim(),
-      label: field.label.trim(),
-      type: field.type,
-      required: field.required,
-      ...(field.type === "select"
-        ? {
-            options: (field.optionsText ?? "")
-              .split(",")
-              .map((o) => o.trim())
-              .filter(Boolean),
-          }
-        : {}),
-    })),
   };
 }
 
@@ -135,25 +76,27 @@ export function CatalogItemFormDialog({
     defaultValues: toFormValues(item),
   });
 
-  const fields = useFieldArray({
-    control: form.control,
-    name: "formFields",
-  });
-
   useEffect(() => {
     if (!open) return;
     form.reset(toFormValues(item));
   }, [form, item, open]);
 
   async function onSubmit(values: CatalogFormValues) {
-    const payload = toPayload(values);
+    const subcategory = values.subcategory?.trim() ?? "";
+    const base = {
+      name: values.name.trim(),
+      description: values.description.trim(),
+      department: values.department.trim(),
+      subcategory: subcategory.length > 0 ? subcategory : null,
+      isActive: values.isActive,
+    };
     try {
       if (isEdit && item) {
-        await updateItem.mutateAsync({ id: item.id, input: payload });
-        toast.success(`Updated ${payload.name}`);
+        await updateItem.mutateAsync({ id: item.id, input: base });
+        toast.success(`Updated ${base.name}`);
       } else {
-        await createItem.mutateAsync(payload);
-        toast.success(`Created ${payload.name}`);
+        await createItem.mutateAsync({ ...base, formFields: [] });
+        toast.success(`Created ${base.name}`);
       }
       onOpenChange(false);
     } catch (error) {
@@ -171,8 +114,8 @@ export function CatalogItemFormDialog({
             {isEdit ? "Edit catalog item" : "New catalog item"}
           </DialogTitle>
           <DialogDescription>
-            Configure name, department (category), optional subcategory, active
-            flag, and dynamic form fields.
+            Configure name, department (category), optional subcategory, and
+            active flag.
           </DialogDescription>
         </DialogHeader>
 
@@ -237,107 +180,6 @@ export function CatalogItemFormDialog({
                 </SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <Label>Form fields</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  fields.append({
-                    name: `field${fields.fields.length + 1}`,
-                    label: "New field",
-                    type: "text",
-                    required: true,
-                    optionsText: "",
-                  })
-                }
-              >
-                Add field
-              </Button>
-            </div>
-
-            {fields.fields.map((field, index) => (
-              <div
-                key={field.id}
-                className="border-border/80 space-y-2 rounded-lg border p-3"
-              >
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Input
-                    placeholder="name"
-                    {...form.register(`formFields.${index}.name`)}
-                  />
-                  <Input
-                    placeholder="label"
-                    {...form.register(`formFields.${index}.label`)}
-                  />
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Select
-                    value={form.watch(`formFields.${index}.type`)}
-                    onValueChange={(value) =>
-                      form.setValue(
-                        `formFields.${index}.type`,
-                        (value as "text" | "textarea" | "select") ?? "text",
-                      )
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="text">text</SelectItem>
-                      <SelectItem value="textarea">textarea</SelectItem>
-                      <SelectItem value="select">select</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={
-                      form.watch(`formFields.${index}.required`)
-                        ? "true"
-                        : "false"
-                    }
-                    onValueChange={(value) =>
-                      form.setValue(
-                        `formFields.${index}.required`,
-                        value === "true",
-                      )
-                    }
-                    items={{ true: "Required", false: "Optional" }}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="true" label="Required">
-                        Required
-                      </SelectItem>
-                      <SelectItem value="false" label="Optional">
-                        Optional
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {form.watch(`formFields.${index}.type`) === "select" ? (
-                  <Input
-                    placeholder="Options (comma-separated)"
-                    {...form.register(`formFields.${index}.optionsText`)}
-                  />
-                ) : null}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={fields.fields.length <= 1}
-                  onClick={() => fields.remove(index)}
-                >
-                  Remove field
-                </Button>
-              </div>
-            ))}
           </div>
 
           <DialogFooter>

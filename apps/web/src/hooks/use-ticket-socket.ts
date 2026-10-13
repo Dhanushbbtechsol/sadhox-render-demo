@@ -1,8 +1,8 @@
-import { env } from "@sadhox/env/web";
 import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
 
 import { getAccessToken } from "@/lib/api";
+import { getServerUrl } from "@/lib/server-url";
 
 type CommentCreatedHandler = (payload: unknown) => void;
 
@@ -23,7 +23,7 @@ export function useTicketSocket(
     const token = getAccessToken();
     if (!token) return;
 
-    const socket: Socket = io(env.VITE_SERVER_URL, {
+    const socket: Socket = io(getServerUrl(), {
       auth: { token },
       transports: ["websocket", "polling"],
       withCredentials: true,

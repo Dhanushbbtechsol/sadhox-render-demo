@@ -3,10 +3,41 @@ import { z } from "zod";
 const emptyToUndefined = (v: unknown) =>
   v === "" || v === undefined || v === null ? undefined : v;
 
+/** One URL or comma-separated allowlist (matches cors-io.adapter parsing). Never `*`. */
+const corsOriginSchema = z.string().min(1).superRefine((value, ctx) => {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "*") {
+    ctx.addIssue({
+      code: "custom",
+      message: 'CORS_ORIGIN must be one or more URLs (never "*")',
+    });
+    return;
+  }
+  const parts = trimmed
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  if (parts.length === 0 || parts.some((part) => part === "*")) {
+    ctx.addIssue({
+      code: "custom",
+      message: 'CORS_ORIGIN must be one or more URLs (never "*")',
+    });
+    return;
+  }
+  for (const part of parts) {
+    if (!z.string().url().safeParse(part).success) {
+      ctx.addIssue({
+        code: "custom",
+        message: `Invalid CORS_ORIGIN URL: ${part}`,
+      });
+    }
+  }
+});
+
 const envSchema = z
   .object({
     DATABASE_URL: z.string().min(1),
-    CORS_ORIGIN: z.string().url(),
+    CORS_ORIGIN: corsOriginSchema,
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
