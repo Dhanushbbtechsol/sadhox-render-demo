@@ -54,11 +54,20 @@ export type DashboardReportInput = {
   slaPerformance: DashboardReportSlaWeek[];
 };
 
+export const REPORT_MODULES = [
+  "tickets",
+  "issues",
+  "requests",
+  "changes",
+] as const;
+export type ReportModule = (typeof REPORT_MODULES)[number];
+
 export type TicketReportRow = {
   id: string;
   /** Display ref e.g. INC-000001 (Ticket ID column). */
   referenceCode: string;
-  module: "Incident" | "Service Request" | "Change";
+  /** Everyday labels in exports: Ticket / Issue / Request / Change request */
+  module: "Ticket" | "Issue" | "Request" | "Change request";
   title: string;
   status: string;
   priority: string | null;
@@ -208,9 +217,10 @@ export function assetReportFilename(
 }
 
 const MODULE_SORT_ORDER: Record<TicketReportRow["module"], number> = {
-  Incident: 0,
-  "Service Request": 1,
-  Change: 2,
+  Ticket: 0,
+  Issue: 1,
+  Request: 2,
+  "Change request": 3,
 };
 
 const STATUS_LABELS: Record<string, string> = {

@@ -155,6 +155,11 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["Admin"],
   },
   {
+    to: "/admin/reports",
+    label: "Reports",
+    roles: ["Admin"],
+  },
+  {
     to: "/admin/sla-rules",
     label: "Response time",
     roles: ["Admin"],

@@ -140,8 +140,7 @@ const PRESET_OPTIONS: { value: ChartRange; label: string }[] = [
   { value: "7d", label: "7 days" },
   { value: "30d", label: "30 days" },
   { value: "quarter", label: "Quarter" },
-  { value: "ytd", label: "YTD" },
-  { value: "year", label: "Year" },
+  { value: "year", label: "Last 12 months" },
 ];
 
 function formatWhen(iso: string) {
@@ -344,11 +343,11 @@ export function UserActivityReportSection() {
       <div className="border-border/70 space-y-4 rounded-xl border p-5">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">
-            Person activity report
+            User report
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Profile, tickets they reported, requests, change requests, assets
-            they hold, and audit actions for one person.
+            Any user, agent, manager, or admin — profile, tickets they reported,
+            requests, change requests, assets they hold, and audit actions.
           </p>
         </div>
 
@@ -371,14 +370,14 @@ export function UserActivityReportSection() {
         >
           <div className="space-y-4 sm:col-span-2 lg:col-span-1">
             <div className="space-y-1.5">
-              <Label>Person</Label>
+              <Label>User</Label>
               <Select
                 value={userId || null}
                 onValueChange={(value) => setUserId(value ?? "")}
                 items={personItems}
               >
                 <SelectTrigger className="w-full max-w-md">
-                  <SelectValue placeholder="Select a person" />
+                  <SelectValue placeholder="Select a user" />
                 </SelectTrigger>
                 <SelectContent>
                   {people.map((person) => (
@@ -469,9 +468,9 @@ export function UserActivityReportSection() {
       >
         <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
           <DialogHeader className="border-b px-6 py-4 text-left">
-            <DialogTitle>Person activity report</DialogTitle>
+            <DialogTitle>User report</DialogTitle>
             <DialogDescription>
-              Same tables as below go into Excel sheets / CSV files — Person,
+              Same tables as below go into Excel sheets / CSV files — User,
               Tickets reported, Requests, Change requests, Assets held, Audit
               log.
             </DialogDescription>
@@ -529,7 +528,7 @@ export function UserActivityReportSection() {
               <div className="grid gap-4">
                 <section className="border-border/70 space-y-2 rounded-xl border p-4 text-sm">
                   <h3 className="text-sm font-semibold tracking-tight">
-                    Person
+                    User
                   </h3>
                   <dl className="grid gap-1.5 sm:grid-cols-2">
                     <div>

@@ -23,6 +23,7 @@ import {
   buildTidyFiguresCsvDocument,
   REPORT_ROW_CAP,
   REPORT_STATUS_FILTER,
+  type ReportModule,
   type ReportType,
   type TicketReportRow,
 } from "./dashboard-report-csv";
@@ -186,34 +187,49 @@ export class AdminService {
     type: ReportType = "summary",
     actorId?: string,
     format: ReportFormat = "excel",
+    module?: ReportModule,
+    fromIso?: string,
+    toIso?: string,
   ): Promise<{
     body: string | Buffer;
     filename: string;
     contentType: string;
   }> {
     const now = new Date();
-    const { from, to } = resolveChartRange(rangePreset, now);
+    const { rangeLabel, from, to } = this.resolveReportWindow(
+      rangePreset,
+      fromIso,
+      toIso,
+      now,
+    );
 
     if (type === "summary") {
       return this.buildSummaryReport(rangePreset, from, to, now, format, actorId);
     }
 
     if (type === "assets") {
-      return this.buildAssetsReport(rangePreset, from, to, now, format, actorId);
+      return this.buildAssetsReport(rangeLabel, from, to, now, format, actorId);
     }
 
-    const tickets = await this.fetchReportTickets(type, from, to, this.db);
+    const tickets = await this.fetchReportTickets(
+      type,
+      from,
+      to,
+      this.db,
+      module,
+    );
     if (tickets.length > REPORT_ROW_CAP) {
       throw new UnprocessableEntityException(
         `Report exceeds ${REPORT_ROW_CAP} rows. Narrow the range or use format=csv on a smaller type.`,
       );
     }
     if (actorId) {
-      await this.writeReportAudit(actorId, type, format, rangePreset, tickets.length);
+      await this.writeReportAudit(actorId, type, format, rangeLabel, tickets.length);
     }
+    const reportSlug = module ? `${module}-${type}` : `tickets-${type}`;
     if (format === "excel") {
       return buildTicketExportXlsx(tickets, {
-        range: rangePreset,
+        range: rangeLabel,
         from,
         to,
         type,
@@ -223,7 +239,7 @@ export class AdminService {
     return {
       body: buildTicketExportCsv(tickets),
       filename: exportFilename({
-        report: `tickets-${type}`,
+        report: reportSlug,
         scope: "all",
         from,
         to,
@@ -234,9 +250,33 @@ export class AdminService {
     };
   }
 
+  private resolveReportWindow(
+    rangePreset: ChartRangePreset,
+    fromIso: string | undefined,
+    toIso: string | undefined,
+    now: Date,
+  ): { rangeLabel: string; from: Date; to: Date } {
+    if (fromIso || toIso) {
+      try {
+        const resolved = resolveActivityRange("custom", fromIso, toIso, now);
+        return { rangeLabel: "custom", from: resolved.from, to: resolved.to };
+      } catch (error) {
+        throw new BadRequestException(
+          error instanceof Error ? error.message : "Invalid from/to range",
+        );
+      }
+    }
+    const resolved = resolveChartRange(rangePreset, now);
+    return {
+      rangeLabel: resolved.range,
+      from: resolved.from,
+      to: resolved.to,
+    };
+  }
+
   /** Assets created in the selected dashboard range. */
   private async buildAssetsReport(
-    rangePreset: ChartRangePreset,
+    rangeLabel: string,
     from: Date,
     to: Date,
     now: Date,
@@ -278,14 +318,14 @@ export class AdminService {
         actorId,
         "assets",
         format,
-        rangePreset,
+        rangeLabel,
         rows.length,
       );
     }
 
     if (format === "excel") {
       return buildAssetExportXlsx(rows, {
-        range: rangePreset,
+        range: rangeLabel,
         from,
         to,
         generatedAt: now,
@@ -310,7 +350,7 @@ export class AdminService {
     actorId: string,
     type: ReportType,
     format: ReportFormat,
-    range: ChartRangePreset,
+    range: string,
     rowCount: number,
   ) {
     await this.db.insert(auditLog).values({
@@ -318,7 +358,7 @@ export class AdminService {
       action: "report.export",
       entityType: "dashboard_report",
       entityId: null,
-      diff: { type, format, range, rowCount },
+      diff: { event: "REPORT_EXPORTED", type, format, range, rowCount },
     });
   }
 
@@ -354,7 +394,7 @@ export class AdminService {
         const rangeOpen = byModule.reduce((sum, m) => sum + m.open, 0);
         const rangeClosed = byModule.reduce((sum, m) => sum + m.closed, 0);
         const p1InRange = tickets.filter(
-          (t) => t.module === "Incident" && t.priority === "P1",
+          (t) => t.module === "Ticket" && t.priority === "P1",
         ).length;
 
         const overview: OverviewMetric[] = [
@@ -491,6 +531,7 @@ export class AdminService {
     from: Date,
     to: Date,
     db: DrizzleDB,
+    module?: ReportModule,
   ): Promise<TicketReportRow[]> {
     const statusFilter =
       type === "all" ? null : REPORT_STATUS_FILTER[type];
@@ -499,13 +540,23 @@ export class AdminService {
     const srStatuses = statusFilter?.serviceRequests;
     const changeStatuses = statusFilter?.changes;
 
-    const fetchIncidents =
-      type === "all" || (incidentStatuses && incidentStatuses.length > 0);
-    const fetchSr = type === "all" || (srStatuses && srStatuses.length > 0);
-    const fetchChanges =
-      type === "all" || (changeStatuses && changeStatuses.length > 0);
+    const wantTickets = !module || module === "tickets";
+    const wantIssues = !module || module === "issues";
+    const wantRequests = !module || module === "requests";
+    const wantChanges = !module || module === "changes";
 
-    const [incidentRows, srRows, changeRows] = await Promise.all([
+    const fetchIncidents =
+      wantTickets &&
+      (type === "all" || (incidentStatuses && incidentStatuses.length > 0));
+    const fetchProblems = wantIssues && type === "all";
+    const fetchSr =
+      wantRequests &&
+      (type === "all" || (srStatuses && srStatuses.length > 0));
+    const fetchChanges =
+      wantChanges &&
+      (type === "all" || (changeStatuses && changeStatuses.length > 0));
+
+    const [incidentRows, problemRows, srRows, changeRows] = await Promise.all([
       fetchIncidents
         ? this.queryIncidentReportRows(
             db,
@@ -513,6 +564,9 @@ export class AdminService {
             to,
             type === "all" ? undefined : incidentStatuses,
           )
+        : Promise.resolve([] as TicketReportRow[]),
+      fetchProblems
+        ? this.queryProblemReportRows(db, from, to)
         : Promise.resolve([] as TicketReportRow[]),
       fetchSr
         ? this.queryServiceRequestReportRows(
@@ -532,7 +586,7 @@ export class AdminService {
         : Promise.resolve([] as TicketReportRow[]),
     ]);
 
-    return [...incidentRows, ...srRows, ...changeRows];
+    return [...incidentRows, ...problemRows, ...srRows, ...changeRows];
   }
 
   private async queryVolumeByModule(
@@ -841,7 +895,7 @@ export class AdminService {
     return rows.map((row) => ({
       id: row.id,
       referenceCode: row.referenceCode ?? "",
-      module: "Incident" as const,
+      module: "Ticket" as const,
       title: row.title,
       status: row.status,
       priority: row.priority,
@@ -857,6 +911,54 @@ export class AdminService {
       slaBreached: row.slaBreached,
       resolvedAt: row.resolvedAt,
       closedAt: row.closedAt,
+      approvedAt: null,
+      description: row.description,
+    }));
+  }
+
+  private async queryProblemReportRows(
+    db: DrizzleDB,
+    from: Date,
+    to: Date,
+  ): Promise<TicketReportRow[]> {
+    const assignee = alias(users, "report_problem_assignee");
+    const rows = await db
+      .select({
+        id: problems.id,
+        referenceCode: problems.referenceCode,
+        title: problems.title,
+        status: problems.status,
+        projectName: projects.name,
+        assignedTo: assignee.name,
+        createdAt: problems.createdAt,
+        updatedAt: problems.updatedAt,
+        description: problems.description,
+      })
+      .from(problems)
+      .leftJoin(projects, eq(problems.projectId, projects.id))
+      .leftJoin(assignee, eq(problems.assignedTo, assignee.id))
+      .where(and(gte(problems.createdAt, from), lte(problems.createdAt, to)))
+      .limit(REPORT_ROW_CAP + 1);
+
+    return rows.map((row) => ({
+      id: row.id,
+      referenceCode: row.referenceCode ?? "",
+      module: "Issue" as const,
+      title: row.title,
+      status: row.status,
+      priority: null,
+      category: null,
+      subcategory: null,
+      projectName: row.projectName,
+      assignedTo: row.assignedTo,
+      raisedBy: null,
+      approvedBy: null,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      slaDueAt: null,
+      slaBreached: null,
+      resolvedAt: null,
+      closedAt: null,
       approvedAt: null,
       description: row.description,
     }));
@@ -926,7 +1028,7 @@ export class AdminService {
     return rows.map((row) => ({
       id: row.id,
       referenceCode: row.referenceCode ?? "",
-      module: "Service Request" as const,
+      module: "Request" as const,
       title: row.title,
       status: row.status,
       priority: row.urgency,
@@ -1005,7 +1107,7 @@ export class AdminService {
     return rows.map((row) => ({
       id: row.id,
       referenceCode: row.referenceCode ?? "",
-      module: "Change" as const,
+      module: "Change request" as const,
       title: row.title,
       status: row.status,
       priority: null,

@@ -88,8 +88,9 @@ export class TicketLifecycleProcessor extends WorkerHost {
       entityType: "incident",
       entityId: ticket.id,
       diff: redactAuditValue({
-        fromStatus: "Resolved",
-        toStatus: "Closed",
+        event: "STATUS_CHANGED",
+        title: ticket.title,
+        status: { before: "Resolved", after: "Closed" },
         reason: "auto-close after inactivity window",
         resolvedAt: ticket.resolvedAt?.toISOString() ?? null,
         system: true,

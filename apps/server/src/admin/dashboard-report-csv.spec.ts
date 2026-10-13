@@ -163,7 +163,7 @@ describe("dashboard-report-csv", () => {
       {
         id: "11111111-1111-4111-8111-111111111111",
         referenceCode: "INC-000001",
-        module: "Incident",
+        module: "Ticket",
         title: "=HACK()",
         status: "InProgress",
         priority: "P2",
@@ -185,7 +185,7 @@ describe("dashboard-report-csv", () => {
       {
         id: "22222222-2222-4222-8222-222222222222",
         referenceCode: "REQ-000002",
-        module: "Service Request",
+        module: "Request",
         title: "Laptop",
         status: "InFulfillment",
         priority: "High",

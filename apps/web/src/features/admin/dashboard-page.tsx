@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { DownloadIcon, EyeIcon, ListFilterIcon, TrendingUp } from "lucide-react";
-import { toast } from "sonner";
+import { ListFilterIcon, TrendingUp } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -24,12 +23,6 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -42,14 +35,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-import { DeskReportView } from "./desk-report-view";
-import {
-  DASHBOARD_REPORT_TYPES,
-  downloadDashboardReport,
-  downloadDeskReport,
-  fetchDeskReport,
-  type DashboardReportType,
-} from "./export-dashboard-csv";
 import {
   useAdminStats,
   useChartSlaCompliance,
@@ -57,11 +42,7 @@ import {
   useChartVolumeByModule,
 } from "./hooks";
 import { KpiCard } from "./kpi-card";
-import {
-  REPORT_DOWNLOAD_FORMATS,
-  type ReportDownloadFormat,
-} from "./report-download";
-import type { ChartRange, DeskReport, StatusDistributionRow } from "./types";
+import type { ChartRange, StatusDistributionRow } from "./types";
 
 const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
   { value: "7d", label: "7 days" },
@@ -109,59 +90,10 @@ const DONUT_COLORS = [
 
 export default function DashboardPage() {
   const [range, setRange] = useState<ChartRange>("30d");
-  const [reportLoading, setReportLoading] = useState(false);
-  const [viewOpen, setViewOpen] = useState(false);
-  const [deskReport, setDeskReport] = useState<DeskReport | null>(null);
   const stats = useAdminStats();
   const volume = useChartVolumeByModule(range);
   const statusDist = useChartStatusDistribution(range);
   const slaRate = useChartSlaCompliance(range);
-
-  async function handleGenerateReport(
-    type: DashboardReportType,
-    format: ReportDownloadFormat,
-  ) {
-    setReportLoading(true);
-    try {
-      await downloadDashboardReport(range, type, format);
-      toast.success(`${format.toUpperCase()} downloaded`);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to download report",
-      );
-    } finally {
-      setReportLoading(false);
-    }
-  }
-
-  async function handleDownloadDesk(format: ReportDownloadFormat) {
-    setReportLoading(true);
-    try {
-      await downloadDeskReport(range, "/admin/dashboard/report", format);
-      toast.success(`Desk ${format.toUpperCase()} downloaded`);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to download report",
-      );
-    } finally {
-      setReportLoading(false);
-    }
-  }
-
-  async function handleViewDeskReport() {
-    setReportLoading(true);
-    try {
-      const report = await fetchDeskReport(range, "/admin/dashboard/report");
-      setDeskReport(report);
-      setViewOpen(true);
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to load report",
-      );
-    } finally {
-      setReportLoading(false);
-    }
-  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -169,7 +101,7 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Executive dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            Charts of tickets, response times, and activity. Change the date range to see a different period.
+            Charts of tickets, response times, and activity. Change the date range to see a different period. Downloads live under Reports.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -186,73 +118,8 @@ export default function DashboardPage() {
               </Button>
             ))}
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={reportLoading}
-                />
-              }
-            >
-              <DownloadIcon />
-              {reportLoading ? "Working…" : "Download report"}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-56">
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Desk report</DropdownMenuLabel>
-                {REPORT_DOWNLOAD_FORMATS.map((fmt) => (
-                  <DropdownMenuItem
-                    key={`desk-${fmt.value}`}
-                    disabled={reportLoading}
-                    onClick={() => void handleDownloadDesk(fmt.value)}
-                  >
-                    Desk · {fmt.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
-                <DropdownMenuLabel>Ticket exports</DropdownMenuLabel>
-                {DASHBOARD_REPORT_TYPES.flatMap((option) =>
-                  REPORT_DOWNLOAD_FORMATS.map((fmt) => (
-                    <DropdownMenuItem
-                      key={`${option.value}-${fmt.value}`}
-                      disabled={reportLoading}
-                      onClick={() =>
-                        void handleGenerateReport(option.value, fmt.value)
-                      }
-                    >
-                      {option.label} · {fmt.label}
-                    </DropdownMenuItem>
-                  )),
-                )}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={reportLoading}
-            onClick={() => void handleViewDeskReport()}
-          >
-            <EyeIcon />
-            View report
-          </Button>
         </div>
       </div>
-
-      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto sm:max-w-3xl">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Desk report</DialogTitle>
-          </DialogHeader>
-          {deskReport ? <DeskReportView report={deskReport} /> : null}
-        </DialogContent>
-      </Dialog>
 
       {stats.isError ? (
         <p className="text-destructive text-sm">

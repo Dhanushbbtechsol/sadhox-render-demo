@@ -136,6 +136,12 @@ describe("SlaProcessor", () => {
       entityType: "incident",
       entityId: "inc-1",
       actorId: null,
+      diff: {
+        event: "SLA_BREACHED",
+        title: "Outage",
+        slaBreached: { before: false, after: true },
+        priority: "P1",
+      },
     });
   });
 

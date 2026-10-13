@@ -449,7 +449,7 @@ export function downloadPersonActivityReport(
   downloadBlob(
     `person-activity_${safe}_${stamp}.xlsx`,
     buildXlsxBlob([
-      { name: "Person", rows: personSheetRows(report, counts) },
+      { name: "User", rows: personSheetRows(report, counts) },
       ...dataSheets.map((sheet) => ({
         name: sheet.name,
         rows: tableRows(sheet.section.headers, sheet.section.rows),

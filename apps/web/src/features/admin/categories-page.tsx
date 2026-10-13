@@ -39,6 +39,29 @@ const PRIORITIES: Array<TicketPriority | "none"> = [
   "P4",
 ];
 
+type DraftSub = {
+  key: string;
+  name: string;
+  minPriority: TicketPriority | "none";
+};
+
+function emptyDraftSub(): DraftSub {
+  return {
+    key: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: "",
+    minPriority: "none",
+  };
+}
+
+function filledDrafts(rows: DraftSub[]) {
+  return rows
+    .map((row) => ({
+      name: row.name.trim(),
+      minPriority: row.minPriority === "none" ? null : row.minPriority,
+    }))
+    .filter((row) => row.name.length > 0);
+}
+
 export default function CategoriesPage() {
   const taxonomy = useIncidentCategoryTaxonomyAdmin();
   const createCategory = useCreateIncidentCategory();
@@ -47,9 +70,7 @@ export default function CategoriesPage() {
   const updateSubcategory = useUpdateIncidentSubcategory();
 
   const [newCategory, setNewCategory] = useState("");
-  const [subName, setSubName] = useState("");
-  const [subCategoryId, setSubCategoryId] = useState<string>("");
-  const [subMin, setSubMin] = useState<TicketPriority | "none">("none");
+  const [draftSubs, setDraftSubs] = useState<DraftSub[]>([emptyDraftSub()]);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
     null,
   );
@@ -59,24 +80,11 @@ export default function CategoriesPage() {
   const [addingUnderCategoryId, setAddingUnderCategoryId] = useState<
     string | null
   >(null);
-  const [inlineSubName, setInlineSubName] = useState("");
-  const [inlineSubMin, setInlineSubMin] = useState<TicketPriority | "none">(
-    "none",
-  );
+  const [inlineDrafts, setInlineDrafts] = useState<DraftSub[]>([
+    emptyDraftSub(),
+  ]);
 
   const categories = taxonomy.data ?? [];
-  const activeCategories = useMemo(
-    () => categories.filter((c) => c.isActive),
-    [categories],
-  );
-  const categorySelectItems = useMemo(
-    () =>
-      Object.fromEntries(activeCategories.map((cat) => [cat.id, cat.name])) as Record<
-        string,
-        string
-      >,
-    [activeCategories],
-  );
   const prioritySelectItems = useMemo(
     () =>
       Object.fromEntries(
@@ -84,41 +92,40 @@ export default function CategoriesPage() {
       ) as Record<string, string>,
     [],
   );
+  const saving =
+    createCategory.isPending || createSubcategory.isPending;
 
-  async function addCategory() {
-    const name = newCategory.trim();
-    if (!name) {
+  async function createCategoryFlow() {
+    const categoryName = newCategory.trim();
+    if (!categoryName) {
       toast.error("Category name is required");
       return;
     }
+    const subs = filledDrafts(draftSubs);
+    const names = subs.map((s) => s.name.toLowerCase());
+    if (new Set(names).size !== names.length) {
+      toast.error("Subcategory names must be unique");
+      return;
+    }
     try {
-      await createCategory.mutateAsync(name);
+      const created = (await createCategory.mutateAsync(categoryName)) as {
+        id: string;
+        name: string;
+      };
+      for (const sub of subs) {
+        await createSubcategory.mutateAsync({
+          categoryId: created.id,
+          name: sub.name,
+          minPriority: sub.minPriority,
+        });
+      }
+      toast.success(
+        subs.length === 0
+          ? `Category "${categoryName}" created`
+          : `Created ${categoryName} with ${subs.length} subcategory${subs.length === 1 ? "" : "ies"}`,
+      );
       setNewCategory("");
-      toast.success(`Category "${name}" created`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Create failed");
-    }
-  }
-
-  async function addSubcategory() {
-    const name = subName.trim();
-    if (!subCategoryId) {
-      toast.error("Pick a category first");
-      return;
-    }
-    if (!name) {
-      toast.error("Subcategory name is required");
-      return;
-    }
-    try {
-      await createSubcategory.mutateAsync({
-        categoryId: subCategoryId,
-        name,
-        minPriority: subMin === "none" ? null : subMin,
-      });
-      setSubName("");
-      setSubMin("none");
-      toast.success(`Subcategory "${name}" created`);
+      setDraftSubs([emptyDraftSub()]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Create failed");
     }
@@ -154,22 +161,30 @@ export default function CategoriesPage() {
     }
   }
 
-  async function addSubcategoryUnder(categoryId: string) {
-    const name = inlineSubName.trim();
-    if (!name) {
-      toast.error("Subcategory name is required");
+  async function addSubcategoriesUnder(categoryId: string) {
+    const subs = filledDrafts(inlineDrafts);
+    if (subs.length === 0) {
+      toast.error("Enter at least one subcategory name");
+      return;
+    }
+    const names = subs.map((s) => s.name.toLowerCase());
+    if (new Set(names).size !== names.length) {
+      toast.error("Subcategory names must be unique");
       return;
     }
     try {
-      await createSubcategory.mutateAsync({
-        categoryId,
-        name,
-        minPriority: inlineSubMin === "none" ? null : inlineSubMin,
-      });
-      setInlineSubName("");
-      setInlineSubMin("none");
+      for (const sub of subs) {
+        await createSubcategory.mutateAsync({
+          categoryId,
+          name: sub.name,
+          minPriority: sub.minPriority,
+        });
+      }
+      setInlineDrafts([emptyDraftSub()]);
       setAddingUnderCategoryId(null);
-      toast.success(`Subcategory "${name}" created`);
+      toast.success(
+        `Added ${subs.length} subcategory${subs.length === 1 ? "" : "ies"}`,
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Create failed");
     }
@@ -183,65 +198,66 @@ export default function CategoriesPage() {
           Categories
         </h1>
         <p className="text-sm text-muted-foreground">
-          Ticket category and subcategory used when raising a ticket. Set a
-          minimum priority on a subcategory so Response time follows that floor
-          (P1–P4 rules).
+          Create a category and as many subcategories as you need in one go.
+          Each subcategory can have its own Response time floor.
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="space-y-3 rounded-lg border p-4">
-          <h2 className="text-sm font-medium">New category</h2>
-          <div className="flex gap-2">
-            <Input
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
-              placeholder="e.g. Critical infrastructure"
-            />
-            <Button
-              type="button"
-              onClick={() => void addCategory()}
-              disabled={createCategory.isPending}
-            >
-              <PlusIcon />
-              Add
-            </Button>
-          </div>
+      <div className="space-y-3 rounded-lg border p-4">
+        <h2 className="text-sm font-medium">Create</h2>
+        <div className="space-y-1">
+          <Label htmlFor="new-category">Category</Label>
+          <Input
+            id="new-category"
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            placeholder="e.g. Critical infrastructure"
+            className="max-w-md"
+          />
         </div>
 
-        <div className="space-y-3 rounded-lg border p-4">
-          <h2 className="text-sm font-medium">New subcategory</h2>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label>Category</Label>
-              <Select
-                value={subCategoryId || null}
-                onValueChange={(v) => setSubCategoryId(v ?? "")}
-                items={categorySelectItems}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeCategories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id} label={cat.name}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Min priority (SLA floor)</Label>
-              <Select
-                value={subMin}
-                onValueChange={(v) =>
-                  setSubMin((v as TicketPriority | "none") ?? "none")
+        <div className="space-y-2">
+          <Label>Subcategories</Label>
+          {draftSubs.map((row, index) => (
+            <div
+              key={row.key}
+              className="flex flex-wrap items-end gap-2"
+            >
+              <Input
+                className="min-w-[12rem] flex-1"
+                value={row.name}
+                onChange={(e) =>
+                  setDraftSubs((prev) =>
+                    prev.map((r) =>
+                      r.key === row.key ? { ...r, name: e.target.value } : r,
+                    ),
+                  )
                 }
+                placeholder={
+                  index === 0
+                    ? "e.g. Primary data center"
+                    : "Another subcategory"
+                }
+              />
+              <Select
+                value={row.minPriority}
                 items={prioritySelectItems}
+                onValueChange={(v) =>
+                  setDraftSubs((prev) =>
+                    prev.map((r) =>
+                      r.key === row.key
+                        ? {
+                            ...r,
+                            minPriority:
+                              (v as TicketPriority | "none") ?? "none",
+                          }
+                        : r,
+                    ),
+                  )
+                }
               >
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Min priority" />
                 </SelectTrigger>
                 <SelectContent>
                   {PRIORITIES.map((p) => (
@@ -255,24 +271,41 @@ export default function CategoriesPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {draftSubs.length > 1 ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() =>
+                    setDraftSubs((prev) =>
+                      prev.filter((r) => r.key !== row.key),
+                    )
+                  }
+                >
+                  Remove
+                </Button>
+              ) : null}
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Input
-              value={subName}
-              onChange={(e) => setSubName(e.target.value)}
-              placeholder="e.g. Core switch / DC-1"
-            />
-            <Button
-              type="button"
-              onClick={() => void addSubcategory()}
-              disabled={createSubcategory.isPending}
-            >
-              <PlusIcon />
-              Add
-            </Button>
-          </div>
+          ))}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setDraftSubs((prev) => [...prev, emptyDraftSub()])}
+          >
+            <PlusIcon />
+            Add another subcategory
+          </Button>
         </div>
+
+        <Button
+          type="button"
+          onClick={() => void createCategoryFlow()}
+          disabled={saving}
+        >
+          <PlusIcon />
+          Create
+        </Button>
       </div>
 
       {taxonomy.isLoading ? (
@@ -376,8 +409,7 @@ export default function CategoriesPage() {
                   variant="outline"
                   onClick={() => {
                     setAddingUnderCategoryId(cat.id);
-                    setInlineSubName("");
-                    setInlineSubMin("none");
+                    setInlineDrafts([emptyDraftSub()]);
                     setEditingCategoryId(null);
                     setEditingSubId(null);
                   }}
@@ -390,62 +422,106 @@ export default function CategoriesPage() {
           </div>
 
           {addingUnderCategoryId === cat.id ? (
-            <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
-              <div className="min-w-[12rem] flex-1 space-y-1">
-                <Label>Subcategory name</Label>
-                <Input
-                  value={inlineSubName}
-                  onChange={(e) => setInlineSubName(e.target.value)}
-                  placeholder="e.g. Primary data center"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void addSubcategoryUnder(cat.id);
+            <div className="space-y-2 rounded-lg border p-3">
+              {inlineDrafts.map((row, index) => (
+                <div
+                  key={row.key}
+                  className="flex flex-wrap items-end gap-2"
+                >
+                  <Input
+                    className="min-w-[12rem] flex-1"
+                    value={row.name}
+                    onChange={(e) =>
+                      setInlineDrafts((prev) =>
+                        prev.map((r) =>
+                          r.key === row.key
+                            ? { ...r, name: e.target.value }
+                            : r,
+                        ),
+                      )
                     }
-                    if (e.key === "Escape") setAddingUnderCategoryId(null);
-                  }}
-                  autoFocus
-                />
-              </div>
-              <div className="w-[140px] space-y-1">
-                <Label>Min priority</Label>
-                <Select
-                  value={inlineSubMin}
-                  items={prioritySelectItems}
-                  onValueChange={(v) =>
-                    setInlineSubMin((v as TicketPriority | "none") ?? "none")
+                    placeholder={
+                      index === 0
+                        ? "e.g. Primary data center"
+                        : "Another subcategory"
+                    }
+                    autoFocus={index === 0}
+                  />
+                  <Select
+                    value={row.minPriority}
+                    items={prioritySelectItems}
+                    onValueChange={(v) =>
+                      setInlineDrafts((prev) =>
+                        prev.map((r) =>
+                          r.key === row.key
+                            ? {
+                                ...r,
+                                minPriority:
+                                  (v as TicketPriority | "none") ?? "none",
+                              }
+                            : r,
+                        ),
+                      )
+                    }
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRIORITIES.map((p) => (
+                        <SelectItem
+                          key={p}
+                          value={p}
+                          label={p === "none" ? "None" : p}
+                        >
+                          {p === "none" ? "None" : p}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {inlineDrafts.length > 1 ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        setInlineDrafts((prev) =>
+                          prev.filter((r) => r.key !== row.key),
+                        )
+                      }
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setInlineDrafts((prev) => [...prev, emptyDraftSub()])
                   }
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORITIES.map((p) => (
-                      <SelectItem
-                        key={p}
-                        value={p}
-                        label={p === "none" ? "None" : p}
-                      >
-                        {p === "none" ? "None" : p}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <PlusIcon />
+                  Add another
+                </Button>
+                <Button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void addSubcategoriesUnder(cat.id)}
+                >
+                  Save all
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setAddingUnderCategoryId(null)}
+                >
+                  Cancel
+                </Button>
               </div>
-              <Button
-                type="button"
-                disabled={createSubcategory.isPending}
-                onClick={() => void addSubcategoryUnder(cat.id)}
-              >
-                Save
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setAddingUnderCategoryId(null)}
-              >
-                Cancel
-              </Button>
             </div>
           ) : null}
 

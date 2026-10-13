@@ -93,6 +93,9 @@ export class AdminController {
         query.type,
         user.userId,
         typedFormat,
+        query.module,
+        query.from,
+        query.to,
       );
       return attachmentResponse(res, result);
     }
