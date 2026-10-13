@@ -362,13 +362,9 @@ describe("ChangesService — Admin-only approve, no actions", () => {
     };
     const service = new ChangesService(
       {
-        insert: vi.fn(() => ({
-          values: vi.fn(() => ({
-            returning: vi.fn(async () => {
-              throw new Error("stop after resolve");
-            }),
-          })),
-        })),
+        transaction: vi.fn(async () => {
+          throw new Error("stop after resolve");
+        }),
       } as never,
       { sendApprovalOutcome: vi.fn() } as never,
       { record: vi.fn() } as never,
