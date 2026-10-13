@@ -12,7 +12,6 @@ import {
   assertAgentOrAdminRole,
   canTransitionRequestFulfillment,
   isPendingServiceRequestStatus,
-  resolveRejectTransition,
 } from "../common/approval-policy";
 import { nextApproval } from "../common/approval-chain";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
@@ -247,7 +246,7 @@ export class ServiceRequestsService {
     }
     if (user.role === "Manager") {
       if (row.requesterReportsToId !== user.userId) {
-        await this.projectAccess.assertCanViewTicket(user, row.projectId);
+        throw new ForbiddenException("Cannot view this service request");
       }
     } else if (user.role !== "EndUser") {
       await this.projectAccess.assertCanViewTicket(user, row.projectId);
@@ -324,24 +323,17 @@ export class ServiceRequestsService {
         `Cannot reject a request in status ${existing.status}`,
       );
     }
-    // Same actor/status gates as approve (discard next status — reject always ends Rejected).
+    // Same actor/status gates as approve. Reject ends the request; project ACL is not a second gate.
     nextApproval({
       status: existing.status,
       actorRole,
       hasManager,
     });
 
-    const decision = resolveRejectTransition({
-      role: user.role,
-      currentStatus: existing.status,
-      projectId: existing.projectId,
-      rejectStatus: "Rejected",
-    });
-
     const [updated] = await this.db
       .update(serviceRequests)
       .set({
-        status: decision.nextStatus,
+        status: "Rejected",
         approverId: user.userId,
         approvedAt: new Date(),
         rejectionReason: reason,

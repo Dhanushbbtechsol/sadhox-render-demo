@@ -1,5 +1,7 @@
 import { Controller, Get, Header, Query, Res } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
+import { THROTTLE_REPORT } from "../common/throttle.constants";
 import type { Response } from "express";
 import {
   CurrentUser,
@@ -17,6 +19,7 @@ export class ManagerController {
   constructor(private readonly admin: AdminService) {}
 
   @Get("reports/desk")
+  @Throttle(THROTTLE_REPORT)
   @Header("Cache-Control", "no-store")
   @ApiOperation({
     summary:

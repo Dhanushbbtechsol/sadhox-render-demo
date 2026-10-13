@@ -20,6 +20,38 @@ export type ChartConfig = Record<
   )
 >
 
+const CSS_IDENT = /^[a-zA-Z0-9_-]+$/
+const CSS_COLOR =
+  /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]+|var\(--[a-zA-Z0-9-]+\))$/
+
+/** Drop keys and colors that could break out of the injected style block. */
+export function chartCssText(id: string, config: ChartConfig): string {
+  if (!CSS_IDENT.test(id)) return ""
+
+  const colorConfig = Object.entries(config).filter(
+    ([, item]) => item.theme ?? item.color
+  )
+  if (!colorConfig.length) return ""
+
+  return Object.entries(THEMES)
+    .map(([theme, prefix]) => {
+      const lines = colorConfig
+        .map(([key, itemConfig]) => {
+          if (!CSS_IDENT.test(key)) return null
+          const color =
+            itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ??
+            itemConfig.color
+          if (!color || !CSS_COLOR.test(color)) return null
+          return `  --color-${key}: ${color};`
+        })
+        .filter((line): line is string => line !== null)
+      if (!lines.length) return ""
+      return `${prefix} [data-chart=${id}] {\n${lines.join("\n")}\n}`
+    })
+    .filter((block) => block.length > 0)
+    .join("\n")
+}
+
 type ChartContextProps = {
   config: ChartConfig
 }
@@ -79,33 +111,13 @@ function ChartContainer({
 }
 
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
-  const colorConfig = Object.entries(config).filter(
-    ([, config]) => config.theme ?? config.color
-  )
-
-  if (!colorConfig.length) {
-    return null
-  }
+  const css = chartCssText(id, config)
+  if (!css) return null
 
   return (
     <style
       dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color =
-      itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ??
-      itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
-  })
-  .join("\n")}
-}
-`
-          )
-          .join("\n"),
+        __html: css,
       }}
     />
   )

@@ -5,6 +5,7 @@
 **Branch:** local `Audit` / `Dev-C` (may be ahead of `origin/Audit`). Tracks: `Dev-A-`, `Dev-B`, `Dev-C`, `Dev-D`.
 
 ## What is true now
+- 2026-10-12 ASVS pass: service-request manager read and reject gates, HS256 pin, logout/report/prod throttle, WS auth skipped in Sentry, ILIKE escape, chart CSS allowlist. Change approve still uses project `assertCanApprove` (open High).
 - Phases 1–5 shipped. Phase 5 Medium/Low closed. See `Docs/STATUS.md`.
 - Phase 6 landed: `Manager`, projects/modules/members, `ProjectAccessService`, project-scoped assignment and lists, Admin+Manager approvals (null project = Admin-only), Admin `/admin/users` CRUD. Audit: `Docs/Audit/phase6.md` CLEAN.
 - SLA is incidents-only: due time from `resolveMinutes`; breach job + email + auto-close + Admin rules UI + countdown. `responseMinutes` is stored and not applied.

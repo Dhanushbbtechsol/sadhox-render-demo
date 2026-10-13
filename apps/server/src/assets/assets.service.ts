@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { and, asc, count, desc, eq, ilike, inArray, ne, or } from "drizzle-orm";
+import { likeContains } from "../common/like-pattern";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import {
@@ -161,7 +162,7 @@ export class AssetsService {
       filters.push(eq(assets.linkedTicketId, query.linkedTicketId));
     }
     if (query.search?.trim()) {
-      const needle = `%${query.search.trim()}%`;
+      const needle = likeContains(query.search.trim());
       filters.push(
         or(ilike(assets.assetTag, needle), ilike(assets.name, needle)),
       );

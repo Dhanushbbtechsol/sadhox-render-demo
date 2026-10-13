@@ -11,7 +11,10 @@ import { ApiCookieAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import { Public } from "../common/decorators/public.decorator";
-import { THROTTLE_AUTH_LOGIN } from "../common/throttle.constants";
+import {
+  THROTTLE_AUTH_LOGIN,
+  THROTTLE_AUTH_SESSION,
+} from "../common/throttle.constants";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshCookieOriginGuard } from "./refresh-cookie-origin.guard";
@@ -54,7 +57,7 @@ export class AuthController {
 
   @Public()
   @UseGuards(RefreshCookieOriginGuard)
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle(THROTTLE_AUTH_SESSION)
   @Post("refresh")
   @HttpCode(200)
   @ApiCookieAuth(REFRESH_COOKIE_NAME)
@@ -74,6 +77,7 @@ export class AuthController {
 
   @Public()
   @UseGuards(RefreshCookieOriginGuard)
+  @Throttle(THROTTLE_AUTH_SESSION)
   @Post("logout")
   @HttpCode(200)
   @ApiOperation({ summary: "Revoke refresh token and clear cookie" })

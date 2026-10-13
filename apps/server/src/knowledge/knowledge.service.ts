@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { and, desc, eq, ilike, or } from "drizzle-orm";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
+import { likeContains } from "../common/like-pattern";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
@@ -125,7 +126,7 @@ export class KnowledgeService {
       filters.push(eq(knowledgeArticles.categoryId, query.categoryId));
     }
     if (query.q?.trim()) {
-      const term = `%${query.q.trim()}%`;
+      const term = likeContains(query.q.trim());
       filters.push(
         or(
           ilike(knowledgeArticles.title, term),
