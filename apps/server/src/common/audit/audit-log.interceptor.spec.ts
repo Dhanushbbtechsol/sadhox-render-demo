@@ -65,12 +65,24 @@ describe("AuditLogInterceptor", () => {
   const entityId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   let insert: ReturnType<typeof vi.fn>;
   let values: ReturnType<typeof vi.fn>;
+  let selectLimit: ReturnType<typeof vi.fn>;
   let interceptor: AuditLogInterceptor;
 
   beforeEach(() => {
     values = vi.fn().mockResolvedValue(undefined);
     insert = vi.fn(() => ({ values }));
-    interceptor = new AuditLogInterceptor({ insert } as never);
+    selectLimit = vi.fn().mockResolvedValue([]);
+    const selectChain = {
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          limit: selectLimit,
+        })),
+      })),
+    };
+    interceptor = new AuditLogInterceptor({
+      insert,
+      select: vi.fn(() => selectChain),
+    } as never);
   });
 
   function httpContext(opts: {
@@ -98,7 +110,13 @@ describe("AuditLogInterceptor", () => {
     };
   }
 
-  it("creates an audit_log entry for a successful POST", async () => {
+  async function flushAudit() {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  }
+
+  it("creates an audit_log entry with typed field pairs for a successful POST", async () => {
     const ctx = httpContext({
       method: "POST",
       url: "/service-requests",
@@ -110,13 +128,16 @@ describe("AuditLogInterceptor", () => {
       },
       body: { title: "New", password: "nope" },
     });
-    const body = { id: entityId, title: "New" };
+    const body = {
+      id: entityId,
+      title: "New",
+      status: "Submitted",
+      referenceCode: "REQ-000001",
+    };
     await lastValueFrom(
       interceptor.intercept(ctx as never, { handle: () => of(body) }),
     );
-    // allow microtask for void persist
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAudit();
 
     expect(insert).toHaveBeenCalled();
     expect(values).toHaveBeenCalled();
@@ -125,8 +146,111 @@ describe("AuditLogInterceptor", () => {
     expect(row.action).toContain("POST");
     expect(row.entityType).toBe("service-requests");
     expect(row.entityId).toBe(entityId);
-    expect(row.diff.request.password).toBe("[REDACTED]");
-    expect(row.diff.request.title).toBe("New");
+    expect(row.diff.event).toBe("CREATED");
+    expect(row.diff.title).toBe("New");
+    expect(row.diff.status).toEqual({ before: null, after: "Submitted" });
+    expect(row.diff).not.toHaveProperty("request");
+    expect(row.diff).not.toHaveProperty("response");
+    expect(JSON.stringify(row.diff)).not.toContain("nope");
+  });
+
+  it("records before→after for PATCH when a before snapshot exists", async () => {
+    selectLimit.mockResolvedValueOnce([
+      {
+        id: entityId,
+        title: "VPN down",
+        status: "New",
+        priority: "P3",
+        assignedTo: null,
+        referenceCode: "INC-000001",
+        category: "Network",
+        subcategory: "VPN",
+        impact: "Medium",
+        urgency: "Medium",
+        reporterId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        projectId: null,
+        moduleId: null,
+        slaBreached: false,
+      },
+    ]);
+
+    const ctx = httpContext({
+      method: "PATCH",
+      url: `/incidents/${entityId}`,
+      user: {
+        userId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        email: "a@b.com",
+        name: "A",
+        role: "Agent",
+      },
+      params: { id: entityId },
+      body: { status: "In Progress" },
+    });
+    const body = {
+      id: entityId,
+      title: "VPN down",
+      status: "In Progress",
+      priority: "P3",
+      assignedTo: null,
+      referenceCode: "INC-000001",
+    };
+    await lastValueFrom(
+      interceptor.intercept(ctx as never, { handle: () => of(body) }),
+    );
+    await flushAudit();
+
+    const row = values.mock.calls[0][0];
+    expect(row.diff.event).toBe("STATUS_CHANGED");
+    expect(row.diff.status).toEqual({
+      before: "New",
+      after: "In Progress",
+    });
+    expect(row.diff.title).toBe("VPN down");
+  });
+
+  it("stores commentId pointer only on comment routes", async () => {
+    const commentId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    selectLimit.mockResolvedValueOnce([
+      {
+        id: entityId,
+        title: "VPN down",
+        status: "New",
+        priority: "P3",
+        assignedTo: null,
+        referenceCode: "INC-000001",
+        category: "Network",
+        subcategory: "VPN",
+        impact: "Medium",
+        urgency: "Medium",
+        reporterId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        projectId: null,
+        moduleId: null,
+        slaBreached: false,
+      },
+    ]);
+    const ctx = httpContext({
+      method: "POST",
+      url: `/incidents/${entityId}/comments`,
+      user: {
+        userId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        email: "a@b.com",
+        name: "A",
+        role: "Agent",
+      },
+      params: { id: entityId },
+      body: { body: "secret comment text" },
+    });
+    await lastValueFrom(
+      interceptor.intercept(ctx as never, {
+        handle: () => of({ id: commentId, body: "secret comment text" }),
+      }),
+    );
+    await flushAudit();
+
+    const row = values.mock.calls[0][0];
+    expect(row.diff.event).toBe("COMMENT_ADDED");
+    expect(row.diff.commentId).toEqual({ before: null, after: commentId });
+    expect(JSON.stringify(row.diff)).not.toContain("secret comment text");
   });
 
   it("does not audit GET requests", async () => {
@@ -143,7 +267,7 @@ describe("AuditLogInterceptor", () => {
     await lastValueFrom(
       interceptor.intercept(ctx as never, { handle: () => of([]) }),
     );
-    await Promise.resolve();
+    await flushAudit();
     expect(insert).not.toHaveBeenCalled();
   });
 
@@ -161,7 +285,7 @@ describe("AuditLogInterceptor", () => {
           handle: () => of({ accessToken: "t" }),
         }),
       );
-      await Promise.resolve();
+      await flushAudit();
       expect(insert).not.toHaveBeenCalled();
     }
   });
@@ -185,7 +309,7 @@ describe("AuditLogInterceptor", () => {
         }),
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
-    await Promise.resolve();
+    await flushAudit();
     expect(insert).not.toHaveBeenCalled();
 
     await expect(
@@ -195,7 +319,7 @@ describe("AuditLogInterceptor", () => {
         }),
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
-    await Promise.resolve();
+    await flushAudit();
     expect(insert).not.toHaveBeenCalled();
   });
 
@@ -218,8 +342,7 @@ describe("AuditLogInterceptor", () => {
         }),
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAudit();
 
     expect(insert).toHaveBeenCalled();
     const row = values.mock.calls[0][0];
@@ -232,7 +355,7 @@ describe("AuditLogInterceptor", () => {
     values.mockRejectedValueOnce(new Error("db down"));
     const ctx = httpContext({
       method: "PATCH",
-      url: "/changes/:id/status",
+      url: `/changes/${entityId}`,
       user: {
         userId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
         email: "a@b.com",
@@ -247,7 +370,7 @@ describe("AuditLogInterceptor", () => {
         handle: () => of({ ok: true }),
       }),
     );
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 20));
     expect(result).toEqual({ ok: true });
     expect(insert).toHaveBeenCalled();
   });

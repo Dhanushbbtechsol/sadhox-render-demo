@@ -186,9 +186,9 @@ export function buildWorkGroupRows(
       module: TicketReportRow["module"];
       statuses: string[];
     }> = [
-      { module: "Incident", statuses: filter.incidents },
-      { module: "Service Request", statuses: filter.serviceRequests },
-      { module: "Change", statuses: filter.changes },
+      { module: "Ticket", statuses: filter.incidents },
+      { module: "Request", statuses: filter.serviceRequests },
+      { module: "Change request", statuses: filter.changes },
     ];
     for (const { module, statuses } of modules) {
       if (statuses.length === 0) continue;
@@ -277,7 +277,7 @@ export function buildTidyFigureRows(data: SummaryWorkbookData): TidyFigureRow[] 
   for (const p of data.byPriority) {
     rows.push({
       section: "By Priority",
-      module: "Incident",
+      module: "Ticket",
       metric: p.priority,
       value: p.count,
       unit: "count",
@@ -287,7 +287,7 @@ export function buildTidyFigureRows(data: SummaryWorkbookData): TidyFigureRow[] 
   }
   rows.push({
     section: "SLA",
-    module: "Incident",
+    module: "Ticket",
     metric: "Met",
     value: data.slaCompliance.met,
     unit: "count",
@@ -296,7 +296,7 @@ export function buildTidyFigureRows(data: SummaryWorkbookData): TidyFigureRow[] 
   });
   rows.push({
     section: "SLA",
-    module: "Incident",
+    module: "Ticket",
     metric: "Breached",
     value: data.slaCompliance.breached,
     unit: "count",
@@ -305,7 +305,7 @@ export function buildTidyFigureRows(data: SummaryWorkbookData): TidyFigureRow[] 
   });
   rows.push({
     section: "SLA",
-    module: "Incident",
+    module: "Ticket",
     metric: "Rate",
     value: data.slaCompliance.rate,
     unit: "%",
@@ -315,7 +315,7 @@ export function buildTidyFigureRows(data: SummaryWorkbookData): TidyFigureRow[] 
   for (const w of data.slaWeeks) {
     rows.push({
       section: "SLA Performance",
-      module: "Incident",
+      module: "Ticket",
       metric: `${w.label} — Met`,
       value: w.met,
       unit: "count",
@@ -324,7 +324,7 @@ export function buildTidyFigureRows(data: SummaryWorkbookData): TidyFigureRow[] 
     });
     rows.push({
       section: "SLA Performance",
-      module: "Incident",
+      module: "Ticket",
       metric: `${w.label} — Breached`,
       value: w.breached,
       unit: "count",

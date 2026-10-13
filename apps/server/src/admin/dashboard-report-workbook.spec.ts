@@ -13,7 +13,7 @@ function sampleTickets(): TicketReportRow[] {
     {
       id: "11111111-1111-4111-8111-111111111111",
       referenceCode: "INC-000001",
-      module: "Incident",
+      module: "Ticket",
       title: "A",
       status: "Assigned",
       priority: "P2",
@@ -35,7 +35,7 @@ function sampleTickets(): TicketReportRow[] {
     {
       id: "22222222-2222-4222-8222-222222222222",
       referenceCode: "INC-000002",
-      module: "Incident",
+      module: "Ticket",
       title: "B",
       status: "InProgress",
       priority: "P1",
@@ -57,7 +57,7 @@ function sampleTickets(): TicketReportRow[] {
     {
       id: "33333333-3333-4333-8333-333333333333",
       referenceCode: "REQ-000003",
-      module: "Service Request",
+      module: "Request",
       title: "Laptop",
       status: "Approved",
       priority: "High",
@@ -98,14 +98,14 @@ function sampleData(tickets: TicketReportRow[]): SummaryWorkbookData {
       },
     ],
     byModule: [
-      { module: "Incident", open: 2, closed: 0, total: 2 },
-      { module: "Service Request", open: 1, closed: 0, total: 1 },
-      { module: "Change", open: 0, closed: 0, total: 0 },
+      { module: "Ticket", open: 2, closed: 0, total: 2 },
+      { module: "Request", open: 1, closed: 0, total: 1 },
+      { module: "Change request", open: 0, closed: 0, total: 0 },
     ],
     byStatus: [
-      { module: "Incident", status: "Assigned", count: 1 },
-      { module: "Incident", status: "InProgress", count: 1 },
-      { module: "Service Request", status: "Approved", count: 1 },
+      { module: "Ticket", status: "Assigned", count: 1 },
+      { module: "Ticket", status: "InProgress", count: 1 },
+      { module: "Request", status: "Approved", count: 1 },
     ],
     workGroups: buildWorkGroupRows(tickets),
     workGroupsNote: WORK_GROUPS_NOTE,
@@ -123,17 +123,17 @@ describe("dashboard-report-workbook", () => {
       expect.arrayContaining([
         expect.objectContaining({
           group: "Assigned",
-          module: "Incident",
+          module: "Ticket",
           tickets: 1,
         }),
         expect.objectContaining({
           group: "In Progress",
-          module: "Incident",
+          module: "Ticket",
           tickets: 1,
         }),
         expect.objectContaining({
           group: "Approved",
-          module: "Service Request",
+          module: "Request",
           tickets: 1,
         }),
       ]),
@@ -178,10 +178,10 @@ describe("dashboard-report-workbook", () => {
     expect(tickets.length).toBe(moduleTotal);
     expect(data.overview[0]?.value).toBe(tickets.length);
     const assigned = data.workGroups.find(
-      (g) => g.group === "Assigned" && g.module === "Incident",
+      (g) => g.group === "Assigned" && g.module === "Ticket",
     );
     expect(assigned?.tickets).toBe(
-      tickets.filter((t) => t.module === "Incident" && t.status === "Assigned")
+      tickets.filter((t) => t.module === "Ticket" && t.status === "Assigned")
         .length,
     );
     for (const m of data.byModule) {

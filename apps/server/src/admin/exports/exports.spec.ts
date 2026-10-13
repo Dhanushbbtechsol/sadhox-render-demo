@@ -15,7 +15,7 @@ import type { AssetReportRow } from "../dashboard-report-csv";
 const sampleTicket: TicketReportRow = {
   id: "11111111-1111-4111-8111-111111111111",
   referenceCode: "INC-000123",
-  module: "Incident",
+  module: "Ticket",
   title: "VPN down",
   status: "InProgress",
   priority: "P1",

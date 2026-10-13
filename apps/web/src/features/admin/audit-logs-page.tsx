@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router";
 
 import { LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,6 @@ import {
 } from "./audit-activity";
 import { useAuditLogs } from "./hooks";
 import type { AuditLog } from "./types";
-import { UserActivityReportSection } from "./user-activity-report";
 
 export default function AuditLogsPage() {
   const [from, setFrom] = useState("");
@@ -37,12 +37,13 @@ export default function AuditLogsPage() {
         <h1 className="text-xl font-semibold">Audit logs</h1>
         <p className="text-sm text-muted-foreground">
           Timeline of who created, updated, or approved records across the
-          service desk. Run a person activity report below, then browse the
-          event timeline.
+          service desk. Person and operation downloads live under{" "}
+          <Link to="/admin/reports" className="text-primary underline-offset-2 hover:underline">
+            Reports
+          </Link>
+          .
         </p>
       </div>
-
-      <UserActivityReportSection />
 
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm">

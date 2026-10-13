@@ -68,9 +68,13 @@ describe("TicketLifecycleProcessor", () => {
       entityType: "incident",
       entityId: "inc-1",
     });
-    expect(
-      (db._auditInserts[0] as { diff: { system?: boolean } }).diff.system,
-    ).toBe(true);
+    expect(db._auditInserts[0]).toMatchObject({
+      diff: {
+        event: "STATUS_CHANGED",
+        status: { before: "Resolved", after: "Closed" },
+        system: true,
+      },
+    });
     expect(events.emitTicketUpdated).toHaveBeenCalledWith(
       "inc-1",
       expect.objectContaining({ status: "Closed", closedBy: "system" }),

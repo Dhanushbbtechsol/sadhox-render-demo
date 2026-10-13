@@ -56,27 +56,55 @@ function pickFilename(
   return `${fallbackBase}.${format === "excel" ? "xlsx" : "csv"}`;
 }
 
+export type OperationReportModule =
+  | "tickets"
+  | "issues"
+  | "requests"
+  | "changes";
+
+export type ReportDateBounds = { from: string; to: string };
+
 export async function downloadDashboardReport(
-  range: ChartRange,
+  range: ChartRange | ReportDateBounds,
   type: DashboardReportType,
   format: ReportDownloadFormat,
+  module?: OperationReportModule,
 ) {
   const date = new Date().toISOString().slice(0, 10);
   const serverFormat: DashboardReportFormat =
     format === "excel" ? "excel" : "csv";
   const params = new URLSearchParams({
-    range,
     type,
     format: serverFormat,
   });
+  if (typeof range === "string") {
+    params.set("range", range);
+  } else {
+    params.set("from", range.from);
+    params.set("to", range.to);
+  }
+  if (module) params.set("module", module);
   const { blob, filename } = await apiDownload(
     `/admin/dashboard/report?${params.toString()}`,
   );
   if (format === "excel") await assertRealXlsx(blob);
-  downloadBlob(
-    pickFilename(filename, `yukti-${type}-${range}-${date}`, format),
-    blob,
-  );
+  const rangeSlug =
+    typeof range === "string" ? range : `${range.from}_${range.to}`;
+  const base = module
+    ? `yukti-${module}-${rangeSlug}`
+    : `yukti-${type}-${rangeSlug}`;
+  downloadBlob(pickFilename(filename, `${base}-${date}`, format), blob);
+}
+
+/** Whole-org pack: all tickets/issues/requests/changes, then assets. */
+export async function downloadOrganizationReport(
+  range: ChartRange | ReportDateBounds,
+  format: ReportDownloadFormat = "excel",
+) {
+  await downloadDashboardReport(range, "all", format);
+  // Brief gap so the browser treats the second save as a separate gesture.
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  await downloadDashboardReport(range, "assets", format);
 }
 
 export async function downloadDeskReport(

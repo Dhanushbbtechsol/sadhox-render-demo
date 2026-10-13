@@ -271,7 +271,13 @@ describe("AdminService dashboardReportCsv row cap + audit", () => {
       actorId: ACTOR,
       action: "report.export",
       entityType: "dashboard_report",
-      diff: { type: "assigned", format: "csv", range: "30d", rowCount: 1 },
+      diff: {
+        event: "REPORT_EXPORTED",
+        type: "assigned",
+        format: "csv",
+        range: "30d",
+        rowCount: 1,
+      },
     });
   });
 });

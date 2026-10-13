@@ -89,7 +89,7 @@ export class AuthService {
         action: "auth.login_failed",
         entityType: "auth",
         entityId: null,
-        diff: { email, ip: ip ?? null, reason },
+        diff: { event: "LOGIN_FAILED", email, ip: ip ?? null, reason },
       });
     } catch (err) {
       this.logger.error("Failed to write auth failure audit_log", err);

@@ -167,10 +167,11 @@ export class SlaProcessor extends WorkerHost {
     }
 
     const diff = redactAuditValue({
-      slaBreached: true,
+      event: "SLA_BREACHED",
+      title: ticket.title,
+      slaBreached: { before: false, after: true },
       slaDueAt: ticket.slaDueAt?.toISOString() ?? null,
       priority: ticket.priority,
-      previousStatus: "active",
     });
 
     await this.db.insert(auditLog).values({
