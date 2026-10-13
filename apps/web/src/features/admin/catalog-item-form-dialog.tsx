@@ -220,13 +220,21 @@ export function CatalogItemFormDialog({
               onValueChange={(value) =>
                 form.setValue("isActive", value === "true")
               }
+              items={{
+                true: "Active (visible in catalog)",
+                false: "Inactive (hidden from browse)",
+              }}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="true">Active (visible in catalog)</SelectItem>
-                <SelectItem value="false">Inactive (hidden from browse)</SelectItem>
+                <SelectItem value="true" label="Active (visible in catalog)">
+                  Active (visible in catalog)
+                </SelectItem>
+                <SelectItem value="false" label="Inactive (hidden from browse)">
+                  Inactive (hidden from browse)
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -298,13 +306,18 @@ export function CatalogItemFormDialog({
                         value === "true",
                       )
                     }
+                    items={{ true: "Required", false: "Optional" }}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="true">Required</SelectItem>
-                      <SelectItem value="false">Optional</SelectItem>
+                      <SelectItem value="true" label="Required">
+                        Required
+                      </SelectItem>
+                      <SelectItem value="false" label="Optional">
+                        Optional
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

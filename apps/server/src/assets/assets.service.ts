@@ -164,7 +164,11 @@ export class AssetsService {
     if (query.search?.trim()) {
       const needle = likeContains(query.search.trim());
       filters.push(
-        or(ilike(assets.assetTag, needle), ilike(assets.name, needle)),
+        or(
+          ilike(assets.assetTag, needle),
+          ilike(assets.name, needle),
+          ilike(assets.referenceCode, needle),
+        ),
       );
     }
 

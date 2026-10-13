@@ -63,6 +63,7 @@ import {
   changes,
   escalationRules,
   incidents,
+  problems,
   projectMembers,
   projects,
   serviceCatalog,
@@ -97,6 +98,42 @@ export type AdminUserView = {
   role: UserRole;
   reportsToId: string | null;
 };
+
+/** Tables that expose PREFIX-###### reference codes for audit entity lookup. */
+const AUDIT_REF_TABLES = {
+  incidents,
+  problems,
+  "service-requests": serviceRequests,
+  changes,
+  assets,
+  projects,
+  users,
+} as const;
+
+function auditRefTableKey(
+  entityType: string,
+): keyof typeof AUDIT_REF_TABLES | null {
+  const key = entityType.trim().toLowerCase();
+  const aliases: Record<string, keyof typeof AUDIT_REF_TABLES> = {
+    incident: "incidents",
+    incidents: "incidents",
+    problem: "problems",
+    problems: "problems",
+    "service-request": "service-requests",
+    "service-requests": "service-requests",
+    change: "changes",
+    changes: "changes",
+    asset: "assets",
+    assets: "assets",
+    project: "projects",
+    projects: "projects",
+    user: "users",
+    users: "users",
+    // First path segment for /admin/users is "admin"
+    admin: "users",
+  };
+  return aliases[key] ?? null;
+}
 
 const QUEUE_PURPOSE: Record<string, string> = {
   [SLA_QUEUE]:
@@ -2091,13 +2128,15 @@ export class AdminService {
         updatedAt: iso(r.updatedAt)!,
         approvedAt: iso(r.approvedAt),
       })),
-      logs: logs.map((r) => ({
-        id: r.id,
-        action: r.action,
-        entityType: r.entityType,
-        entityId: r.entityId,
-        createdAt: iso(r.createdAt)!,
-      })),
+      logs: await this.attachAuditReferenceCodes(
+        logs.map((r) => ({
+          id: r.id,
+          action: r.action,
+          entityType: r.entityType,
+          entityId: r.entityId,
+          createdAt: iso(r.createdAt)!,
+        })),
+      ),
       // Current holdings — not limited to the activity date window.
       assets: heldAssets.map((r) => ({
         id: r.id,
@@ -2119,6 +2158,52 @@ export class AdminService {
         assets: heldAssets.length,
       },
     };
+  }
+
+  /**
+   * Resolve audit entity UUIDs to display reference codes (INC-/REQ-/… )
+   * for person-activity UI + export. Unknown / missing entities stay null.
+   */
+  private async attachAuditReferenceCodes<
+    T extends { entityType: string; entityId: string | null },
+  >(rows: T[]): Promise<Array<T & { referenceCode: string | null }>> {
+    if (rows.length === 0) {
+      return rows.map((r) => ({ ...r, referenceCode: null }));
+    }
+
+    const byKey = new Map<keyof typeof AUDIT_REF_TABLES, Set<string>>();
+    for (const row of rows) {
+      if (!row.entityId) continue;
+      const key = auditRefTableKey(row.entityType);
+      if (!key) continue;
+      let ids = byKey.get(key);
+      if (!ids) {
+        ids = new Set();
+        byKey.set(key, ids);
+      }
+      ids.add(row.entityId);
+    }
+
+    const idToRef = new Map<string, string>();
+    await Promise.all(
+      [...byKey.entries()].map(async ([key, ids]) => {
+        const table = AUDIT_REF_TABLES[key];
+        const found = await this.db
+          .select({ id: table.id, referenceCode: table.referenceCode })
+          .from(table)
+          .where(inArray(table.id, [...ids]));
+        for (const hit of found) {
+          idToRef.set(hit.id, hit.referenceCode);
+        }
+      }),
+    );
+
+    return rows.map((row) => ({
+      ...row,
+      referenceCode: row.entityId
+        ? (idToRef.get(row.entityId) ?? null)
+        : null,
+    }));
   }
 
   async queueHealth() {

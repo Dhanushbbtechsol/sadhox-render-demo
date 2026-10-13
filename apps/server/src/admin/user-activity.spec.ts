@@ -108,4 +108,71 @@ describe("AdminService.userActivityReport", () => {
       assets: 0,
     });
   });
+
+  it("resolves audit entity UUIDs to reference codes", async () => {
+    const userRow = {
+      id: "u1",
+      referenceCode: "USR-000001",
+      name: "Eve",
+      email: "eve@sadhox.local",
+      role: "EndUser",
+      reportsToId: null,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    };
+    const incidentId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    let selectCalls = 0;
+    const db = {
+      select: vi.fn(() => {
+        selectCalls += 1;
+        if (selectCalls === 1) {
+          return {
+            from: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockResolvedValue([userRow]),
+          };
+        }
+        // Parallel section queries: tickets, requests, changes, logs, assets
+        if (selectCalls === 5) {
+          return {
+            from: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            orderBy: vi.fn().mockReturnThis(),
+            limit: vi.fn().mockResolvedValue([
+              {
+                id: "log-1",
+                action: "PATCH /incidents/" + incidentId,
+                entityType: "incidents",
+                entityId: incidentId,
+                createdAt: new Date("2026-01-02T00:00:00.000Z"),
+              },
+            ]),
+          };
+        }
+        if (selectCalls >= 7) {
+          return {
+            from: vi.fn().mockReturnThis(),
+            where: vi.fn().mockResolvedValue([
+              { id: incidentId, referenceCode: "INC-000042" },
+            ]),
+          };
+        }
+        return chain([]);
+      }),
+    };
+    const svc = new AdminService(db as never, ...queues);
+    const report = await svc.userActivityReport({
+      userId: "u1",
+      range: "7d",
+    });
+    expect(report.logs).toEqual([
+      {
+        id: "log-1",
+        action: "PATCH /incidents/" + incidentId,
+        entityType: "incidents",
+        entityId: incidentId,
+        referenceCode: "INC-000042",
+        createdAt: "2026-01-02T00:00:00.000Z",
+      },
+    ]);
+  });
 });

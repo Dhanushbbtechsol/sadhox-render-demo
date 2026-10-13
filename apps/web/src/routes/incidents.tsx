@@ -360,6 +360,9 @@ function AgentIncidentsPage() {
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground font-mono text-[11px]">
+                    {recordReference(incident.referenceCode)}
+                  </span>
                   <PriorityBadge priority={incident.priority} showLabel={false} />
                   <Badge variant={statusVariant(incident.status)}>
                     {INCIDENT_STATUS_LABELS[incident.status]}
@@ -382,6 +385,7 @@ function AgentIncidentsPage() {
               <table className="w-full text-left text-sm">
                 <thead className="bg-muted/50 text-muted-foreground text-xs uppercase">
                   <tr>
+                    <th className="px-4 py-3 font-medium">Reference</th>
                     <th className="px-4 py-3 font-medium">Ticket</th>
                     <th className="px-4 py-3 font-medium">Priority</th>
                     <th className="px-4 py-3 font-medium">Status</th>
@@ -402,6 +406,14 @@ function AgentIncidentsPage() {
                         index === focusIndex && "bg-muted/40",
                       )}
                     >
+                      <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">
+                        <Link
+                          to={`/incidents/${incident.id}`}
+                          className="text-primary hover:underline"
+                        >
+                          {recordReference(incident.referenceCode)}
+                        </Link>
+                      </td>
                       <td className="px-4 py-3">
                         <Link
                           to={`/incidents/${incident.id}`}
@@ -409,9 +421,6 @@ function AgentIncidentsPage() {
                         >
                           {incident.title}
                         </Link>
-                        <p className="text-muted-foreground mt-0.5 font-mono text-[11px]">
-                          {recordReference(incident.referenceCode)}
-                        </p>
                       </td>
                       <td className="px-4 py-3">
                         <PriorityBadge priority={incident.priority} showLabel={false} />

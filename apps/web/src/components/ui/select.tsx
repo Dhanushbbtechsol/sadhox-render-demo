@@ -72,7 +72,32 @@ function SelectContent({
   );
 }
 
-function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Props) {
+/** Flatten React children to a label string for Base UI Select.Value (items unmount when closed). */
+function labelFromChildren(children: React.ReactNode): string | undefined {
+  if (children == null || typeof children === "boolean") return undefined;
+  if (typeof children === "string" || typeof children === "number") {
+    return String(children);
+  }
+  if (Array.isArray(children)) {
+    const text = children
+      .map((child) => labelFromChildren(child))
+      .filter(Boolean)
+      .join("");
+    return text || undefined;
+  }
+  if (React.isValidElement<{ children?: React.ReactNode }>(children)) {
+    return labelFromChildren(children.props.children);
+  }
+  return undefined;
+}
+
+function SelectItem({
+  className,
+  children,
+  label,
+  ...props
+}: SelectPrimitive.Item.Props) {
+  const resolvedLabel = label ?? labelFromChildren(children);
   return (
     <SelectPrimitive.Item
       data-slot="select-item"
@@ -81,6 +106,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
         className,
       )}
       {...props}
+      label={resolvedLabel}
     >
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator

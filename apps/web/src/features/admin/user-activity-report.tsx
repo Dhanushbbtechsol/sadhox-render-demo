@@ -32,6 +32,7 @@ import {
 import { apiFetch } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
+import { formatAuditAction } from "./audit-activity";
 import {
   downloadPersonActivityReport,
   PERSON_ASSET_COLUMNS,
@@ -93,6 +94,7 @@ type AuditRow = {
   action: string;
   entityType: string;
   entityId: string | null;
+  referenceCode: string | null;
   createdAt: string;
 };
 
@@ -225,12 +227,21 @@ function ResultTable({
 function stringifyRow(row: Record<string, unknown>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(row)) {
-    if (key === "id") continue;
+    // Keep display refs only — never export raw UUID primary keys.
+    if (key === "id" || key === "entityId") continue;
     if (value === null || value === undefined) out[key] = "";
     else if (typeof value === "boolean") out[key] = value ? "Yes" : "No";
     else out[key] = String(value);
   }
   return out;
+}
+
+/** Replace raw METHOD /path with a plain-language Action for UI + export. */
+function withReadableAuditAction(row: AuditRow): AuditRow {
+  return {
+    ...row,
+    action: formatAuditAction(row),
+  };
 }
 
 export function UserActivityReportSection() {
@@ -286,6 +297,11 @@ export function UserActivityReportSection() {
     enabled: Boolean(submitted) && dialogOpen,
   });
 
+  const readableLogs = useMemo(
+    () => (report.data?.logs ?? []).map(withReadableAuditAction),
+    [report.data?.logs],
+  );
+
   function handleDownload(format: ReportDownloadFormat) {
     if (!report.data) return;
     try {
@@ -308,7 +324,7 @@ export function UserActivityReportSection() {
           ticketsReported: data.ticketsReported.map(stringifyRow),
           requests: data.requests.map(stringifyRow),
           changes: data.changes.map(stringifyRow),
-          logs: data.logs.map(stringifyRow),
+          logs: readableLogs.map(stringifyRow),
           assets: data.assets.map(stringifyRow),
         },
         format,
@@ -613,9 +629,9 @@ export function UserActivityReportSection() {
                     columns={PERSON_ASSET_COLUMNS}
                   />
                 </SectionCard>
-                <SectionCard title="Audit log" count={report.data.logs.length}>
+                <SectionCard title="Audit log" count={readableLogs.length}>
                   <ResultTable
-                    rows={report.data.logs}
+                    rows={readableLogs}
                     columns={PERSON_AUDIT_COLUMNS}
                   />
                 </SectionCard>

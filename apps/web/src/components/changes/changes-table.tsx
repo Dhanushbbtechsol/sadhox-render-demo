@@ -236,6 +236,7 @@ export function ChangesTable() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>ID</TableHead>
                   <TableHead>Title</TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>Type</TableHead>
@@ -250,6 +251,14 @@ export function ChangesTable() {
               <TableBody>
                 {paged.items.map((change) => (
                   <TableRow key={change.id}>
+                    <TableCell className="font-mono text-xs whitespace-nowrap">
+                      <Link
+                        to={`/changes/${change.id}`}
+                        className="text-primary hover:underline"
+                      >
+                        {recordReference(change.referenceCode)}
+                      </Link>
+                    </TableCell>
                     <TableCell className="max-w-[16rem] whitespace-normal">
                       <div className="space-y-1">
                         <Link
@@ -258,9 +267,6 @@ export function ChangesTable() {
                         >
                           {change.title}
                         </Link>
-                        <p className="text-muted-foreground font-mono text-[11px]">
-                          {recordReference(change.referenceCode)}
-                        </p>
                         <p className="text-muted-foreground line-clamp-1 text-xs">
                           {change.description}
                         </p>

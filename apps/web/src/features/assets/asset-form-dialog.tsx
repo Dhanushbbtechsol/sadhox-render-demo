@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -142,6 +142,28 @@ export function AssetFormDialog({
   const pending = createAsset.isPending || updateAsset.isPending;
   const ownerValue = form.watch("ownerId") ?? NONE_OWNER;
 
+  const ownerItems = useMemo(
+    () =>
+      ({
+        [NONE_OWNER]: "Unassigned",
+        ...Object.fromEntries(
+          (holders.data ?? []).map((holder) => [holder.id, holder.name]),
+        ),
+      }) as Record<string, string>,
+    [holders.data],
+  );
+
+  const statusItems = useMemo(
+    () =>
+      Object.fromEntries(
+        STATUSES.map((item) => [
+          item,
+          item === "InRepair" ? "In repair" : item,
+        ]),
+      ) as Record<string, string>,
+    [],
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -180,13 +202,17 @@ export function AssetFormDialog({
                 control={form.control}
                 name="type"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    items={Object.fromEntries(TYPES.map((item) => [item, item]))}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {TYPES.map((item) => (
-                        <SelectItem key={item} value={item}>
+                        <SelectItem key={item} value={item} label={item}>
                           {item}
                         </SelectItem>
                       ))}
@@ -202,14 +228,22 @@ export function AssetFormDialog({
                 control={form.control}
                 name="status"
                 render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    items={statusItems}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {STATUSES.map((item) => (
-                        <SelectItem key={item} value={item}>
-                          {item === "InRepair" ? "In repair" : item}
+                        <SelectItem
+                          key={item}
+                          value={item}
+                          label={statusItems[item]}
+                        >
+                          {statusItems[item]}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -258,14 +292,21 @@ export function AssetFormDialog({
                   value === NONE_OWNER ? null : value,
                 )
               }
+              items={ownerItems}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Unassigned" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE_OWNER}>Unassigned</SelectItem>
+                <SelectItem value={NONE_OWNER} label="Unassigned">
+                  Unassigned
+                </SelectItem>
                 {(holders.data ?? []).map((holder) => (
-                  <SelectItem key={holder.id} value={holder.id}>
+                  <SelectItem
+                    key={holder.id}
+                    value={holder.id}
+                    label={holder.name}
+                  >
                     {holder.name}
                   </SelectItem>
                 ))}

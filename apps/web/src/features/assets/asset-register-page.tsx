@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDownIcon, ChevronRightIcon, MoreHorizontal, PlusIcon } from "lucide-react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { LIST_PAGE_SIZE, ListPagination } from "@/components/list-pagination";
@@ -150,6 +150,14 @@ function AssetPersonReportSection() {
 
   const rows = report.data?.data ?? [];
 
+  const personItems = useMemo(
+    () =>
+      Object.fromEntries(
+        (holders.data ?? []).map((holder) => [holder.id, holder.name]),
+      ) as Record<string, string>,
+    [holders.data],
+  );
+
   return (
     <div className="ring-foreground/10 rounded-md bg-card p-4 ring-1">
       <h2 className="text-lg font-semibold">Person holding report</h2>
@@ -168,15 +176,20 @@ function AssetPersonReportSection() {
         <div className="space-y-1">
           <Label>Person</Label>
           <Select
-            value={personId}
+            value={personId || null}
             onValueChange={(value) => setPersonId(value ?? "")}
+            items={personItems}
           >
             <SelectTrigger className="w-56">
               <SelectValue placeholder="Select a person" />
             </SelectTrigger>
             <SelectContent>
               {(holders.data ?? []).map((holder) => (
-                <SelectItem key={holder.id} value={holder.id}>
+                <SelectItem
+                  key={holder.id}
+                  value={holder.id}
+                  label={holder.name}
+                >
                   {holder.name}
                 </SelectItem>
               ))}
@@ -324,16 +337,26 @@ export default function AssetRegisterPage() {
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search tag or name"
+          placeholder="Search tag, name, or ref"
           className="md:max-w-xs"
         />
-        <Select value={type} onValueChange={(value) => setType(value as AssetType | "all")}>
+        <Select
+          value={type}
+          onValueChange={(value) => setType(value as AssetType | "all")}
+          items={Object.fromEntries(
+            types.map((item) => [item, item === "all" ? "All types" : item]),
+          )}
+        >
           <SelectTrigger className="w-full md:w-44">
             <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent>
             {types.map((item) => (
-              <SelectItem key={item} value={item}>
+              <SelectItem
+                key={item}
+                value={item}
+                label={item === "all" ? "All types" : item}
+              >
                 {item === "all" ? "All types" : item}
               </SelectItem>
             ))}
@@ -342,13 +365,23 @@ export default function AssetRegisterPage() {
         <Select
           value={status}
           onValueChange={(value) => setStatus(value as AssetStatus | "all")}
+          items={Object.fromEntries(
+            statuses.map((item) => [
+              item,
+              item === "all" ? "All statuses" : statusLabel(item),
+            ]),
+          )}
         >
           <SelectTrigger className="w-full md:w-52">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             {statuses.map((item) => (
-              <SelectItem key={item} value={item}>
+              <SelectItem
+                key={item}
+                value={item}
+                label={item === "all" ? "All statuses" : statusLabel(item)}
+              >
                 {item === "all" ? "All statuses" : statusLabel(item)}
               </SelectItem>
             ))}

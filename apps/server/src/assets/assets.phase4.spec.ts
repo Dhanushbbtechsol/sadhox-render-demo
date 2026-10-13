@@ -59,6 +59,7 @@ function buildApp(): Express {
     {
       id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       assetTag: "HW-1",
+      referenceCode: "AST-000001",
       name: "Safe",
       purchaseCost: "999.00",
       linkedTicketId: null,
@@ -72,7 +73,8 @@ function buildApp(): Express {
       (a) =>
         search.length === 0 ||
         a.assetTag.includes(search) ||
-        a.name.includes(search),
+        a.name.includes(search) ||
+        a.referenceCode.includes(search),
     );
     return res.json({ data: filtered, total: filtered.length });
   });

@@ -39,6 +39,39 @@ export function formatAuditSummary(entry: AuditLog): string {
   return `${who} ${detail.verb} ${detail.object}${failed}`;
 }
 
+/**
+ * Action-only label (no actor) for tables/exports that already scope to a person.
+ * Never returns raw `METHOD /path` when the path can be mapped.
+ */
+export function formatAuditAction(
+  entry: Pick<AuditLog, "action" | "entityType"> & { diff?: unknown },
+): string {
+  const detail = describeActivity({
+    id: "",
+    actor: "",
+    action: entry.action,
+    entityType: entry.entityType,
+    entityId: null,
+    createdAt: "",
+    diff: entry.diff,
+  });
+
+  if (detail.kind === "system") {
+    return detail.text ?? entry.action.trim();
+  }
+
+  const failed = detail.failed ? " (failed)" : "";
+  const core = detail.targetName
+    ? `${detail.verb} ${detail.object} “${detail.targetName}”`
+    : `${detail.verb} ${detail.object}`;
+  return sentenceCase(core) + failed;
+}
+
+function sentenceCase(value: string): string {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 /** Short actor label for secondary lines. */
 export function formatAuditActorLine(entry: AuditLog): string {
   return formatActor(entry);

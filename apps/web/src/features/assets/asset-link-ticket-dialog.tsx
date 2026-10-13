@@ -117,13 +117,21 @@ export function AssetLinkTicketDialog({
               onValueChange={(value) =>
                 form.setValue("ticketType", value as "incident" | "service_request")
               }
+              items={{
+                incident: "Ticket",
+                service_request: "Request",
+              }}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="incident">Ticket</SelectItem>
-                <SelectItem value="service_request">Request</SelectItem>
+                <SelectItem value="incident" label="Ticket">
+                  Ticket
+                </SelectItem>
+                <SelectItem value="service_request" label="Request">
+                  Request
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>

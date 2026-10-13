@@ -148,6 +148,20 @@ export function UserFormDialog({
   const pending = createUser.isPending || updateUser.isPending;
   const reportsToValue = form.watch("reportsToId") ?? NONE_REPORTS_TO;
 
+  const reportsToItems = useMemo(
+    () =>
+      ({
+        [NONE_REPORTS_TO]: "None",
+        ...Object.fromEntries(
+          reportsToOptions.map((option) => [
+            option.id,
+            `${option.name} (${option.role})`,
+          ]),
+        ),
+      }) as Record<string, string>,
+    [reportsToOptions],
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -204,13 +218,14 @@ export function UserFormDialog({
               onValueChange={(value) =>
                 form.setValue("role", value as UserFormValues["role"])
               }
+              items={Object.fromEntries(ROLES.map((role) => [role, role]))}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {ROLES.map((role) => (
-                  <SelectItem key={role} value={role}>
+                  <SelectItem key={role} value={role} label={role}>
                     {role}
                   </SelectItem>
                 ))}
@@ -227,14 +242,21 @@ export function UserFormDialog({
                   value === NONE_REPORTS_TO ? null : value,
                 )
               }
+              items={reportsToItems}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="None" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NONE_REPORTS_TO}>None</SelectItem>
+                <SelectItem value={NONE_REPORTS_TO} label="None">
+                  None
+                </SelectItem>
                 {reportsToOptions.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
+                  <SelectItem
+                    key={option.id}
+                    value={option.id}
+                    label={reportsToItems[option.id]}
+                  >
                     {option.name} ({option.role})
                   </SelectItem>
                 ))}

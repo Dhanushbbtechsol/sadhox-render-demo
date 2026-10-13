@@ -293,7 +293,7 @@ export const PERSON_AUDIT_COLUMNS = [
   { key: "createdAt", label: "When" },
   { key: "action", label: "Action" },
   { key: "entityType", label: "Entity" },
-  { key: "entityId", label: "Entity ID" },
+  { key: "referenceCode", label: "Reference ID" },
 ] as const;
 
 export type PersonActivityExport = {
