@@ -500,7 +500,7 @@ async function attachShowcaseIncidentsToProject(db: SeedDb) {
       and(
         like(incidents.title, `${SHOWCASE_PREFIX}%`),
         sql`${incidents.projectId} is null`,
-        sql`${incidents.status} in ('New','Assigned','InProgress')`,
+        sql`${incidents.status} in ('New','Assigned','InProgress','Reopened')`,
       ),
     );
   console.log("attached open showcase incidents to phase 6 project");
@@ -686,7 +686,7 @@ async function seedShowcaseData(db: SeedDb) {
     }
   }
 
-  const openStatuses = ["New", "Assigned", "InProgress"] as const;
+  const openStatuses = ["New", "Assigned", "InProgress", "Reopened"] as const;
   const openShowcase = openStatuses.flatMap((status, si) =>
     Array.from({ length: 3 + si }, (_, i) => {
       const pair =

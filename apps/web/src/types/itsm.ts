@@ -11,7 +11,8 @@ export type IncidentStatus =
   | "Assigned"
   | "InProgress"
   | "Resolved"
-  | "Closed";
+  | "Closed"
+  | "Reopened";
 
 export type ProblemStatus =
   | "Open"
@@ -210,6 +211,7 @@ export const INCIDENT_STATUS_LABELS: Record<IncidentStatus, string> = {
   InProgress: "In Progress",
   Resolved: "Resolved",
   Closed: "Closed",
+  Reopened: "Reopened",
 };
 
 export const PROBLEM_STATUS_LABELS: Record<ProblemStatus, string> = {

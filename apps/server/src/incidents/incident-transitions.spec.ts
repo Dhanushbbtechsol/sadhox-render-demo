@@ -21,8 +21,10 @@ describe("incident status transitions", () => {
     expect(canTransitionIncident("Closed", "Assigned")).toBe(false);
   });
 
-  it("lets a resolved ticket return to Assigned, and keeps Closed terminal", () => {
-    expect(canTransitionIncident("Resolved", "Assigned")).toBe(true);
+  it("lets a resolved ticket reopen to Reopened, and keeps Closed terminal", () => {
+    expect(canTransitionIncident("Resolved", "Reopened")).toBe(true);
+    expect(canTransitionIncident("Resolved", "Assigned")).toBe(false);
+    expect(canTransitionIncident("Reopened", "InProgress")).toBe(true);
     expect(canTransitionIncident("Resolved", "Closed")).toBe(true);
     expect(INCIDENT_ALLOWED_TRANSITIONS.Closed).toEqual([]);
   });

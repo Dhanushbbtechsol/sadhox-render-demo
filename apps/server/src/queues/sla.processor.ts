@@ -20,7 +20,7 @@ import {
   type EscalationPriority,
 } from "./escalation";
 
-const ACTIVE_STATUSES = ["New", "Assigned", "InProgress"] as const;
+const ACTIVE_STATUSES = ["New", "Assigned", "InProgress", "Reopened"] as const;
 
 /**
  * Phase 9: SLA warning at 75% of resolveMinutes (once), then breach when overdue.

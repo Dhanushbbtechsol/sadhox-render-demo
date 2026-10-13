@@ -28,6 +28,7 @@ export const incidentStatusEnum = pgEnum("incident_status", [
   "InProgress",
   "Resolved",
   "Closed",
+  "Reopened",
 ]);
 export const priorityEnum = pgEnum("priority_level", ["P1", "P2", "P3", "P4"]);
 export const impactUrgencyEnum = pgEnum("impact_urgency", [

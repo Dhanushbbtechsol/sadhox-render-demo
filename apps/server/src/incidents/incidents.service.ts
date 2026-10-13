@@ -34,6 +34,7 @@ import type {
   AssignIncidentDto,
   CreateCommentDto,
   CreateIncidentDto,
+  ReopenIncidentDto,
   UpdateIncidentDto,
 } from "./dto/incident.dto";
 import type { ListIncidentsQueryDto } from "./dto/list-incidents-query.dto";
@@ -284,7 +285,12 @@ export class IncidentsService {
           and(
             eq(incidents.category, dto.category),
             gte(incidents.createdAt, since),
-            inArray(incidents.status, ["New", "Assigned", "InProgress"]),
+            inArray(incidents.status, [
+              "New",
+              "Assigned",
+              "InProgress",
+              "Reopened",
+            ]),
           ),
         );
       const openIncludingThis = Number(counted?.n ?? 0) + 1;
@@ -434,7 +440,7 @@ export class IncidentsService {
     return detail;
   }
 
-  async reopen(user: AuthUser, id: string) {
+  async reopen(user: AuthUser, id: string, dto: ReopenIncidentDto) {
     const existing = await this.loadIncidentRow(id);
     if (!existing) throw new NotFoundException("Incident not found");
     if (
@@ -451,8 +457,15 @@ export class IncidentsService {
       );
     }
 
+    const reason = sanitizePlainText(dto.reason);
+    if (!reason || reason.length < 5) {
+      throw new BadRequestException(
+        "A reopen description is required (min 5 characters)",
+      );
+    }
+
     try {
-      assertCanTransitionIncident(existing.incident.status, "Assigned");
+      assertCanTransitionIncident(existing.incident.status, "Reopened");
     } catch (err) {
       throw new BadRequestException(
         err instanceof Error ? err.message : "Invalid status transition",
@@ -472,7 +485,7 @@ export class IncidentsService {
     const [updated] = await this.db
       .update(incidents)
       .set({
-        status: "Assigned",
+        status: "Reopened",
         resolvedAt: null,
         closedAt: null,
         slaDueAt,
@@ -483,6 +496,49 @@ export class IncidentsService {
       .returning();
 
     if (!updated) throw new NotFoundException("Incident not found");
+
+    const reopenComment = `Reopened: ${reason}`;
+    const [createdComment] = await this.db
+      .insert(comments)
+      .values({
+        ticketId: id,
+        ticketType: "incident",
+        authorId: user.userId,
+        content: reopenComment,
+      })
+      .returning();
+
+    if (createdComment) {
+      const [author] = await this.db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, user.userId))
+        .limit(1);
+      this.events.emitCommentCreated(id, {
+        id: createdComment.id,
+        ticketId: id,
+        ticketType: "incident",
+        authorId: user.userId,
+        authorName: author?.name ?? user.email,
+        content: createdComment.content,
+        createdAt: createdComment.createdAt.toISOString(),
+      });
+    }
+
+    const assigneeId = existing.incident.assignedTo;
+    if (assigneeId && assigneeId !== user.userId) {
+      try {
+        await this.notifications.record(
+          assigneeId,
+          "incident.reopened",
+          `${updated.title} reopened`,
+          reason,
+          `/incidents/${id}`,
+        );
+      } catch {
+        // Best-effort notice for the assignee
+      }
+    }
 
     const detail = await this.get(user, id);
     this.events.emitTicketUpdated(id, detail);

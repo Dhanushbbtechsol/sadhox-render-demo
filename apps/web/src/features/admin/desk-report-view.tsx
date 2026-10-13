@@ -14,6 +14,7 @@ const STATUS_LABELS: Record<string, string> = {
   InProgress: "In Progress",
   Resolved: "Resolved",
   Closed: "Closed",
+  Reopened: "Reopened",
   Draft: "Draft",
   Submitted: "Submitted",
   PendingApproval: "Pending Approval",

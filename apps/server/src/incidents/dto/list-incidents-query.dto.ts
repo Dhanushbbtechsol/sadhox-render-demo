@@ -26,11 +26,17 @@ export class ListIncidentsQueryDto {
   pageSize?: number = 20;
 
   @ApiPropertyOptional({
-    enum: ["New", "Assigned", "InProgress", "Resolved", "Closed"],
+    enum: ["New", "Assigned", "InProgress", "Resolved", "Closed", "Reopened"],
   })
   @IsOptional()
-  @IsIn(["New", "Assigned", "InProgress", "Resolved", "Closed"])
-  status?: "New" | "Assigned" | "InProgress" | "Resolved" | "Closed";
+  @IsIn(["New", "Assigned", "InProgress", "Resolved", "Closed", "Reopened"])
+  status?:
+    | "New"
+    | "Assigned"
+    | "InProgress"
+    | "Resolved"
+    | "Closed"
+    | "Reopened";
 
   @ApiPropertyOptional({ enum: ["P1", "P2", "P3", "P4"] })
   @IsOptional()

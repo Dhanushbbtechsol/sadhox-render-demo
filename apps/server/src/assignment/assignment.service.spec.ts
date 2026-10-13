@@ -7,6 +7,6 @@ import { OPEN_INCIDENT_STATUSES } from "./assignment.service";
 
 describe("AssignmentService (manual assign pool)", () => {
   it("exports open incident statuses used for load display", () => {
-    expect(OPEN_INCIDENT_STATUSES).toEqual(["New", "Assigned", "InProgress"]);
+    expect(OPEN_INCIDENT_STATUSES).toEqual(["New", "Assigned", "InProgress", "Reopened"]);
   });
 });

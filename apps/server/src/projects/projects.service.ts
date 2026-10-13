@@ -512,7 +512,7 @@ export class ProjectsService {
     const [incidentAgg] = await this.db
       .select({
         total: count(),
-        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress'))`,
+        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress','Reopened'))`,
         p1: sql<number>`count(*) filter (where ${incidents.priority} = 'P1')`,
       })
       .from(incidents)
@@ -614,7 +614,7 @@ export class ProjectsService {
     const projectScope = inArray(incidents.projectId, projectIds);
     const [incidentAgg] = await this.db
       .select({
-        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress'))`,
+        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress','Reopened'))`,
         closed: sql<number>`count(*) filter (where ${incidents.status} in ('Resolved','Closed'))`,
       })
       .from(incidents)

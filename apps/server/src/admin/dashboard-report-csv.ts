@@ -219,6 +219,7 @@ const STATUS_LABELS: Record<string, string> = {
   InProgress: "In Progress",
   Resolved: "Resolved",
   Closed: "Closed",
+  Reopened: "Reopened",
   Draft: "Draft",
   Submitted: "Submitted",
   PendingApproval: "Pending Approval",
@@ -245,7 +246,7 @@ export const REPORT_STATUS_FILTER: Record<
   }
 > = {
   assigned: {
-    incidents: ["Assigned"],
+    incidents: ["Assigned", "Reopened"],
     serviceRequests: [],
     changes: [],
   },
@@ -260,7 +261,7 @@ export const REPORT_STATUS_FILTER: Record<
     changes: ["Approved"],
   },
   open: {
-    incidents: ["New", "Assigned", "InProgress"],
+    incidents: ["New", "Assigned", "InProgress", "Reopened"],
     serviceRequests: [
       "Draft",
       "Submitted",
