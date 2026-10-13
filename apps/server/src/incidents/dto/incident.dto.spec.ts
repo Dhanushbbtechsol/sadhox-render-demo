@@ -30,22 +30,15 @@ describe("CreateIncidentDto category/subcategory", () => {
     expect(errors).toEqual([]);
   });
 
-  it("rejects an invalid pair", async () => {
-    const errors = await messagesFor(CreateIncidentDto, {
-      ...validCreate,
-      category: "Hardware",
-      subcategory: "VPN Access",
-    });
-    expect(errors.some((m) => /subcategory/i.test(m))).toBe(true);
-  });
-
-  it("rejects legacy Other on create", async () => {
-    const errors = await messagesFor(CreateIncidentDto, {
-      ...validCreate,
-      category: "Hardware",
-      subcategory: "Other",
-    });
-    expect(errors.length).toBeGreaterThan(0);
+  it("accepts pairs the static map would reject (taxonomy is checked in the service)", async () => {
+    const bodies = [
+      { ...validCreate, category: "Hardware", subcategory: "VPN Access" },
+      { ...validCreate, category: "Hardware", subcategory: "Other" },
+      { ...validCreate, category: "Email", subcategory: "Email & Calendar" },
+    ];
+    for (const body of bodies) {
+      expect(await messagesFor(CreateIncidentDto, body)).toEqual([]);
+    }
   });
 
   it("rejects missing subcategory", async () => {
@@ -54,16 +47,6 @@ describe("CreateIncidentDto category/subcategory", () => {
     expect(errors.length).toBeGreaterThan(0);
   });
 
-  it("rejects old six-value categories like Email", async () => {
-    const errors = await messagesFor(CreateIncidentDto, {
-      ...validCreate,
-      category: "Email",
-      subcategory: "Email & Calendar",
-    });
-    expect(errors.some((m) => /category|Hardware|Collaboration/i.test(m))).toBe(
-      true,
-    );
-  });
 });
 
 describe("UpdateIncidentDto category/subcategory (DTO layer)", () => {

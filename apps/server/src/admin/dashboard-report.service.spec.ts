@@ -11,6 +11,7 @@ import { RolesGuard } from "../common/guards/roles.guard";
 import { IS_PUBLIC_KEY } from "../common/decorators/public.decorator";
 import type { AuthUser } from "../common/decorators/current-user.decorator";
 import type { UserRole } from "../common/types/roles";
+import { IncidentCategoriesService } from "../incidents/incident-categories.service";
 import { AdminController } from "./admin.controller";
 import { AdminService } from "./admin.service";
 import { REPORT_ROW_CAP, REPORT_STATUS_FILTER } from "./dashboard-report-csv";
@@ -89,6 +90,16 @@ describe("GET /admin/dashboard/report Phase 9 desk report", () => {
           inject: [Reflector],
         },
         { provide: APP_GUARD, useClass: RolesGuard },
+        {
+          provide: IncidentCategoriesService,
+          useValue: {
+            listTaxonomy: vi.fn().mockResolvedValue({ data: [] }),
+            createCategory: vi.fn(),
+            updateCategory: vi.fn(),
+            createSubcategory: vi.fn(),
+            updateSubcategory: vi.fn(),
+          },
+        },
         {
           provide: AdminService,
           useValue: {

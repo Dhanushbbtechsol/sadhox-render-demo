@@ -11,6 +11,7 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { AdminController } from "../admin/admin.controller";
 import { AdminService } from "../admin/admin.service";
+import { IncidentCategoriesService } from "../incidents/incident-categories.service";
 import { AuthController } from "../auth/auth.controller";
 import { AuthService } from "../auth/auth.service";
 import { RefreshCookieOriginGuard } from "../auth/refresh-cookie-origin.guard";
@@ -120,6 +121,16 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
             approve: chApprove,
             reject: chReject,
             update: chUpdate,
+          },
+        },
+        {
+          provide: IncidentCategoriesService,
+          useValue: {
+            listTaxonomy: vi.fn().mockResolvedValue({ data: [] }),
+            createCategory: vi.fn(),
+            updateCategory: vi.fn(),
+            createSubcategory: vi.fn(),
+            updateSubcategory: vi.fn(),
           },
         },
         {

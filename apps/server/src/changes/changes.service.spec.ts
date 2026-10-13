@@ -167,7 +167,7 @@ describe("ChangesService — Admin-only approve, no actions", () => {
       service.update(agent, withProject.id as string, {
         status: "PendingApproval",
       }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it("rejects Admin Submitted → PendingApproval (unused for changes)", async () => {
@@ -184,7 +184,7 @@ describe("ChangesService — Admin-only approve, no actions", () => {
       service.update(admin, withProject.id as string, {
         status: "PendingApproval",
       }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it("rejects Agent Rolled Back from Submitted (Admin rejection gate)", async () => {
@@ -250,7 +250,7 @@ describe("ChangesService — Admin-only approve, no actions", () => {
     expect(result.status).toBe("Approved");
   });
 
-  it("allows Manager to approve a project change (Admin fallback)", async () => {
+  it("rejects a Manager who is not the creator's line manager", async () => {
     const withProject = { ...submitted, projectId: "proj-managed" };
     const returning = vi.fn(async () => [{ ...withProject, status: "Approved" }]);
     const whereUpdate = vi.fn(() => ({ returning }));
@@ -291,17 +291,18 @@ describe("ChangesService — Admin-only approve, no actions", () => {
       access as never,
       createProjectsServiceMock() as never,
     );
-    const result = await service.approve(
-      {
-        userId: "mgr",
-        email: "mgr@sadhox.local",
-        role: "Manager",
-        name: "Mgr",
-      },
-      withProject.id as string,
-    );
-    expect(result.status).toBe("Approved");
-    expect(access.assertCanApprove).toHaveBeenCalled();
+    await expect(
+      service.approve(
+        {
+          userId: "mgr",
+          email: "mgr@sadhox.local",
+          role: "Manager",
+          name: "Mgr",
+        },
+        withProject.id as string,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(access.assertCanApprove).not.toHaveBeenCalled();
   });
 
   it("rejects Agent create with foreign projectId (A01/A04)", async () => {
@@ -332,7 +333,13 @@ describe("ChangesService — Admin-only approve, no actions", () => {
   });
 
   it("rejects create without a project (Manager must be able to review)", async () => {
-    const projectsService = createProjectsServiceMock();
+    const projectsService = {
+      resolveTicketProjectFields: vi.fn().mockRejectedValue(
+        new BadRequestException(
+          "Managers must link tickets to a project they own",
+        ),
+      ),
+    };
     const service = new ChangesService(
       {} as never,
       { sendApprovalOutcome: vi.fn() } as never,
@@ -341,14 +348,22 @@ describe("ChangesService — Admin-only approve, no actions", () => {
       projectsService as never,
     );
     await expect(
-      service.create(endUser, {
-        title: "User change",
-        description: "please",
-        type: "Standard",
-        scheduledStart: "2030-01-01T10:00:00.000Z",
-        scheduledEnd: "2030-01-01T12:00:00.000Z",
-        rollbackPlan: "",
-      }),
+      service.create(
+        {
+          userId: "mgr",
+          email: "mgr@sadhox.local",
+          role: "Manager",
+          name: "Mgr",
+        },
+        {
+          title: "User change",
+          description: "please",
+          type: "Standard",
+          scheduledStart: "2030-01-01T10:00:00.000Z",
+          scheduledEnd: "2030-01-01T12:00:00.000Z",
+          rollbackPlan: "",
+        },
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(projectsService.resolveTicketProjectFields).toHaveBeenCalled();
   });

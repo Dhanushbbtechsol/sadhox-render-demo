@@ -186,7 +186,9 @@ describe("Incidents API (supertest)", () => {
     expect(incidents.create).not.toHaveBeenCalled();
   });
 
-  it("POST /incidents rejects subcategory outside category", async () => {
+  it("POST /incidents forwards a category pair for the service to check", async () => {
+    incidents.create.mockResolvedValue(sampleIncident);
+
     await request(app)
       .post("/incidents")
       .send({
@@ -197,8 +199,14 @@ describe("Incidents API (supertest)", () => {
         impact: "High",
         urgency: "High",
       })
-      .expect(400);
-    expect(incidents.create).not.toHaveBeenCalled();
+      .expect(201);
+    expect(incidents.create).toHaveBeenCalledWith(
+      mockUser,
+      expect.objectContaining({
+        category: "Hardware",
+        subcategory: "Email & Calendar",
+      }),
+    );
   });
 
   it("PATCH /incidents/:id updates fields", async () => {

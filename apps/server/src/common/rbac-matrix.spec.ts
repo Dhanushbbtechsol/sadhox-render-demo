@@ -27,6 +27,7 @@ import { DrizzleHealthIndicator } from "../health/drizzle.health";
 import { HealthController } from "../health/health.controller";
 import { ManagerDashboardController } from "../projects/manager-dashboard.controller";
 import { RedisHealthIndicator } from "../health/redis.health";
+import { IncidentCategoriesService } from "../incidents/incident-categories.service";
 import { IncidentsController } from "../incidents/incidents.controller";
 import { IncidentsService } from "../incidents/incidents.service";
 import { KnowledgeController } from "../knowledge/knowledge.controller";
@@ -401,6 +402,16 @@ describe("Checkpoint 3 RBAC matrix (Supertest)", () => {
         {
           provide: RedisHealthIndicator,
           useValue: { pingCheck: vi.fn() },
+        },
+        {
+          provide: IncidentCategoriesService,
+          useValue: {
+            listTaxonomy: vi.fn().mockResolvedValue({ data: [] }),
+            createCategory: vi.fn(),
+            updateCategory: vi.fn(),
+            createSubcategory: vi.fn(),
+            updateSubcategory: vi.fn(),
+          },
         },
         {
           provide: IncidentsService,
