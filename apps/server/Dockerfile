@@ -30,6 +30,8 @@ COPY --from=builder /app/apps/server/dist ./apps/server/dist
 COPY --from=builder /app/apps/server/drizzle ./apps/server/drizzle
 COPY apps/server/drizzle.config.ts ./apps/server/drizzle.config.ts
 
+RUN chown -R node:node /app
+USER node
 WORKDIR /app/apps/server
 EXPOSE 3000
 CMD ["node", "dist/main.js"]
