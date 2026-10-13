@@ -47,6 +47,7 @@ import { ServiceRequestsModule } from "./service-requests/service-requests.modul
           resolveThrottleGlobal({
             limit: config.get<number>("THROTTLE_GLOBAL_LIMIT"),
             ttl: config.get<number>("THROTTLE_GLOBAL_TTL_MS"),
+            nodeEnv: config.get<string>("NODE_ENV"),
           }),
         ],
         storage: new PostgresThrottlerStorage(

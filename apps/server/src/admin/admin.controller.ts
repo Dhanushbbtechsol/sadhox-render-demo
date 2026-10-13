@@ -20,7 +20,7 @@ import {
   type AuthUser,
 } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
-import { THROTTLE_DESK_REPORT } from "../common/throttle.constants";
+import { THROTTLE_REPORT } from "../common/throttle.constants";
 import { AdminService } from "./admin.service";
 import { ChartRangeQueryDto } from "./dto/chart-range-query.dto";
 import {
@@ -61,7 +61,7 @@ export class AdminController {
 
   @Get("dashboard/report")
   @Roles("Admin")
-  @Throttle(THROTTLE_DESK_REPORT)
+  @Throttle(THROTTLE_REPORT)
   @Header("Cache-Control", "no-store")
   @ApiOperation({
     summary:

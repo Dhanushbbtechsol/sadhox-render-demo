@@ -2,8 +2,9 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   resolveThrottleGlobal,
   THROTTLE_AUTH_LOGIN,
-  THROTTLE_DESK_REPORT,
+  THROTTLE_AUTH_SESSION,
   THROTTLE_GLOBAL,
+  THROTTLE_REPORT,
 } from "./throttle.constants";
 
 /**
@@ -33,12 +34,42 @@ describe("resolveThrottleGlobal", () => {
     expect(resolveThrottleGlobal()).toEqual(THROTTLE_GLOBAL);
   });
 
-  it("applies load-test overrides", () => {
-    expect(resolveThrottleGlobal({ limit: 20000, ttl: 60_000 })).toEqual({
+  it("applies load-test overrides outside production", () => {
+    expect(
+      resolveThrottleGlobal({
+        limit: 20000,
+        ttl: 60_000,
+        nodeEnv: "development",
+      }),
+    ).toEqual({
       name: "default",
       ttl: 60_000,
       limit: 20000,
     });
+  });
+
+  it("caps the global limit at the default in production", () => {
+    expect(
+      resolveThrottleGlobal({
+        limit: 20000,
+        ttl: 60_000,
+        nodeEnv: "production",
+      }),
+    ).toEqual({
+      name: "default",
+      ttl: 60_000,
+      limit: THROTTLE_GLOBAL.limit,
+    });
+  });
+});
+
+describe("auth and report throttle bands", () => {
+  it("limits logout and refresh to 10 per minute", () => {
+    expect(THROTTLE_AUTH_SESSION.default).toEqual({ limit: 10, ttl: 60_000 });
+  });
+
+  it("limits desk and dashboard exports to 10 per minute", () => {
+    expect(THROTTLE_REPORT.default).toEqual({ limit: 10, ttl: 60_000 });
   });
 });
 
@@ -70,30 +101,5 @@ describe("login throttle 429 behavior", () => {
     expect(limiter.hit(ip).status).toBe(429);
     vi.advanceTimersByTime(ttl);
     expect(limiter.hit(ip).status).toBe(200);
-  });
-});
-
-describe("desk report throttle (Admin + Manager)", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("matches Admin report limit of 10 per minute", () => {
-    expect(THROTTLE_DESK_REPORT.default).toEqual({
-      limit: 10,
-      ttl: 60_000,
-    });
-  });
-
-  it("rejects over-limit desk report hits with 429", () => {
-    const { limit, ttl } = THROTTLE_DESK_REPORT.default;
-    const limiter = createFixedWindowLimiter(limit, ttl);
-    const key = "manager:reports:desk";
-    const results = Array.from({ length: limit + 1 }, () => limiter.hit(key));
-    expect(results.slice(0, limit).every((r) => r.status === 200)).toBe(true);
-    expect(results[limit]?.status).toBe(429);
   });
 });

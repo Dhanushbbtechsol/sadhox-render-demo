@@ -16,8 +16,8 @@ import {
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import { auditLog, refreshTokens, users, type User } from "../database/schema";
+import { JWT_ACCESS_SIGN_OPTIONS } from "./jwt-access";
 
-const ACCESS_TTL = "15m";
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MISSING_USER_HASH = bcrypt.hashSync("sadhox-missing-user", 12);
 
@@ -56,7 +56,8 @@ export class AuthService {
       { sub: user.id, email: user.email, role: user.role, name: user.name },
       {
         secret: this.config.getOrThrow<string>("JWT_ACCESS_SECRET"),
-        expiresIn: ACCESS_TTL,
+        expiresIn: JWT_ACCESS_SIGN_OPTIONS.expiresIn,
+        algorithm: JWT_ACCESS_SIGN_OPTIONS.algorithm,
       },
     );
   }

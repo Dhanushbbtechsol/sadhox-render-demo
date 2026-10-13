@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { HttpException, HttpStatus } from "@nestjs/common";
-import { SentryExceptionFilter } from "./sentry-exception.filter";
+import { WsException } from "@nestjs/websockets";
+import {
+  isExpectedWsAuthDenial,
+  SentryExceptionFilter,
+} from "./sentry-exception.filter";
 
 describe("SentryExceptionFilter reporting rules", () => {
   it("treats 401/403/404/400 as non-reportable client errors", () => {
@@ -20,5 +24,15 @@ describe("SentryExceptionFilter reporting rules", () => {
 
   it("instantiates filter", () => {
     expect(new SentryExceptionFilter()).toBeInstanceOf(SentryExceptionFilter);
+  });
+
+  it("skips expected websocket auth denials and still reports other errors", () => {
+    expect(isExpectedWsAuthDenial(new WsException("Missing access token"))).toBe(
+      true,
+    );
+    expect(
+      isExpectedWsAuthDenial(new Error("Invalid or expired access token")),
+    ).toBe(true);
+    expect(isExpectedWsAuthDenial(new Error("redis down"))).toBe(false);
   });
 });

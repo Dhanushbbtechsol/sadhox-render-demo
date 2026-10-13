@@ -1,13 +1,13 @@
 import { Controller, Get, Header, Query, Res } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
+import { THROTTLE_REPORT } from "../common/throttle.constants";
 import type { Response } from "express";
 import {
   CurrentUser,
   type AuthUser,
 } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
-import { THROTTLE_DESK_REPORT } from "../common/throttle.constants";
 import { AdminService } from "../admin/admin.service";
 import { DeskReportQueryDto } from "../admin/dto/desk-report-query.dto";
 
@@ -19,7 +19,7 @@ export class ManagerController {
   constructor(private readonly admin: AdminService) {}
 
   @Get("reports/desk")
-  @Throttle(THROTTLE_DESK_REPORT)
+  @Throttle(THROTTLE_REPORT)
   @Header("Cache-Control", "no-store")
   @ApiOperation({
     summary:

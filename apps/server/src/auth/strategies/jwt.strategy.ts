@@ -8,6 +8,7 @@ import { throwIfDatabaseUnavailable } from "../../common/database-unavailable";
 import { DRIZZLE } from "../../database/database.constants";
 import type { DrizzleDB } from "../../database/database.module";
 import { users } from "../../database/schema";
+import { JWT_ACCESS_VERIFY_OPTIONS } from "../jwt-access";
 
 type JwtPayload = {
   sub: string;
@@ -25,6 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: config.getOrThrow<string>("JWT_ACCESS_SECRET"),
+      algorithms: [...JWT_ACCESS_VERIFY_OPTIONS.algorithms],
     });
   }
 

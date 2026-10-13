@@ -15,6 +15,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import type { Server, Socket } from "socket.io";
 import { ZodError } from "zod";
+import { JWT_ACCESS_VERIFY_OPTIONS } from "../auth/jwt-access";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
 import { incidents, serviceRequests, users } from "../database/schema";
@@ -110,6 +111,7 @@ export class EventsGateway
     try {
       payload = await this.jwt.verifyAsync<JwtAccessPayload>(token, {
         secret: this.config.getOrThrow<string>("JWT_ACCESS_SECRET"),
+        algorithms: [...JWT_ACCESS_VERIFY_OPTIONS.algorithms],
       });
     } catch {
       throw new WsException("Invalid or expired access token");

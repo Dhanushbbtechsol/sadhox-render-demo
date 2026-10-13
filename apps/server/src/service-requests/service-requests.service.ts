@@ -324,7 +324,7 @@ export class ServiceRequestsService {
         `Cannot reject a request in status ${existing.status}`,
       );
     }
-    // Same actor/status gates as approve (discard next status — reject always ends Rejected).
+    // Same actor/status gates as approve. Reject ends the request; project ACL is not a second gate.
     nextApproval({
       status: existing.status,
       actorRole,

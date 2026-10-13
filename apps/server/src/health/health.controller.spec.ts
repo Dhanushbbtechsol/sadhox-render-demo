@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   THROTTLE_AUTH_LOGIN,
-  THROTTLE_DESK_REPORT,
   THROTTLE_GLOBAL,
+  THROTTLE_REPORT,
 } from "../common/throttle.constants";
 import { DrizzleHealthIndicator } from "./drizzle.health";
 import { HealthController } from "./health.controller";
@@ -24,8 +24,8 @@ describe("throttle constants", () => {
     });
   });
 
-  it("desk report throttle is 10/min", () => {
-    expect(THROTTLE_DESK_REPORT.default).toEqual({
+  it("report throttle is 10/min", () => {
+    expect(THROTTLE_REPORT.default).toEqual({
       limit: 10,
       ttl: 60_000,
     });

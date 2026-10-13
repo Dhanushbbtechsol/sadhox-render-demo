@@ -7,7 +7,7 @@ import {
   Injectable,
   Logger,
 } from "@nestjs/common";
-import { BaseWsExceptionFilter } from "@nestjs/websockets";
+import { BaseWsExceptionFilter, WsException } from "@nestjs/websockets";
 import type { Request, Response } from "express";
 import * as Sentry from "@sentry/node";
 import {
@@ -26,6 +26,24 @@ import {
  * HTTP-only response shaping. WS must not go through Express `res.status()`
  * (that mangled gateway errors into opaque "Internal server error").
  */
+const EXPECTED_WS_AUTH_MESSAGES = new Set([
+  "unauthorized",
+  "missing access token",
+  "invalid or expired access token",
+  "invalid access token payload",
+  "forbidden: enduser may only join rooms for their own tickets",
+  "forbidden: ticket room join denied",
+  "invalid payload",
+]);
+
+/** Expected socket auth/ACL denials are client errors, not incidents. */
+export function isExpectedWsAuthDenial(exception: unknown): boolean {
+  if (!(exception instanceof WsException) && !(exception instanceof Error)) {
+    return false;
+  }
+  return EXPECTED_WS_AUTH_MESSAGES.has(exception.message.toLowerCase());
+}
+
 @Catch()
 @Injectable()
 export class SentryExceptionFilter implements ExceptionFilter {
@@ -34,7 +52,7 @@ export class SentryExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost) {
     if (host.getType() === "ws") {
-      if (process.env.SENTRY_DSN) {
+      if (process.env.SENTRY_DSN && !isExpectedWsAuthDenial(exception)) {
         Sentry.captureException(exception);
       }
       this.wsFilter.catch(exception, host);
