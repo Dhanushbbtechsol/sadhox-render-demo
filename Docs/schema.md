@@ -136,6 +136,28 @@ Columns that correlate by convention and are not foreign keys:
 | `diff` | jsonb | yes | |
 | `created_at` | timestamptz | no | default now |
 
+## incident_categories
+
+Admin-managed ticket category taxonomy (2026-10-13). Seeded from the Phase 7 name map; runtime CRUD via Admin Categories.
+
+| Column | Type | Notes |
+|--------|------|--------|
+| id | uuid PK | |
+| name | varchar(64) unique | e.g. Hardware |
+| is_active | boolean | |
+| created_at / updated_at | timestamptz | |
+
+## incident_subcategories
+
+| Column | Type | Notes |
+|--------|------|--------|
+| id | uuid PK | |
+| category_id | uuid FK → incident_categories | cascade delete |
+| name | varchar(128) | unique per category |
+| min_priority | priority_level nullable | floor on ticket create/update; drives Response time via `sla_rules` |
+| is_active | boolean | |
+| created_at / updated_at | timestamptz | |
+
 ## incidents
 
 | Column | Type | Null | Notes |

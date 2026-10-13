@@ -13,6 +13,7 @@ import {
   incidents,
   problemIncidents,
   problems,
+  projects,
   users,
   type ProblemStatus,
 } from "../database/schema";
@@ -31,6 +32,8 @@ export type LinkedIncidentSnippet = {
   title: string;
   status: string;
   priority: string;
+  projectId: string | null;
+  projectName: string | null;
 };
 
 export type ProblemView = {
@@ -383,8 +386,10 @@ export class ProblemsService {
         status: incidents.status,
         priority: incidents.priority,
         projectId: incidents.projectId,
+        projectName: projects.name,
       })
       .from(incidents)
+      .leftJoin(projects, eq(incidents.projectId, projects.id))
       .where(inArray(incidents.id, incidentIds));
 
     for (const row of rows) {
@@ -395,6 +400,8 @@ export class ProblemsService {
         title: row.title,
         status: row.status,
         priority: row.priority,
+        projectId: row.projectId,
+        projectName: row.projectName ?? null,
       });
     }
     return map;

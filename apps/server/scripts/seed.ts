@@ -35,6 +35,14 @@ import {
 import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
 import { claimReference } from "../src/incidents/reference";
 import { responseMinutesForSeed } from "../src/incidents/priority";
+import {
+  INCIDENT_CATEGORY_SUBCATEGORY_MAP,
+  SEED_SUBCATEGORY_MIN_PRIORITY,
+} from "../src/incidents/incident-category-map";
+import {
+  incidentCategories,
+  incidentSubcategories,
+} from "../src/database/schema";
 
 /** Valid Phase 7 pairs for NEW showcase/scenario inserts only (existing rows untouched). */
 const PHASE7_INCIDENT_PAIRS = [
@@ -205,13 +213,15 @@ async function seed() {
     assertPasswordComplexity(seedPassword);
     const passwordHash = await bcrypt.hash(seedPassword, 12);
     for (const u of toCreate) {
+      const referenceCode = await claimReference(db, "USR");
       await db.insert(users).values({
+        referenceCode,
         email: u.email,
         passwordHash,
         role: u.role,
         name: u.name,
       });
-      console.log(`created ${u.role} ${u.email}`);
+      console.log(`created ${u.role} ${u.email} (${referenceCode})`);
     }
     // Print once to stdout only — never write to .seed-password or other disk paths.
     process.stdout.write(
@@ -254,6 +264,9 @@ async function seed() {
     });
   }
   console.log("SLA rules ensured");
+
+  await seedIncidentCategoryTaxonomy(db);
+  console.log("ticket category taxonomy ensured");
 
   for (const item of CATALOG_SEED) {
     const [existing] = await db
@@ -314,6 +327,49 @@ async function seed() {
   console.log("Seed complete");
 }
 
+async function seedIncidentCategoryTaxonomy(db: SeedDb) {
+  for (const [category, subs] of Object.entries(
+    INCIDENT_CATEGORY_SUBCATEGORY_MAP,
+  )) {
+    let [cat] = await db
+      .select()
+      .from(incidentCategories)
+      .where(eq(incidentCategories.name, category))
+      .limit(1);
+    if (!cat) {
+      [cat] = await db
+        .insert(incidentCategories)
+        .values({ name: category })
+        .returning();
+      console.log(`created ticket category ${category}`);
+    }
+    for (const subName of subs) {
+      const [existing] = await db
+        .select()
+        .from(incidentSubcategories)
+        .where(
+          and(
+            eq(incidentSubcategories.categoryId, cat!.id),
+            eq(incidentSubcategories.name, subName),
+          ),
+        )
+        .limit(1);
+      if (existing) continue;
+      const minPriority =
+        SEED_SUBCATEGORY_MIN_PRIORITY[`${category}::${subName}`] ?? null;
+      await db.insert(incidentSubcategories).values({
+        categoryId: cat!.id,
+        name: subName,
+        minPriority,
+      });
+      console.log(
+        `created ticket subcategory ${category} / ${subName}` +
+          (minPriority ? ` (min ${minPriority})` : ""),
+      );
+    }
+  }
+}
+
 async function seedPhase6Projects(db: SeedDb) {
   const [manager] = await db
     .select()
@@ -348,12 +404,14 @@ async function seedPhase6Projects(db: SeedDb) {
     .limit(1);
 
   if (!existing) {
+    const referenceCode = await claimReference(db, "PRJ");
     await db.insert(projects).values({
       id: PHASE6_PROJECT_ID,
+      referenceCode,
       name: "Platform Ops",
       managerId: manager.id,
     });
-    console.log("created project Platform Ops");
+    console.log(`created project Platform Ops (${referenceCode})`);
   } else {
     console.log("skip existing project Platform Ops");
   }
@@ -409,12 +467,16 @@ async function seedPhase6Projects(db: SeedDb) {
       .where(eq(projects.id, PHASE6_OTHER_PROJECT_ID))
       .limit(1);
     if (!other) {
+      const referenceCode = await claimReference(db, "PRJ");
       await db.insert(projects).values({
         id: PHASE6_OTHER_PROJECT_ID,
+        referenceCode,
         name: "Shared Infra",
         managerId: manager2.id,
       });
-      console.log("created project Shared Infra (Casey Manager)");
+      console.log(
+        `created project Shared Infra (Casey Manager) (${referenceCode})`,
+      );
     }
   }
 }

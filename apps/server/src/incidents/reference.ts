@@ -2,7 +2,14 @@ import { sql } from "drizzle-orm";
 import type { DrizzleDB } from "../database/database.module";
 import { referenceCounters } from "../database/schema";
 
-export type ReferencePrefix = "INC" | "ISS" | "REQ" | "CHG" | "AST";
+export type ReferencePrefix =
+  | "INC"
+  | "ISS"
+  | "REQ"
+  | "CHG"
+  | "AST"
+  | "USR"
+  | "PRJ";
 
 export type ReferenceCounters = Readonly<Record<string, number>>;
 

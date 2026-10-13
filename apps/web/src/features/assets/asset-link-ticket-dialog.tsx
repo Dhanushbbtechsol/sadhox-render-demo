@@ -26,7 +26,7 @@ import { useLinkAssetTicket, useUnlinkAssetTicket } from "@/features/admin/hooks
 import type { Asset } from "@/features/admin/types";
 
 const linkSchema = z.object({
-  ticketId: z.string().uuid("Enter a valid incident UUID"),
+  ticketId: z.string().uuid("Enter a valid ticket UUID"),
   ticketType: z.enum(["incident", "service_request"]),
 });
 

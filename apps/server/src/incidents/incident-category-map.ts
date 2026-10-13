@@ -1,7 +1,9 @@
+import type { Priority } from "../database/schema";
+
 /**
- * Single source of truth for incident category → subcategory pairs (Phase 7).
- * Do not duplicate this list elsewhere in apps/server.
- * Frontend copies must stay in sync — see Phase 7 contract note.
+ * Seed source for Admin-managed ticket category taxonomy.
+ * Runtime validation reads `incident_categories` / `incident_subcategories`.
+ * Web falls back to the same names when the taxonomy API is offline.
  */
 export const INCIDENT_CATEGORY_SUBCATEGORY_MAP = {
   Hardware: [
@@ -35,6 +37,18 @@ export const INCIDENT_CATEGORY_SUBCATEGORY_MAP = {
     "File Sharing / Cloud Storage",
   ],
 } as const;
+
+/**
+ * Demo-friendly minimum priority floors (SLA follows P1–P4 rules).
+ * Admin can change these in Categories after seed.
+ */
+export const SEED_SUBCATEGORY_MIN_PRIORITY: Record<string, Priority> = {
+  "Network & Connectivity::DNS / Firewall": "P1",
+  "Network & Connectivity::VPN Access": "P2",
+  "Software & OS::Enterprise Software (ERP/CRM)": "P2",
+  "Hardware::Laptop/Desktop": "P3",
+  "Identity & Access::Password Reset": "P3",
+};
 
 export type IncidentCategory = keyof typeof INCIDENT_CATEGORY_SUBCATEGORY_MAP;
 

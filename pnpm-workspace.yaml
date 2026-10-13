@@ -2,6 +2,8 @@ packages:
   - apps/*
   - packages/*
 minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - traverse@0.3.10
 trustPolicy: no-downgrade
 trustPolicyExclude:
   - chokidar@4.0.3

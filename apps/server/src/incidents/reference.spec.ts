@@ -15,6 +15,13 @@ describe("display references", () => {
     expect(changes.reference).toBe("CHG-000001");
   });
 
+  it("numbers users and projects on their own counters", () => {
+    const user = allocateReference(emptyCounters(), "USR");
+    const project = allocateReference(user.counters, "PRJ");
+    expect(user.reference).toBe("USR-000001");
+    expect(project.reference).toBe("PRJ-000001");
+  });
+
   it("does not hand the same number to two claims of one snapshot", () => {
     const start = emptyCounters();
     const a = allocateReference(start, "INC");

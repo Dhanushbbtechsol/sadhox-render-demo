@@ -103,7 +103,7 @@ export type SlaWeekBucket = {
   label: string;
 };
 
-export type ChartRange = "7d" | "30d" | "ytd";
+export type ChartRange = "7d" | "30d" | "quarter" | "ytd" | "year";
 
 export type VolumeByModuleRow = {
   module: string;
@@ -180,6 +180,8 @@ export type QueueLastFailure = {
 
 export type QueueHealthRow = {
   name: string;
+  /** Everyday title; falls back to `name` on older APIs. */
+  title?: string;
   purpose?: string;
   counts: QueueCounts;
   paused: boolean;

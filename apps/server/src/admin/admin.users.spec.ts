@@ -14,6 +14,7 @@ describe("AdminService user CRUD (Phase 6)", () => {
       returning: vi.fn(async () => [
         {
           id: "u1",
+          referenceCode: "USR-000001",
           name: "New Agent",
           email: "agent@sadhox.local",
           role: "Agent",
@@ -22,7 +23,25 @@ describe("AdminService user CRUD (Phase 6)", () => {
       ]),
     }));
     const db = {
-      insert: vi.fn(() => ({ values: valuesFn })),
+      transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          insert: vi.fn(() => ({
+            values: vi.fn((vals: { prefix?: string }) => {
+              if (vals.prefix) {
+                return {
+                  onConflictDoUpdate: vi.fn(() => ({
+                    returning: vi.fn(async () => [
+                      { prefix: "USR", value: 1 },
+                    ]),
+                  })),
+                };
+              }
+              return valuesFn(vals);
+            }),
+          })),
+        };
+        return fn(tx);
+      }),
     };
     const svc = new AdminService(db as never, ...queues);
     const result = await svc.createUser({
@@ -33,6 +52,7 @@ describe("AdminService user CRUD (Phase 6)", () => {
     });
     expect(result).toEqual({
       id: "u1",
+      referenceCode: "USR-000001",
       name: "New Agent",
       email: "agent@sadhox.local",
       role: "Agent",
@@ -42,8 +62,10 @@ describe("AdminService user CRUD (Phase 6)", () => {
     const values = valuesFn.mock.calls[0]![0] as {
       email: string;
       passwordHash: string;
+      referenceCode: string;
     };
     expect(values.email).toBe("agent@sadhox.local");
+    expect(values.referenceCode).toBe("USR-000001");
     expect(values.passwordHash).toMatch(/^\$2[aby]?\$/);
   });
 
@@ -61,14 +83,29 @@ describe("AdminService user CRUD (Phase 6)", () => {
 
   it("createUser maps unique email to 409", async () => {
     const db = {
-      insert: vi.fn(() => ({
-        values: vi.fn(() => ({
-          returning: vi.fn(async () => {
-            const err = Object.assign(new Error("dup"), { code: "23505" });
-            throw err;
-          }),
-        })),
-      })),
+      transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          insert: vi.fn(() => ({
+            values: vi.fn((vals: { prefix?: string }) => {
+              if (vals.prefix) {
+                return {
+                  onConflictDoUpdate: vi.fn(() => ({
+                    returning: vi.fn(async () => [
+                      { prefix: "USR", value: 1 },
+                    ]),
+                  })),
+                };
+              }
+              return {
+                returning: vi.fn(async () => {
+                  throw Object.assign(new Error("dup"), { code: "23505" });
+                }),
+              };
+            }),
+          })),
+        };
+        return fn(tx);
+      }),
     };
     const svc = new AdminService(db as never, ...queues);
     await expect(

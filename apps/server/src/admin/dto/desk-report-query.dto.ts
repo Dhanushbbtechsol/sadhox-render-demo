@@ -1,15 +1,19 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { IsIn, IsOptional } from "class-validator";
+import { CHART_RANGE_PRESETS } from "../chart-range";
 import type { DeskReportRange } from "../desk-report";
 
 export class DeskReportQueryDto {
-  @ApiPropertyOptional({ enum: ["7d", "30d", "ytd"], default: "30d" })
+  @ApiPropertyOptional({ enum: CHART_RANGE_PRESETS, default: "30d" })
   @IsOptional()
-  @IsIn(["7d", "30d", "ytd"])
+  @IsIn([...CHART_RANGE_PRESETS])
   range?: DeskReportRange = "30d";
 
-  @ApiPropertyOptional({ enum: ["json", "csv"], default: "json" })
+  @ApiPropertyOptional({
+    enum: ["json", "csv", "excel"],
+    default: "json",
+  })
   @IsOptional()
-  @IsIn(["json", "csv"])
-  format?: "json" | "csv" = "json";
+  @IsIn(["json", "csv", "excel"])
+  format?: "json" | "csv" | "excel" = "json";
 }

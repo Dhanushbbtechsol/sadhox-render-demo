@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useIncidentCategoryTaxonomy } from "@/features/admin/hooks";
 import { useAgents, useCreateIncident } from "@/hooks/use-tickets";
 import { recordReference } from "@/lib/record-reference";
 import { useAuthStore } from "@/stores/auth-store";
@@ -36,25 +37,25 @@ import {
   calculatePriority,
   subcategoriesFor,
   type Impact,
-  type IncidentCategory,
   type Urgency,
 } from "@/types/itsm";
 
 const LEVELS = ["Low", "Medium", "High"] as const;
 const NONE = "__none__";
-const DEFAULT_CATEGORY = INCIDENT_CATEGORIES[0] as IncidentCategory;
-const DEFAULT_SUBCATEGORY = INCIDENT_CATEGORY_MAP[DEFAULT_CATEGORY][0];
+const FALLBACK_CATEGORY = INCIDENT_CATEGORIES[0];
+const FALLBACK_SUBCATEGORY = INCIDENT_CATEGORY_MAP[FALLBACK_CATEGORY][0];
 
-function buildCreateIncidentSchema(requireProject: boolean) {
+function buildCreateIncidentSchema(
+  requireProject: boolean,
+  allowedByCategory: Record<string, string[]>,
+) {
   return z
     .object({
       title: z.string().min(5, "Title must be at least 5 characters").max(120),
       description: z
         .string()
         .min(10, "Description must be at least 10 characters"),
-      category: z.enum(
-        INCIDENT_CATEGORIES as [IncidentCategory, ...IncidentCategory[]],
-      ),
+      category: z.string().min(1, "Category is required"),
       subcategory: z.string().min(1, "Subcategory is required"),
       impact: z.enum(LEVELS),
       urgency: z.enum(LEVELS),
@@ -63,7 +64,7 @@ function buildCreateIncidentSchema(requireProject: boolean) {
       assignedTo: z.string().uuid().optional(),
     })
     .superRefine((values, ctx) => {
-      const allowed = subcategoriesFor(values.category);
+      const allowed = allowedByCategory[values.category] ?? [];
       if (!allowed.includes(values.subcategory)) {
         ctx.addIssue({
           code: "custom",
@@ -90,11 +91,45 @@ export function CreateIncidentDialog({
 }) {
   const [open, setOpen] = useState(false);
   const createIncident = useCreateIncident();
+  const taxonomy = useIncidentCategoryTaxonomy({ enabled: open });
   const role = useAuthStore((s) => s.user?.role);
   const requireProject = role === "Manager";
+
+  const allowedByCategory = useMemo(() => {
+    if (taxonomy.data && taxonomy.data.length > 0) {
+      return Object.fromEntries(
+        taxonomy.data.map((cat) => [
+          cat.name,
+          cat.subcategories.map((sub) => sub.name),
+        ]),
+      );
+    }
+    return Object.fromEntries(
+      INCIDENT_CATEGORIES.map((cat) => [cat, [...subcategoriesFor(cat)]]),
+    );
+  }, [taxonomy.data]);
+
+  const categoryOptions = useMemo(
+    () => Object.keys(allowedByCategory),
+    [allowedByCategory],
+  );
+  const defaultCategory = categoryOptions[0] ?? FALLBACK_CATEGORY;
+  const defaultSubcategory =
+    allowedByCategory[defaultCategory]?.[0] ?? FALLBACK_SUBCATEGORY;
+
+  const minPriorityByPair = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const cat of taxonomy.data ?? []) {
+      for (const sub of cat.subcategories) {
+        map.set(`${cat.name}::${sub.name}`, sub.minPriority);
+      }
+    }
+    return map;
+  }, [taxonomy.data]);
+
   const schema = useMemo(
-    () => buildCreateIncidentSchema(requireProject),
-    [requireProject],
+    () => buildCreateIncidentSchema(requireProject, allowedByCategory),
+    [requireProject, allowedByCategory],
   );
 
   const form = useForm<CreateIncidentForm>({
@@ -102,8 +137,8 @@ export function CreateIncidentDialog({
     defaultValues: {
       title: "",
       description: "",
-      category: DEFAULT_CATEGORY,
-      subcategory: DEFAULT_SUBCATEGORY,
+      category: defaultCategory,
+      subcategory: defaultSubcategory,
       impact: "Medium",
       urgency: "Medium",
       projectId: undefined,
@@ -112,12 +147,25 @@ export function CreateIncidentDialog({
     },
   });
 
+  useEffect(() => {
+    if (!open) return;
+    const currentCategory = form.getValues("category");
+    if (!categoryOptions.includes(currentCategory)) {
+      form.setValue("category", defaultCategory);
+      form.setValue("subcategory", defaultSubcategory);
+    }
+  }, [open, categoryOptions, defaultCategory, defaultSubcategory, form]);
+
   const impact = useWatch({ control: form.control, name: "impact" }) as Impact;
   const urgency = useWatch({ control: form.control, name: "urgency" }) as Urgency;
   const category = useWatch({
     control: form.control,
     name: "category",
-  }) as IncidentCategory;
+  });
+  const subcategory = useWatch({
+    control: form.control,
+    name: "subcategory",
+  });
   const projectId = useWatch({ control: form.control, name: "projectId" });
   const canAssign =
     role === "Admin" ||
@@ -136,12 +184,26 @@ export function CreateIncidentDialog({
       }) as Record<string, string>,
     [agents],
   );
-  const previewPriority = calculatePriority(impact, urgency);
-  const subcategoryOptions = subcategoriesFor(category);
+  const matrixPriority = calculatePriority(impact, urgency);
+  const subcategoryFloor =
+    minPriorityByPair.get(`${category}::${subcategory}`) ?? null;
+  const priorityRank: Record<string, number> = {
+    P1: 4,
+    P2: 3,
+    P3: 2,
+    P4: 1,
+  };
+  const previewPriority =
+    subcategoryFloor &&
+    (priorityRank[subcategoryFloor] ?? 0) >
+      (priorityRank[matrixPriority] ?? 0)
+      ? (subcategoryFloor as typeof matrixPriority)
+      : matrixPriority;
+  const subcategoryOptions = allowedByCategory[category] ?? [];
 
   useEffect(() => {
     const current = form.getValues("subcategory");
-    if (!subcategoryOptions.includes(current)) {
+    if (!subcategoryOptions.includes(current) && subcategoryOptions[0]) {
       form.setValue("subcategory", subcategoryOptions[0]);
     }
   }, [category, subcategoryOptions, form]);
@@ -170,7 +232,7 @@ export function CreateIncidentDialog({
       form.reset();
       setOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create incident");
+      toast.error(error instanceof Error ? error.message : "Failed to create ticket");
     }
   }
 
@@ -305,7 +367,7 @@ export function CreateIncidentDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {INCIDENT_CATEGORIES.map((cat) => (
+                      {categoryOptions.map((cat) => (
                         <SelectItem key={cat} value={cat}>
                           {cat}
                         </SelectItem>
@@ -405,9 +467,17 @@ export function CreateIncidentDialog({
             </div>
           </div>
 
-          <div className="from-primary/10 via-accent/50 to-muted/40 flex items-center justify-between rounded-xl border border-primary/10 bg-gradient-to-r px-4 py-3">
-            <span className="text-muted-foreground text-sm">At least</span>
-            <PriorityBadge priority={previewPriority} />
+          <div className="from-primary/10 via-accent/50 to-muted/40 space-y-1 rounded-xl border border-primary/10 bg-gradient-to-r px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">At least</span>
+              <PriorityBadge priority={previewPriority} />
+            </div>
+            {subcategoryFloor && previewPriority === subcategoryFloor ? (
+              <p className="text-muted-foreground text-xs">
+                Subcategory floor {subcategoryFloor} — Response time follows that
+                priority.
+              </p>
+            ) : null}
           </div>
 
           <DialogFooter>

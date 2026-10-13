@@ -254,8 +254,8 @@ export class EmailProcessor extends WorkerHost {
       const d = payload.data;
       const ticketUrl =
         d.ticketUrl ?? `${webOrigin}/incidents/${d.ticketId}`;
-      subject = `[Yukti] SLA ${sanitizeEmailSubjectPart(d.breachType)} breach: ${sanitizeEmailSubjectPart(d.ticketTitle)}`;
-      text = `SLA ${d.breachType} breach on ${d.ticketId} (${d.priority}): ${d.ticketTitle}. ${ticketUrl}`;
+      subject = `[Yukti] Response time ${sanitizeEmailSubjectPart(d.breachType)} missed: ${sanitizeEmailSubjectPart(d.ticketTitle)}`;
+      text = `Response time ${d.breachType} missed on ${d.ticketId} (${d.priority}): ${d.ticketTitle}. ${ticketUrl}`;
       element = createElement(SlaBreachAlertEmail, {
         ticketId: d.ticketId,
         ticketTitle: d.ticketTitle,

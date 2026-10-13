@@ -1,8 +1,8 @@
 import { IsIn, IsOptional } from "class-validator";
-import type { ChartRangePreset } from "../chart-range";
+import { CHART_RANGE_PRESETS, type ChartRangePreset } from "../chart-range";
 
 export class ChartRangeQueryDto {
   @IsOptional()
-  @IsIn(["7d", "30d", "ytd"])
+  @IsIn([...CHART_RANGE_PRESETS])
   range?: ChartRangePreset = "30d";
 }

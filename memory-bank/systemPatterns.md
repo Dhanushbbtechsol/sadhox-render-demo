@@ -30,8 +30,14 @@ packages/     # shared config/env only (no active auth/db packages)
 - Audits under `Docs/Audit/` (phase summaries + per-dev folders). Prefer ponytail minimal fixes.
 - Prefer reuse of existing Nest modules / React Query hooks over new abstractions.
 
-## Phase 6 (planned) AuthZ pattern
+## Phase 6 AuthZ pattern
 Role guards remain necessary but not sufficient. Ticket/project visibility and Manager approvals need **`ProjectAccessService`** (Admin always; Manager via `projects.manager_id`; Agent via `project_members`). Design: `Docs/Phase/phase6.md`.
+
+## Ticket category taxonomy (2026-10-13)
+- Admin-managed `incident_categories` → `incident_subcategories` (optional `min_priority`).
+- Not the same as Knowledge Base categories or Catalog item `department`/`subcategory` free text.
+- Create priority = max(impact×urgency, 7-day category volume floor, subcategory min). SLA still from `sla_rules` by resulting P1–P4.
+- Forms: `GET /incidents/category-taxonomy`. Admin: `/admin/categories`.
 
 ## Note on Better Fullstack
 Original scaffold (`bts.jsonc`, Hono/Supabase labels in generated docs) is historical. Runtime product stack is NestJS + Passport JWT + Drizzle-in-server. Do not assume Hono or Supabase Auth for new work.

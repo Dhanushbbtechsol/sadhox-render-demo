@@ -3,7 +3,9 @@ import type { DeskReport } from "./types";
 const RANGE_LABELS: Record<DeskReport["range"], string> = {
   "7d": "Last 7 days",
   "30d": "Last 30 days",
+  quarter: "This quarter",
   ytd: "Year to date",
+  year: "Last 12 months",
 };
 
 const STATUS_LABELS: Record<string, string> = {

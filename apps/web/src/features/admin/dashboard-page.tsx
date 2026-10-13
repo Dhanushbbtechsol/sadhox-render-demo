@@ -46,8 +46,8 @@ import { DeskReportView } from "./desk-report-view";
 import {
   DASHBOARD_REPORT_TYPES,
   downloadDashboardReport,
+  downloadDeskReport,
   fetchDeskReport,
-  type DashboardReportFormat,
   type DashboardReportType,
 } from "./export-dashboard-csv";
 import {
@@ -57,12 +57,18 @@ import {
   useChartVolumeByModule,
 } from "./hooks";
 import { KpiCard } from "./kpi-card";
+import {
+  REPORT_DOWNLOAD_FORMATS,
+  type ReportDownloadFormat,
+} from "./report-download";
 import type { ChartRange, DeskReport, StatusDistributionRow } from "./types";
 
 const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
-  { value: "7d", label: "Last 7 Days" },
-  { value: "30d", label: "Last 30 Days" },
-  { value: "ytd", label: "Year-to-Date" },
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+  { value: "quarter", label: "Quarter" },
+  { value: "ytd", label: "YTD" },
+  { value: "year", label: "Year" },
 ];
 
 /** How many statuses are selected by default (highest counts first). */
@@ -113,12 +119,26 @@ export default function DashboardPage() {
 
   async function handleGenerateReport(
     type: DashboardReportType,
-    format: DashboardReportFormat,
+    format: ReportDownloadFormat,
   ) {
     setReportLoading(true);
     try {
       await downloadDashboardReport(range, type, format);
-      toast.success("Report downloaded");
+      toast.success(`${format.toUpperCase()} downloaded`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to download report",
+      );
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
+  async function handleDownloadDesk(format: ReportDownloadFormat) {
+    setReportLoading(true);
+    try {
+      await downloadDeskReport(range, "/admin/dashboard/report", format);
+      toast.success(`Desk ${format.toUpperCase()} downloaded`);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to download report",
@@ -180,20 +200,35 @@ export default function DashboardPage() {
               <DownloadIcon />
               {reportLoading ? "Working…" : "Download report"}
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-48">
+            <DropdownMenuContent align="end" className="min-w-56">
               <DropdownMenuGroup>
-                <DropdownMenuLabel>Report type</DropdownMenuLabel>
-                {DASHBOARD_REPORT_TYPES.map((option) => (
+                <DropdownMenuLabel>Desk report</DropdownMenuLabel>
+                {REPORT_DOWNLOAD_FORMATS.map((fmt) => (
                   <DropdownMenuItem
-                    key={option.value}
+                    key={`desk-${fmt.value}`}
                     disabled={reportLoading}
-                    onClick={() =>
-                      void handleGenerateReport(option.value, option.format)
-                    }
+                    onClick={() => void handleDownloadDesk(fmt.value)}
                   >
-                    {option.label}
+                    Desk · {fmt.label}
                   </DropdownMenuItem>
                 ))}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Ticket exports</DropdownMenuLabel>
+                {DASHBOARD_REPORT_TYPES.flatMap((option) =>
+                  REPORT_DOWNLOAD_FORMATS.map((fmt) => (
+                    <DropdownMenuItem
+                      key={`${option.value}-${fmt.value}`}
+                      disabled={reportLoading}
+                      onClick={() =>
+                        void handleGenerateReport(option.value, fmt.value)
+                      }
+                    >
+                      {option.label} · {fmt.label}
+                    </DropdownMenuItem>
+                  )),
+                )}
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>

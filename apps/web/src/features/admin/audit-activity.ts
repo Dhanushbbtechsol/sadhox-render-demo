@@ -195,44 +195,44 @@ const ACTIVITY_RULES: ActivityRule[] = [
   {
     re: /^POST \/incidents$/,
     verb: "created",
-    object: "an incident",
+    object: "a ticket",
     nameKeys: ["title"],
   },
   {
     re: /^PATCH \/incidents\/:id$/,
     verb: "updated",
-    object: "an incident",
+    object: "a ticket",
     nameKeys: ["title"],
   },
   {
     re: /^POST \/incidents\/:id\/assign$/,
     verb: "assigned",
-    object: "an incident",
+    object: "a ticket",
     nameKeys: ["title", "assignedTo"],
   },
   {
     re: /^POST \/incidents\/:id\/comments$/,
     verb: "commented on",
-    object: "an incident",
+    object: "a ticket",
     nameKeys: ["title"],
   },
 
   {
     re: /^POST \/problems$/,
     verb: "created",
-    object: "a problem",
+    object: "an issue",
     nameKeys: ["title"],
   },
   {
     re: /^PATCH \/problems\/:id$/,
     verb: "updated",
-    object: "a problem",
+    object: "an issue",
     nameKeys: ["title"],
   },
   {
     re: /^POST \/problems\/:id\/incidents\/:id$/,
     verb: "linked",
-    object: "an incident to a problem",
+    object: "a ticket to an issue",
   },
 
   {
@@ -266,24 +266,24 @@ const ACTIVITY_RULES: ActivityRule[] = [
   {
     re: /^POST \/changes$/,
     verb: "created",
-    object: "a change",
+    object: "a change request",
     nameKeys: ["title"],
   },
   {
     re: /^PATCH \/changes\/:id$/,
     verb: "updated",
-    object: "a change",
+    object: "a change request",
     nameKeys: ["title"],
   },
   {
     re: /^POST \/changes\/:id\/approve$/,
     verb: "approved",
-    object: "a change",
+    object: "a change request",
   },
   {
     re: /^POST \/changes\/:id\/reject$/,
     verb: "rejected",
-    object: "a change",
+    object: "a change request",
   },
 
   {

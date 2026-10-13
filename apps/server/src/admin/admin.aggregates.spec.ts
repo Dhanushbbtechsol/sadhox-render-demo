@@ -11,9 +11,9 @@ import {
 describe("Admin chart aggregate count calculations", () => {
   it("volume-by-module stacked totals equal open + closed per module", () => {
     const modules = [
-      { module: "Incident", ...stackOpenClosed(18, 74) },
-      { module: "Service Request", ...stackOpenClosed(12, 49) },
-      { module: "Change", ...stackOpenClosed(6, 27) },
+      { module: "Ticket", ...stackOpenClosed(18, 74) },
+      { module: "Request", ...stackOpenClosed(12, 49) },
+      { module: "Change request", ...stackOpenClosed(6, 27) },
     ];
 
     expect(modules.map((m) => m.total)).toEqual([92, 61, 33]);

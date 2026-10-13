@@ -1,4 +1,11 @@
-import { Controller, Get, Header, Query, Res } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Header,
+  Query,
+  Res,
+  StreamableFile,
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { THROTTLE_REPORT } from "../common/throttle.constants";
@@ -23,7 +30,7 @@ export class ManagerController {
   @Header("Cache-Control", "no-store")
   @ApiOperation({
     summary:
-      "Phase 9 desk report for the manager's team (range=7d|30d|ytd, format=json|csv)",
+      "Desk report for the manager's team (range=7d|30d|quarter|ytd|year, format=json|csv|excel)",
   })
   async deskReport(
     @CurrentUser() user: AuthUser,
@@ -38,12 +45,26 @@ export class ManagerController {
       "Team",
       user.userId,
     );
-    if (format === "csv") {
-      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    if (format === "csv" || format === "excel") {
+      const contentType =
+        result.contentType ??
+        (format === "excel"
+          ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          : "text/csv; charset=utf-8");
+      const filename =
+        result.filename ??
+        `desk-report.${format === "excel" ? "xlsx" : "csv"}`;
+      res.setHeader("Content-Type", contentType);
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename="${result.filename}"`,
+        `attachment; filename="${filename}"`,
       );
+      if (Buffer.isBuffer(result.body)) {
+        return new StreamableFile(result.body, {
+          type: contentType,
+          disposition: `attachment; filename="${filename}"`,
+        });
+      }
       return result.body;
     }
     res.setHeader("Content-Type", "application/json; charset=utf-8");

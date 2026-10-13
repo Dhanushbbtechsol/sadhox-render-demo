@@ -233,7 +233,7 @@ export function CatalogItemFormDialog({
 
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <Label>Form fields (JSON-backed)</Label>
+              <Label>Form fields</Label>
               <Button
                 type="button"
                 variant="outline"

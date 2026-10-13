@@ -123,6 +123,8 @@ export interface LinkedIncidentSnippet {
   title: string;
   status: string;
   priority: string;
+  projectId?: string | null;
+  projectName?: string | null;
 }
 
 export interface Problem {

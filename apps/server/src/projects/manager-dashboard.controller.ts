@@ -33,7 +33,13 @@ export class ManagerDashboardController {
     @Query("range") range?: string,
   ) {
     const preset: ChartRangePreset =
-      range === "7d" || range === "ytd" || range === "30d" ? range : "30d";
+      range === "7d" ||
+      range === "30d" ||
+      range === "quarter" ||
+      range === "ytd" ||
+      range === "year"
+        ? range
+        : "30d";
     return this.projects.managerCharts(user, preset);
   }
 }

@@ -226,6 +226,7 @@ describe("AdminService dashboardReportCsv row cap + audit", () => {
     selectChain.limit.mockResolvedValue([
       {
         id: "11111111-1111-4111-8111-111111111111",
+        referenceCode: "INC-000001",
         title: "Assigned ticket",
         status: "Assigned",
         priority: "P2",
@@ -250,7 +251,8 @@ describe("AdminService dashboardReportCsv row cap + audit", () => {
       ACTOR,
       "csv",
     );
-    expect(ok.filename).toMatch(/^yukti-assigned-30d-/);
+    expect(ok.filename).toMatch(/tickets-assigned.*\.csv$/);
+    expect(ok.body).toContain("INC-000001");
     expect(ok.body).toContain("Assigned");
     expect(ok.body).toContain("Status");
     expect(inserted).toHaveLength(1);

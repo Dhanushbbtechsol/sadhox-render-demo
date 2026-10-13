@@ -226,10 +226,15 @@ export async function apiDownload(
     throw await parseError(response);
   }
 
-  const blob = await response.blob();
   const filename = filenameFromContentDisposition(
     response.headers.get("Content-Disposition"),
   );
+  // Prefer arrayBuffer so Nest StreamableFile / binary xlsx is not re-decoded as text.
+  const buffer = await response.arrayBuffer();
+  const contentType =
+    response.headers.get("Content-Type")?.split(";")[0]?.trim() ||
+    "application/octet-stream";
+  const blob = new Blob([buffer], { type: contentType });
 
   return { blob, filename };
 }

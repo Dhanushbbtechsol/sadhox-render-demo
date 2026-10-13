@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeSlaComplianceRate,
+  resolveActivityRange,
   resolveChartRange,
   stackOpenClosed,
 } from "./chart-range";
@@ -24,6 +25,40 @@ describe("resolveChartRange", () => {
     const result = resolveChartRange("ytd", now);
     expect(result.from.toISOString()).toBe("2026-01-01T00:00:00.000Z");
     expect(result.to.toISOString()).toBe(now.toISOString());
+  });
+
+  it("resolves current calendar quarter UTC", () => {
+    const result = resolveChartRange("quarter", now);
+    expect(result.from.toISOString()).toBe("2026-07-01T00:00:00.000Z");
+    expect(result.to.toISOString()).toBe(now.toISOString());
+  });
+
+  it("resolves rolling year as last 365 days", () => {
+    const result = resolveChartRange("year", now);
+    expect(result.from.toISOString()).toBe("2025-09-29T12:00:00.000Z");
+    expect(result.to.toISOString()).toBe(now.toISOString());
+  });
+});
+
+describe("resolveActivityRange", () => {
+  const now = new Date("2026-09-29T12:00:00.000Z");
+
+  it("reuses preset windows", () => {
+    const result = resolveActivityRange("7d", undefined, undefined, now);
+    expect(result.from.toISOString()).toBe("2026-09-22T12:00:00.000Z");
+  });
+
+  it("accepts custom date-only bounds as inclusive UTC days", () => {
+    const result = resolveActivityRange("custom", "2026-01-01", "2026-01-31");
+    expect(result.from.toISOString()).toBe("2026-01-01T00:00:00.000Z");
+    expect(result.to.toISOString()).toBe("2026-01-31T23:59:59.999Z");
+  });
+
+  it("rejects custom without bounds or inverted range", () => {
+    expect(() => resolveActivityRange("custom")).toThrow(/from and to/);
+    expect(() =>
+      resolveActivityRange("custom", "2026-02-01", "2026-01-01"),
+    ).toThrow(/on or before/);
   });
 });
 

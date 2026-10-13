@@ -45,9 +45,9 @@ Phases **1–5** merged on `Audit` (Dev-C close-out 2026-10-07): JWT/RBAC, full 
 
 **Phase 6:** Projects / modules / `Manager` + project ACL + **Admin User Management** — [Docs/Phase/phase6.md](./Docs/Phase/phase6.md). Admin `/admin/users` create/list/update is landed. Do not rebuild KB.
 
-**Phase 7 (designed, not coded):** EndUser desk — [Docs/Phase/phase7.md](./Docs/Phase/phase7.md).
+**Phase 7:** EndUser desk merged on `Audit` — [Docs/Phase/phase7.md](./Docs/Phase/phase7.md).
 
-**Phase 9 (designed, not coded):** [Docs/Phase/phase9.md](./Docs/Phase/phase9.md). Phase 8 is superseded by Phase 9.
+**Phase 9 + client follow-on:** on `Audit` — [Docs/Phase/phase9.md](./Docs/Phase/phase9.md), [Docs/Phase/client-follow-on.md](./Docs/Phase/client-follow-on.md). Phase 8 is superseded by Phase 9. **2026-10-13:** Admin Categories taxonomy + subcategory min-priority SLA floor (`0015`).
 
 ## Better Fullstack note
 

@@ -10,6 +10,7 @@ export const REPORT_TYPES = [
   "in-progress",
   "approved",
   "open",
+  "assets",
 ] as const;
 
 export type ReportType = (typeof REPORT_TYPES)[number];
@@ -55,6 +56,8 @@ export type DashboardReportInput = {
 
 export type TicketReportRow = {
   id: string;
+  /** Display ref e.g. INC-000001 (Ticket ID column). */
+  referenceCode: string;
   module: "Incident" | "Service Request" | "Change";
   title: string;
   status: string;
@@ -86,18 +89,123 @@ export const TICKET_HEADERS = [
   "Category",
   "Subcategory",
   "Project",
-  "Assigned To",
   "Raised By",
+  "Assigned To",
   "Approved By",
-  "Created (UTC)",
-  "Last Updated (UTC)",
-  "SLA Due (UTC)",
+  "Created",
+  "Approved",
+  "Resolved",
+  "Closed",
+  "Last Updated",
+  "SLA Due",
   "SLA Breached",
-  "Resolved (UTC)",
-  "Closed (UTC)",
-  "Approved (UTC)",
   "Description",
 ] as const;
+
+export const ASSET_HEADERS = [
+  "Ref",
+  "Asset Tag",
+  "Name",
+  "Type",
+  "Status",
+  "Owner",
+  "Owner Email",
+  "Location",
+  "Serial Number",
+  "Purchase Cost",
+  "Linked Ticket",
+  "Assigned",
+  "Created",
+  "Updated",
+] as const;
+
+export type AssetReportRow = {
+  referenceCode: string;
+  assetTag: string;
+  name: string;
+  type: string;
+  status: string;
+  ownerName: string | null;
+  ownerEmail: string | null;
+  serialNumber: string | null;
+  location: string | null;
+  purchaseCost: string | null;
+  linkedTicketId: string | null;
+  assignedAt: Date | string | null;
+  createdAt: Date | string | null;
+  updatedAt: Date | string | null;
+};
+
+function assetReportCells(row: AssetReportRow): string[] {
+  return [
+    row.referenceCode,
+    row.assetTag,
+    row.name,
+    row.type,
+    row.status,
+    row.ownerName ?? "",
+    row.ownerEmail ?? "",
+    row.location ?? "",
+    row.serialNumber ?? "",
+    row.purchaseCost ?? "",
+    row.linkedTicketId ?? "",
+    formatUtcTimestamp(row.assignedAt),
+    formatUtcTimestamp(row.createdAt),
+    formatUtcTimestamp(row.updatedAt),
+  ];
+}
+
+export function buildAssetReportCsv(rows: AssetReportRow[]): string {
+  return buildCsvDocument(
+    ASSET_HEADERS,
+    rows.map((row) => assetReportCells(row)),
+  );
+}
+
+function xmlEscapeCell(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+/** Single-sheet SpreadsheetML (.xls) for asset exports. */
+export function buildAssetReportExcelXml(rows: AssetReportRow[]): string {
+  const pushRow = (values: readonly string[]) =>
+    `<Row>${values
+      .map(
+        (v) =>
+          `<Cell><Data ss:Type="String">${xmlEscapeCell(v)}</Data></Cell>`,
+      )
+      .join("")}</Row>`;
+
+  const tableRows = [
+    pushRow(ASSET_HEADERS),
+    ...rows.map((row) => pushRow(assetReportCells(row))),
+  ].join("\n");
+
+  return `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="Assets">
+  <Table>
+${tableRows}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+}
+
+export function assetReportFilename(
+  range: string,
+  format: "csv" | "excel",
+  now = new Date(),
+): string {
+  const date = now.toISOString().slice(0, 10);
+  const ext = format === "excel" ? "xls" : "csv";
+  return `yukti-assets-${range}-${date}.${ext}`;
+}
 
 const MODULE_SORT_ORDER: Record<TicketReportRow["module"], number> = {
   Incident: 0,
@@ -129,7 +237,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 /** Status filters per ticket report type (empty array = skip that module). */
 export const REPORT_STATUS_FILTER: Record<
-  Exclude<ReportType, "summary" | "all">,
+  Exclude<ReportType, "summary" | "all" | "assets">,
   {
     incidents: string[];
     serviceRequests: string[];
@@ -351,7 +459,7 @@ export function ticketRowToCells(
   row: TicketReportRow,
 ): Array<string | number> {
   return [
-    row.id,
+    row.referenceCode || row.id,
     row.module,
     row.title ?? "",
     formatStatusLabel(row.status),
@@ -359,16 +467,16 @@ export function ticketRowToCells(
     row.category ?? "",
     row.subcategory ?? "",
     row.projectName ?? "",
-    row.assignedTo ?? "",
     row.raisedBy ?? "",
+    row.assignedTo ?? "",
     row.approvedBy ?? "",
     formatUtcTimestamp(row.createdAt),
+    formatUtcTimestamp(row.approvedAt),
+    formatUtcTimestamp(row.resolvedAt),
+    formatUtcTimestamp(row.closedAt),
     formatUtcTimestamp(row.updatedAt),
     formatUtcTimestamp(row.slaDueAt),
     formatBooleanCell(row.slaBreached),
-    formatUtcTimestamp(row.resolvedAt),
-    formatUtcTimestamp(row.closedAt),
-    formatUtcTimestamp(row.approvedAt),
     normalizeDescription(row.description),
   ];
 }

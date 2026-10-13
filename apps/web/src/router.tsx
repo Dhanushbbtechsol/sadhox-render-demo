@@ -6,6 +6,7 @@ import AuditLogsPage from "@/features/admin/audit-logs-page";
 import DashboardPage from "@/features/admin/dashboard-page";
 import QueueMonitorPage from "@/features/admin/queue-monitor-page";
 import AdminCatalogPage from "@/features/admin/admin-catalog-page";
+import CategoriesPage from "@/features/admin/categories-page";
 import EscalationPage from "@/features/admin/escalation-page";
 import SlaRulesPage from "@/features/admin/sla-rules-page";
 import AdminUsersPage from "@/features/admin/users-page";
@@ -32,6 +33,8 @@ import RequestsPage from "@/routes/requests";
 import RequestDetailPage from "@/routes/request-detail";
 import RoleHomeRedirect from "@/routes/role-home";
 import ChangeDetailPage from "@/routes/change-detail";
+import ProfilePage from "@/routes/profile";
+
 function NotFound() {
   return (
     <main className="space-y-2">
@@ -64,6 +67,16 @@ export const router = createBrowserRouter([
             element: <RoleHomeRedirect />,
           },
           {
+            path: "profile",
+            handle: { breadcrumb: "Profile" },
+            element: (
+              <ProtectedRoute
+                roles={["Admin", "Agent", "Manager", "EndUser"]}
+              />
+            ),
+            children: [{ index: true, element: <ProfilePage /> }],
+          },
+          {
             path: "admin/dashboard",
             handle: { breadcrumb: "Dashboard" },
             element: <ProtectedRoute roles={["Admin"]} />,
@@ -83,7 +96,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "admin/queues",
-            handle: { breadcrumb: "Queues" },
+            handle: { breadcrumb: "Background jobs" },
             element: <ProtectedRoute roles={["Admin"]} />,
             children: [{ index: true, element: <QueueMonitorPage /> }],
           },
@@ -110,6 +123,12 @@ export const router = createBrowserRouter([
                 handle: { breadcrumb: "Edit" },
               },
             ],
+          },
+          {
+            path: "admin/categories",
+            handle: { breadcrumb: "Categories" },
+            element: <ProtectedRoute roles={["Admin"]} />,
+            children: [{ index: true, element: <CategoriesPage /> }],
           },
           {
             path: "admin/sla-rules",

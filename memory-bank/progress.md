@@ -1,6 +1,6 @@
 # Progress
 
-**Branch head (as of 2026-10-08):** local `Audit` / `Dev-C` — Phases 1–6 feature work in tree. May be ahead of `origin/Audit`.
+**Branch head (as of 2026-10-13):** local `Audit` — Phases 1–7 + Phase 9 + client follow-on + Categories taxonomy in tree. May be ahead of `origin/Audit`.
 
 Full feature inventory for Claude: **`Docs/STATUS.md`**.
 
@@ -14,16 +14,18 @@ Full feature inventory for Claude: **`Docs/STATUS.md`**.
 | 4 | Security remediations, load notes, deploy prep, seed hardening | Done (go-live checklist not fully executed) |
 | 5 | Knowledge Base + portal detail + catalog Admin CRUD + CSV + SLA UI/API | **Done** (Medium/Low closed 2026-10-07 on Dev-C) |
 | 6 | Projects / Modules / Manager + project ACL + Admin User Management | **Landed** (audit CLEAN). Staging migrate deferred — [Docs/Phase/phase6.md](../Docs/Phase/phase6.md) |
-| 7 | EndUser desk (Incidents nav, catalog labels, subcategory, seed) | Designed only — [Docs/Phase/phase7.md](../Docs/Phase/phase7.md) |
+| 7 | EndUser desk (Incidents nav, catalog labels, subcategory, seed) | **Merged** on `Audit` — [Docs/Phase/phase7.md](../Docs/Phase/phase7.md) |
 | 8 | Approval chain + dashboard CSV | Superseded by Phase 9 |
-| 9 | Org chart, approvals, escalation, notices, desk report, assets | Designed — [Docs/Phase/phase9.md](../Docs/Phase/phase9.md) |
+| 9 | Org chart, approvals, escalation, notices, desk report, assets | **On `Audit`** (reaudit notes in `Docs/Audit/phase9.md`) — [Docs/Phase/phase9.md](../Docs/Phase/phase9.md) |
+| Client follow-on | Labels, refs, reports, volume floor, project edit, Admin assign | **On `Audit`** — [Docs/Phase/client-follow-on.md](../Docs/Phase/client-follow-on.md) |
+| 2026-10-13 demo gaps | Admin Categories taxonomy + min-priority SLA floor | **Landed** (migration `0015`) |
 
 ## Feature checklist (implemented in codebase)
 
 ### Platform
 - [x] NestJS API with global JWT + Roles + throttle guards
 - [x] Passport login / refresh (httpOnly cookie) / logout
-- [x] Drizzle schema: users, refresh_tokens, audit_log, incidents, problems, service_catalog/requests, changes, assets, comments, sla_rules, notifications, knowledge_*, ticket_knowledge_links
+- [x] Drizzle schema: users, refresh_tokens, audit_log, incidents, problems, service_catalog/requests, changes, assets, comments, sla_rules, notifications, knowledge_*, ticket_knowledge_links, incident_categories, incident_subcategories, reference_counters
 - [x] Socket.io ticket rooms + comments
 - [x] BullMQ SLA breach + auto-close + mail queue
 - [x] Resend integration + email templates
@@ -67,5 +69,14 @@ See `Docs/Audit/phase5.md` (all Phase 5 Medium/Low marked fixed).
 - [ ] Production seed + credential handover
 - [ ] Full go-live checklist (`Docs/Phase/Dev D/go-live-checklist.md`)
 
-## Intentionally not built
-Drag-drop SLA builder, advanced BI, SSO, multi-tenant billing, native mobile, CMDB graphs.
+## Client follow-on checklist (extra)
+- [x] Everyday labels + display refs
+- [x] Person asset report + person activity report
+- [x] Category volume floor on create
+- [x] Admin Categories taxonomy + subcategory minPriority → P1–P4 Response time
+- [x] Project summary one-save; Members/Modules dialogs retained
+- [ ] SSO (integration)
+- [ ] Timed multi-level escalation ladder / per-subcategory custom SLA minutes
+
+## Intentionally not built / deferred
+Drag-drop SLA builder, advanced BI, SSO (integration), multi-tenant billing, native mobile, CMDB graphs.

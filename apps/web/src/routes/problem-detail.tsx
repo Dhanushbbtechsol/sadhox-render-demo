@@ -161,6 +161,9 @@ export default function ProblemDetailPage() {
                             : null,
                         )}{" "}
                         · {incident.status}
+                        {"projectId" in incident && incident.projectId
+                          ? ` · ${"projectName" in incident && incident.projectName ? incident.projectName : "Project"} · ${incident.projectId.slice(0, 8)}`
+                          : " · Unscoped"}
                       </span>
                     </span>
                     {["P1", "P2", "P3", "P4"].includes(incident.priority) ? (

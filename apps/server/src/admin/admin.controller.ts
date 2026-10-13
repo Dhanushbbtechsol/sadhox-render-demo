@@ -10,6 +10,7 @@ import {
   Post,
   Query,
   Res,
+  StreamableFile,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiPropertyOptional, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
@@ -38,6 +39,14 @@ import {
 } from "./dto/sla-rule.dto";
 import { UpdateUserRoleDto } from "./dto/update-user-role.dto";
 import { CreateUserDto, UpdateUserDto } from "./dto/user.dto";
+import { UserActivityQueryDto } from "./dto/user-activity-query.dto";
+import { IncidentCategoriesService } from "../incidents/incident-categories.service";
+import {
+  CreateIncidentCategoryDto,
+  CreateIncidentSubcategoryDto,
+  UpdateIncidentCategoryDto,
+  UpdateIncidentSubcategoryDto,
+} from "../incidents/dto/incident-category.dto";
 
 class ListUsersQueryDto {
   @ApiPropertyOptional({ enum: ["Admin", "Agent", "Manager", "EndUser"] })
@@ -51,7 +60,10 @@ class ListUsersQueryDto {
 @Controller("admin")
 @Roles("Admin")
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly categories: IncidentCategoriesService,
+  ) {}
 
   @Get("dashboard/stats")
   @ApiOperation({ summary: "Executive KPI aggregates" })
@@ -65,7 +77,7 @@ export class AdminController {
   @Header("Cache-Control", "no-store")
   @ApiOperation({
     summary:
-      "Desk report (no type: format=json|csv) or typed export (type=summary|all|assigned|in-progress|approved|open).",
+      "Desk report (no type: format=json|csv) or typed export (type=summary|all|assigned|in-progress|approved|open|assets).",
   })
   async dashboardReport(
     @Query() query: DashboardReportQueryDto,
@@ -82,27 +94,30 @@ export class AdminController {
         user.userId,
         typedFormat,
       );
-      res.setHeader("Content-Type", result.contentType);
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${result.filename}"`,
-      );
-      return result.body;
+      return attachmentResponse(res, result);
     }
 
-    const deskFormat = query.format === "csv" ? "csv" : "json";
+    const deskFormat =
+      query.format === "csv"
+        ? "csv"
+        : query.format === "excel"
+          ? "excel"
+          : "json";
     const result = await this.admin.deskReportResponse(
       range,
       deskFormat,
       "All",
     );
-    if (deskFormat === "csv") {
-      res.setHeader("Content-Type", "text/csv; charset=utf-8");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${result.filename}"`,
-      );
-      return result.body;
+    if (deskFormat === "csv" || deskFormat === "excel") {
+      return attachmentResponse(res, {
+        body: result.body as string | Buffer,
+        filename: result.filename ?? `desk-report.${deskFormat === "excel" ? "xlsx" : "csv"}`,
+        contentType:
+          result.contentType ??
+          (deskFormat === "excel"
+            ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            : "text/csv; charset=utf-8"),
+      });
     }
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     return result.body;
@@ -158,6 +173,17 @@ export class AdminController {
     return this.admin.listUsers(query.role);
   }
 
+  @Get("reports/user-activity")
+  @Throttle(THROTTLE_REPORT)
+  @Header("Cache-Control", "no-store")
+  @ApiOperation({
+    summary:
+      "Individual user activity (tickets reported/assigned, requests, changes, audit logs) for 7d|30d|ytd|custom",
+  })
+  userActivity(@Query() query: UserActivityQueryDto) {
+    return this.admin.userActivityReport(query);
+  }
+
   @Post("users")
   @HttpCode(201)
   @ApiOperation({
@@ -196,6 +222,50 @@ export class AdminController {
     @Body() dto: UpdateUserRoleDto,
   ) {
     return this.admin.updateUserRole(id, dto.role);
+  }
+
+  @Get("incident-categories")
+  @ApiOperation({
+    summary: "List ticket categories and subcategories (includes inactive)",
+  })
+  listIncidentCategories() {
+    return this.categories.listTaxonomy({ includeInactive: true });
+  }
+
+  @Post("incident-categories")
+  @HttpCode(201)
+  @ApiOperation({ summary: "Create a ticket category" })
+  createIncidentCategory(@Body() dto: CreateIncidentCategoryDto) {
+    return this.categories.createCategory(dto.name);
+  }
+
+  @Patch("incident-categories/:id")
+  @ApiOperation({ summary: "Rename or activate/deactivate a ticket category" })
+  updateIncidentCategory(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateIncidentCategoryDto,
+  ) {
+    return this.categories.updateCategory(id, dto);
+  }
+
+  @Post("incident-subcategories")
+  @HttpCode(201)
+  @ApiOperation({
+    summary: "Create a subcategory with optional minimum priority (SLA floor)",
+  })
+  createIncidentSubcategory(@Body() dto: CreateIncidentSubcategoryDto) {
+    return this.categories.createSubcategory(dto);
+  }
+
+  @Patch("incident-subcategories/:id")
+  @ApiOperation({
+    summary: "Update subcategory name, min priority, or active flag",
+  })
+  updateIncidentSubcategory(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateIncidentSubcategoryDto,
+  ) {
+    return this.categories.updateSubcategory(id, dto);
   }
 
   @Get("sla-rules")
@@ -255,4 +325,23 @@ export class AdminController {
   ) {
     return this.admin.updateEscalationRule(priority, dto);
   }
+}
+
+/** Send CSV/XLSX without Nest JSON-encoding Buffer bodies. */
+function attachmentResponse(
+  res: Response,
+  result: { body: string | Buffer; filename: string; contentType: string },
+): StreamableFile | string {
+  res.setHeader("Content-Type", result.contentType);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${result.filename}"`,
+  );
+  if (Buffer.isBuffer(result.body)) {
+    return new StreamableFile(result.body, {
+      type: result.contentType,
+      disposition: `attachment; filename="${result.filename}"`,
+    });
+  }
+  return result.body;
 }

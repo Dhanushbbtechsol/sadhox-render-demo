@@ -150,6 +150,11 @@ const NAV_ITEMS: NavItem[] = [
     roles: ["Admin"],
   },
   {
+    to: "/admin/categories",
+    label: "Categories",
+    roles: ["Admin"],
+  },
+  {
     to: "/admin/sla-rules",
     label: "Response time",
     roles: ["Admin"],
@@ -161,7 +166,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     to: "/admin/queues",
-    label: "Queues",
+    label: "Background jobs",
     roles: ["Admin"],
   },
   {

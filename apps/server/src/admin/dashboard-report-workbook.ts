@@ -490,7 +490,7 @@ function slaSheet(data: SummaryWorkbookData): string {
 
 function ticketDataCells(row: TicketReportRow): string {
   return [
-    textCell(row.id),
+    textCell(row.referenceCode || row.id),
     textCell(row.module),
     textCell(row.title ?? ""),
     textCell(formatStatusLabel(row.status)),

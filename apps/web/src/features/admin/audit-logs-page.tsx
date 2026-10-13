@@ -12,6 +12,7 @@ import {
 } from "./audit-activity";
 import { useAuditLogs } from "./hooks";
 import type { AuditLog } from "./types";
+import { UserActivityReportSection } from "./user-activity-report";
 
 export default function AuditLogsPage() {
   const [from, setFrom] = useState("");
@@ -31,14 +32,17 @@ export default function AuditLogsPage() {
   }, [logs.data]);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold">Audit logs</h1>
         <p className="text-sm text-muted-foreground">
           Timeline of who created, updated, or approved records across the
-          service desk.
+          service desk. Run a person activity report below, then browse the
+          event timeline.
         </p>
       </div>
+
+      <UserActivityReportSection />
 
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm">

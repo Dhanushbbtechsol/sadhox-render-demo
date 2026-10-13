@@ -23,9 +23,12 @@ const sampleProblem = {
   linkedIncidents: [
     {
       id: "22222222-2222-4222-8222-222222222222",
+      referenceCode: "INC-000001",
       title: "VPN drop site A",
       status: "InProgress",
       priority: "P2",
+      projectId: null,
+      projectName: null,
     },
   ],
   createdAt: new Date().toISOString(),

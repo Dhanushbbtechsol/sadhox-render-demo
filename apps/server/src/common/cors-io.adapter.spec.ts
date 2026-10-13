@@ -52,6 +52,7 @@ describe("sharedCorsOptions", () => {
     expect(sharedCorsOptions("http://localhost:5173")).toEqual({
       origin: "http://localhost:5173",
       credentials: true,
+      exposedHeaders: ["Content-Disposition"],
     });
   });
 
@@ -61,6 +62,7 @@ describe("sharedCorsOptions", () => {
     ).toEqual({
       origin: ["http://localhost:5173", "https://sadhox.vercel.app"],
       credentials: true,
+      exposedHeaders: ["Content-Disposition"],
     });
   });
 
@@ -69,6 +71,7 @@ describe("sharedCorsOptions", () => {
     expect(sharedCorsOptions(prod)).toEqual({
       origin: prod,
       credentials: true,
+      exposedHeaders: ["Content-Disposition"],
     });
   });
 

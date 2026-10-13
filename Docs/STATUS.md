@@ -1,13 +1,13 @@
 # Sadhox — Status & Feature Handoff (for Claude / agents)
 
-**Last updated:** 2026-10-09  
-**Next:** [Phase 9](./Phase/phase9.md) — Dev C UI landed (Reports-to, escalation, queues purpose/lastFailure, audit diffs, desk report, bell, asset serial/location/assignments). Dev A/B UI and remaining Dev D polish may still be open. Do not rebuild KB.  
-**Integration branch:** `Audit`. This tree is `Dev-C` after merging `Audit` (Phase 5 close-out + Phase 6 Dev A/B/D backend and Dev C project UI).
+**Last updated:** 2026-10-13  
+**Next:** Client demo polish + integration (SSO deferred). Do not rebuild KB. Do not number phases 10–15.  
+**Integration branch:** `Audit`  
 **Memory bank:** `memory-bank/` (read all six files at task start)
 
 This document is the short “what exists / what doesn’t” brief. Requirements and plans stay in PRD/FRD/Phase docs.
 
-**Phase 6 (in progress on `Dev-C`):** [Projects / Manager](./Phase/phase6.md) — shared foundation (`Manager`, projects/modules, `ProjectAccessService`) landed; **Dev A** incident/problem project scoping + assignment pool; **Dev B** SR/Change project scoping + Manager-alongside-Admin approvals ([Dev B QA](./Phase/Dev%20B/phase6-day30-qa.md)); **Dev C** Admin `/admin/projects` CRUD + Manager home (KPIs and server-scoped charts) ([Dev C QA](./Phase/Dev%20C/phase6-qa.md)); **Dev D** backend (scoped assignment/approvals/lists, `PATCH /admin/users/:id/role`; contract: [contracts/phase6-openapi.md](./contracts/phase6-openapi.md) · handoff: [Phase/Dev D/phase6-handoff.md](./Phase/Dev%20D/phase6-handoff.md)). Staging/TL migrate deferred. Do not rebuild Knowledge Base.
+**Client follow-on (after Phase 9, on `Audit`):** [Phase/client-follow-on.md](./Phase/client-follow-on.md) — everyday labels, display refs, person reports, category volume floor, Admin-only project assign, project summary edit. **2026-10-13 add-on:** Admin-managed ticket **Categories** taxonomy (`incident_categories` / `incident_subcategories`) with subcategory **min priority** floor (SLA via existing P1–P4 Response time rules); Admin `/admin/categories`; ticket form loads `GET /incidents/category-taxonomy`. Migration `0015_incident_category_taxonomy`.
 
 ---
 
@@ -104,8 +104,17 @@ Security audits: `Docs/Audit/phase1.md` … `phase5.md` (+ per-dev folders)
 ### Nest modules present
 `auth`, `assignment`, `events`, `queues`, `mail`, `health`, `observability`, `incidents`, `problems`, `knowledge`, `projects`, `service-catalog`, `service-requests`, `changes`, `comments`, `assets`, `admin`, `database`
 
+### Client follow-on + 2026-10-13 taxonomy (on `Audit`)
+- Everyday UI labels: Ticket, Issue, Request, Catalog, Change request, Response time
+- Display refs `PREFIX-######` (INC, ISS, REQ, CHG, AST; also USR/PRJ where seeded)
+- Person asset report + **person activity report** (`GET /admin/reports/user-activity`, Audit logs UI)
+- Category volume floor on incident create; project summary one-save; Admin-only project-ticket assign; Queues kept
+- **Admin Categories** (`/admin/categories`): CRUD category/subcategory; optional `minPriority` per subcategory
+- Create priority = higher of impact×urgency, 7-day category volume floor, and subcategory min priority → Response time follows that P-level
+- Catalog admin “Form fields” label (no “JSON-backed” jargon)
+
 ### Key frontend routes (role-gated)
-`/login`, role home, `/incidents`, `/problems`, `/catalog`, `/requests`, `/approvals`, `/changes`, `/portal`, `/portal/incidents/:id`, `/knowledge`, `/assets`, `/admin/dashboard`, `/admin/audit-logs`, `/admin/queues`, `/admin/catalog`, `/admin/knowledge`, `/admin/sla-rules`, `/admin/projects`, `/admin/projects/:id/members`, `/admin/projects/:id/modules`, `/admin/users`, `/manager`
+`/login`, role home, `/incidents`, `/problems`, `/catalog`, `/requests`, `/approvals`, `/changes`, `/portal`, `/portal/incidents/:id`, `/knowledge`, `/assets`, `/admin/dashboard`, `/admin/audit-logs`, `/admin/queues`, `/admin/catalog`, `/admin/categories`, `/admin/knowledge`, `/admin/sla-rules`, `/admin/escalation`, `/admin/projects`, `/admin/users`, `/manager`, `/profile`
 
 ---
 
@@ -117,7 +126,7 @@ Phase 4 Dev D: CSRF on `SameSite=None` refresh — **closed** (`RefreshCookieOri
 
 **Production go-live** checklist incomplete (`Docs/Phase/Dev D/go-live-checklist.md`) — do not assume live Render/Vercel is fully cut over.
 
-**Out of scope (by design):** SSO, multi-tenant billing, drag-drop SLA builder, advanced BI, native apps, CMDB graphs, multi-level approval chains.
+**Out of scope / deferred:** SSO (integration), multi-tenant billing, drag-drop SLA builder, advanced BI, native apps, CMDB graphs, timed L1→L2→L3 escalation ladder, per-subcategory custom SLA minutes (today: subcategory → min P-level → shared P1–P4 rules). Schema/ER handoff to client is docs-only (`Docs/schema.md`, `Docs/schema-diagram.md`) — not a product feature.
 
 ### Phase 6 — in progress (`Dev-C` + merged `Audit`)
 

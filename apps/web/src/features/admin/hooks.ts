@@ -862,7 +862,7 @@ export function useNotifications() {
           {
             id: "notif-1",
             type: "incident.assigned",
-            title: "Incident assigned",
+            title: "Ticket assigned",
             body: "INC-1001 was assigned to you",
             href: "/incidents/inc-1001",
             readAt: null,
@@ -889,6 +889,143 @@ export function useMarkNotificationRead() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+export type IncidentTaxonomySubcategory = {
+  id: string;
+  name: string;
+  minPriority: "P1" | "P2" | "P3" | "P4" | null;
+  isActive: boolean;
+};
+
+export type IncidentTaxonomyCategory = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  subcategories: IncidentTaxonomySubcategory[];
+};
+
+export function useIncidentCategoryTaxonomy(opts?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["incidents", "category-taxonomy"],
+    enabled: opts?.enabled !== false,
+    queryFn: async (): Promise<IncidentTaxonomyCategory[]> => {
+      const result = await apiFetch<{ data: IncidentTaxonomyCategory[] }>(
+        "/incidents/category-taxonomy",
+      );
+      return result.data;
+    },
+  });
+}
+
+export function useIncidentCategoryTaxonomyAdmin() {
+  return useQuery({
+    queryKey: ["admin", "incident-categories"],
+    queryFn: async (): Promise<IncidentTaxonomyCategory[]> => {
+      const result = await apiFetch<{ data: IncidentTaxonomyCategory[] }>(
+        "/admin/incident-categories",
+      );
+      return result.data;
+    },
+  });
+}
+
+export function useCreateIncidentCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (name: string) =>
+      apiFetch("/admin/incident-categories", {
+        method: "POST",
+        body: { name },
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "incident-categories"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["incidents", "category-taxonomy"],
+      });
+    },
+  });
+}
+
+export function useUpdateIncidentCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      name?: string;
+      isActive?: boolean;
+    }) =>
+      apiFetch(`/admin/incident-categories/${input.id}`, {
+        method: "PATCH",
+        body: {
+          ...(input.name !== undefined ? { name: input.name } : {}),
+          ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+        },
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "incident-categories"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["incidents", "category-taxonomy"],
+      });
+    },
+  });
+}
+
+export function useCreateIncidentSubcategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      categoryId: string;
+      name: string;
+      minPriority?: "P1" | "P2" | "P3" | "P4" | null;
+    }) =>
+      apiFetch("/admin/incident-subcategories", {
+        method: "POST",
+        body: input,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "incident-categories"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["incidents", "category-taxonomy"],
+      });
+    },
+  });
+}
+
+export function useUpdateIncidentSubcategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      name?: string;
+      minPriority?: "P1" | "P2" | "P3" | "P4" | null;
+      isActive?: boolean;
+    }) =>
+      apiFetch(`/admin/incident-subcategories/${input.id}`, {
+        method: "PATCH",
+        body: {
+          ...(input.name !== undefined ? { name: input.name } : {}),
+          ...(input.minPriority !== undefined
+            ? { minPriority: input.minPriority }
+            : {}),
+          ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+        },
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "incident-categories"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["incidents", "category-taxonomy"],
+      });
     },
   });
 }

@@ -252,12 +252,12 @@ export class SlaProcessor extends WorkerHost {
     const href = `/incidents/${ticket.id}`;
     const title =
       kind === "warning"
-        ? `SLA warning: ${ticket.title}`
-        : `SLA breach: ${ticket.title}`;
+        ? `Response time warning: ${ticket.title}`
+        : `Response time missed: ${ticket.title}`;
     const body =
       kind === "warning"
-        ? `Incident is at 75% of its resolve SLA (${ticket.priority}).`
-        : `Incident resolve SLA breached (${ticket.priority}).`;
+        ? `Ticket is at 75% of its resolve target (${ticket.priority}).`
+        : `Ticket resolve target missed (${ticket.priority}).`;
 
     for (const row of rows) {
       if (row.email) {
@@ -266,7 +266,8 @@ export class SlaProcessor extends WorkerHost {
           ticketTitle: ticket.title,
           priority: ticket.priority,
           breachType: "resolve",
-          escalationNotes: kind === "warning" ? "SLA warning (75%)" : undefined,
+          escalationNotes:
+            kind === "warning" ? "Response time warning (75%)" : undefined,
         });
       }
       await this.notifications.record(

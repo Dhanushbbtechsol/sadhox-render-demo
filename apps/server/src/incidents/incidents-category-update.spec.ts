@@ -8,27 +8,36 @@ const agentUser = {
   role: "Agent" as const,
 };
 
+const VALID_PAIRS = new Set([
+  "Hardware::Laptop/Desktop",
+  "Identity & Access::Password Reset",
+]);
+
 function buildService(incident: Record<string, unknown>) {
   const updatedRow = { ...incident };
+  const incidentRow = {
+    incident,
+    reporterId: agentUser.userId,
+    reporterName: "Agent",
+    reporterEmail: agentUser.email,
+    assigneeId: null,
+    assigneeName: null,
+    assigneeEmail: null,
+  };
+  const limitIncident = vi.fn(async () => [incidentRow]);
+  const limitSla = vi.fn(async () => [{ resolveMinutes: 240 }]);
   const db = {
     select: vi.fn(() => ({
       from: vi.fn(() => ({
         leftJoin: vi.fn(() => ({
           leftJoin: vi.fn(() => ({
             where: vi.fn(() => ({
-              limit: vi.fn(async () => [
-                {
-                  incident,
-                  reporterId: agentUser.userId,
-                  reporterName: "Agent",
-                  reporterEmail: agentUser.email,
-                  assigneeId: null,
-                  assigneeName: null,
-                  assigneeEmail: null,
-                },
-              ]),
+              limit: limitIncident,
             })),
           })),
+        })),
+        where: vi.fn(() => ({
+          limit: limitSla,
         })),
       })),
     })),
@@ -49,9 +58,28 @@ function buildService(incident: Record<string, unknown>) {
     resolveDueAt: vi.fn(() => new Date()),
   };
 
+  const findActivePair = vi.fn(async (category: string, subcategory: string) => {
+    if (VALID_PAIRS.has(`${category}::${subcategory}`)) {
+      return { minPriority: null };
+    }
+    return null;
+  });
+  const assertActivePair = vi.fn(
+    async (category: string, subcategory: string) => {
+      const pair = await findActivePair(category, subcategory);
+      if (!pair) {
+        throw new BadRequestException(
+          `Invalid ticket category/subcategory pair "${category}" / "${subcategory}"`,
+        );
+      }
+      return pair;
+    },
+  );
+
   const service = new IncidentsService(
     db as never,
     priorityCalc as never,
+    { assertActivePair, findActivePair } as never,
     { emitTicketUpdated: vi.fn() } as never,
     {} as never,
     {} as never,

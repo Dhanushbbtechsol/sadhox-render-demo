@@ -22,13 +22,17 @@ import {
   UpdateIncidentDto,
 } from "./dto/incident.dto";
 import { ListIncidentsQueryDto } from "./dto/list-incidents-query.dto";
+import { IncidentCategoriesService } from "./incident-categories.service";
 import { IncidentsService } from "./incidents.service";
 
 @ApiTags("incidents")
 @ApiBearerAuth()
 @Controller("incidents")
 export class IncidentsController {
-  constructor(private readonly incidents: IncidentsService) {}
+  constructor(
+    private readonly incidents: IncidentsService,
+    private readonly categories: IncidentCategoriesService,
+  ) {}
 
   @Get()
   @Roles("Admin", "Agent", "EndUser", "Manager")
@@ -38,6 +42,15 @@ export class IncidentsController {
   })
   list(@CurrentUser() user: AuthUser, @Query() query: ListIncidentsQueryDto) {
     return this.incidents.list(user, query);
+  }
+
+  @Get("category-taxonomy")
+  @Roles("Admin", "Agent", "EndUser", "Manager")
+  @ApiOperation({
+    summary: "Active ticket category → subcategory taxonomy for create/edit forms",
+  })
+  categoryTaxonomy() {
+    return this.categories.listTaxonomy({ includeInactive: false });
   }
 
   @Post()

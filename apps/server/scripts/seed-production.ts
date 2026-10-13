@@ -22,6 +22,7 @@ import {
 } from "../src/common/password-policy";
 import { users, slaRules, serviceCatalog } from "../src/database/schema";
 import { CATALOG_SEED } from "../src/service-catalog/catalog.seed";
+import { claimReference } from "../src/incidents/reference";
 import { responseMinutesForSeed } from "../src/incidents/priority";
 
 const ADMIN_EMAIL = "admin@sadhox.local";
@@ -62,7 +63,9 @@ async function seedProduction() {
   if (existingAdmin) {
     console.log(`skip existing admin ${ADMIN_EMAIL} (password not printed)`);
   } else {
+    const referenceCode = await claimReference(db, "USR");
     await db.insert(users).values({
+      referenceCode,
       email: ADMIN_EMAIL,
       passwordHash,
       role: "Admin",

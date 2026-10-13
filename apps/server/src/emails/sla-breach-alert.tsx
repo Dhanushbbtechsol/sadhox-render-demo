@@ -33,12 +33,12 @@ export function SlaBreachAlertEmail({
   return (
     <Html>
       <Head />
-      <Preview>SLA {target} breach: {ticketTitle}</Preview>
+      <Preview>Response time {target} missed: {ticketTitle}</Preview>
       <Body style={emailStyles.main}>
         <Container style={emailStyles.container}>
-          <Heading style={emailStyles.h1}>SLA breach alert</Heading>
+          <Heading style={emailStyles.h1}>Response time missed</Heading>
           <Text style={emailStyles.banner}>
-            SLA {target} target missed for ticket {ticketId}
+            Response time {target} target missed for ticket {ticketId}
           </Text>
           <Text style={emailStyles.row}>
             <span

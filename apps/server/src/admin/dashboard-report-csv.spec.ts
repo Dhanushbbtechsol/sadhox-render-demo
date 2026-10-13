@@ -162,6 +162,7 @@ describe("dashboard-report-csv", () => {
     const tickets: TicketReportRow[] = [
       {
         id: "11111111-1111-4111-8111-111111111111",
+        referenceCode: "INC-000001",
         module: "Incident",
         title: "=HACK()",
         status: "InProgress",
@@ -183,6 +184,7 @@ describe("dashboard-report-csv", () => {
       },
       {
         id: "22222222-2222-4222-8222-222222222222",
+        referenceCode: "REQ-000002",
         module: "Service Request",
         title: "Laptop",
         status: "InFulfillment",
@@ -208,13 +210,15 @@ describe("dashboard-report-csv", () => {
     expect(rows[0]).toEqual([...TICKET_HEADERS]);
     expect(rows.every((r) => r.length === TICKET_HEADERS.length)).toBe(true);
     // Sorted: Incident before Service Request
+    expect(rows[1]![0]).toBe("INC-000001");
     expect(rows[1]![1]).toBe("Incident");
     expect(rows[1]![2]).toBe("'=HACK()");
     expect(rows[1]![3]).toBe("In Progress");
-    expect(rows[1]![14]).toBe("No");
-    expect(rows[1]![18]).toBe("line1 line2");
+    expect(rows[1]![17]).toBe("No"); // SLA Breached
+    expect(rows[1]![18]).toBe("line1 line2"); // Description
+    expect(rows[2]![0]).toBe("REQ-000002");
     expect(rows[2]![3]).toBe("In Fulfillment");
-    expect(rows[2]![14]).toBe("");
+    expect(rows[2]![17]).toBe("");
   });
 
   it("filename includes type, range, and date", () => {

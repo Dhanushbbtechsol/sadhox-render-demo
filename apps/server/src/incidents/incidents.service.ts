@@ -47,10 +47,7 @@ import {
   canReopenTicket,
   canSetIncidentAssignee,
 } from "./incident-rbac";
-import {
-  invalidCategorySubcategoryMessage,
-  isValidIncidentCategorySubcategory,
-} from "./incident-category-map";
+import { IncidentCategoriesService } from "./incident-categories.service";
 import { PriorityCalculationService } from "./priority-calculation.service";
 import { claimReference } from "./reference";
 import { categoryFloorPriority, higherPriority } from "./priority";
@@ -120,6 +117,7 @@ export class IncidentsService {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDB,
     private readonly priorityCalc: PriorityCalculationService,
+    private readonly categories: IncidentCategoriesService,
     private readonly events: EventsService,
     private readonly assignment: AssignmentService,
     private readonly mail: MailService,
@@ -247,12 +245,8 @@ export class IncidentsService {
     if (!description || description.length < 10) {
       throw new BadRequestException("Description is required");
     }
-    // Category/subcategory: exact map match (DTO already validated); not free text.
-    if (!isValidIncidentCategorySubcategory(dto.category, dto.subcategory)) {
-      throw new BadRequestException(
-        invalidCategorySubcategoryMessage(dto.category, dto.subcategory),
-      );
-    }
+    const { minPriority: subcategoryFloor } =
+      await this.categories.assertActivePair(dto.category, dto.subcategory);
 
     const matrix = this.priorityCalc.calculate(dto.impact, dto.urgency);
     const now = new Date();
@@ -295,8 +289,8 @@ export class IncidentsService {
         );
       const openIncludingThis = Number(counted?.n ?? 0) + 1;
       const priority = higherPriority(
-        matrix,
-        categoryFloorPriority(openIncludingThis),
+        higherPriority(matrix, categoryFloorPriority(openIncludingThis)),
+        subcategoryFloor,
       );
       const resolveMinutes = await this.lookupResolveMinutes(priority);
       const slaDueAt = this.priorityCalc.resolveDueAt(
@@ -535,27 +529,41 @@ export class IncidentsService {
     const subcategoryChanged =
       dto.subcategory !== undefined &&
       dto.subcategory !== existing.incident.subcategory;
+    let subcategoryFloor: Priority | null = null;
     if (categoryChanged || subcategoryChanged) {
-      if (
-        !isValidIncidentCategorySubcategory(nextCategory, nextSubcategory)
-      ) {
+      const pair = await this.categories.findActivePair(
+        nextCategory,
+        nextSubcategory,
+      );
+      if (!pair) {
         if (categoryChanged && !subcategoryChanged) {
           throw new BadRequestException(
             `Category "${nextCategory}" is not compatible with the current subcategory "${nextSubcategory}". Provide a new subcategory that belongs to "${nextCategory}".`,
           );
         }
-        throw new BadRequestException(
-          invalidCategorySubcategoryMessage(nextCategory, nextSubcategory),
-        );
+        await this.categories.assertActivePair(nextCategory, nextSubcategory);
       }
+      subcategoryFloor = pair!.minPriority;
+    } else if (dto.impact !== undefined || dto.urgency !== undefined) {
+      const pair = await this.categories.findActivePair(
+        nextCategory,
+        nextSubcategory,
+      );
+      subcategoryFloor = pair?.minPriority ?? null;
     }
 
     const impact = dto.impact ?? existing.incident.impact;
     const urgency = dto.urgency ?? existing.incident.urgency;
     const recalculate =
-      dto.impact !== undefined || dto.urgency !== undefined;
-    const priority = recalculate
+      dto.impact !== undefined ||
+      dto.urgency !== undefined ||
+      categoryChanged ||
+      subcategoryChanged;
+    const matrixPriority = recalculate
       ? this.priorityCalc.calculate(impact, urgency)
+      : existing.incident.priority;
+    const priority = recalculate
+      ? higherPriority(matrixPriority, subcategoryFloor)
       : existing.incident.priority;
 
     const now = new Date();

@@ -117,7 +117,7 @@ export function CreateProblemDialog({
       setOpen(false);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to create problem",
+        error instanceof Error ? error.message : "Failed to create issue",
       );
     }
   }
@@ -254,7 +254,7 @@ export function CreateProblemDialog({
             ) : selectedIncidents.length > 0 &&
               !selectedIncidents[0]?.projectId ? (
               <p className="text-muted-foreground text-xs">
-                No project on selection — the problem will stay in the global
+                No project on selection — the issue will stay in the global
                 (unscoped) Agent pool
                 {selectedIncidents.length > 1
                   ? ` · ${selectedIncidents.length} tickets selected`

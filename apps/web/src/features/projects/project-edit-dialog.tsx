@@ -291,7 +291,10 @@ export function ProjectEditDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            Project summary{project ? ` · ${project.name}` : ""}
+            Project summary
+            {project
+              ? ` · ${project.referenceCode ? `${project.referenceCode} · ` : ""}${project.name}`
+              : ""}
           </DialogTitle>
           <DialogDescription>
             One save updates the name, the Manager, the members, and the

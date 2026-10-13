@@ -85,6 +85,10 @@ describe("IncidentsService.update assignee role", () => {
     const service = new IncidentsService(
       db as never,
       { calculate: vi.fn(), resolveDueAt: vi.fn() } as never,
+      {
+        assertActivePair: vi.fn(async () => ({ minPriority: null })),
+        findActivePair: vi.fn(async () => ({ minPriority: null })),
+      } as never,
       { emitTicketUpdated: vi.fn() } as never,
       { isInPool: vi.fn(async () => false) } as never,
       { sendTicketAssigned: vi.fn() } as never,

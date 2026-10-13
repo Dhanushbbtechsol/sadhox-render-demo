@@ -26,6 +26,7 @@ import {
   serviceRequests,
   users,
 } from "../database/schema";
+import { claimReference } from "../incidents/reference";
 import { ProjectAccessService } from "./project-access.service";
 import { ProjectScopeService } from "./project-scope.service";
 import type {
@@ -48,6 +49,7 @@ export class ProjectsService {
   private projectWithManagerSelect() {
     return {
       id: projects.id,
+      referenceCode: projects.referenceCode,
       name: projects.name,
       managerId: projects.managerId,
       managerName: users.name,
@@ -59,10 +61,14 @@ export class ProjectsService {
     await this.assertManagerUser(dto.managerId);
     const name = sanitizePlainText(dto.name, 255);
     if (!name) throw new BadRequestException("Project name is required");
-    const [row] = await this.db
-      .insert(projects)
-      .values({ name, managerId: dto.managerId })
-      .returning();
+    const row = await this.db.transaction(async (tx) => {
+      const referenceCode = await claimReference(tx, "PRJ");
+      const [created] = await tx
+        .insert(projects)
+        .values({ referenceCode, name, managerId: dto.managerId })
+        .returning();
+      return created!;
+    });
     const [manager] = await this.db
       .select({ name: users.name })
       .from(users)
@@ -70,6 +76,7 @@ export class ProjectsService {
       .limit(1);
     return {
       id: row.id,
+      referenceCode: row.referenceCode,
       name: row.name,
       managerId: row.managerId,
       managerName: manager?.name ?? null,
@@ -85,7 +92,11 @@ export class ProjectsService {
   async list(user: AuthUser) {
     if (user.role === "EndUser") {
       const rows = await this.db
-        .select({ id: projects.id, name: projects.name })
+        .select({
+          id: projects.id,
+          referenceCode: projects.referenceCode,
+          name: projects.name,
+        })
         .from(projects);
       return rows;
     }
@@ -483,12 +494,12 @@ export class ProjectsService {
             id: "open",
             label: "Open tickets",
             value: "0",
-            delta: "Incidents + requests",
+            delta: "Tickets + requests",
             trend: "flat" as const,
           },
           {
             id: "p1",
-            label: "P1 incidents",
+            label: "P1 tickets",
             value: "0",
             delta: "Current P1 count",
             trend: "flat" as const,
@@ -548,12 +559,12 @@ export class ProjectsService {
           id: "open",
           label: "Open tickets",
           value: String(openTickets),
-          delta: "Incidents + requests",
+          delta: "Tickets + requests",
           trend: openTickets > 0 ? ("up" as const) : ("flat" as const),
         },
         {
           id: "p1",
-          label: "P1 incidents",
+          label: "P1 tickets",
           value: String(p1),
           delta: "Current P1 count",
           trend: p1 > 0 ? ("up" as const) : ("flat" as const),
@@ -584,9 +595,9 @@ export class ProjectsService {
     const projectIds = owned.map((p) => p.id);
 
     const emptyVolume = [
-      { module: "Incident", ...stackOpenClosed(0, 0) },
-      { module: "Service Request", ...stackOpenClosed(0, 0) },
-      { module: "Change", ...stackOpenClosed(0, 0) },
+      { module: "Ticket", ...stackOpenClosed(0, 0) },
+      { module: "Request", ...stackOpenClosed(0, 0) },
+      { module: "Change request", ...stackOpenClosed(0, 0) },
     ];
 
     if (projectIds.length === 0) {
@@ -672,18 +683,18 @@ export class ProjectsService {
       projectIds,
       volume: [
         {
-          module: "Incident",
+          module: "Ticket",
           ...stackOpenClosed(
             Number(incidentAgg?.open ?? 0),
             Number(incidentAgg?.closed ?? 0),
           ),
         },
         {
-          module: "Service Request",
+          module: "Request",
           ...stackOpenClosed(Number(srAgg?.open ?? 0), Number(srAgg?.closed ?? 0)),
         },
         {
-          module: "Change",
+          module: "Change request",
           ...stackOpenClosed(
             Number(changeAgg?.open ?? 0),
             Number(changeAgg?.closed ?? 0),

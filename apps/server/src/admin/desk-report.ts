@@ -1,4 +1,6 @@
-export type DeskReportRange = "7d" | "30d" | "ytd";
+import type { ChartRangePreset } from "./chart-range";
+
+export type DeskReportRange = ChartRangePreset;
 
 export type DeskReport = {
   title: string;

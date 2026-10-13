@@ -3,6 +3,7 @@ import type { DirectoryUser, Project, ProjectMember, ProjectModule } from "./typ
 export const mockProjects: Project[] = [
   {
     id: "proj-corporate-it",
+    referenceCode: "PRJ-000001",
     name: "Corporate IT",
     managerId: "user-manager",
     managerName: "Morgan Manager",
@@ -10,6 +11,7 @@ export const mockProjects: Project[] = [
   },
   {
     id: "proj-field-ops",
+    referenceCode: "PRJ-000002",
     name: "Field Ops",
     managerId: "user-manager-2",
     managerName: "Casey Manager",
@@ -40,36 +42,42 @@ export const mockProjectModules: ProjectModule[] = [
 export const mockDirectoryUsers: DirectoryUser[] = [
   {
     id: "user-admin",
+    referenceCode: "USR-000001",
     name: "Ian Admin",
     email: "admin@offline.local",
     role: "Admin",
   },
   {
     id: "user-agent",
+    referenceCode: "USR-000002",
     name: "Support Agent",
     email: "agent@offline.local",
     role: "Agent",
   },
   {
     id: "user-enduser",
+    referenceCode: "USR-000003",
     name: "End User",
     email: "enduser@offline.local",
     role: "EndUser",
   },
   {
     id: "user-portal",
+    referenceCode: "USR-000004",
     name: "Pat Portal",
     email: "user@offline.local",
     role: "EndUser",
   },
   {
     id: "user-manager",
+    referenceCode: "USR-000005",
     name: "Morgan Manager",
     email: "manager@offline.local",
     role: "Manager",
   },
   {
     id: "user-manager-2",
+    referenceCode: "USR-000006",
     name: "Casey Manager",
     email: "manager2@offline.local",
     role: "Manager",

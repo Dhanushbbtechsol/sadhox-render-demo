@@ -1,4 +1,9 @@
-import { BellIcon, ChevronDownIcon, LogOutIcon } from "lucide-react";
+import {
+  BellIcon,
+  ChevronDownIcon,
+  LogOutIcon,
+  UserIcon,
+} from "lucide-react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -186,6 +191,13 @@ export function TopNavbar() {
                 </Badge>
               </div>
               <DropdownMenuSeparator className="mx-1" />
+              <DropdownMenuItem
+                className="rounded-lg px-2.5 py-2 text-sm"
+                onClick={() => void navigate("/profile")}
+              >
+                <UserIcon />
+                Profile
+              </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"
                 className="rounded-lg px-2.5 py-2 text-sm"

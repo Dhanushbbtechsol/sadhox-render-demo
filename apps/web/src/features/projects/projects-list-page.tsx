@@ -1,4 +1,4 @@
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { BoxesIcon, PencilIcon, PlusIcon, UsersIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
@@ -32,11 +32,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { recordReference } from "@/lib/record-reference";
+
 import { useCreateProject, useDirectoryUsers, useProjects } from "./hooks";
 import { ProjectEditDialog } from "./project-edit-dialog";
+import { ProjectMembersDialog } from "./project-members-dialog";
+import { ProjectModulesDialog } from "./project-modules-dialog";
 import type { Project } from "./types";
 
-type ActiveDialog = "create" | "edit" | null;
+type ActiveDialog = "create" | "edit" | "members" | "modules" | null;
 
 export default function ProjectsListPage() {
   const projects = useProjects();
@@ -118,6 +122,18 @@ export default function ProjectsListPage() {
     navigate(`/admin/projects/${project.id}`);
   }
 
+  function openForProject(
+    dialog: "edit" | "members" | "modules",
+    project: Project,
+  ) {
+    if (dialog === "edit") {
+      navigate(`/admin/projects/${project.id}`);
+      return;
+    }
+    setSelectedProject(project);
+    setActiveDialog(dialog);
+  }
+
   function closeSummary(open: boolean) {
     if (open) return;
     setActiveDialog(null);
@@ -125,6 +141,12 @@ export default function ProjectsListPage() {
     if (routeProjectId) {
       navigate("/admin/projects", { replace: true });
     }
+  }
+
+  function closeSideDialog(open: boolean) {
+    if (open) return;
+    setActiveDialog(null);
+    setSelectedProject(null);
   }
 
   async function onCreate() {
@@ -155,8 +177,8 @@ export default function ProjectsListPage() {
         <div className="min-w-0">
           <h1 className="text-xl font-semibold">Projects</h1>
           <p className="text-sm text-muted-foreground">
-            Create a project, then open it to manage its name, Manager,
-            members, and modules.
+            Create a project, then use Edit for the full summary, or Members /
+            Modules as quick actions.
           </p>
         </div>
         <Button className="shrink-0" onClick={openCreate}>
@@ -186,6 +208,7 @@ export default function ProjectsListPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Ref</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Manager</TableHead>
                 <TableHead>Created</TableHead>
@@ -195,6 +218,9 @@ export default function ProjectsListPage() {
             <TableBody>
               {paged.items.map((project) => (
                 <TableRow key={project.id}>
+                  <TableCell className="font-mono text-sm tabular-nums">
+                    {recordReference(project.referenceCode)}
+                  </TableCell>
                   <TableCell className="font-medium">
                     <button
                       type="button"
@@ -218,10 +244,28 @@ export default function ProjectsListPage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => openSummary(project)}
+                        onClick={() => openForProject("edit", project)}
                       >
                         <PencilIcon />
                         Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openForProject("members", project)}
+                      >
+                        <UsersIcon />
+                        Members
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openForProject("modules", project)}
+                      >
+                        <BoxesIcon />
+                        Modules
                       </Button>
                     </div>
                   </TableCell>
@@ -229,7 +273,7 @@ export default function ProjectsListPage() {
               ))}
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-muted-foreground">
+                  <TableCell colSpan={5} className="text-muted-foreground">
                     No projects yet. Create one to get started.
                   </TableCell>
                 </TableRow>
@@ -337,6 +381,18 @@ export default function ProjectsListPage() {
       <ProjectEditDialog
         open={activeDialog === "edit"}
         onOpenChange={closeSummary}
+        project={selectedProject}
+      />
+
+      <ProjectMembersDialog
+        open={activeDialog === "members"}
+        onOpenChange={closeSideDialog}
+        project={selectedProject}
+      />
+
+      <ProjectModulesDialog
+        open={activeDialog === "modules"}
+        onOpenChange={closeSideDialog}
         project={selectedProject}
       />
     </div>

@@ -1,5 +1,6 @@
 export type Project = {
   id: string;
+  referenceCode?: string | null;
   name: string;
   managerId: string | null;
   /** Present on Admin/Manager/Agent list/get when joined from users */
@@ -24,6 +25,7 @@ export type ProjectModule = {
 
 export type DirectoryUser = {
   id: string;
+  referenceCode?: string | null;
   name: string;
   email: string;
   role: string;

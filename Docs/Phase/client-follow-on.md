@@ -12,3 +12,14 @@ Sits after Phase 9. Phase 9 files stay as written. This is not a numbered phase.
 | C | [Dev C/client-follow-on.md](./Dev%20C/client-follow-on.md) | U7, U8 |
 
 U1 is this note set. Requirements are R1–R10 in the plan. Do not restate them here.
+
+## Landed extras (2026-10-13 — client demo gap close)
+
+From the 12 Oct client demo (category / subcategory / SLA segregation):
+
+- Tables `incident_categories`, `incident_subcategories` (migration `0015_incident_category_taxonomy`).
+- Admin UI `/admin/categories` + APIs under `/admin/incident-categories` and `/admin/incident-subcategories`.
+- Ticket forms use `GET /incidents/category-taxonomy` (Phase 7 hard-coded map remains seed source only).
+- Subcategory optional `minPriority` floors create/update priority; Response time still comes from existing P1–P4 `sla_rules`.
+- Person activity report on Audit logs; project Members/Modules action dialogs restored alongside summary edit.
+- Deferred to integration: SSO. Not handling: client schema/ER walkthrough as product work.

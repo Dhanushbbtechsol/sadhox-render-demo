@@ -14,6 +14,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { recordReference } from "@/lib/record-reference";
+
 import { UserFormDialog } from "./user-form-dialog";
 import { useAdminUsers, type AdminUser } from "./use-admin-users";
 
@@ -95,6 +97,7 @@ export default function AdminUsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Ref</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
@@ -104,6 +107,9 @@ export default function AdminUsersPage() {
               <TableBody>
                 {paged.items.map((user) => (
                   <TableRow key={user.id}>
+                    <TableCell className="font-mono text-sm tabular-nums">
+                      {recordReference(user.referenceCode)}
+                    </TableCell>
                     <TableCell>{user.name}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.role}</TableCell>

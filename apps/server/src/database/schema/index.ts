@@ -1,4 +1,4 @@
-﻿import {
+import {
   pgTable,
   pgEnum,
   uuid,
@@ -98,6 +98,7 @@ export const users = pgTable(
   "users",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    referenceCode: varchar("reference_code", { length: 16 }).notNull().unique(),
     email: varchar("email", { length: 255 }).notNull().unique(),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
     role: userRoleEnum("role").notNull().default("EndUser"),
@@ -144,6 +145,7 @@ export const projects = pgTable(
   "projects",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    referenceCode: varchar("reference_code", { length: 16 }).notNull().unique(),
     name: varchar("name", { length: 255 }).notNull(),
     managerId: uuid("manager_id")
       .notNull()
@@ -313,6 +315,50 @@ export const problemIncidents = pgTable(
     primaryKey({ columns: [t.problemId, t.incidentId] }),
     unique("problem_incidents_incident_unique").on(t.incidentId),
     index("problem_incidents_problem_id_idx").on(t.problemId),
+  ],
+);
+
+/** Admin-managed ticket category taxonomy (client follow-on). */
+export const incidentCategories = pgTable(
+  "incident_categories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: varchar("name", { length: 64 }).notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("incident_categories_active_idx").on(t.isActive)],
+);
+
+export const incidentSubcategories = pgTable(
+  "incident_subcategories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => incidentCategories.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 128 }).notNull(),
+    /** Minimum priority floor — drives Response time via existing P1–P4 SLA rules. */
+    minPriority: priorityEnum("min_priority"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("incident_subcategories_category_name_unique").on(
+      t.categoryId,
+      t.name,
+    ),
+    index("incident_subcategories_category_id_idx").on(t.categoryId),
   ],
 );
 

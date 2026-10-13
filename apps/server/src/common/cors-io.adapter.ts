@@ -33,11 +33,14 @@ export function parseCorsOriginAllowlist(origin: string): readonly string[] {
 export function sharedCorsOptions(origin: string): {
   origin: string | string[];
   credentials: true;
+  exposedHeaders: string[];
 } {
   const allowlist = parseCorsOriginAllowlist(origin);
   return {
     origin: allowlist.length === 1 ? allowlist[0]! : [...allowlist],
     credentials: true,
+    // So the SPA can read download filenames from cross-origin API responses.
+    exposedHeaders: ["Content-Disposition"],
   };
 }
 
@@ -56,7 +59,11 @@ export function isAllowedCorsOrigin(
  * (avoids reading process.env at @WebSocketGateway import time).
  */
 export class CorsIoAdapter extends IoAdapter {
-  private readonly cors: { origin: string | string[]; credentials: true };
+  private readonly cors: {
+    origin: string | string[];
+    credentials: true;
+    exposedHeaders: string[];
+  };
 
   constructor(app: INestApplication, corsOrigin: string) {
     super(app);

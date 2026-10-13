@@ -18,6 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DeskReportView } from "@/features/admin/desk-report-view";
 import {
@@ -25,6 +31,10 @@ import {
   fetchDeskReport,
 } from "@/features/admin/export-dashboard-csv";
 import { KpiCard } from "@/features/admin/kpi-card";
+import {
+  REPORT_DOWNLOAD_FORMATS,
+  type ReportDownloadFormat,
+} from "@/features/admin/report-download";
 import type { ChartRange, DeskReport } from "@/features/admin/types";
 import {
   useManagerCharts,
@@ -32,9 +42,11 @@ import {
 } from "@/features/projects/hooks";
 
 const RANGE_OPTIONS: { value: ChartRange; label: string }[] = [
-  { value: "7d", label: "Last 7 Days" },
-  { value: "30d", label: "Last 30 Days" },
-  { value: "ytd", label: "Year-to-Date" },
+  { value: "7d", label: "7 days" },
+  { value: "30d", label: "30 days" },
+  { value: "quarter", label: "Quarter" },
+  { value: "ytd", label: "YTD" },
+  { value: "year", label: "Year" },
 ];
 
 const volumeChartConfig = {
@@ -50,11 +62,11 @@ export default function ManagerHomePage() {
   const [deskReport, setDeskReport] = useState<DeskReport | null>(null);
   const charts = useManagerCharts(range);
 
-  async function handleDownloadDeskReport() {
+  async function handleDownloadDeskReport(format: ReportDownloadFormat) {
     setReportLoading(true);
     try {
-      await downloadDeskReport(range, "/manager/reports/desk");
-      toast.success("Desk report downloaded");
+      await downloadDeskReport(range, "/manager/reports/desk", format);
+      toast.success(`Desk ${format.toUpperCase()} downloaded`);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to download report",
@@ -102,16 +114,32 @@ export default function ManagerHomePage() {
               </Button>
             ))}
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={reportLoading}
-            onClick={() => void handleDownloadDeskReport()}
-          >
-            <DownloadIcon />
-            {reportLoading ? "Working…" : "Download desk report"}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={reportLoading}
+                />
+              }
+            >
+              <DownloadIcon />
+              {reportLoading ? "Working…" : "Download desk report"}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {REPORT_DOWNLOAD_FORMATS.map((fmt) => (
+                <DropdownMenuItem
+                  key={fmt.value}
+                  disabled={reportLoading}
+                  onClick={() => void handleDownloadDeskReport(fmt.value)}
+                >
+                  {fmt.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             type="button"
             size="sm"

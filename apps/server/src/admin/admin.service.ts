@@ -13,12 +13,13 @@ import { alias } from "drizzle-orm/pg-core";
 import type { Queue } from "bullmq";
 import {
   computeSlaComplianceRate,
+  resolveActivityRange,
   resolveChartRange,
   stackOpenClosed,
   type ChartRangePreset,
 } from "./chart-range";
+import type { UserActivityQueryDto } from "./dto/user-activity-query.dto";
 import {
-  buildTicketReportCsv,
   buildTidyFiguresCsvDocument,
   dashboardReportFilename,
   REPORT_ROW_CAP,
@@ -38,17 +39,27 @@ import {
   type SummaryWorkbookData,
 } from "./dashboard-report-workbook";
 import {
-  deskReportToCsv,
   type DeskReport,
   type DeskReportRange,
 } from "./desk-report";
+import {
+  buildAssetExportCsv,
+  buildAssetExportXlsx,
+  buildDeskExportCsv,
+  buildDeskExportXlsx,
+  buildTicketExportCsv,
+  buildTicketExportXlsx,
+  exportFilename,
+} from "./exports";
 import { assertReportsTo } from "./org-chart";
 import { assertPasswordComplexity } from "../common/password-policy";
 import { sanitizePlainText } from "../common/sanitize-plain-text";
 import type { UserRole } from "../common/types/roles";
 import { DRIZZLE } from "../database/database.constants";
 import type { DrizzleDB } from "../database/database.module";
+import { claimReference } from "../incidents/reference";
 import {
+  assets,
   auditLog,
   changes,
   escalationRules,
@@ -81,6 +92,7 @@ import {
 
 export type AdminUserView = {
   id: string;
+  referenceCode: string;
   name: string;
   email: string;
   role: UserRole;
@@ -89,14 +101,22 @@ export type AdminUserView = {
 
 const QUEUE_PURPOSE: Record<string, string> = {
   [SLA_QUEUE]:
-    "Every 5 minutes, marks overdue incidents and sends SLA mail.",
+    "Checks tickets every 5 minutes for missed response times and emails the right people.",
   [TICKET_LIFECYCLE_QUEUE]:
-    "Closes incidents that have stayed Resolved for the auto-close window.",
-  [EMAIL_QUEUE]: "Sends the transactional emails queued by the app.",
+    "Auto-closes tickets that stay Resolved long enough with no further action.",
+  [EMAIL_QUEUE]: "Sends the emails the app queues (assignments, approvals, alerts).",
+};
+
+/** Everyday titles for queue cards (API still returns the BullMQ name). */
+const QUEUE_TITLE: Record<string, string> = {
+  [SLA_QUEUE]: "Response time checks",
+  [TICKET_LIFECYCLE_QUEUE]: "Ticket auto-close",
+  [EMAIL_QUEUE]: "Email sending",
 };
 
 const USER_PUBLIC_COLS = {
   id: users.id,
+  referenceCode: users.referenceCode,
   name: users.name,
   email: users.email,
   role: users.role,
@@ -131,7 +151,7 @@ export class AdminService {
     actorId?: string,
     format: ReportFormat = "excel",
   ): Promise<{
-    body: string;
+    body: string | Buffer;
     filename: string;
     contentType: string;
   }> {
@@ -142,19 +162,110 @@ export class AdminService {
       return this.buildSummaryReport(rangePreset, from, to, now, format, actorId);
     }
 
+    if (type === "assets") {
+      return this.buildAssetsReport(rangePreset, from, to, now, format, actorId);
+    }
+
     const tickets = await this.fetchReportTickets(type, from, to, this.db);
     if (tickets.length > REPORT_ROW_CAP) {
       throw new UnprocessableEntityException(
         `Report exceeds ${REPORT_ROW_CAP} rows. Narrow the range or use format=csv on a smaller type.`,
       );
     }
-    const body = buildTicketReportCsv(tickets);
     if (actorId) {
       await this.writeReportAudit(actorId, type, format, rangePreset, tickets.length);
     }
+    if (format === "excel") {
+      return buildTicketExportXlsx(tickets, {
+        range: rangePreset,
+        from,
+        to,
+        type,
+        generatedAt: now,
+      });
+    }
     return {
-      body,
-      filename: dashboardReportFilename(type, rangePreset, now),
+      body: buildTicketExportCsv(tickets),
+      filename: exportFilename({
+        report: `tickets-${type}`,
+        scope: "all",
+        from,
+        to,
+        ext: "csv",
+        now,
+      }),
+      contentType: "text/csv; charset=utf-8",
+    };
+  }
+
+  /** Assets created in the selected dashboard range. */
+  private async buildAssetsReport(
+    rangePreset: ChartRangePreset,
+    from: Date,
+    to: Date,
+    now: Date,
+    format: ReportFormat,
+    actorId?: string,
+  ): Promise<{ body: string | Buffer; filename: string; contentType: string }> {
+    const owner = alias(users, "report_asset_owner");
+    const rows = await this.db
+      .select({
+        referenceCode: assets.referenceCode,
+        assetTag: assets.assetTag,
+        name: assets.name,
+        type: assets.type,
+        status: assets.status,
+        ownerName: owner.name,
+        ownerEmail: owner.email,
+        serialNumber: assets.serialNumber,
+        location: assets.location,
+        purchaseCost: assets.purchaseCost,
+        linkedTicketId: assets.linkedTicketId,
+        assignedAt: assets.assignedAt,
+        createdAt: assets.createdAt,
+        updatedAt: assets.updatedAt,
+      })
+      .from(assets)
+      .leftJoin(owner, eq(assets.ownerId, owner.id))
+      .where(and(gte(assets.createdAt, from), lte(assets.createdAt, to)))
+      .orderBy(desc(assets.createdAt))
+      .limit(REPORT_ROW_CAP + 1);
+
+    if (rows.length > REPORT_ROW_CAP) {
+      throw new UnprocessableEntityException(
+        `Report exceeds ${REPORT_ROW_CAP} rows. Narrow the range.`,
+      );
+    }
+
+    if (actorId) {
+      await this.writeReportAudit(
+        actorId,
+        "assets",
+        format,
+        rangePreset,
+        rows.length,
+      );
+    }
+
+    if (format === "excel") {
+      return buildAssetExportXlsx(rows, {
+        range: rangePreset,
+        from,
+        to,
+        generatedAt: now,
+      });
+    }
+
+    return {
+      body: buildAssetExportCsv(rows),
+      filename: exportFilename({
+        report: "assets",
+        scope: "all",
+        from,
+        to,
+        ext: "csv",
+        now,
+      }),
       contentType: "text/csv; charset=utf-8",
     };
   }
@@ -272,7 +383,8 @@ export class AdminService {
             metric: "Range",
             value: rangePreset,
             unit: "",
-            definition: "7d | 30d | ytd window used for range-scoped sheets.",
+            definition:
+              "7d | 30d | quarter | ytd | year window used for range-scoped sheets.",
           },
           {
             metric: "Generated at (UTC)",
@@ -339,7 +451,7 @@ export class AdminService {
   }
 
   private async fetchReportTickets(
-    type: Exclude<ReportType, "summary">,
+    type: Exclude<ReportType, "summary" | "assets">,
     from: Date,
     to: Date,
     db: DrizzleDB,
@@ -426,21 +538,21 @@ export class AdminService {
       range,
       data: [
         {
-          module: "Incident",
+          module: "Ticket",
           ...stackOpenClosed(
             Number(incidentAgg?.open ?? 0),
             Number(incidentAgg?.closed ?? 0),
           ),
         },
         {
-          module: "Service Request",
+          module: "Request",
           ...stackOpenClosed(
             Number(srAgg?.open ?? 0),
             Number(srAgg?.closed ?? 0),
           ),
         },
         {
-          module: "Change",
+          module: "Change request",
           ...stackOpenClosed(
             Number(changeAgg?.open ?? 0),
             Number(changeAgg?.closed ?? 0),
@@ -481,17 +593,17 @@ export class AdminService {
 
     const data = [
       ...incidentRows.map((r) => ({
-        module: "Incident",
+        module: "Ticket",
         label: r.status,
         count: Number(r.count),
       })),
       ...requestRows.map((r) => ({
-        module: "Service Request",
+        module: "Request",
         label: r.status,
         count: Number(r.count),
       })),
       ...changeRows.map((r) => ({
-        module: "Change",
+        module: "Change request",
         label: r.status,
         count: Number(r.count),
       })),
@@ -661,6 +773,7 @@ export class AdminService {
     const rows = await db
       .select({
         id: incidents.id,
+        referenceCode: incidents.referenceCode,
         title: incidents.title,
         status: incidents.status,
         priority: incidents.priority,
@@ -686,6 +799,7 @@ export class AdminService {
 
     return rows.map((row) => ({
       id: row.id,
+      referenceCode: row.referenceCode ?? "",
       module: "Incident" as const,
       title: row.title,
       status: row.status,
@@ -741,6 +855,7 @@ export class AdminService {
     const rows = await db
       .select({
         id: serviceRequests.id,
+        referenceCode: serviceRequests.referenceCode,
         title: serviceRequests.title,
         status: serviceRequests.status,
         urgency: serviceRequests.urgency,
@@ -769,6 +884,7 @@ export class AdminService {
 
     return rows.map((row) => ({
       id: row.id,
+      referenceCode: row.referenceCode ?? "",
       module: "Service Request" as const,
       title: row.title,
       status: row.status,
@@ -827,6 +943,7 @@ export class AdminService {
     const rows = await db
       .select({
         id: changes.id,
+        referenceCode: changes.referenceCode,
         title: changes.title,
         status: changes.status,
         projectName: projects.name,
@@ -846,6 +963,7 @@ export class AdminService {
 
     return rows.map((row) => ({
       id: row.id,
+      referenceCode: row.referenceCode ?? "",
       module: "Change" as const,
       title: row.title,
       status: row.status,
@@ -918,21 +1036,24 @@ export class AdminService {
           id: "open",
           label: "Open tickets",
           value: String(openTickets),
-          delta: "Incidents + requests",
+          delta: "Tickets + requests",
           trend: openTickets > 0 ? ("up" as const) : ("flat" as const),
         },
         {
           id: "p1",
-          label: "P1 incidents",
+          label: "P1 tickets",
           value: String(p1),
           delta: "Current P1 count",
           trend: p1 > 0 ? ("up" as const) : ("flat" as const),
         },
         {
           id: "sla",
-          label: "SLA compliance",
+          label: "Response time met",
           value: `${slaCompliance}%`,
-          delta: slaTotal === 0 ? "No resolved SLA samples" : `${slaMet}/${slaTotal} met`,
+          delta:
+            slaTotal === 0
+              ? "No resolved response-time samples"
+              : `${slaMet}/${slaTotal} met`,
           trend: slaCompliance >= 90 ? ("up" as const) : ("down" as const),
         },
       ],
@@ -1084,18 +1205,18 @@ export class AdminService {
 
     const data = [
       {
-        module: "Incident",
+        module: "Ticket",
         ...stackOpenClosed(
           Number(incidentAgg?.open ?? 0),
           Number(incidentAgg?.closed ?? 0),
         ),
       },
       {
-        module: "Service Request",
+        module: "Request",
         ...stackOpenClosed(Number(srAgg?.open ?? 0), Number(srAgg?.closed ?? 0)),
       },
       {
-        module: "Change",
+        module: "Change request",
         ...stackOpenClosed(
           Number(changeAgg?.open ?? 0),
           Number(changeAgg?.closed ?? 0),
@@ -1140,19 +1261,19 @@ export class AdminService {
     const data = [
       ...incidentRows.map((r) => ({
         status: `Incident:${r.status}`,
-        module: "Incident",
+        module: "Ticket",
         label: r.status,
         count: Number(r.count),
       })),
       ...requestRows.map((r) => ({
         status: `ServiceRequest:${r.status}`,
-        module: "Service Request",
+        module: "Request",
         label: r.status,
         count: Number(r.count),
       })),
       ...changeRows.map((r) => ({
         status: `Change:${r.status}`,
-        module: "Change",
+        module: "Change request",
         label: r.status,
         count: Number(r.count),
       })),
@@ -1305,17 +1426,21 @@ export class AdminService {
     }
 
     try {
-      const [created] = await this.db
-        .insert(users)
-        .values({
-          name,
-          email,
-          passwordHash,
-          role: dto.role,
-          reportsToId,
-        })
-        .returning(USER_PUBLIC_COLS);
-      return created!;
+      return await this.db.transaction(async (tx) => {
+        const referenceCode = await claimReference(tx, "USR");
+        const [created] = await tx
+          .insert(users)
+          .values({
+            referenceCode,
+            name,
+            email,
+            passwordHash,
+            role: dto.role,
+            reportsToId,
+          })
+          .returning(USER_PUBLIC_COLS);
+        return created!;
+      });
     } catch (err) {
       if (this.isUniqueViolation(err)) {
         throw new ConflictException("Email already in use");
@@ -1719,18 +1844,282 @@ export class AdminService {
 
   async deskReportResponse(
     range: DeskReportRange,
-    format: "json" | "csv",
+    format: "json" | "csv" | "excel",
     scope: "All" | "Team",
     managerId?: string,
-  ): Promise<{ body: DeskReport | string; filename?: string }> {
+  ): Promise<{
+    body: DeskReport | string | Buffer;
+    filename?: string;
+    contentType?: string;
+  }> {
     const report = await this.buildDeskReport({ range, scope, managerId });
+    const { from, to } = resolveChartRange(range);
     if (format === "csv") {
       return {
-        body: deskReportToCsv(report),
-        filename: `desk-report-${range}.csv`,
+        body: buildDeskExportCsv(report),
+        filename: exportFilename({
+          report: "desk",
+          scope,
+          from,
+          to,
+          ext: "csv",
+        }),
+        contentType: "text/csv; charset=utf-8",
+      };
+    }
+    if (format === "excel") {
+      const xlsx = await buildDeskExportXlsx(report, { from, to });
+      return {
+        body: xlsx.body,
+        filename: xlsx.filename,
+        contentType: xlsx.contentType,
       };
     }
     return { body: report };
+  }
+
+  /**
+   * Individual person dossier for an Admin-picked portal user.
+   * Profile + tickets they reported + requests + changes they created + audit
+   * actor rows in range, and assets they currently hold (not date-filtered).
+   * No "assigned to" tickets — assignees are Agents, not the report subject.
+   */
+  async userActivityReport(query: UserActivityQueryDto) {
+    const range = query.range ?? "30d";
+    let window: ReturnType<typeof resolveActivityRange>;
+    try {
+      window = resolveActivityRange(range, query.from, query.to);
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : "Invalid date range",
+      );
+    }
+
+    const [profile] = await this.db
+      .select({
+        id: users.id,
+        referenceCode: users.referenceCode,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        reportsToId: users.reportsToId,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.id, query.userId))
+      .limit(1);
+    if (!profile) throw new NotFoundException("User not found");
+
+    let reportsToName: string | null = null;
+    let reportsToEmail: string | null = null;
+    if (profile.reportsToId) {
+      const [manager] = await this.db
+        .select({ name: users.name, email: users.email })
+        .from(users)
+        .where(eq(users.id, profile.reportsToId))
+        .limit(1);
+      reportsToName = manager?.name ?? null;
+      reportsToEmail = manager?.email ?? null;
+    }
+
+    const { from, to } = window;
+    // ponytail: hard cap; page/export if Admins need more than a screenful
+    const ROW_CAP = 100;
+
+    const [ticketsReported, requests, changeRows, logs, heldAssets] =
+      await Promise.all([
+        this.db
+          .select({
+            id: incidents.id,
+            referenceCode: incidents.referenceCode,
+            title: incidents.title,
+            status: incidents.status,
+            priority: incidents.priority,
+            category: incidents.category,
+            subcategory: incidents.subcategory,
+            impact: incidents.impact,
+            urgency: incidents.urgency,
+            slaBreached: incidents.slaBreached,
+            createdAt: incidents.createdAt,
+            updatedAt: incidents.updatedAt,
+            resolvedAt: incidents.resolvedAt,
+          })
+          .from(incidents)
+          .where(
+            and(
+              eq(incidents.reporterId, profile.id),
+              gte(incidents.createdAt, from),
+              lte(incidents.createdAt, to),
+            ),
+          )
+          .orderBy(desc(incidents.createdAt))
+          .limit(ROW_CAP),
+        this.db
+          .select({
+            id: serviceRequests.id,
+            referenceCode: serviceRequests.referenceCode,
+            title: serviceRequests.title,
+            status: serviceRequests.status,
+            urgency: serviceRequests.urgency,
+            createdAt: serviceRequests.createdAt,
+            updatedAt: serviceRequests.updatedAt,
+            approvedAt: serviceRequests.approvedAt,
+            fulfilledAt: serviceRequests.fulfilledAt,
+          })
+          .from(serviceRequests)
+          .where(
+            and(
+              eq(serviceRequests.requesterId, profile.id),
+              gte(serviceRequests.createdAt, from),
+              lte(serviceRequests.createdAt, to),
+            ),
+          )
+          .orderBy(desc(serviceRequests.createdAt))
+          .limit(ROW_CAP),
+        this.db
+          .select({
+            id: changes.id,
+            referenceCode: changes.referenceCode,
+            title: changes.title,
+            status: changes.status,
+            type: changes.type,
+            scheduledStart: changes.scheduledStart,
+            scheduledEnd: changes.scheduledEnd,
+            createdAt: changes.createdAt,
+            updatedAt: changes.updatedAt,
+            approvedAt: changes.approvedAt,
+          })
+          .from(changes)
+          .where(
+            and(
+              eq(changes.createdBy, profile.id),
+              gte(changes.createdAt, from),
+              lte(changes.createdAt, to),
+            ),
+          )
+          .orderBy(desc(changes.createdAt))
+          .limit(ROW_CAP),
+        this.db
+          .select({
+            id: auditLog.id,
+            action: auditLog.action,
+            entityType: auditLog.entityType,
+            entityId: auditLog.entityId,
+            createdAt: auditLog.createdAt,
+          })
+          .from(auditLog)
+          .where(
+            and(
+              eq(auditLog.actorId, profile.id),
+              gte(auditLog.createdAt, from),
+              lte(auditLog.createdAt, to),
+            ),
+          )
+          .orderBy(desc(auditLog.createdAt))
+          .limit(ROW_CAP),
+        this.db
+          .select({
+            id: assets.id,
+            referenceCode: assets.referenceCode,
+            assetTag: assets.assetTag,
+            name: assets.name,
+            type: assets.type,
+            status: assets.status,
+            location: assets.location,
+            serialNumber: assets.serialNumber,
+            purchaseCost: assets.purchaseCost,
+            assignedAt: assets.assignedAt,
+          })
+          .from(assets)
+          .where(eq(assets.ownerId, profile.id))
+          .orderBy(desc(assets.assignedAt), desc(assets.createdAt))
+          .limit(ROW_CAP),
+      ]);
+
+    const iso = (d: Date | null | undefined) =>
+      d ? d.toISOString() : null;
+
+    return {
+      user: {
+        id: profile.id,
+        referenceCode: profile.referenceCode,
+        name: profile.name,
+        email: profile.email,
+        role: profile.role,
+        reportsToId: profile.reportsToId,
+        reportsToName,
+        reportsToEmail,
+        createdAt: iso(profile.createdAt)!,
+      },
+      range: window.range,
+      from: iso(from)!,
+      to: iso(to)!,
+      ticketsReported: ticketsReported.map((r) => ({
+        id: r.id,
+        referenceCode: r.referenceCode,
+        title: r.title,
+        status: r.status,
+        priority: r.priority,
+        category: r.category,
+        subcategory: r.subcategory,
+        impact: r.impact,
+        urgency: r.urgency,
+        slaBreached: r.slaBreached,
+        createdAt: iso(r.createdAt)!,
+        updatedAt: iso(r.updatedAt)!,
+        resolvedAt: iso(r.resolvedAt),
+      })),
+      requests: requests.map((r) => ({
+        id: r.id,
+        referenceCode: r.referenceCode,
+        title: r.title,
+        status: r.status,
+        urgency: r.urgency,
+        createdAt: iso(r.createdAt)!,
+        updatedAt: iso(r.updatedAt)!,
+        approvedAt: iso(r.approvedAt),
+        fulfilledAt: iso(r.fulfilledAt),
+      })),
+      changes: changeRows.map((r) => ({
+        id: r.id,
+        referenceCode: r.referenceCode,
+        title: r.title,
+        status: r.status,
+        type: r.type,
+        scheduledStart: iso(r.scheduledStart),
+        scheduledEnd: iso(r.scheduledEnd),
+        createdAt: iso(r.createdAt)!,
+        updatedAt: iso(r.updatedAt)!,
+        approvedAt: iso(r.approvedAt),
+      })),
+      logs: logs.map((r) => ({
+        id: r.id,
+        action: r.action,
+        entityType: r.entityType,
+        entityId: r.entityId,
+        createdAt: iso(r.createdAt)!,
+      })),
+      // Current holdings — not limited to the activity date window.
+      assets: heldAssets.map((r) => ({
+        id: r.id,
+        referenceCode: r.referenceCode,
+        assetTag: r.assetTag,
+        name: r.name,
+        type: r.type,
+        status: r.status,
+        location: r.location ?? null,
+        serialNumber: r.serialNumber ?? null,
+        purchaseCost: r.purchaseCost ?? null,
+        assignedAt: iso(r.assignedAt),
+      })),
+      counts: {
+        ticketsReported: ticketsReported.length,
+        requests: requests.length,
+        changes: changeRows.length,
+        logs: logs.length,
+        assets: heldAssets.length,
+      },
+    };
   }
 
   async queueHealth() {
@@ -1757,6 +2146,7 @@ export class AdminService {
           const alert = failed > 0 || paused || stalled > 0;
           return {
             name,
+            title: QUEUE_TITLE[name] ?? name,
             purpose: QUEUE_PURPOSE[name] ?? "",
             counts: {
               active: counts.active ?? 0,
@@ -1775,6 +2165,7 @@ export class AdminService {
         } catch (err) {
           return {
             name,
+            title: QUEUE_TITLE[name] ?? name,
             purpose: QUEUE_PURPOSE[name] ?? "",
             counts: {
               active: 0,

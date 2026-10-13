@@ -175,7 +175,7 @@ export const mockVolumeByModule = {
   data: [
     { module: "Ticket", open: 18, closed: 74, total: 92 },
     { module: "Request", open: 12, closed: 49, total: 61 },
-    { module: "Change", open: 6, closed: 27, total: 33 },
+    { module: "Change request", open: 6, closed: 27, total: 33 },
   ],
 };
 
@@ -188,7 +188,7 @@ export const mockStatusDistribution = {
     { status: "Incident:InProgress", module: "Ticket", label: "InProgress", count: 29 },
     { status: "Incident:Resolved", module: "Ticket", label: "Resolved", count: 45 },
     { status: "ServiceRequest:Submitted", module: "Request", label: "Submitted", count: 14 },
-    { status: "Change:Scheduled", module: "Change", label: "Scheduled", count: 8 },
+    { status: "Change:Scheduled", module: "Change request", label: "Scheduled", count: 8 },
   ],
 };
 
@@ -206,7 +206,9 @@ export const mockQueueHealth = {
   queues: [
     {
       name: "sla-queue",
-      purpose: "Every 5 minutes, marks overdue tickets and sends response-time mail.",
+      title: "Response time checks",
+      purpose:
+        "Checks tickets every 5 minutes for missed response times and emails the right people.",
       counts: {
         active: 0,
         waiting: 1,
@@ -227,8 +229,9 @@ export const mockQueueHealth = {
     },
     {
       name: "ticket-lifecycle-queue",
+      title: "Ticket auto-close",
       purpose:
-        "Closes incidents that have stayed Resolved for the auto-close window.",
+        "Auto-closes tickets that stay Resolved long enough with no further action.",
       counts: {
         active: 1,
         waiting: 0,
@@ -245,7 +248,9 @@ export const mockQueueHealth = {
     },
     {
       name: "email-queue",
-      purpose: "Sends the transactional emails queued by the app.",
+      title: "Email sending",
+      purpose:
+        "Sends the emails the app queues (assignments, approvals, alerts).",
       counts: {
         active: 0,
         waiting: 3,
