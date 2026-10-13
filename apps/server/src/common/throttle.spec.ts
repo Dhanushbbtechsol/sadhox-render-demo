@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   resolveThrottleGlobal,
   THROTTLE_AUTH_LOGIN,
+  THROTTLE_DESK_REPORT,
   THROTTLE_GLOBAL,
 } from "./throttle.constants";
 
@@ -69,5 +70,30 @@ describe("login throttle 429 behavior", () => {
     expect(limiter.hit(ip).status).toBe(429);
     vi.advanceTimersByTime(ttl);
     expect(limiter.hit(ip).status).toBe(200);
+  });
+});
+
+describe("desk report throttle (Admin + Manager)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("matches Admin report limit of 10 per minute", () => {
+    expect(THROTTLE_DESK_REPORT.default).toEqual({
+      limit: 10,
+      ttl: 60_000,
+    });
+  });
+
+  it("rejects over-limit desk report hits with 429", () => {
+    const { limit, ttl } = THROTTLE_DESK_REPORT.default;
+    const limiter = createFixedWindowLimiter(limit, ttl);
+    const key = "manager:reports:desk";
+    const results = Array.from({ length: limit + 1 }, () => limiter.hit(key));
+    expect(results.slice(0, limit).every((r) => r.status === 200)).toBe(true);
+    expect(results[limit]?.status).toBe(429);
   });
 });

@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { and, desc, eq, SQL } from "drizzle-orm";
+import { nextApproval } from "../common/approval-chain";
 import {
   canTransitionChange,
   CHANGE_API_TO_DB_STATUS,
@@ -174,20 +175,13 @@ export class ChangesService {
       );
     }
 
-    // Agent/Admin must canAccess project; EndUser existence-check only.
+    // Optional project: Agent/Admin must canAccess; EndUser existence-check only.
     const { projectId, moduleId } =
       await this.projectsService.resolveTicketProjectFields(
         user,
         dto.projectId,
         dto.moduleId,
       );
-
-    // Project is required so the owning Manager can see and approve the request.
-    if (!projectId) {
-      throw new BadRequestException(
-        "A project is required for change requests so the project Manager can review them",
-      );
-    }
 
     const [created] = await this.db.transaction(async (tx) => {
       const referenceCode = await claimReference(tx, "CHG");
@@ -209,14 +203,13 @@ export class ChangesService {
         .returning();
     });
 
-    await this.notifyApproversOfSubmission(created.id, user, projectId);
+    await this.notifyApproversOfSubmission(created.id, user);
     return this.get(user, created.id);
   }
 
   private async notifyApproversOfSubmission(
     changeId: string,
     submitter: AuthUser,
-    projectId: string | null,
   ) {
     try {
       const [change] = await this.db
@@ -229,21 +222,28 @@ export class ChangesService {
         .limit(1);
       if (!change) return;
 
-      // Notify Admins always; also project Manager so they can approve if Admin does not.
-      const recipients: { email: string }[] = [];
-      const admins = await this.db
-        .select({ email: users.email })
+      // Phase 9: next actor — creator's reports_to_id, else Admins.
+      const [creator] = await this.db
+        .select({ reportsToId: users.reportsToId })
         .from(users)
-        .where(eq(users.role, "Admin"));
-      recipients.push(...admins);
+        .where(eq(users.id, submitter.userId))
+        .limit(1);
+      const managerId = creator?.reportsToId ?? null;
 
-      if (projectId) {
-        const managers = await this.db
+      const recipients: { email: string }[] = [];
+      if (managerId) {
+        const [mgr] = await this.db
           .select({ email: users.email })
-          .from(projects)
-          .innerJoin(users, eq(projects.managerId, users.id))
-          .where(eq(projects.id, projectId));
-        recipients.push(...managers);
+          .from(users)
+          .where(eq(users.id, managerId))
+          .limit(1);
+        if (mgr?.email) recipients.push(mgr);
+      } else {
+        const admins = await this.db
+          .select({ email: users.email })
+          .from(users)
+          .where(eq(users.role, "Admin"));
+        recipients.push(...admins);
       }
 
       const unique = [...new Map(recipients.map((r) => [r.email, r])).values()];
@@ -282,7 +282,10 @@ export class ChangesService {
 
     if (user.role === "EndUser") {
       conditions.push(eq(changes.createdBy, user.userId));
-    } else if (user.role === "Manager" || user.role === "Agent") {
+    } else if (user.role === "Manager") {
+      // Phase 9: Manager team = creator's reports_to_id.
+      conditions.push(eq(users.reportsToId, user.userId));
+    } else if (user.role === "Agent") {
       const scope = await this.projectAccess.ticketProjectScope(
         user,
         changes.projectId,
@@ -310,6 +313,13 @@ export class ChangesService {
       }
       return this.mapRow(row);
     }
+    // Phase 9: Manager team = creator.reports_to_id only (no project fallback).
+    if (user.role === "Manager") {
+      if (row.creatorReportsToId !== user.userId) {
+        throw new ForbiddenException("Cannot view this change");
+      }
+      return this.mapRow(row);
+    }
     await this.projectAccess.assertCanViewTicket(user, row.projectId);
     return this.mapRow(row);
   }
@@ -322,22 +332,35 @@ export class ChangesService {
       .limit(1);
     if (!existing) throw new NotFoundException("Change not found");
 
-    // Admin any; Manager own-project only (fallback if Admin has not acted).
-    await this.projectAccess.assertCanApprove(user, existing.projectId);
-
     const apiStatus = DB_TO_API_STATUS[existing.status] ?? existing.status;
-    this.assertDecisionStatus(
-      user.role as UserRole,
-      apiStatus,
-      "Approved",
+    const chainStatus = this.toApprovalChainStatus(apiStatus);
+    if (!chainStatus) {
+      throw new BadRequestException(
+        `Cannot approve a change in status ${apiStatus}`,
+      );
+    }
+
+    const { hasManager, actorRole } = await this.resolveOrgApprovalActor(
+      user,
+      existing.createdBy,
     );
+
+    const nextStatus = nextApproval({
+      status: chainStatus,
+      actorRole,
+      hasManager,
+    });
 
     const [updated] = await this.db
       .update(changes)
       .set({
-        status: "Approved",
-        approvedBy: user.userId,
-        approvedAt: new Date(),
+        status: nextStatus,
+        ...(nextStatus === "Approved"
+          ? {
+              approvedBy: user.userId,
+              approvedAt: new Date(),
+            }
+          : {}),
         updatedAt: new Date(),
       })
       .where(
@@ -352,11 +375,13 @@ export class ChangesService {
       throw new ConflictException("Change status changed; refresh and retry");
     }
 
-    await this.notifyCreator(existing.createdBy, {
-      entityId: existing.id,
-      entityTitle: existing.title,
-      outcome: "approved",
-    });
+    if (nextStatus === "Approved") {
+      await this.notifyCreator(existing.createdBy, {
+        entityId: existing.id,
+        entityTitle: existing.title,
+        outcome: "approved",
+      });
+    }
 
     return this.get(user, id);
   }
@@ -374,14 +399,19 @@ export class ChangesService {
       .limit(1);
     if (!existing) throw new NotFoundException("Change not found");
 
-    await this.projectAccess.assertCanApprove(user, existing.projectId);
-
     const apiStatus = DB_TO_API_STATUS[existing.status] ?? existing.status;
-    this.assertDecisionStatus(
-      user.role as UserRole,
-      apiStatus,
-      "Rolled Back",
+    const chainStatus = this.toApprovalChainStatus(apiStatus);
+    if (!chainStatus) {
+      throw new BadRequestException(
+        `Cannot reject a change in status ${apiStatus}`,
+      );
+    }
+    const { hasManager, actorRole } = await this.resolveOrgApprovalActor(
+      user,
+      existing.createdBy,
     );
+    // Auth gate only — reject always ends RolledBack.
+    nextApproval({ status: chainStatus, actorRole, hasManager });
 
     const [updated] = await this.db
       .update(changes)
@@ -413,25 +443,46 @@ export class ChangesService {
     return this.get(user, id);
   }
 
-  /** Admin or Manager may final-approve/reject waiting changes (no PendingApproval hop). */
-  private assertDecisionStatus(
-    role: UserRole,
+  /** Map API/db lifecycle status onto the Phase 9 two-step approval chain. */
+  private toApprovalChainStatus(
     apiStatus: string,
-    nextStatus: "Approved" | "Rolled Back",
-  ): void {
-    if (role !== "Admin" && role !== "Manager") {
-      throw new ForbiddenException("Admin or Manager role required");
+  ): "Submitted" | "PendingApproval" | null {
+    if (apiStatus === "Draft" || apiStatus === "Submitted") return "Submitted";
+    if (apiStatus === "PendingApproval") return "PendingApproval";
+    return null;
+  }
+
+  /**
+   * Phase 9: Manager must be creator.reports_to_id; Admin otherwise.
+   * Not project.manager_id.
+   */
+  private async resolveOrgApprovalActor(
+    user: AuthUser,
+    creatorId: string | null,
+  ): Promise<{ hasManager: boolean; actorRole: "Manager" | "Admin" }> {
+    if (!creatorId) {
+      throw new BadRequestException("Change has no creator");
     }
-    if (
-      apiStatus === "PendingApproval" ||
-      apiStatus === "Submitted" ||
-      apiStatus === "Draft"
-    ) {
-      return;
+    const [creator] = await this.db
+      .select({ reportsToId: users.reportsToId })
+      .from(users)
+      .where(eq(users.id, creatorId))
+      .limit(1);
+    const managerId = creator?.reportsToId ?? null;
+    const hasManager = Boolean(managerId);
+
+    if (user.role === "Manager") {
+      if (!managerId || managerId !== user.userId) {
+        throw new ForbiddenException(
+          "Only the creator's manager can act at this step",
+        );
+      }
+      return { hasManager, actorRole: "Manager" };
     }
-    throw new BadRequestException(
-      `Cannot set ${nextStatus} from status ${apiStatus}`,
-    );
+    if (user.role === "Admin") {
+      return { hasManager, actorRole: "Admin" };
+    }
+    throw new ForbiddenException("Admin or Manager role required");
   }
 
   private async notifyCreator(
@@ -504,11 +555,6 @@ export class ChangesService {
           "Change actions are disabled; only Admin or Manager approval/rejection is allowed",
         );
       }
-      if (dto.status === "PendingApproval") {
-        throw new BadRequestException(
-          "PendingApproval is not used for changes; Admin or Manager approves Submitted directly",
-        );
-      }
 
       const currentApi = DB_TO_API_STATUS[existing.status] ?? existing.status;
       if (
@@ -519,13 +565,37 @@ export class ChangesService {
           `Invalid transition from ${currentApi} to ${dto.status}`,
         );
       }
-      if (dto.status === "Approved" || dto.status === "Rolled Back") {
-        await this.projectAccess.assertCanApprove(user, existing.projectId);
-        this.assertDecisionStatus(
-          user.role as UserRole,
-          currentApi,
-          dto.status,
+
+      // Phase 9: PendingApproval / Approved / Rolled Back use creator.reports_to_id.
+      if (
+        dto.status === "PendingApproval" ||
+        dto.status === "Approved" ||
+        dto.status === "Rolled Back"
+      ) {
+        const chainStatus = this.toApprovalChainStatus(currentApi);
+        if (!chainStatus) {
+          throw new BadRequestException(
+            `Cannot set ${dto.status} from status ${currentApi}`,
+          );
+        }
+        const { hasManager, actorRole } = await this.resolveOrgApprovalActor(
+          user,
+          existing.createdBy,
         );
+        const next = nextApproval({
+          status: chainStatus,
+          actorRole,
+          hasManager,
+        });
+        if (dto.status === "PendingApproval" && next !== "PendingApproval") {
+          throw new ForbiddenException(
+            "Cannot set PendingApproval at this step",
+          );
+        }
+        if (dto.status === "Approved" && next !== "Approved") {
+          throw new ForbiddenException("Cannot set Approved at this step");
+        }
+        // Rolled Back: nextApproval is gate-only (discard result), same as reject.
       } else if (requiresAdminForChangeStatus(dto.status)) {
         if ((user.role as UserRole) !== "Admin") {
           throw new ForbiddenException(

@@ -453,12 +453,17 @@ export class KnowledgeService {
       .select({
         id: serviceRequests.id,
         requesterId: serviceRequests.requesterId,
+        requesterReportsToId: users.reportsToId,
       })
       .from(serviceRequests)
+      .leftJoin(users, eq(serviceRequests.requesterId, users.id))
       .where(eq(serviceRequests.id, ticketId))
       .limit(1);
     if (!row) throw new NotFoundException("Service request not found");
     if (user.role === "EndUser" && row.requesterId !== user.userId) {
+      throw new ForbiddenException("Not allowed to access this request");
+    }
+    if (user.role === "Manager" && row.requesterReportsToId !== user.userId) {
       throw new ForbiddenException("Not allowed to access this request");
     }
   }

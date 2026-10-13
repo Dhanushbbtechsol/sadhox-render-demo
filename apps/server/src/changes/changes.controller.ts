@@ -67,7 +67,7 @@ export class ChangesController {
   @Roles("Admin", "Manager")
   @ApiOperation({
     summary:
-      "Approve change: Admin any, or Manager on own project. Submitted/Draft/PendingApproval → Approved (no schedule/implement)",
+      "Approve change: creator's reports_to_id then Admin (Submitted → PendingApproval → Approved)",
   })
   approve(
     @CurrentUser() user: AuthUser,
@@ -80,7 +80,7 @@ export class ChangesController {
   @Roles("Admin", "Manager")
   @ApiOperation({
     summary:
-      "Reject change: Admin any, or Manager on own project. → RolledBack",
+      "Reject change: same org-chart gate as approve → RolledBack",
   })
   reject(
     @CurrentUser() user: AuthUser,

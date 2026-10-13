@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SLA_EVALUATOR_JOB } from "./queue.constants";
 import { SlaProcessor } from "./sla.processor";
 
 describe("SlaProcessor", () => {
