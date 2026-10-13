@@ -50,11 +50,39 @@ export default function CategoriesPage() {
   const [subName, setSubName] = useState("");
   const [subCategoryId, setSubCategoryId] = useState<string>("");
   const [subMin, setSubMin] = useState<TicketPriority | "none">("none");
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
+    null,
+  );
+  const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [editingSubId, setEditingSubId] = useState<string | null>(null);
+  const [editingSubName, setEditingSubName] = useState("");
+  const [addingUnderCategoryId, setAddingUnderCategoryId] = useState<
+    string | null
+  >(null);
+  const [inlineSubName, setInlineSubName] = useState("");
+  const [inlineSubMin, setInlineSubMin] = useState<TicketPriority | "none">(
+    "none",
+  );
 
   const categories = taxonomy.data ?? [];
   const activeCategories = useMemo(
     () => categories.filter((c) => c.isActive),
     [categories],
+  );
+  const categorySelectItems = useMemo(
+    () =>
+      Object.fromEntries(activeCategories.map((cat) => [cat.id, cat.name])) as Record<
+        string,
+        string
+      >,
+    [activeCategories],
+  );
+  const prioritySelectItems = useMemo(
+    () =>
+      Object.fromEntries(
+        PRIORITIES.map((p) => [p, p === "none" ? "None" : p]),
+      ) as Record<string, string>,
+    [],
   );
 
   async function addCategory() {
@@ -90,6 +118,57 @@ export default function CategoriesPage() {
       });
       setSubName("");
       setSubMin("none");
+      toast.success(`Subcategory "${name}" created`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Create failed");
+    }
+  }
+
+  async function saveCategoryName(id: string) {
+    const name = editingCategoryName.trim();
+    if (!name) {
+      toast.error("Category name is required");
+      return;
+    }
+    try {
+      await updateCategory.mutateAsync({ id, name });
+      setEditingCategoryId(null);
+      toast.success(`Category renamed to "${name}"`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Rename failed");
+    }
+  }
+
+  async function saveSubcategoryName(id: string) {
+    const name = editingSubName.trim();
+    if (!name) {
+      toast.error("Subcategory name is required");
+      return;
+    }
+    try {
+      await updateSubcategory.mutateAsync({ id, name });
+      setEditingSubId(null);
+      toast.success(`Subcategory renamed to "${name}"`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Rename failed");
+    }
+  }
+
+  async function addSubcategoryUnder(categoryId: string) {
+    const name = inlineSubName.trim();
+    if (!name) {
+      toast.error("Subcategory name is required");
+      return;
+    }
+    try {
+      await createSubcategory.mutateAsync({
+        categoryId,
+        name,
+        minPriority: inlineSubMin === "none" ? null : inlineSubMin,
+      });
+      setInlineSubName("");
+      setInlineSubMin("none");
+      setAddingUnderCategoryId(null);
       toast.success(`Subcategory "${name}" created`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Create failed");
@@ -136,15 +215,16 @@ export default function CategoriesPage() {
             <div className="space-y-1">
               <Label>Category</Label>
               <Select
-                value={subCategoryId || undefined}
+                value={subCategoryId || null}
                 onValueChange={(v) => setSubCategoryId(v ?? "")}
+                items={categorySelectItems}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
                   {activeCategories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
+                    <SelectItem key={cat.id} value={cat.id} label={cat.name}>
                       {cat.name}
                     </SelectItem>
                   ))}
@@ -158,13 +238,18 @@ export default function CategoriesPage() {
                 onValueChange={(v) =>
                   setSubMin((v as TicketPriority | "none") ?? "none")
                 }
+                items={prioritySelectItems}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {PRIORITIES.map((p) => (
-                    <SelectItem key={p} value={p}>
+                    <SelectItem
+                      key={p}
+                      value={p}
+                      label={p === "none" ? "None" : p}
+                    >
                       {p === "none" ? "None" : p}
                     </SelectItem>
                   ))}
@@ -209,35 +294,160 @@ export default function CategoriesPage() {
       {categories.map((cat) => (
         <div key={cat.id} className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-semibold">{cat.name}</h2>
-            <Badge variant={cat.isActive ? "default" : "secondary"}>
-              {cat.isActive ? "Active" : "Inactive"}
-            </Badge>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={updateCategory.isPending}
-              onClick={() => {
-                void updateCategory
-                  .mutateAsync({ id: cat.id, isActive: !cat.isActive })
-                  .then(() =>
-                    toast.success(
-                      cat.isActive
-                        ? `${cat.name} deactivated`
-                        : `${cat.name} activated`,
-                    ),
-                  )
-                  .catch((error: unknown) =>
-                    toast.error(
-                      error instanceof Error ? error.message : "Update failed",
-                    ),
-                  );
-              }}
-            >
-              {cat.isActive ? "Deactivate" : "Activate"}
-            </Button>
+            {editingCategoryId === cat.id ? (
+              <>
+                <Input
+                  className="max-w-xs"
+                  value={editingCategoryName}
+                  onChange={(e) => setEditingCategoryName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void saveCategoryName(cat.id);
+                    }
+                    if (e.key === "Escape") setEditingCategoryId(null);
+                  }}
+                  autoFocus
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={updateCategory.isPending}
+                  onClick={() => void saveCategoryName(cat.id)}
+                >
+                  Save
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setEditingCategoryId(null)}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-base font-semibold">{cat.name}</h2>
+                <Badge variant={cat.isActive ? "default" : "secondary"}>
+                  {cat.isActive ? "Active" : "Inactive"}
+                </Badge>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingCategoryId(cat.id);
+                    setEditingCategoryName(cat.name);
+                    setEditingSubId(null);
+                  }}
+                >
+                  Edit
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={updateCategory.isPending}
+                  onClick={() => {
+                    void updateCategory
+                      .mutateAsync({ id: cat.id, isActive: !cat.isActive })
+                      .then(() =>
+                        toast.success(
+                          cat.isActive
+                            ? `${cat.name} deactivated`
+                            : `${cat.name} activated`,
+                        ),
+                      )
+                      .catch((error: unknown) =>
+                        toast.error(
+                          error instanceof Error
+                            ? error.message
+                            : "Update failed",
+                        ),
+                      );
+                  }}
+                >
+                  {cat.isActive ? "Deactivate" : "Activate"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setAddingUnderCategoryId(cat.id);
+                    setInlineSubName("");
+                    setInlineSubMin("none");
+                    setEditingCategoryId(null);
+                    setEditingSubId(null);
+                  }}
+                >
+                  <PlusIcon />
+                  Add subcategory
+                </Button>
+              </>
+            )}
           </div>
+
+          {addingUnderCategoryId === cat.id ? (
+            <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
+              <div className="min-w-[12rem] flex-1 space-y-1">
+                <Label>Subcategory name</Label>
+                <Input
+                  value={inlineSubName}
+                  onChange={(e) => setInlineSubName(e.target.value)}
+                  placeholder="e.g. Primary data center"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void addSubcategoryUnder(cat.id);
+                    }
+                    if (e.key === "Escape") setAddingUnderCategoryId(null);
+                  }}
+                  autoFocus
+                />
+              </div>
+              <div className="w-[140px] space-y-1">
+                <Label>Min priority</Label>
+                <Select
+                  value={inlineSubMin}
+                  items={prioritySelectItems}
+                  onValueChange={(v) =>
+                    setInlineSubMin((v as TicketPriority | "none") ?? "none")
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITIES.map((p) => (
+                      <SelectItem
+                        key={p}
+                        value={p}
+                        label={p === "none" ? "None" : p}
+                      >
+                        {p === "none" ? "None" : p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="button"
+                disabled={createSubcategory.isPending}
+                onClick={() => void addSubcategoryUnder(cat.id)}
+              >
+                Save
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setAddingUnderCategoryId(null)}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : null}
 
           <Table>
             <TableHeader>
@@ -258,10 +468,47 @@ export default function CategoriesPage() {
               ) : (
                 cat.subcategories.map((sub) => (
                   <TableRow key={sub.id}>
-                    <TableCell className="font-medium">{sub.name}</TableCell>
+                    <TableCell className="font-medium">
+                      {editingSubId === sub.id ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Input
+                            className="max-w-xs"
+                            value={editingSubName}
+                            onChange={(e) => setEditingSubName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                void saveSubcategoryName(sub.id);
+                              }
+                              if (e.key === "Escape") setEditingSubId(null);
+                            }}
+                            autoFocus
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={updateSubcategory.isPending}
+                            onClick={() => void saveSubcategoryName(sub.id)}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingSubId(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        sub.name
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Select
                         value={sub.minPriority ?? "none"}
+                        items={prioritySelectItems}
                         onValueChange={(v) => {
                           const minPriority =
                             !v || v === "none"
@@ -288,7 +535,11 @@ export default function CategoriesPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {PRIORITIES.map((p) => (
-                            <SelectItem key={p} value={p}>
+                            <SelectItem
+                              key={p}
+                              value={p}
+                              label={p === "none" ? "None" : p}
+                            >
                               {p === "none" ? "None" : p}
                             </SelectItem>
                           ))}
@@ -301,35 +552,51 @@ export default function CategoriesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        disabled={updateSubcategory.isPending}
-                        onClick={() => {
-                          void updateSubcategory
-                            .mutateAsync({
-                              id: sub.id,
-                              isActive: !sub.isActive,
-                            })
-                            .then(() =>
-                              toast.success(
-                                sub.isActive
-                                  ? `${sub.name} deactivated`
-                                  : `${sub.name} activated`,
-                              ),
-                            )
-                            .catch((error: unknown) =>
-                              toast.error(
-                                error instanceof Error
-                                  ? error.message
-                                  : "Update failed",
-                              ),
-                            );
-                        }}
-                      >
-                        {sub.isActive ? "Deactivate" : "Activate"}
-                      </Button>
+                      <div className="flex gap-1">
+                        {editingSubId !== sub.id ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingSubId(sub.id);
+                              setEditingSubName(sub.name);
+                              setEditingCategoryId(null);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={updateSubcategory.isPending}
+                          onClick={() => {
+                            void updateSubcategory
+                              .mutateAsync({
+                                id: sub.id,
+                                isActive: !sub.isActive,
+                              })
+                              .then(() =>
+                                toast.success(
+                                  sub.isActive
+                                    ? `${sub.name} deactivated`
+                                    : `${sub.name} activated`,
+                                ),
+                              )
+                              .catch((error: unknown) =>
+                                toast.error(
+                                  error instanceof Error
+                                    ? error.message
+                                    : "Update failed",
+                                ),
+                              );
+                          }}
+                        >
+                          {sub.isActive ? "Deactivate" : "Activate"}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
