@@ -18,8 +18,12 @@ export type NotificationEvent =
 /** Phase 9 — in-app / mail recipient user ids for a domain event. */
 export function recipientIds(event: NotificationEvent): string[] {
   switch (event.type) {
-    case "sr.submitted":
-      return event.managerId ? [event.managerId] : [...event.adminIds];
+    case "sr.submitted": {
+      // Manager (if any) and Admins both get the review queue.
+      const ids = [...event.adminIds];
+      if (event.managerId) ids.unshift(event.managerId);
+      return [...new Set(ids)];
+    }
     case "comment.created": {
       const ids = new Set<string>();
       ids.add(event.reporterId);

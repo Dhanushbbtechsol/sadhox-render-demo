@@ -34,7 +34,10 @@ export class UpdateProjectDto {
 }
 
 export class AddProjectMemberDto {
-  @ApiProperty({ format: "uuid", description: "Must be an Agent" })
+  @ApiProperty({
+    format: "uuid",
+    description: "Any existing user (Admin, Agent, EndUser, Manager)",
+  })
   @IsUUID()
   userId!: string;
 }

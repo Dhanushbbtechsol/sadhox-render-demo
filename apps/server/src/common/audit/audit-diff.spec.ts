@@ -90,6 +90,23 @@ describe("pickAuditedSnapshot / extractLabel / buildAuditDiff", () => {
     ).toEqual({ title: "VPN", status: "New" });
   });
 
+  it("flattens nested person snippets into *Name fields", () => {
+    expect(
+      pickAuditedSnapshot(
+        {
+          status: "Assigned",
+          assignee: { id: "u1", name: "Alex Agent" },
+          reporter: { name: "Sam Reporter" },
+        },
+        ["status", "assigneeName", "reporterName"],
+      ),
+    ).toEqual({
+      status: "Assigned",
+      assigneeName: "Alex Agent",
+      reporterName: "Sam Reporter",
+    });
+  });
+
   it("builds comment pointer-only diff", () => {
     expect(buildCommentDiff("c1", { title: "Ticket" })).toEqual({
       event: "COMMENT_ADDED",

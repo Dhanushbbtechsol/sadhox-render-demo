@@ -118,9 +118,6 @@ export function useSaveProjectSummary(projectId: string) {
           if (!mockProjectMembers.some((m) => m.userId === userId)) {
             const user = mockDirectoryUsers.find((u) => u.id === userId);
             if (!user) throw new Error("User not found");
-            if (user.role !== "Agent") {
-              throw new Error("Only Agent users can be added as project members");
-            }
             mockProjectMembers.push({
               userId: user.id,
               name: user.name,

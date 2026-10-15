@@ -41,10 +41,10 @@ function isRhfProps<T extends FieldValues>(
   return "control" in props && props.control != null;
 }
 
-/** Admin/Agent/EndUser may leave project blank; Manager must pick a project. */
+/** Admin/EndUser may leave project blank; Manager must pick a project. */
 function useAllowUnscopedProject() {
   const role = useAuthStore((s) => s.user?.role);
-  return role === "Admin" || role === "EndUser" || role === "Agent";
+  return role === "Admin" || role === "EndUser";
 }
 
 /** Shared project → module cascading selects (RHF or controlled). */

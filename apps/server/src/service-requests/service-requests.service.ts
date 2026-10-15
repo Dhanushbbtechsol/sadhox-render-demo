@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { and, desc, eq, inArray, SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import {
   assertAgentOrAdminRole,
   canTransitionRequestFulfillment,
@@ -24,6 +25,10 @@ import {
   serviceRequests,
   users,
 } from "../database/schema";
+
+const requesterUsers = alias(users, "sr_requester");
+const approverUsers = alias(users, "sr_approver");
+const assigneeUsers = alias(users, "sr_assignee");
 import { MailService } from "../mail/mail.service";
 import { NotificationService } from "../notifications/notification.service";
 import { recipientIds } from "../notifications/recipients";
@@ -68,9 +73,11 @@ export class ServiceRequestsService {
       fields: Record<string, string> | null;
       createdAt: Date;
       approverId: string | null;
+      approverName: string | null;
       approvedAt: Date | null;
       rejectionReason: string | null;
       assigneeId: string | null;
+      assigneeName: string | null;
       fulfillmentNotes: string | null;
       fulfilledAt: Date | null;
       projectId: string | null;
@@ -95,9 +102,11 @@ export class ServiceRequestsService {
       fields: row.fields ?? {},
       createdAt: row.createdAt.toISOString(),
       approverId: row.approverId ?? undefined,
+      approverName: row.approverName ?? undefined,
       approvedAt: row.approvedAt?.toISOString(),
       rejectionReason: row.rejectionReason ?? undefined,
       assigneeId: row.assigneeId ?? undefined,
+      assigneeName: row.assigneeName ?? undefined,
       fulfillmentNotes: row.fulfillmentNotes ?? undefined,
       fulfilledAt: row.fulfilledAt?.toISOString(),
     };
@@ -120,17 +129,19 @@ export class ServiceRequestsService {
       catalogId: serviceRequests.catalogId,
       catalogName: serviceCatalog.name,
       requesterId: serviceRequests.requesterId,
-      requesterName: users.name,
-      requesterReportsToId: users.reportsToId,
+      requesterName: requesterUsers.name,
+      requesterReportsToId: requesterUsers.reportsToId,
       status: serviceRequests.status,
       justification: serviceRequests.justification,
       urgency: serviceRequests.urgency,
       fields: serviceRequests.fields,
       createdAt: serviceRequests.createdAt,
       approverId: serviceRequests.approverId,
+      approverName: approverUsers.name,
       approvedAt: serviceRequests.approvedAt,
       rejectionReason: serviceRequests.rejectionReason,
       assigneeId: serviceRequests.assigneeId,
+      assigneeName: assigneeUsers.name,
       fulfillmentNotes: serviceRequests.fulfillmentNotes,
       fulfilledAt: serviceRequests.fulfilledAt,
       projectId: serviceRequests.projectId,
@@ -145,7 +156,9 @@ export class ServiceRequestsService {
       .select(this.selectListColumns())
       .from(serviceRequests)
       .leftJoin(serviceCatalog, eq(serviceRequests.catalogId, serviceCatalog.id))
-      .leftJoin(users, eq(serviceRequests.requesterId, users.id))
+      .leftJoin(requesterUsers, eq(serviceRequests.requesterId, requesterUsers.id))
+      .leftJoin(approverUsers, eq(serviceRequests.approverId, approverUsers.id))
+      .leftJoin(assigneeUsers, eq(serviceRequests.assigneeId, assigneeUsers.id))
       .leftJoin(projects, eq(serviceRequests.projectId, projects.id))
       .leftJoin(modules, eq(serviceRequests.moduleId, modules.id));
   }
@@ -211,7 +224,7 @@ export class ServiceRequestsService {
       conditions.push(eq(serviceRequests.requesterId, user.userId));
     } else if (user.role === "Manager") {
       // Phase 9: Manager team = users.reports_to_id (not project ownership).
-      conditions.push(eq(users.reportsToId, user.userId));
+      conditions.push(eq(requesterUsers.reportsToId, user.userId));
     } else if (user.role === "Agent") {
       const scope = await this.projectAccess.ticketProjectScope(
         user,

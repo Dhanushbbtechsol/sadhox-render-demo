@@ -1,4 +1,3 @@
-import { TimerIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -96,10 +95,7 @@ export default function SlaRulesPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
-            <TimerIcon className="size-5" />
-            Response time
-          </h1>
+          <h1 className="text-xl font-semibold">Response time</h1>
           <p className="text-sm text-muted-foreground">
             Set how quickly each priority should get a first reply and a resolution.
           </p>

@@ -93,7 +93,7 @@ export class ProjectsController {
 
   @Get(":id/members")
   @Roles("Admin", "Manager", "Agent")
-  @ApiOperation({ summary: "List Agent members of a project" })
+  @ApiOperation({ summary: "List members of a project" })
   listMembers(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
@@ -104,7 +104,7 @@ export class ProjectsController {
   @Post(":id/members")
   @HttpCode(201)
   @Roles("Admin")
-  @ApiOperation({ summary: "Add Agent as project member (Admin)" })
+  @ApiOperation({ summary: "Add any user as project member (Admin)" })
   addMember(
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: AddProjectMemberDto,

@@ -30,7 +30,10 @@ export const LABEL_KEYS = [
   "referenceCode",
 ] as const;
 
-/** Scalar fields we record per resource (first URL segment → allowlist). */
+/**
+ * Scalar fields we record per resource (first URL segment → allowlist).
+ * Prefer human-readable *Name fields over raw UUID foreign keys for Admin UI.
+ */
 export const AUDITED_FIELDS: Record<string, readonly string[]> = {
   incidents: [
     "title",
@@ -41,42 +44,41 @@ export const AUDITED_FIELDS: Record<string, readonly string[]> = {
     "urgency",
     "category",
     "subcategory",
-    "assignedTo",
-    "reporterId",
-    "projectId",
-    "moduleId",
+    "assigneeName",
+    "reporterName",
+    "projectName",
+    "moduleName",
     "slaBreached",
   ],
   problems: [
     "title",
     "referenceCode",
     "status",
-    "assignedTo",
+    "assigneeName",
     "knownError",
-    "projectId",
-    "moduleId",
+    "projectName",
+    "moduleName",
   ],
   "service-requests": [
     "title",
     "referenceCode",
     "status",
     "urgency",
-    "catalogId",
-    "requesterId",
-    "approverId",
-    "assigneeId",
-    "projectId",
-    "moduleId",
+    "catalogName",
+    "requesterName",
+    "approverName",
+    "assigneeName",
+    "projectName",
+    "moduleName",
   ],
   changes: [
     "title",
     "referenceCode",
     "status",
     "type",
-    "createdBy",
-    "approvedBy",
-    "projectId",
-    "moduleId",
+    "createdByName",
+    "projectName",
+    "moduleName",
   ],
   assets: [
     "name",
@@ -84,10 +86,9 @@ export const AUDITED_FIELDS: Record<string, readonly string[]> = {
     "referenceCode",
     "type",
     "status",
-    "ownerId",
+    "ownerName",
     "serialNumber",
     "location",
-    "linkedTicketId",
   ],
   projects: ["name", "referenceCode", "managerId"],
   "service-catalog": ["name", "department", "subcategory", "isActive"],
@@ -131,7 +132,7 @@ export function toAuditScalar(value: unknown): AuditScalar | undefined {
 
 /**
  * Pick allowlisted scalar fields from an entity-like object (DB row or response).
- * Flattens common nestings (`data`, top-level).
+ * Flattens common nestings (`data`, top-level) and nested people (`assignee.name`).
  */
 export function pickAuditedSnapshot(
   source: unknown,
@@ -145,6 +146,21 @@ export function pickAuditedSnapshot(
   if (root.data && typeof root.data === "object" && !Array.isArray(root.data)) {
     bags.push(root.data as Record<string, unknown>);
   }
+
+  // Flatten nested snippets so assigneeName / reporterName resolve from API shapes.
+  const flattened: Record<string, unknown> = {};
+  for (const bag of bags) {
+    for (const [nestKey, nestVal] of Object.entries(bag)) {
+      if (!nestVal || typeof nestVal !== "object" || Array.isArray(nestVal)) {
+        continue;
+      }
+      const nested = nestVal as Record<string, unknown>;
+      if (typeof nested.name === "string" && nested.name.trim()) {
+        flattened[`${nestKey}Name`] ??= nested.name.trim();
+      }
+    }
+  }
+  bags.push(flattened);
 
   const out: Record<string, AuditScalar> = {};
   for (const field of fields) {

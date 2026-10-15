@@ -47,13 +47,15 @@ type ProjectEditDialogProps = {
  * `tempKey` is a client-only key for React lists / editing new rows. */
 type StagedModule = ProjectSummaryModuleInput & { tempKey: string };
 
+function memberLabel(user: { name: string; role: string }) {
+  return `${user.name} · ${user.role}`;
+}
+
 /**
  * U8 — the project summary. One Save persists the name, the manager, the
- * member changes, and the module changes together (requirement, verbatim:
- * "One save updates the name, the manager, the members, and the modules.").
- * Member/module edits below only change local staged state; nothing is
- * written to the server until Save. KTD6: members are Agent users only;
- * Managers supervise, they are never project members.
+ * member changes, and the module changes together. Member/module edits
+ * below only change local staged state until Save. Members may be any
+ * user role; ticket assignment still uses Agents only.
  */
 export function ProjectEditDialog({
   open,
@@ -62,7 +64,7 @@ export function ProjectEditDialog({
 }: ProjectEditDialogProps) {
   const projectId = open ? project?.id : undefined;
   const managers = useDirectoryUsers("Manager");
-  const agents = useDirectoryUsers("Agent");
+  const directory = useDirectoryUsers();
   const saveSummary = useSaveProjectSummary(projectId ?? "");
   const deleteProject = useDeleteProject();
 
@@ -71,7 +73,7 @@ export function ProjectEditDialog({
 
   const [name, setName] = useState("");
   const [managerId, setManagerId] = useState("");
-  const [selectedAgentId, setSelectedAgentId] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [moduleName, setModuleName] = useState("");
   const [editingModuleKey, setEditingModuleKey] = useState<string | null>(
     null,
@@ -81,7 +83,7 @@ export function ProjectEditDialog({
   // Staged (not-yet-saved) member and module state.
   const [stagedMemberIds, setStagedMemberIds] = useState<string[]>([]);
   const [stagedMembers, setStagedMembers] = useState<
-    { userId: string; name: string; email: string }[]
+    { userId: string; name: string; email: string; role: string }[]
   >([]);
   const [stagedModules, setStagedModules] = useState<StagedModule[]>([]);
   const initializedProjectId = useRef<string | null>(null);
@@ -96,17 +98,23 @@ export function ProjectEditDialog({
     [managerOptions],
   );
 
-  const availableAgents = useMemo(() => {
+  const availableUsers = useMemo(() => {
     const taken = new Set(stagedMemberIds);
-    return (agents.data ?? []).filter((a) => !taken.has(a.id));
-  }, [agents.data, stagedMemberIds]);
+    return (directory.data ?? [])
+      .filter((u) => !taken.has(u.id))
+      .slice()
+      .sort((a, b) => {
+        const roleCmp = a.role.localeCompare(b.role);
+        return roleCmp !== 0 ? roleCmp : a.name.localeCompare(b.name);
+      });
+  }, [directory.data, stagedMemberIds]);
 
-  const agentSelectItems = useMemo(
+  const memberSelectItems = useMemo(
     () =>
       Object.fromEntries(
-        availableAgents.map((a) => [a.id, a.name]),
+        availableUsers.map((u) => [u.id, memberLabel(u)]),
       ) as Record<string, string>,
-    [availableAgents],
+    [availableUsers],
   );
 
   // Reset staging when the dialog closes / a different project opens.
@@ -118,7 +126,7 @@ export function ProjectEditDialog({
     if (initializedProjectId.current === project.id) return;
     setName(project.name);
     setManagerId(project.managerId ?? "");
-    setSelectedAgentId("");
+    setSelectedUserId("");
     setModuleName("");
     setEditingModuleKey(null);
     setEditingModuleName("");
@@ -140,6 +148,7 @@ export function ProjectEditDialog({
         userId: m.userId,
         name: m.name,
         email: m.email,
+        role: m.role,
       })),
     );
     setStagedModules(
@@ -223,15 +232,20 @@ export function ProjectEditDialog({
   }
 
   function onAddMember() {
-    if (!selectedAgentId) return;
-    const agent = (agents.data ?? []).find((a) => a.id === selectedAgentId);
-    if (!agent) return;
-    setStagedMemberIds((ids) => [...ids, agent.id]);
+    if (!selectedUserId) return;
+    const user = (directory.data ?? []).find((u) => u.id === selectedUserId);
+    if (!user) return;
+    setStagedMemberIds((ids) => [...ids, user.id]);
     setStagedMembers((rows) => [
       ...rows,
-      { userId: agent.id, name: agent.name, email: agent.email },
+      {
+        userId: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     ]);
-    setSelectedAgentId("");
+    setSelectedUserId("");
   }
 
   function onRemoveMember(userId: string) {
@@ -286,6 +300,18 @@ export function ProjectEditDialog({
   const stagingInitialized =
     project != null && initializedProjectId.current === project.id;
 
+  const managerLabel =
+    managerOptions.find((m) => m.id === managerId)?.name ??
+    project?.managerName ??
+    "—";
+
+  const createdLabel = project?.createdAt
+    ? new Date(project.createdAt).toLocaleString(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : "—";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -297,11 +323,50 @@ export function ProjectEditDialog({
               : ""}
           </DialogTitle>
           <DialogDescription>
-            One save updates the name, the Manager, the members, and the
-            modules together. Managers supervise and are not project members
-            — only Agent users can be added as members.
+            Overview of this project, who is on it, and its modules. One save
+            updates the name, the Manager, the members, and the modules
+            together.
           </DialogDescription>
         </DialogHeader>
+
+        <dl className="bg-muted/40 grid gap-3 rounded-md border px-3 py-3 text-sm sm:grid-cols-2">
+          <div className="grid gap-0.5">
+            <dt className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+              Created
+            </dt>
+            <dd className="font-medium tabular-nums">{createdLabel}</dd>
+          </div>
+          <div className="grid gap-0.5">
+            <dt className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+              Manager
+            </dt>
+            <dd className="font-medium">{managerLabel}</dd>
+          </div>
+          <div className="grid gap-0.5 sm:col-span-2">
+            <dt className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+              Members present
+            </dt>
+            <dd className="font-medium">
+              {membersLoading
+                ? "Loading…"
+                : stagedMembers.length === 0
+                  ? "None"
+                  : `${stagedMembers.length}: ${stagedMembers.map((m) => m.name).join(", ")}`}
+            </dd>
+          </div>
+          <div className="grid gap-0.5 sm:col-span-2">
+            <dt className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+              Modules present
+            </dt>
+            <dd className="font-medium">
+              {membersLoading
+                ? "Loading…"
+                : stagedModules.length === 0
+                  ? "None"
+                  : `${stagedModules.length}: ${stagedModules.map((m) => m.name).join(", ")}`}
+            </dd>
+          </div>
+        </dl>
 
         <div className="grid gap-4 py-2">
           <div className="grid gap-1.5">
@@ -339,24 +404,28 @@ export function ProjectEditDialog({
             <h3 className="text-sm font-semibold">Members</h3>
           </div>
           <p className="text-muted-foreground mb-3 text-xs">
-            Members are Agent users. Managers supervise this project and are
-            not listed here. Changes here are saved with the Save button
-            below.
+            Add any user (Admin, Agent, EndUser, or Manager). Ticket
+            assignment still uses Agents only. Changes here are saved with
+            the Save button below.
           </p>
 
           <div className="mb-3 flex gap-2">
             <Select
-              value={selectedAgentId || null}
-              onValueChange={(v) => setSelectedAgentId(v ?? "")}
-              items={agentSelectItems}
+              value={selectedUserId || null}
+              onValueChange={(v) => setSelectedUserId(v ?? "")}
+              items={memberSelectItems}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select an Agent to add" />
+                <SelectValue placeholder="Select a member to add" />
               </SelectTrigger>
               <SelectContent>
-                {availableAgents.map((a) => (
-                  <SelectItem key={a.id} value={a.id} label={a.name}>
-                    {a.name}
+                {availableUsers.map((u) => (
+                  <SelectItem
+                    key={u.id}
+                    value={u.id}
+                    label={memberLabel(u)}
+                  >
+                    {memberLabel(u)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -364,7 +433,7 @@ export function ProjectEditDialog({
             <Button
               type="button"
               onClick={onAddMember}
-              disabled={!selectedAgentId}
+              disabled={!selectedUserId}
             >
               <PlusIcon />
               Add
@@ -386,6 +455,9 @@ export function ProjectEditDialog({
                   <TableRow key={m.userId}>
                     <TableCell className="font-medium">{m.name}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">
+                      {m.role}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
                       {m.email}
                     </TableCell>
                     <TableCell className="text-right">
@@ -405,7 +477,7 @@ export function ProjectEditDialog({
                 {stagedMembers.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={3}
+                      colSpan={4}
                       className="text-muted-foreground text-sm"
                     >
                       No members yet.

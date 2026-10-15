@@ -104,9 +104,10 @@ export class IncidentsController {
 
   @Post(":id/assign")
   @HttpCode(200)
-  @Roles("Admin", "Agent", "Manager")
+  @Roles("Admin", "Agent")
   @ApiOperation({
-    summary: "Assign incident to an agent and notify assignee",
+    summary:
+      "Admin assigns any eligible agent; Agent may claim (self-assign) only",
   })
   assign(
     @CurrentUser() user: AuthUser,

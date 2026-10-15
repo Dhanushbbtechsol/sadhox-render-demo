@@ -39,12 +39,6 @@ function waitingLabel(item: {
   return "Waiting on admin";
 }
 
-function hasReportsToManager(item: {
-  requesterReportsToId?: string | null;
-}): boolean {
-  return Boolean(item.requesterReportsToId);
-}
-
 /**
  * Manager inbox: Submitted tickets whose requester reports to them.
  * (List API already scopes Managers to their direct reports.)
@@ -54,15 +48,11 @@ function inManagerRequestInbox(item: { status: string }): boolean {
 }
 
 /**
- * Admin inbox: PendingApproval, plus Submitted with no manager (one-step).
- * Submitted that still need a manager stay out of the Admin queue.
+ * Admin inbox: every Submitted / PendingApproval request.
+ * Admin may final-approve without waiting on the manager chain.
  */
-function inAdminRequestInbox(item: {
-  status: string;
-  requesterReportsToId?: string | null;
-}): boolean {
-  if (item.status === "PendingApproval") return true;
-  return item.status === "Submitted" && !hasReportsToManager(item);
+function inAdminRequestInbox(item: { status: string }): boolean {
+  return item.status === "Submitted" || item.status === "PendingApproval";
 }
 
 /** Waiting change requests — Admin sees all; Manager list is already project-scoped. */
@@ -180,7 +170,7 @@ export function ApprovalInboxTable() {
               description={
                 isManager
                   ? "Submitted requests from people who report to you will show up here."
-                  : "Requests waiting on admin (after manager approval, or with no manager) will show up here."
+                  : "Submitted and pending requests appear here. You can approve them directly."
               }
             />
           ) : (

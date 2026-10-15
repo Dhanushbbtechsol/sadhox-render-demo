@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 import { recipientIds } from "./recipients";
 
 describe("recipientIds", () => {
-  it("sr.submitted prefers manager over admins", () => {
+  it("sr.submitted notifies manager and admins", () => {
     expect(
       recipientIds({
         type: "sr.submitted",
         managerId: "mgr",
         adminIds: ["a1", "a2"],
       }),
-    ).toEqual(["mgr"]);
+    ).toEqual(["mgr", "a1", "a2"]);
   });
 
-  it("sr.submitted falls back to admins", () => {
+  it("sr.submitted falls back to admins when no manager", () => {
     expect(
       recipientIds({
         type: "sr.submitted",

@@ -19,6 +19,7 @@ import {
   incidents,
   problemIncidents,
   problems,
+  projectMembers,
   slaRules,
   users,
   type IncidentStatus,
@@ -44,9 +45,11 @@ import {
 } from "./incident-transitions";
 import {
   assigneeProjectId,
+  canEditTicketProjectScope,
   canMutateIncident,
   canReopenTicket,
-  canSetIncidentAssignee,
+  canSetAssigneeTo,
+  canStampTicketProjectOnCreate,
 } from "./incident-rbac";
 import { IncidentCategoriesService } from "./incident-categories.service";
 import { PriorityCalculationService } from "./priority-calculation.service";
@@ -252,6 +255,15 @@ export class IncidentsService {
     const matrix = this.priorityCalc.calculate(dto.impact, dto.urgency);
     const now = new Date();
 
+    if (
+      (dto.projectId || dto.moduleId) &&
+      !canStampTicketProjectOnCreate(user.role)
+    ) {
+      throw new ForbiddenException(
+        "Agents cannot affiliate a ticket with a project; the reporter sets that when raising it",
+      );
+    }
+
     const scope = await this.projectsService.resolveTicketProjectFields(
       user,
       dto.projectId,
@@ -260,13 +272,7 @@ export class IncidentsService {
 
     let assignee: { id: string; email: string; name: string } | null = null;
     if (dto.assignedTo) {
-      if (!canSetIncidentAssignee(user.role, scope.projectId)) {
-        throw new ForbiddenException(
-          scope.projectId
-            ? "Only an Admin can assign a project ticket"
-            : "End users cannot assign incidents",
-        );
-      }
+      this.assertMaySetAssignee(user, dto.assignedTo);
       assignee = await this.assertAssigneeInPool(
         dto.assignedTo,
         scope.projectId,
@@ -357,19 +363,22 @@ export class IncidentsService {
       await this.notifyP1Created(created!.id, title, user.userId);
     }
 
+    if (scope.projectId) {
+      await this.notifyProjectAgentsOfNewTicket(
+        created!.id,
+        title,
+        scope.projectId,
+        user.userId,
+      );
+    }
+
     return this.get(user, created!.id);
   }
 
   async assign(user: AuthUser, id: string, dto: AssignIncidentDto) {
     const existing = await this.loadIncidentRow(id);
     if (!existing) throw new NotFoundException("Incident not found");
-    if (!canSetIncidentAssignee(user.role, existing.incident.projectId)) {
-      throw new ForbiddenException(
-        existing.incident.projectId
-          ? "Only an Admin can assign a project ticket"
-          : "End users cannot assign incidents",
-      );
-    }
+    this.assertMaySetAssignee(user, dto.agentId);
     await this.projectAccess.assertCanAccessTicketProject(
       user,
       existing.incident.projectId,
@@ -560,6 +569,11 @@ export class IncidentsService {
     let nextProjectId = existing.incident.projectId;
     let nextModuleId = existing.incident.moduleId;
     if (dto.projectId !== undefined || dto.moduleId !== undefined) {
+      if (!canEditTicketProjectScope(user.role)) {
+        throw new ForbiddenException(
+          "Only Admin or Manager can change a ticket's project scope",
+        );
+      }
       const scope = await this.projectsService.resolveTicketProjectFields(
         user,
         dto.projectId !== undefined
@@ -680,22 +694,15 @@ export class IncidentsService {
       dto.assignedTo !== undefined
         ? dto.assignedTo
         : existing.incident.assignedTo;
-    const assigneeGateProjectId = assigneeProjectId(
-      existing.incident.projectId,
-      nextProjectId,
-    );
-    if (
-      dto.assignedTo !== undefined &&
-      !canSetIncidentAssignee(user.role, assigneeGateProjectId)
-    ) {
-      throw new ForbiddenException(
-        assigneeGateProjectId
-          ? "Only an Admin can assign a project ticket"
-          : "End users cannot assign incidents",
-      );
+    if (typeof dto.assignedTo === "string") {
+      this.assertMaySetAssignee(user, dto.assignedTo);
     }
     if (nextAssignee) {
-      await this.assertAssigneeInPool(nextAssignee, nextProjectId);
+      const poolProjectId = assigneeProjectId(
+        existing.incident.projectId,
+        nextProjectId,
+      );
+      await this.assertAssigneeInPool(nextAssignee, poolProjectId);
     }
 
     // Assigning via PATCH on New auto-moves to Assigned (same lifecycle rule).
@@ -841,6 +848,54 @@ export class IncidentsService {
         `${ticketTitle} → ${newStatus}`,
         `Status changed from ${previousStatus} to ${newStatus}`,
         href,
+      );
+    }
+  }
+
+  /** Admin may assign anyone; Agent may only claim (self-assign). */
+  private assertMaySetAssignee(user: AuthUser, targetUserId: string) {
+    if (canSetAssigneeTo(user.role, user.userId, targetUserId)) return;
+    throw new ForbiddenException(
+      user.role === "Agent"
+        ? "Agents can only claim a ticket for themselves"
+        : "Only an Admin can assign tickets to agents",
+    );
+  }
+
+  /** Notify Agent members of a project when a ticket is raised on it. */
+  private async notifyProjectAgentsOfNewTicket(
+    ticketId: string,
+    ticketTitle: string,
+    projectId: string,
+    reporterId: string,
+  ) {
+    try {
+      const members = await this.db
+        .select({ id: users.id })
+        .from(projectMembers)
+        .innerJoin(users, eq(projectMembers.userId, users.id))
+        .where(
+          and(
+            eq(projectMembers.projectId, projectId),
+            eq(users.role, "Agent"),
+          ),
+        );
+      const href = `/incidents/${ticketId}`;
+      for (const member of members) {
+        if (member.id === reporterId) continue;
+        await this.notifications.record(
+          member.id,
+          "incident.project_created",
+          `New project ticket: ${ticketTitle}`,
+          "A ticket was raised on a project you are on",
+          href,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Project ticket notify failed for ${ticketId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       );
     }
   }

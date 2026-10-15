@@ -1,4 +1,3 @@
-import { BellRingIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -85,10 +84,7 @@ export default function EscalationPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
-            <BellRingIcon className="size-5" />
-            Escalation
-          </h1>
+          <h1 className="text-xl font-semibold">Escalation</h1>
           <p className="text-sm text-muted-foreground">
             Choose who gets notified when each priority hits a response-time warning or
             breach.

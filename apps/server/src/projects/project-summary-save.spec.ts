@@ -1,4 +1,3 @@
-import { BadRequestException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { ProjectsService } from "./projects.service";
 
@@ -7,8 +6,7 @@ import { ProjectsService } from "./projects.service";
  * Members / Modules dialogs. Requirement (verbatim): "One save updates the
  * name, the manager, the members, and the modules." This spec exercises
  * `ProjectsService.saveSummary` — the one save path — and fails if any of
- * the four is not persisted by that single call, or if member add stays
- * widened past Agent-only (KTD6).
+ * the four is not persisted by that single call.
  */
 
 type Row = Record<string, unknown>;
@@ -169,29 +167,47 @@ describe("ProjectsService.saveSummary — one save (U8)", () => {
     ]);
   });
 
-  it("rejects a Manager as a project member (KTD6 — members are Agents only) and persists nothing", async () => {
-    const { db, inserted, updated, deleted } = makeDb([
+  it("allows a non-Agent user as a project member on the one save path", async () => {
+    const { db, inserted } = makeDb([
       [{ id: "proj-1" }], // existingProject
       [{ id: "mgr-1", role: "Manager" }], // manager lookup
       [], // existingMembers (none yet)
-      [{ id: "user-mgr", role: "Manager" }], // member candidates — not Agent
+      [{ id: "user-eu" }], // member candidates (any role)
+      [], // existingModules
+      [
+        {
+          id: "proj-1",
+          name: "Project",
+          managerId: "mgr-1",
+          managerName: "Mgr",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ], // project after write
+      [
+        {
+          projectId: "proj-1",
+          userId: "user-eu",
+          name: "End User",
+          email: "eu@test.com",
+          role: "EndUser",
+        },
+      ], // members after write
+      [], // modules after write
     ]);
 
     const svc = new ProjectsService(db as never, {} as never, {} as never);
 
-    await expect(
-      svc.saveSummary("proj-1", {
-        name: "Project",
-        managerId: "mgr-1",
-        memberUserIds: ["user-mgr"],
-        modules: [],
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    const result = await svc.saveSummary("proj-1", {
+      name: "Project",
+      managerId: "mgr-1",
+      memberUserIds: ["user-eu"],
+      modules: [],
+    });
 
-    // Rejected before any write — not just the member insert.
-    expect(inserted).toHaveLength(0);
-    expect(updated).toHaveLength(0);
-    expect(deleted).toHaveLength(0);
+    expect(inserted.some((i) => Array.isArray(i.values))).toBe(true);
+    expect(result.members).toEqual([
+      expect.objectContaining({ userId: "user-eu", role: "EndUser" }),
+    ]);
   });
 
   it("a project with no members still returns an empty member list from the one save path", async () => {

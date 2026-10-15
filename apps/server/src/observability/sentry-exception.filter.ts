@@ -89,7 +89,10 @@ export class SentryExceptionFilter implements ExceptionFilter {
       });
     } else if (status >= 500) {
       this.logger.error(
-        `unhandled ${status} ${request.method} ${request.url?.split("?")[0]}`,
+        `unhandled ${status} ${request.method} ${request.url?.split("?")[0]}: ${
+          exception instanceof Error ? exception.message : String(exception)
+        }`,
+        exception instanceof Error ? exception.stack : undefined,
       );
     }
 

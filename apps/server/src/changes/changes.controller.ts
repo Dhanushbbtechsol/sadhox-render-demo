@@ -67,7 +67,7 @@ export class ChangesController {
   @Roles("Admin", "Manager")
   @ApiOperation({
     summary:
-      "Approve change: creator's reports_to_id then Admin (Submitted → PendingApproval → Approved)",
+      "Approve change: manager may send Submitted→PendingApproval; Admin may final-approve from Submitted or PendingApproval",
   })
   approve(
     @CurrentUser() user: AuthUser,

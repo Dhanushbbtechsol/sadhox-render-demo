@@ -13,14 +13,14 @@ describe("nextApproval", () => {
     ).toBe("PendingApproval");
   });
 
-  it("Submitted + manager + Admin → Forbidden", () => {
-    expect(() =>
+  it("Submitted + manager + Admin → Approved (Admin may skip manager)", () => {
+    expect(
       nextApproval({
         status: "Submitted",
         actorRole: "Admin",
         hasManager: true,
       }),
-    ).toThrow(ForbiddenException);
+    ).toBe("Approved");
   });
 
   it("Submitted + no manager + Admin → Approved", () => {
@@ -31,6 +31,16 @@ describe("nextApproval", () => {
         hasManager: false,
       }),
     ).toBe("Approved");
+  });
+
+  it("Submitted + no manager + Manager → Forbidden", () => {
+    expect(() =>
+      nextApproval({
+        status: "Submitted",
+        actorRole: "Manager",
+        hasManager: false,
+      }),
+    ).toThrow(ForbiddenException);
   });
 
   it("PendingApproval + Admin → Approved", () => {

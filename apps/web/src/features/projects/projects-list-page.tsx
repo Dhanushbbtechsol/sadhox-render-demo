@@ -177,8 +177,8 @@ export default function ProjectsListPage() {
         <div className="min-w-0">
           <h1 className="text-xl font-semibold">Projects</h1>
           <p className="text-sm text-muted-foreground">
-            Create a project, then use Edit for the full summary, or Members /
-            Modules as quick actions.
+            Click a project for its summary (members, modules, created
+            date/time). Use Edit, Members, or Modules for quick actions.
           </p>
         </div>
         <Button className="shrink-0" onClick={openCreate}>
@@ -217,29 +217,33 @@ export default function ProjectsListPage() {
             </TableHeader>
             <TableBody>
               {paged.items.map((project) => (
-                <TableRow key={project.id}>
+                <TableRow
+                  key={project.id}
+                  className="cursor-pointer"
+                  onClick={() => openSummary(project)}
+                >
                   <TableCell className="font-mono text-sm tabular-nums">
                     {recordReference(project.referenceCode)}
                   </TableCell>
                   <TableCell className="font-medium">
-                    <button
-                      type="button"
-                      className="text-left hover:underline"
-                      onClick={() => openSummary(project)}
-                    >
-                      {project.name}
-                    </button>
+                    <span className="hover:underline">{project.name}</span>
                   </TableCell>
                   <TableCell>
                     {resolveManagerLabel(project.managerId, project.managerName)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
+                  <TableCell className="text-muted-foreground text-sm tabular-nums">
                     {project.createdAt
-                      ? new Date(project.createdAt).toLocaleDateString()
+                      ? new Date(project.createdAt).toLocaleString(undefined, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })
                       : "—"}
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap justify-end gap-1">
+                    <div
+                      className="flex flex-wrap justify-end gap-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <Button
                         type="button"
                         variant="outline"

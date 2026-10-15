@@ -313,13 +313,19 @@ describe("ServiceRequestsService.reject follows nextApproval (Phase 9 reaudit)",
     expect(mail.sendRequestDecision).toHaveBeenCalled();
   });
 
-  it("Submitted with manager, actor Admin → 403", async () => {
+  it("Submitted with manager, actor Admin → Rejected (may skip manager)", async () => {
     const existing = existingRow({ status: "Submitted" });
-    const { service, update } = build(existing, MANAGER_ID);
+    const { service, set } = build(existing, MANAGER_ID);
     await expect(
       service.reject(admin, SR_ID, { reason: "nope" }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-    expect(update).not.toHaveBeenCalled();
+    ).resolves.toBeTruthy();
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "Rejected",
+        approverId: ADMIN_ID,
+        rejectionReason: "nope",
+      }),
+    );
   });
 
   it("Submitted with no manager and a project, Admin rejects", async () => {

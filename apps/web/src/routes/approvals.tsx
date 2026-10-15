@@ -6,9 +6,9 @@ export default function ApprovalsPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Approval inbox</h1>
         <p className="text-muted-foreground text-sm">
-          Manager reviews Submitted tickets from direct reports (Send to admin).
-          Admin reviews Pending approval and Submitted tickets with no manager
-          (Approve).
+          Manager can send Submitted tickets from direct reports to admin.
+          Admin can approve or reject any pending request or change directly,
+          without waiting on a manager.
         </p>
       </div>
       <ApprovalInboxTable />

@@ -94,6 +94,9 @@ export function CreateIncidentDialog({
   const taxonomy = useIncidentCategoryTaxonomy({ enabled: open });
   const role = useAuthStore((s) => s.user?.role);
   const requireProject = role === "Manager";
+  /** Reporter / Admin / Manager set project at raise time; Agents never affiliate. */
+  const canSetProject =
+    role === "Admin" || role === "EndUser" || role === "Manager";
 
   const allowedByCategory = useMemo(() => {
     if (taxonomy.data && taxonomy.data.length > 0) {
@@ -167,9 +170,7 @@ export function CreateIncidentDialog({
     name: "subcategory",
   });
   const projectId = useWatch({ control: form.control, name: "projectId" });
-  const canAssign =
-    role === "Admin" ||
-    ((role === "Agent" || role === "Manager") && !projectId);
+  const canAssign = role === "Admin";
   const { data: agents = [] } = useAgents(projectId, { enabled: canAssign });
   const agentItems = useMemo(
     () =>
@@ -217,8 +218,11 @@ export function CreateIncidentDialog({
         subcategory: values.subcategory,
         impact: values.impact,
         urgency: values.urgency,
-        projectId: values.projectId ?? null,
-        moduleId: values.projectId ? (values.moduleId ?? null) : null,
+        projectId: canSetProject ? (values.projectId ?? null) : null,
+        moduleId:
+          canSetProject && values.projectId
+            ? (values.moduleId ?? null)
+            : null,
         ...(canAssign && values.assignedTo
           ? { assignedTo: values.assignedTo }
           : {}),
@@ -276,20 +280,24 @@ export function CreateIncidentDialog({
             ) : null}
           </div>
 
-          <ProjectModuleFields
-            control={form.control}
-            projectField="projectId"
-            moduleField="moduleId"
-            projectId={projectId}
-            onProjectChange={() => {
-              form.setValue("moduleId", undefined);
-              if (canAssign) form.setValue("assignedTo", undefined);
-            }}
-          />
-          {form.formState.errors.projectId ? (
-            <p className="text-destructive text-xs">
-              {form.formState.errors.projectId.message}
-            </p>
+          {canSetProject ? (
+            <>
+              <ProjectModuleFields
+                control={form.control}
+                projectField="projectId"
+                moduleField="moduleId"
+                projectId={projectId}
+                onProjectChange={() => {
+                  form.setValue("moduleId", undefined);
+                  if (canAssign) form.setValue("assignedTo", undefined);
+                }}
+              />
+              {form.formState.errors.projectId ? (
+                <p className="text-destructive text-xs">
+                  {form.formState.errors.projectId.message}
+                </p>
+              ) : null}
+            </>
           ) : null}
 
           {canAssign ? (
