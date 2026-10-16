@@ -113,8 +113,9 @@ export type ApproveChainResult = {
 };
 
 /**
- * Phase 8 two-step approve. Ownership for Manager is checked separately
- * via ProjectAccessService.assertCanApprove.
+ * Two-step approve for Managers; Admin may final-approve at any waiting step
+ * (including when a project/manager exists). Manager ownership is checked
+ * separately via ProjectAccessService.assertCanApprove where used.
  */
 export function resolveApproveTransition(args: {
   role: string;
@@ -126,7 +127,6 @@ export function resolveApproveTransition(args: {
   const allowDraft = args.allowDraft ?? false;
   const waiting = isWaitingOnManagerStatus(args.currentStatus, allowDraft);
   const pending = args.currentStatus === "PendingApproval";
-  const hasManager = ticketHasManagerStep(args.projectId);
 
   if (args.role === "Manager") {
     if (pending) {
@@ -143,15 +143,7 @@ export function resolveApproveTransition(args: {
   }
 
   if (args.role === "Admin") {
-    if (pending) {
-      return { nextStatus: "Approved", setApproverFields: true };
-    }
-    if (waiting) {
-      if (hasManager) {
-        throw new ForbiddenException(
-          "Admin cannot approve while a project manager must act first",
-        );
-      }
+    if (pending || waiting) {
       return { nextStatus: "Approved", setApproverFields: true };
     }
     throw new BadRequestException(
@@ -163,8 +155,8 @@ export function resolveApproveTransition(args: {
 }
 
 /**
- * Phase 8 reject. Manager only on waiting statuses; Admin on PendingApproval
- * or on waiting when there is no project.
+ * Reject: Manager on waiting statuses only; Admin on PendingApproval or any
+ * waiting status (may act even when a project/manager exists).
  */
 export function resolveRejectTransition<
   TReject extends "Rejected" | "RolledBack",
@@ -178,7 +170,6 @@ export function resolveRejectTransition<
   const allowDraft = args.allowDraft ?? false;
   const waiting = isWaitingOnManagerStatus(args.currentStatus, allowDraft);
   const pending = args.currentStatus === "PendingApproval";
-  const hasManager = ticketHasManagerStep(args.projectId);
 
   if (args.role === "Manager") {
     if (pending) {
@@ -195,15 +186,7 @@ export function resolveRejectTransition<
   }
 
   if (args.role === "Admin") {
-    if (pending) {
-      return { nextStatus: args.rejectStatus, setApproverFields: true };
-    }
-    if (waiting) {
-      if (hasManager) {
-        throw new ForbiddenException(
-          "Admin cannot reject while a project manager must act first",
-        );
-      }
+    if (pending || waiting) {
       return { nextStatus: args.rejectStatus, setApproverFields: true };
     }
     throw new BadRequestException(

@@ -15,7 +15,7 @@ const PAGE_SIZE = LIST_PAGE_SIZE;
 
 function statusVariant(status: string) {
   if (status === "Resolved" || status === "Closed") return "success" as const;
-  if (status === "InProgress") return "default" as const;
+  if (status === "InProgress" || status === "Reopened") return "default" as const;
   return "outline" as const;
 }
 

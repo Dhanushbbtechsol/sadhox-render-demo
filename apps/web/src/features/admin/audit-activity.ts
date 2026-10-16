@@ -515,16 +515,119 @@ function titleCase(value: string): string {
     .join(" ");
 }
 
-/** One line per changed key: `status: Submitted → Approved`. Null/undefined → []. */
-export function formatAuditDiff(diff: unknown): string[] {
-  if (diff == null) return [];
-  if (typeof diff !== "object" || Array.isArray(diff)) return [];
+/** UUID foreign keys → companion *Name fields when both appear in a diff. */
+const ID_TO_NAME_FIELD: Record<string, string> = {
+  catalogId: "catalogName",
+  requesterId: "requesterName",
+  approverId: "approverName",
+  assignedTo: "assigneeName",
+  assigneeId: "assigneeName",
+  reporterId: "reporterName",
+  projectId: "projectName",
+  moduleId: "moduleName",
+  ownerId: "ownerName",
+  managerId: "managerName",
+  createdBy: "createdByName",
+  createdById: "createdByName",
+  approvedBy: "approvedByName",
+  approvedById: "approvedByName",
+  reportsToId: "reportsToName",
+  categoryId: "categoryName",
+  authorId: "authorName",
+};
 
-  const record = diff as Record<string, unknown>;
+const FIELD_LABELS: Record<string, string> = {
+  status: "Status",
+  urgency: "Urgency",
+  priority: "Priority",
+  impact: "Impact",
+  category: "Category",
+  subcategory: "Subcategory",
+  title: "Title",
+  name: "Name",
+  role: "Role",
+  email: "Email",
+  type: "Type",
+  knownError: "Known error",
+  slaBreached: "SLA breached",
+  isActive: "Active",
+  catalogId: "Catalog",
+  catalogName: "Catalog",
+  requesterId: "Requester",
+  requesterName: "Requester",
+  approverId: "Approver",
+  approverName: "Approver",
+  assignedTo: "Assignee",
+  assigneeId: "Assignee",
+  assigneeName: "Assignee",
+  reporterId: "Reporter",
+  reporterName: "Reporter",
+  projectId: "Project",
+  projectName: "Project",
+  moduleId: "Module",
+  moduleName: "Module",
+  ownerId: "Owner",
+  ownerName: "Owner",
+  managerId: "Manager",
+  managerName: "Manager",
+  createdBy: "Created by",
+  createdById: "Created by",
+  createdByName: "Created by",
+  approvedBy: "Approver",
+  approvedById: "Approver",
+  approvedByName: "Approver",
+  reportsToId: "Reports to",
+  reportsToName: "Reports to",
+  categoryId: "Category",
+  categoryName: "Category",
+  authorId: "Author",
+  authorName: "Author",
+  referenceCode: "Reference",
+  serialNumber: "Serial number",
+  location: "Location",
+  assetTag: "Asset tag",
+};
 
-  if (record.outcome === "failed" || record.truncated === true) {
-    return [];
+function fieldLabel(key: string): string {
+  if (FIELD_LABELS[key]) return FIELD_LABELS[key];
+  // catalogName → Catalog Name style fallback
+  return key
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Resolve a scalar for display. Prefer companion *Name values from the same
+ * side of the diff when the raw value is a UUID. Returns null to omit the line.
+ */
+function displayScalar(
+  key: string,
+  value: string | number | boolean | null,
+  sideBag: Record<string, unknown> | null,
+): string | null {
+  if (value === null) return "none";
+  if (typeof value === "boolean" || typeof value === "number") {
+    return String(value);
   }
+  if (isUuid(value)) {
+    const nameKey = ID_TO_NAME_FIELD[key];
+    if (nameKey && sideBag) {
+      const named = sideBag[nameKey];
+      if (typeof named === "string" && named.trim() && !isUuid(named)) {
+        return named.trim();
+      }
+    }
+    // Never show raw UUIDs in the Admin activity trail.
+    return null;
+  }
+  return value;
+}
+
+type DiffPair = { before: string | number | boolean | null; after: string | number | boolean | null };
+
+function collectPairs(record: Record<string, unknown>): Map<string, DiffPair> {
+  const pairs = new Map<string, DiffPair>();
 
   const request =
     record.request && typeof record.request === "object" && !Array.isArray(record.request)
@@ -539,22 +642,18 @@ export function formatAuditDiff(diff: unknown): string[] {
 
   if (request && response) {
     const keys = new Set([...Object.keys(request), ...Object.keys(response)]);
-    const lines: string[] = [];
-    for (const key of [...keys].sort()) {
+    for (const key of keys) {
       if (key === "password" || key === "token" || key === "refreshToken") continue;
       const before = request[key];
       const after = response[key];
       if (before === undefined || after === undefined) continue;
       if (!isScalar(before) || !isScalar(after)) continue;
       if (String(before) === String(after)) continue;
-      lines.push(`${key}: ${formatScalar(before)} → ${formatScalar(after)}`);
+      pairs.set(key, { before, after });
     }
-    return lines;
+    return pairs;
   }
 
-  // Flat map of field → { before, after } or already-string lines are not expected;
-  // support before/after pairs when present on the root object.
-  const lines: string[] = [];
   for (const [key, value] of Object.entries(record)) {
     if (
       value &&
@@ -566,10 +665,55 @@ export function formatAuditDiff(diff: unknown): string[] {
       const pair = value as { before: unknown; after: unknown };
       if (!isScalar(pair.before) || !isScalar(pair.after)) continue;
       if (String(pair.before) === String(pair.after)) continue;
-      lines.push(
-        `${key}: ${formatScalar(pair.before)} → ${formatScalar(pair.after)}`,
-      );
+      pairs.set(key, { before: pair.before, after: pair.after });
     }
+  }
+  return pairs;
+}
+
+/** One line per changed key: `Status: Submitted → Approved`. Null/undefined → []. */
+export function formatAuditDiff(diff: unknown): string[] {
+  if (diff == null) return [];
+  if (typeof diff !== "object" || Array.isArray(diff)) return [];
+
+  const record = diff as Record<string, unknown>;
+
+  if (record.outcome === "failed" || record.truncated === true) {
+    return [];
+  }
+
+  const pairs = collectPairs(record);
+  if (pairs.size === 0) return [];
+
+  // Prefer *Name companions when both Id and Name changed in the same diff.
+  const skipKeys = new Set<string>();
+  for (const [idKey, nameKey] of Object.entries(ID_TO_NAME_FIELD)) {
+    if (pairs.has(idKey) && pairs.has(nameKey)) {
+      skipKeys.add(idKey);
+    }
+  }
+
+  const beforeBag: Record<string, unknown> = {};
+  const afterBag: Record<string, unknown> = {};
+  for (const [key, pair] of pairs) {
+    beforeBag[key] = pair.before;
+    afterBag[key] = pair.after;
+  }
+
+  const lines: string[] = [];
+  for (const key of [...pairs.keys()].sort()) {
+    if (skipKeys.has(key)) continue;
+    if (key === "password" || key === "token" || key === "refreshToken") continue;
+
+    const pair = pairs.get(key)!;
+    const beforeText = displayScalar(key, pair.before, beforeBag);
+    const afterText = displayScalar(key, pair.after, afterBag);
+
+    // Unresolved UUID on either side → omit the line (never show raw ids).
+    if (beforeText === null || afterText === null) continue;
+    if (beforeText === afterText) continue;
+
+    lines.push(`${fieldLabel(key)}: ${beforeText} → ${afterText}`);
   }
   return lines;
 }
@@ -581,11 +725,6 @@ function isScalar(value: unknown): value is string | number | boolean | null {
     typeof value === "number" ||
     typeof value === "boolean"
   );
-}
-
-function formatScalar(value: string | number | boolean | null): string {
-  if (value === null) return "null";
-  return String(value);
 }
 
 /** @deprecated use formatAuditSummary */

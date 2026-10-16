@@ -11,6 +11,7 @@ export const OPEN_INCIDENT_STATUSES = [
   "New",
   "Assigned",
   "InProgress",
+  "Reopened",
 ] as const;
 
 const OPEN_STATUSES = OPEN_INCIDENT_STATUSES;

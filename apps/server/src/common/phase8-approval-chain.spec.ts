@@ -203,56 +203,29 @@ describe("Phase 8 approval chain + report (SR + Change)", () => {
       .expect(403);
   });
 
-  it("(2) Admin cannot skip manager on SR/Change; may act when no manager", async () => {
-    srApprove.mockRejectedValueOnce(
-      new ForbiddenException(
-        "Admin cannot skip manager approval when the requester has a manager",
-      ),
-    );
-    srReject.mockRejectedValueOnce(
-      new ForbiddenException(
-        "Admin cannot skip manager approval when the requester has a manager",
-      ),
-    );
-    chApprove.mockRejectedValueOnce(
-      new ForbiddenException(
-        "Admin cannot skip manager approval when the requester has a manager",
-      ),
-    );
-    chReject.mockRejectedValueOnce(
-      new ForbiddenException(
-        "Admin cannot skip manager approval when the requester has a manager",
-      ),
-    );
+  it("(2) Admin may approve/reject SR/Change even when a manager exists", async () => {
     srApprove.mockResolvedValueOnce({ status: "Approved" });
+    srReject.mockResolvedValueOnce({ status: "Rejected" });
     chApprove.mockResolvedValueOnce({ status: "Approved" });
-
-    await request(app.getHttpServer())
-      .patch(`/service-requests/${ID}/approve`)
-      .set("x-test-role", "Admin")
-      .expect(403);
-    await request(app.getHttpServer())
-      .patch(`/service-requests/${ID}/reject`)
-      .set("x-test-role", "Admin")
-      .send({ reason: "nope" })
-      .expect(403);
-    await request(app.getHttpServer())
-      .patch(`/changes/${ID}/approve`)
-      .set("x-test-role", "Admin")
-      .expect(403);
-    await request(app.getHttpServer())
-      .patch(`/changes/${ID}/reject`)
-      .set("x-test-role", "Admin")
-      .send({ reason: "nope" })
-      .expect(403);
+    chReject.mockResolvedValueOnce({ status: "RolledBack" });
 
     await request(app.getHttpServer())
       .patch(`/service-requests/${ID}/approve`)
       .set("x-test-role", "Admin")
       .expect(200);
     await request(app.getHttpServer())
+      .patch(`/service-requests/${ID}/reject`)
+      .set("x-test-role", "Admin")
+      .send({ reason: "nope" })
+      .expect(200);
+    await request(app.getHttpServer())
       .patch(`/changes/${ID}/approve`)
       .set("x-test-role", "Admin")
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch(`/changes/${ID}/reject`)
+      .set("x-test-role", "Admin")
+      .send({ reason: "nope" })
       .expect(200);
   });
 
@@ -379,7 +352,7 @@ describe("Phase 9 ChangesService unit: org-chart + concurrency", () => {
     return { service, update, whereUpdate, projectAccess };
   }
 
-  it("PATCH Approved/Rolled Back refused for Agent; Admin blocked when creator has manager", async () => {
+  it("PATCH Approved/Rolled Back refused for Agent; Admin may decide with or without manager", async () => {
     for (const status of ["Submitted", "PendingApproval"] as const) {
       for (const next of ["Approved", "Rolled Back"] as const) {
         const { service } = createService(row(status));
@@ -388,15 +361,16 @@ describe("Phase 9 ChangesService unit: org-chart + concurrency", () => {
         ).rejects.toBeInstanceOf(ForbiddenException);
       }
     }
-    // Admin cannot skip manager on Submitted (has reports_to).
+    // Admin may final-approve/reject even when creator has a manager.
     for (const next of ["Approved", "Rolled Back"] as const) {
       const existing = row("Submitted");
-      const { service } = createService(existing, [], "mgr-exists");
+      const { service, update } = createService(existing, [], "mgr-exists");
       await expect(
         service.update(admin, ID, { status: next }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).resolves.toBeTruthy();
+      expect(update).toHaveBeenCalled();
     }
-    // Admin may decide when creator has no manager.
+    // Admin may also decide when creator has no manager.
     for (const next of ["Approved", "Rolled Back"] as const) {
       const existing = row("Submitted");
       const { service, update } = createService(existing, [], null);

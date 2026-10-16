@@ -597,7 +597,7 @@ export class AdminService {
   ) {
     const [incidentAgg] = await db
       .select({
-        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress'))`,
+        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress','Reopened'))`,
         closed: sql<number>`count(*) filter (where ${incidents.status} in ('Resolved','Closed'))`,
       })
       .from(incidents)
@@ -795,7 +795,7 @@ export class AdminService {
     const [incidentAgg] = await db
       .select({
         total: count(),
-        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress'))`,
+        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress','Reopened'))`,
         p1: sql<number>`count(*) filter (where ${incidents.priority} = 'P1')`,
         slaMet: sql<number>`count(*) filter (
           where ${incidents.slaDueAt} is not null
@@ -854,7 +854,12 @@ export class AdminService {
         inArray(
           incidents.status,
           statuses as Array<
-            "New" | "Assigned" | "InProgress" | "Resolved" | "Closed"
+            | "New"
+            | "Assigned"
+            | "InProgress"
+            | "Resolved"
+            | "Closed"
+            | "Reopened"
           >,
         ),
       );
@@ -1127,7 +1132,7 @@ export class AdminService {
     const [incidentAgg] = await this.db
       .select({
         total: count(),
-        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress'))`,
+        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress','Reopened'))`,
         p1: sql<number>`count(*) filter (where ${incidents.priority} = 'P1')`,
         slaMet: sql<number>`count(*) filter (
           where ${incidents.slaDueAt} is not null
@@ -1314,7 +1319,7 @@ export class AdminService {
 
     const [incidentAgg] = await this.db
       .select({
-        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress'))`,
+        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress','Reopened'))`,
         closed: sql<number>`count(*) filter (where ${incidents.status} in ('Resolved','Closed'))`,
       })
       .from(incidents)
@@ -1910,7 +1915,7 @@ export class AdminService {
             ),
           );
 
-    const openIncidentStatuses = new Set(["New", "Assigned", "InProgress"]);
+    const openIncidentStatuses = new Set(["New", "Assigned", "InProgress", "Reopened"]);
     const openSrStatuses = new Set([
       "Submitted",
       "PendingApproval",

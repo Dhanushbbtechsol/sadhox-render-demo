@@ -10,6 +10,7 @@ import {
 import { Observable, from, switchMap, tap } from "rxjs";
 import type { Request } from "express";
 import { eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { DRIZZLE } from "../../database/database.constants";
 import type { DrizzleDB } from "../../database/database.module";
 import {
@@ -19,6 +20,7 @@ import {
   incidents,
   knowledgeArticles,
   knowledgeCategories,
+  modules,
   problems,
   projects,
   serviceCatalog,
@@ -396,9 +398,34 @@ export class AuditLogInterceptor implements NestInterceptor {
     const parts = path.split("/").filter(Boolean);
 
     if (resource === "incidents") {
+      const reporter = alias(users, "audit_inc_reporter");
+      const assignee = alias(users, "audit_inc_assignee");
       const [row] = await this.db
-        .select()
+        .select({
+          id: incidents.id,
+          title: incidents.title,
+          referenceCode: incidents.referenceCode,
+          status: incidents.status,
+          priority: incidents.priority,
+          impact: incidents.impact,
+          urgency: incidents.urgency,
+          category: incidents.category,
+          subcategory: incidents.subcategory,
+          assignedTo: incidents.assignedTo,
+          assigneeName: assignee.name,
+          reporterId: incidents.reporterId,
+          reporterName: reporter.name,
+          projectId: incidents.projectId,
+          projectName: projects.name,
+          moduleId: incidents.moduleId,
+          moduleName: modules.name,
+          slaBreached: incidents.slaBreached,
+        })
         .from(incidents)
+        .leftJoin(reporter, eq(incidents.reporterId, reporter.id))
+        .leftJoin(assignee, eq(incidents.assignedTo, assignee.id))
+        .leftJoin(projects, eq(incidents.projectId, projects.id))
+        .leftJoin(modules, eq(incidents.moduleId, modules.id))
         .where(eq(incidents.id, id))
         .limit(1);
       return row ?? null;
@@ -412,9 +439,39 @@ export class AuditLogInterceptor implements NestInterceptor {
       return row ?? null;
     }
     if (resource === "service-requests") {
+      const requester = alias(users, "audit_sr_requester");
+      const approver = alias(users, "audit_sr_approver");
+      const assignee = alias(users, "audit_sr_assignee");
       const [row] = await this.db
-        .select()
+        .select({
+          id: serviceRequests.id,
+          referenceCode: serviceRequests.referenceCode,
+          title: serviceRequests.justification,
+          status: serviceRequests.status,
+          urgency: serviceRequests.urgency,
+          catalogId: serviceRequests.catalogId,
+          catalogName: serviceCatalog.name,
+          requesterId: serviceRequests.requesterId,
+          requesterName: requester.name,
+          approverId: serviceRequests.approverId,
+          approverName: approver.name,
+          assigneeId: serviceRequests.assigneeId,
+          assigneeName: assignee.name,
+          projectId: serviceRequests.projectId,
+          projectName: projects.name,
+          moduleId: serviceRequests.moduleId,
+          moduleName: modules.name,
+        })
         .from(serviceRequests)
+        .leftJoin(
+          serviceCatalog,
+          eq(serviceRequests.catalogId, serviceCatalog.id),
+        )
+        .leftJoin(requester, eq(serviceRequests.requesterId, requester.id))
+        .leftJoin(approver, eq(serviceRequests.approverId, approver.id))
+        .leftJoin(assignee, eq(serviceRequests.assigneeId, assignee.id))
+        .leftJoin(projects, eq(serviceRequests.projectId, projects.id))
+        .leftJoin(modules, eq(serviceRequests.moduleId, modules.id))
         .where(eq(serviceRequests.id, id))
         .limit(1);
       return row ?? null;

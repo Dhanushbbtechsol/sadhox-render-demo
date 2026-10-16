@@ -15,22 +15,27 @@ export class EventsService {
     this.server = server;
   }
 
-  private requireServer(): Server {
-    if (!this.server) {
-      throw new Error("EventsService: Socket.IO server not initialized");
-    }
-    return this.server;
-  }
-
   emitCommentCreated(ticketId: string, payload: unknown) {
+    if (!this.server) {
+      this.logger.warn(
+        `skip comment.created for ${ticketId}: Socket.IO not ready`,
+      );
+      return;
+    }
     const room = ticketRoomName(ticketId);
-    this.requireServer().to(room).emit("comment.created", payload);
+    this.server.to(room).emit("comment.created", payload);
     this.logger.debug(`broadcast comment.created → ${room}`);
   }
 
   emitTicketUpdated(ticketId: string, payload: unknown) {
+    if (!this.server) {
+      this.logger.warn(
+        `skip ticket.updated for ${ticketId}: Socket.IO not ready`,
+      );
+      return;
+    }
     const room = ticketRoomName(ticketId);
-    this.requireServer().to(room).emit("ticket.updated", payload);
+    this.server.to(room).emit("ticket.updated", payload);
     this.logger.debug(`broadcast ticket.updated → ${room}`);
   }
 }

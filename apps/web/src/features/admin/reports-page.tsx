@@ -1,4 +1,4 @@
-import { EyeIcon, FileBarChartIcon } from "lucide-react";
+import { EyeIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -228,10 +228,7 @@ export default function ReportsPage() {
   return (
     <div className="flex flex-col gap-8">
       <div className="min-w-0">
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <FileBarChartIcon className="size-5" />
-          Reports
-        </h1>
+        <h1 className="text-xl font-semibold">Reports</h1>
         <p className="text-muted-foreground text-sm">
           Organization-wide pack first, then a user report, or one operation at
           a time — each with its own date range.

@@ -108,6 +108,7 @@ export class UpdateIncidentDto extends ProjectScopeFieldsDto {
 
   @ApiPropertyOptional({
     enum: ["New", "Assigned", "InProgress", "Resolved", "Closed"],
+    description: "Reopened is only set via POST /incidents/:id/reopen",
   })
   @IsOptional()
   @IsIn(["New", "Assigned", "InProgress", "Resolved", "Closed"])
@@ -142,6 +143,18 @@ export class AssignIncidentDto {
   })
   @IsUUID()
   agentId!: string;
+}
+
+export class ReopenIncidentDto {
+  @ApiProperty({
+    description: "Why the ticket is being reopened (shown to the assignee)",
+    minLength: 5,
+    maxLength: 4000,
+  })
+  @IsString()
+  @MinLength(5)
+  @MaxLength(4000)
+  reason!: string;
 }
 
 export class CreateCommentDto {

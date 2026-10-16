@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -17,6 +18,10 @@ import {
   users,
   type ProblemStatus,
 } from "../database/schema";
+import {
+  canEditTicketProjectScope,
+  canStampTicketProjectOnCreate,
+} from "../incidents/incident-rbac";
 import { ProjectAccessService } from "../projects/project-access.service";
 import { ProjectsService } from "../projects/projects.service";
 import { claimReference } from "../incidents/reference";
@@ -156,6 +161,14 @@ export class ProblemsService {
 
     let projectId = dto.projectId;
     let moduleId = dto.moduleId;
+    if (
+      (dto.projectId !== undefined || dto.moduleId !== undefined) &&
+      !canStampTicketProjectOnCreate(user.role)
+    ) {
+      throw new ForbiddenException(
+        "Agents cannot affiliate an issue with a project; inherit scope from linked tickets",
+      );
+    }
     if (projectId === undefined && moduleId === undefined) {
       if (!dto.linkedIncidentIds?.length) {
         throw new BadRequestException(
@@ -229,6 +242,11 @@ export class ProblemsService {
     let nextProjectId = existing.projectId;
     let nextModuleId = existing.moduleId;
     if (dto.projectId !== undefined || dto.moduleId !== undefined) {
+      if (!canEditTicketProjectScope(user.role)) {
+        throw new ForbiddenException(
+          "Only Admin or Manager can change an issue's project scope",
+        );
+      }
       const scope = await this.projectsService.resolveTicketProjectFields(
         user,
         dto.projectId !== undefined ? dto.projectId : existing.projectId,

@@ -44,7 +44,10 @@ export class UpdateProjectDto {
 }
 
 export class AddProjectMemberDto {
-  @ApiProperty({ format: "uuid", description: "Must be an Agent user" })
+  @ApiProperty({
+    format: "uuid",
+    description: "Any existing user (Admin, Agent, EndUser, Manager)",
+  })
   @IsUUID()
   userId!: string;
 }
@@ -104,8 +107,7 @@ export class SaveProjectSummaryDto {
 
   @ApiProperty({
     type: [String],
-    description:
-      "Full desired set of Agent user ids as project members (KTD6 — Agent only)",
+    description: "Full desired set of user ids as project members (any role)",
   })
   @IsArray()
   @ArrayUnique()

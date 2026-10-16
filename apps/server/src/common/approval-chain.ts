@@ -4,8 +4,10 @@ import {
 } from "@nestjs/common";
 
 /**
- * Phase 9 two-step approval: requester's manager first, then Admin.
- * Admin cannot skip a manager. No manager → Admin one-step.
+ * Org-chart approval: requester's manager may advance Submitted → PendingApproval.
+ * Admin may final-approve at any step (Submitted or PendingApproval), including
+ * when a manager exists — Admin is never blocked by the manager queue.
+ * No manager → only Admin can approve (one-step).
  */
 export function nextApproval(input: {
   status: "Submitted" | "PendingApproval";
@@ -15,16 +17,15 @@ export function nextApproval(input: {
   const { status, actorRole, hasManager } = input;
 
   if (status === "Submitted") {
-    if (hasManager) {
-      if (actorRole === "Manager") return "PendingApproval";
-      throw new ForbiddenException(
-        "Admin cannot skip manager approval when the requester has a manager",
-      );
-    }
     if (actorRole === "Admin") return "Approved";
-    throw new ForbiddenException(
-      "Only Admin can approve when the requester has no manager",
-    );
+    if (actorRole === "Manager") {
+      if (!hasManager) {
+        throw new ForbiddenException(
+          "Only Admin can approve when the requester has no manager",
+        );
+      }
+      return "PendingApproval";
+    }
   }
 
   if (status === "PendingApproval") {

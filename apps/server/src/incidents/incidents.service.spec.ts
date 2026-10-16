@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { IncidentsService } from "./incidents.service";
 
@@ -7,6 +7,12 @@ describe("IncidentsService.update assignee role", () => {
     userId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     email: "agent@sadhox.local",
     role: "Agent" as const,
+  };
+
+  const adminUser = {
+    userId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    email: "admin@sadhox.local",
+    role: "Admin" as const,
   };
 
   const endUserId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
@@ -34,13 +40,12 @@ describe("IncidentsService.update assignee role", () => {
     updatedAt: new Date(),
   };
 
-  it("rejects PATCH assignedTo when target is EndUser (400)", async () => {
+  function buildDb(opts?: { endUserLookup?: boolean }) {
     let selectCalls = 0;
-    const db = {
+    return {
       select: vi.fn(() => {
         selectCalls += 1;
         if (selectCalls === 1) {
-          // loadIncidentRow
           return {
             from: vi.fn(() => ({
               leftJoin: vi.fn(() => ({
@@ -63,26 +68,36 @@ describe("IncidentsService.update assignee role", () => {
             })),
           };
         }
-        // assertAssigneeInPool user lookup
+        if (opts?.endUserLookup) {
+          return {
+            from: vi.fn(() => ({
+              where: vi.fn(() => ({
+                limit: vi.fn(async () => [
+                  {
+                    id: endUserId,
+                    email: "end@sadhox.local",
+                    name: "End User",
+                    role: "EndUser",
+                  },
+                ]),
+              })),
+            })),
+          };
+        }
         return {
           from: vi.fn(() => ({
             where: vi.fn(() => ({
-              limit: vi.fn(async () => [
-                {
-                  id: endUserId,
-                  email: "end@sadhox.local",
-                  name: "End User",
-                  role: "EndUser",
-                },
-              ]),
+              limit: vi.fn(async () => []),
             })),
           })),
         };
       }),
       update: vi.fn(),
     };
+  }
 
-    const service = new IncidentsService(
+  function buildService(db: ReturnType<typeof buildDb>) {
+    return new IncidentsService(
       db as never,
       { calculate: vi.fn(), resolveDueAt: vi.fn() } as never,
       {
@@ -97,9 +112,25 @@ describe("IncidentsService.update assignee role", () => {
       { assertCanAccessTicketProject: vi.fn(async () => undefined) } as never,
       {} as never,
     );
+  }
+
+  it("rejects Agent PATCH assignedTo for someone else (403 claim-only)", async () => {
+    const db = buildDb();
+    const service = buildService(db);
 
     await expect(
       service.update(agentUser, incident.id, { assignedTo: endUserId }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(db.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects Admin PATCH assignedTo when target is EndUser (400)", async () => {
+    const db = buildDb({ endUserLookup: true });
+    const service = buildService(db);
+
+    await expect(
+      service.update(adminUser, incident.id, { assignedTo: endUserId }),
     ).rejects.toSatisfy(
       (err: unknown) =>
         err instanceof BadRequestException &&

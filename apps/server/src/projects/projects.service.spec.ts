@@ -4,74 +4,66 @@ import { ProjectAccessService } from "./project-access.service";
 import { ProjectScopeService } from "./project-scope.service";
 import { ProjectsService } from "./projects.service";
 
-describe("ProjectsService.addMember (Phase 6 / U8 KTD6)", () => {
-  // U8/KTD6: project_members are Agent users only. A Manager or Admin is
-  // rejected — the earlier "any role" behavior here was reverted.
-  it("rejects Manager as project member", async () => {
-    const db = {
+describe("ProjectsService.addMember", () => {
+  function mockDbForAdd(queue: unknown[], insertResult?: unknown) {
+    return {
       select: vi.fn(() => ({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn(async () => db._queue.shift()),
+            limit: vi.fn(async () => (queue as unknown[]).shift()),
           })),
         })),
       })),
-      insert: vi.fn(),
-      _queue: [
-        [{ id: "proj-1" }],
-        [{ id: "user-mgr", role: "Manager" }],
-      ] as unknown[],
+      insert: vi.fn(() => ({
+        values: vi.fn(() => ({
+          returning: vi.fn(async () =>
+            insertResult ? [insertResult] : [],
+          ),
+        })),
+      })),
+      _queue: queue,
     };
+  }
+
+  it("allows EndUser membership insert", async () => {
+    const db = mockDbForAdd(
+      [[{ id: "proj-1" }], [{ id: "user-eu" }]],
+      { projectId: "proj-1", userId: "user-eu" },
+    );
     const scope = new ProjectScopeService(db as never);
     const access = new ProjectAccessService(db as never);
     const svc = new ProjectsService(db as never, scope, access);
 
     await expect(
-      svc.addMember("proj-1", { userId: "user-mgr" }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(db.insert).not.toHaveBeenCalled();
+      svc.addMember("proj-1", { userId: "user-eu" }),
+    ).resolves.toEqual({
+      projectId: "proj-1",
+      userId: "user-eu",
+    });
   });
 
-  it("rejects Admin as project member", async () => {
-    const db = {
-      select: vi.fn(() => ({
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            limit: vi.fn(async () => db._queue.shift()),
-          })),
-        })),
-      })),
-      insert: vi.fn(),
-      _queue: [[{ id: "proj-1" }], [{ id: "user-admin", role: "Admin" }]],
-    };
+  it("allows Admin membership insert", async () => {
+    const db = mockDbForAdd(
+      [[{ id: "proj-1" }], [{ id: "user-admin" }]],
+      { projectId: "proj-1", userId: "user-admin" },
+    );
     const scope = new ProjectScopeService(db as never);
     const access = new ProjectAccessService(db as never);
     const svc = new ProjectsService(db as never, scope, access);
 
     await expect(
       svc.addMember("proj-1", { userId: "user-admin" }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(db.insert).not.toHaveBeenCalled();
+    ).resolves.toEqual({
+      projectId: "proj-1",
+      userId: "user-admin",
+    });
   });
 
   it("allows Agent membership insert", async () => {
-    const db = {
-      select: vi.fn(() => ({
-        from: vi.fn(() => ({
-          where: vi.fn(() => ({
-            limit: vi.fn(async () => db._queue.shift()),
-          })),
-        })),
-      })),
-      insert: vi.fn(() => ({
-        values: vi.fn(() => ({
-          returning: vi.fn(async () => [
-            { projectId: "proj-1", userId: "user-agent" },
-          ]),
-        })),
-      })),
-      _queue: [[{ id: "proj-1" }], [{ id: "user-agent", role: "Agent" }]],
-    };
+    const db = mockDbForAdd(
+      [[{ id: "proj-1" }], [{ id: "user-agent" }]],
+      { projectId: "proj-1", userId: "user-agent" },
+    );
     const scope = new ProjectScopeService(db as never);
     const access = new ProjectAccessService(db as never);
     const svc = new ProjectsService(db as never, scope, access);

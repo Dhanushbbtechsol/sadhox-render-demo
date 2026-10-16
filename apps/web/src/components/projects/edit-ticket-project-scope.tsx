@@ -11,8 +11,9 @@ type ScopePayload = {
 };
 
 /**
- * Admin/Agent/Manager can move a ticket between accessible projects.
- * Manager must keep a project; Admin/Agent may clear project (shows under All projects).
+ * Admin/Manager can move a ticket between accessible projects.
+ * Agents never set project scope — the reporter affiliates when raising the ticket.
+ * Manager must keep a project; Admin may clear project (shows under All projects).
  */
 export function EditTicketProjectScope({
   projectId,
@@ -26,8 +27,7 @@ export function EditTicketProjectScope({
   busy?: boolean;
 }) {
   const role = useAuthStore((s) => s.user?.role);
-  const canEdit =
-    role === "Admin" || role === "Agent" || role === "Manager";
+  const canEdit = role === "Admin" || role === "Manager";
 
   const [draftProjectId, setDraftProjectId] = useState(projectId ?? "");
   const [draftModuleId, setDraftModuleId] = useState(moduleId ?? "");

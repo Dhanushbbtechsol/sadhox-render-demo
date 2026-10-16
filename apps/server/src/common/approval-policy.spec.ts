@@ -75,7 +75,7 @@ describe("Phase 8 approve/reject chain", () => {
     ).toThrow(ForbiddenException);
   });
 
-  it("Admin: PendingApproval → Approved; 403 on managed Submitted", () => {
+  it("Admin: PendingApproval or Submitted → Approved (may skip manager)", () => {
     expect(
       resolveApproveTransition({
         role: "Admin",
@@ -84,13 +84,13 @@ describe("Phase 8 approve/reject chain", () => {
       }),
     ).toEqual({ nextStatus: "Approved", setApproverFields: true });
 
-    expect(() =>
+    expect(
       resolveApproveTransition({
         role: "Admin",
         currentStatus: "Submitted",
         projectId: "p1",
       }),
-    ).toThrow(ForbiddenException);
+    ).toEqual({ nextStatus: "Approved", setApproverFields: true });
 
     expect(
       resolveApproveTransition({
@@ -112,7 +112,7 @@ describe("Phase 8 approve/reject chain", () => {
     ).toEqual({ nextStatus: "PendingApproval", setApproverFields: false });
   });
 
-  it("reject: Manager on Submitted; Admin on PendingApproval; Admin 403 on managed Submitted", () => {
+  it("reject: Manager on Submitted; Admin on PendingApproval or managed Submitted", () => {
     expect(
       resolveRejectTransition({
         role: "Manager",
@@ -131,14 +131,14 @@ describe("Phase 8 approve/reject chain", () => {
       }),
     ).toEqual({ nextStatus: "RolledBack", setApproverFields: true });
 
-    expect(() =>
+    expect(
       resolveRejectTransition({
         role: "Admin",
         currentStatus: "Submitted",
         projectId: "p1",
         rejectStatus: "Rejected",
       }),
-    ).toThrow(ForbiddenException);
+    ).toEqual({ nextStatus: "Rejected", setApproverFields: true });
 
     expect(() =>
       resolveRejectTransition({
@@ -184,8 +184,8 @@ describe("Phase 8 approve/reject chain", () => {
       }),
     ).toEqual({ nextStatus: "RolledBack", setApproverFields: true });
 
-    // Admin: Draft with project → 403 (manager must act); null project → ok
-    expect(() =>
+    // Admin may reject Draft even when a project/manager exists
+    expect(
       resolveRejectTransition({
         role: "Admin",
         currentStatus: "Draft",
@@ -193,7 +193,7 @@ describe("Phase 8 approve/reject chain", () => {
         rejectStatus: "RolledBack",
         allowDraft: true,
       }),
-    ).toThrow(ForbiddenException);
+    ).toEqual({ nextStatus: "RolledBack", setApproverFields: true });
 
     expect(
       resolveRejectTransition({

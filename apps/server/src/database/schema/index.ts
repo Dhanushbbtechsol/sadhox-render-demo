@@ -28,6 +28,7 @@ export const incidentStatusEnum = pgEnum("incident_status", [
   "InProgress",
   "Resolved",
   "Closed",
+  "Reopened",
 ]);
 export const priorityEnum = pgEnum("priority_level", ["P1", "P2", "P3", "P4"]);
 export const impactUrgencyEnum = pgEnum("impact_urgency", [
@@ -158,8 +159,8 @@ export const projects = pgTable(
 );
 
 /**
- * Phase 6 — Agents who work tickets on a project.
- * Service rejects non-Agent inserts (Managers supervise; Admins are global).
+ * Phase 6 — people affiliated with a project (any role).
+ * Ticket assignment still uses Agent members only for the assignee pool.
  */
 export const projectMembers = pgTable(
   "project_members",

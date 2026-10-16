@@ -19,6 +19,7 @@ import {
   AssignIncidentDto,
   CreateCommentDto,
   CreateIncidentDto,
+  ReopenIncidentDto,
   UpdateIncidentDto,
 } from "./dto/incident.dto";
 import { ListIncidentsQueryDto } from "./dto/list-incidents-query.dto";
@@ -103,9 +104,10 @@ export class IncidentsController {
 
   @Post(":id/assign")
   @HttpCode(200)
-  @Roles("Admin", "Agent", "Manager")
+  @Roles("Admin", "Agent")
   @ApiOperation({
-    summary: "Assign incident to an agent and notify assignee",
+    summary:
+      "Admin assigns any eligible agent; Agent may claim (self-assign) only",
   })
   assign(
     @CurrentUser() user: AuthUser,
@@ -120,13 +122,14 @@ export class IncidentsController {
   @Roles("Admin", "Agent", "Manager", "EndUser")
   @ApiOperation({
     summary:
-      "Reporter reopens a resolved ticket back to Assigned. Closed tickets stay closed.",
+      "Reporter reopens a resolved ticket to Reopened with a required reason. Closed tickets stay closed.",
   })
   reopen(
     @CurrentUser() user: AuthUser,
     @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: ReopenIncidentDto,
   ) {
-    return this.incidents.reopen(user, id);
+    return this.incidents.reopen(user, id, dto);
   }
 
   @Get(":id/comments")

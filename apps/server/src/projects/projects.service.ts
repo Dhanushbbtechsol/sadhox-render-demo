@@ -176,10 +176,8 @@ export class ProjectsService {
 
   /**
    * U8 — one save for the project summary dialog. Validates name, manager,
-   * the desired member set (KTD6 — Agent only), and the desired module set
-   * up front, then persists all four in one transaction (diffed against
-   * current state) — a single submit covers name + manager + members +
-   * modules together instead of a PATCH plus separate per-item calls.
+   * the desired member set (any user), and the desired module set up front,
+   * then persists all four in one transaction (diffed against current state).
    */
   async saveSummary(projectId: string, dto: SaveProjectSummaryDto) {
     return this.db.transaction(async (tx) => {
@@ -205,7 +203,7 @@ export class ProjectsService {
       const name = sanitizePlainText(dto.name, 255);
       if (!name) throw new BadRequestException("Project name is required");
 
-      // Members: diff the desired full set (KTD6 — Agent only) against current rows.
+      // Members: diff the desired full set against current rows (any role).
       const desiredMemberIds = Array.from(new Set(dto.memberUserIds));
       const existingMembers = await tx
         .select({ userId: projectMembers.userId })
@@ -221,18 +219,12 @@ export class ProjectsService {
 
       if (memberIdsToAdd.length > 0) {
         const candidates = await tx
-          .select({ id: users.id, role: users.role })
+          .select({ id: users.id })
           .from(users)
           .where(inArray(users.id, memberIdsToAdd));
-        const candidateById = new Map(candidates.map((u) => [u.id, u]));
+        const found = new Set(candidates.map((u) => u.id));
         for (const id of memberIdsToAdd) {
-          const candidate = candidateById.get(id);
-          if (!candidate) throw new NotFoundException("User not found");
-          if (candidate.role !== "Agent") {
-            throw new BadRequestException(
-              "Only Agent users can be added as project members",
-            );
-          }
+          if (!found.has(id)) throw new NotFoundException("User not found");
         }
       }
 
@@ -339,19 +331,7 @@ export class ProjectsService {
 
   async addMember(projectId: string, dto: AddProjectMemberDto) {
     await this.scope.assertProjectExists(projectId);
-    // KTD6: project_members are Agent users only. Managers supervise projects
-    // via projects.manager_id and are never members.
-    const [member] = await this.db
-      .select({ id: users.id, role: users.role })
-      .from(users)
-      .where(eq(users.id, dto.userId))
-      .limit(1);
-    if (!member) throw new NotFoundException("User not found");
-    if (member.role !== "Agent") {
-      throw new BadRequestException(
-        "Only Agent users can be added as project members",
-      );
-    }
+    await this.scope.assertUserEligibleForMembership(dto.userId);
 
     try {
       const [row] = await this.db
@@ -512,7 +492,7 @@ export class ProjectsService {
     const [incidentAgg] = await this.db
       .select({
         total: count(),
-        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress'))`,
+        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress','Reopened'))`,
         p1: sql<number>`count(*) filter (where ${incidents.priority} = 'P1')`,
       })
       .from(incidents)
@@ -614,7 +594,7 @@ export class ProjectsService {
     const projectScope = inArray(incidents.projectId, projectIds);
     const [incidentAgg] = await this.db
       .select({
-        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress'))`,
+        open: sql<number>`count(*) filter (where ${incidents.status} in ('New','Assigned','InProgress','Reopened'))`,
         closed: sql<number>`count(*) filter (where ${incidents.status} in ('Resolved','Closed'))`,
       })
       .from(incidents)

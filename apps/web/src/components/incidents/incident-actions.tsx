@@ -2,6 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -27,14 +36,24 @@ import {
 export function ReopenTicketButton({ incident }: { incident: Incident }) {
   const user = useAuthStore((s) => s.user);
   const reopen = useReopenIncident(incident.id);
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+
   if (incident.status !== "Resolved" || user?.id !== incident.reporterId) {
     return null;
   }
 
   async function handleReopen() {
+    const trimmed = reason.trim();
+    if (trimmed.length < 5) {
+      toast.error("Describe why you are reopening (min 5 characters)");
+      return;
+    }
     try {
-      await reopen.mutateAsync();
+      await reopen.mutateAsync(trimmed);
       toast.success("Ticket reopened");
+      setOpen(false);
+      setReason("");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Reopen failed");
     }
@@ -43,18 +62,61 @@ export function ReopenTicketButton({ incident }: { incident: Incident }) {
   return (
     <div className="border-border/80 bg-muted/30 space-y-2 rounded-xl border p-4">
       <p className="text-muted-foreground text-sm">
-        If this happened again, reopen the ticket. It goes back to Assigned and
-        follows the same steps. A closed ticket cannot be reopened.
+        If this happened again, reopen the ticket. Status becomes Reopened and
+        the assignee sees your reason. A closed ticket cannot be reopened.
       </p>
-      <Button size="sm" disabled={reopen.isPending} onClick={() => void handleReopen()}>
-        Reopen ticket
-      </Button>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setReason("");
+        }}
+      >
+        <DialogTrigger render={<Button size="sm" />}>
+          Reopen ticket
+        </DialogTrigger>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reopen ticket</DialogTitle>
+            <DialogDescription>
+              Tell the assignee what still needs attention. This becomes a
+              discussion note and an in-app notification for them.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="reopen-reason">Reason for reopening</Label>
+            <Textarea
+              id="reopen-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Describe what is still wrong or what needs follow-up…"
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={reopen.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={reopen.isPending || reason.trim().length < 5}
+              onClick={() => void handleReopen()}
+            >
+              Reopen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 const NEXT_STATUS: Partial<Record<IncidentStatus, IncidentStatus>> = {
   Assigned: "InProgress",
+  Reopened: "InProgress",
   InProgress: "Resolved",
   Resolved: "Closed",
 };
@@ -91,9 +153,9 @@ export function IncidentActions({ incident }: { incident: Incident }) {
     if (!user?.id) return;
     try {
       await assign.mutateAsync(user.id);
-      toast.success("Assigned to you");
+      toast.success("Ticket claimed");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Assign failed");
+      toast.error(err instanceof Error ? err.message : "Claim failed");
     }
   }
 
@@ -154,21 +216,33 @@ export function IncidentActions({ incident }: { incident: Incident }) {
 
   if (!canManage || incident.status === "Closed") return null;
 
-  const canAssign =
-    (incident.status === "New" ||
-      incident.status === "Assigned" ||
-      incident.status === "InProgress") &&
-    (!projectScoped || user?.role === "Admin");
+  const assignableStatus =
+    incident.status === "New" ||
+    incident.status === "Assigned" ||
+    incident.status === "Reopened" ||
+    incident.status === "InProgress";
+  const agentInPool = Boolean(
+    user?.id && agents.some((agent) => agent.id === user.id),
+  );
+  const canClaim =
+    assignableStatus &&
+    user?.role === "Agent" &&
+    agentInPool &&
+    incident.assignedTo !== user.id;
+  const canAdminAssign = assignableStatus && user?.role === "Admin";
 
   return (
     <div className="border-border/80 bg-muted/30 space-y-4 rounded-xl border p-4">
       <div>
         <h3 className="text-sm font-semibold tracking-tight">Workflow</h3>
         <p className="text-muted-foreground mt-0.5 text-xs">
-          Assign someone and move the ticket forward.
-          {projectScoped
-            ? " Assignee pool is this project's members."
-            : " Unscoped ticket — global Agent pool (Admin)."}
+          {user?.role === "Admin"
+            ? projectScoped
+              ? "Assign a project member, or move the ticket forward."
+              : "Assign an agent, or move the ticket forward."
+            : user?.role === "Agent"
+              ? "Claim an open ticket for yourself, then move it forward."
+              : "Move the ticket forward."}
           {next ? (
             <>
               {" "}
@@ -182,7 +256,7 @@ export function IncidentActions({ incident }: { incident: Incident }) {
         </p>
       </div>
 
-      {canAssign && user?.role === "Agent" ? (
+      {canClaim ? (
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
@@ -190,12 +264,12 @@ export function IncidentActions({ incident }: { incident: Incident }) {
             disabled={busy}
             onClick={() => void handleAssignToMe()}
           >
-            Assign to Me
+            Claim ticket
           </Button>
         </div>
       ) : null}
 
-      {canAssign ? (
+      {canAdminAssign ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="min-w-0 flex-1 space-y-1.5">
             <Label htmlFor="agent-select">

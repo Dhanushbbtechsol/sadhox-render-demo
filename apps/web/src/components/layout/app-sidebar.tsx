@@ -383,7 +383,7 @@ export function AppSidebar({
         ) : null}
       </div>
       <Separator className="bg-sidebar-border" />
-      <nav className="flex flex-1 flex-col gap-1 p-2.5">
+      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2.5">
         {items.map((item) =>
           item.kind === "group" ? (
             <SidebarNavGroup key={item.id} item={item} collapsed={collapsed} />

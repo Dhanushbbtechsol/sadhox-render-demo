@@ -222,7 +222,7 @@ export class ChangesService {
         .limit(1);
       if (!change) return;
 
-      // Phase 9: next actor — creator's reports_to_id, else Admins.
+      // Manager (if any) and Admins both get notified; Admin may approve directly.
       const [creator] = await this.db
         .select({ reportsToId: users.reportsToId })
         .from(users)
@@ -238,13 +238,12 @@ export class ChangesService {
           .where(eq(users.id, managerId))
           .limit(1);
         if (mgr?.email) recipients.push(mgr);
-      } else {
-        const admins = await this.db
-          .select({ email: users.email })
-          .from(users)
-          .where(eq(users.role, "Admin"));
-        recipients.push(...admins);
       }
+      const admins = await this.db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.role, "Admin"));
+      recipients.push(...admins);
 
       const unique = [...new Map(recipients.map((r) => [r.email, r])).values()];
 

@@ -162,12 +162,16 @@ export function useReopenIncident(incidentId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () =>
+    mutationFn: (reason: string) =>
       apiFetch<Incident>(`/incidents/${incidentId}/reopen`, {
         method: "POST",
+        body: { reason },
       }),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: incidentsKey });
+      void queryClient.invalidateQueries({
+        queryKey: ["comments", "incident", incidentId],
+      });
       queryClient.setQueryData(
         [...incidentsKey, incidentId, useAuthStore.getState().user?.id],
         data,

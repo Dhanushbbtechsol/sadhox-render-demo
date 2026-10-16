@@ -1,4 +1,4 @@
-import { FolderTreeIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -193,10 +193,7 @@ export default function CategoriesPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="min-w-0">
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <FolderTreeIcon className="size-5" />
-          Categories
-        </h1>
+        <h1 className="text-xl font-semibold">Categories</h1>
         <p className="text-sm text-muted-foreground">
           Create a category and as many subcategories as you need in one go.
           Each subcategory can have its own Response time floor.

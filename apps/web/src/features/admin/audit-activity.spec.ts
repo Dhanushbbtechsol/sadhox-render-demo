@@ -55,7 +55,7 @@ describe("formatAuditDiff", () => {
         request: { status: "Submitted", title: "Same" },
         response: { status: "Approved", title: "Same" },
       }),
-    ).toEqual(["status: Submitted → Approved"]);
+    ).toEqual(["Status: Submitted → Approved"]);
   });
 
   it("returns [] when request and response match", () => {
@@ -74,11 +74,53 @@ describe("formatAuditDiff", () => {
     ).toEqual([]);
   });
 
-  it("formats flat before/after pairs", () => {
+  it("formats flat before/after pairs with human labels", () => {
     expect(
       formatAuditDiff({
         role: { before: "Agent", after: "Manager" },
       }),
-    ).toEqual(["role: Agent → Manager"]);
+    ).toEqual(["Role: Agent → Manager"]);
+  });
+
+  it("hides raw UUID foreign keys and prefers companion names", () => {
+    expect(
+      formatAuditDiff({
+        status: { before: "Submitted", after: "Approved" },
+        approverId: {
+          before: null,
+          after: "ab53831f-4dc9-408c-954b-f85df2edbc8a",
+        },
+        catalogId: {
+          before: null,
+          after: "11111111-1111-4111-8111-111111111111",
+        },
+        catalogName: { before: null, after: "Request Laptop" },
+        requesterName: { before: null, after: "Sushmita" },
+      }),
+    ).toEqual([
+      "Catalog: none → Request Laptop",
+      "Requester: none → Sushmita",
+      "Status: Submitted → Approved",
+    ]);
+  });
+
+  it("omits UUID-only lines when no name companion exists", () => {
+    expect(
+      formatAuditDiff({
+        status: { before: null, after: "Submitted" },
+        catalogId: {
+          before: null,
+          after: "55555555-5555-4555-8555-555555555555",
+        },
+        requesterId: {
+          before: null,
+          after: "b58b5e69-7a91-4005-959f-5fe5d788b5b4",
+        },
+        urgency: { before: null, after: "Medium" },
+      }),
+    ).toEqual([
+      "Status: none → Submitted",
+      "Urgency: none → Medium",
+    ]);
   });
 });
