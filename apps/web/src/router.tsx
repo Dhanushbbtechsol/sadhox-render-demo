@@ -53,6 +53,13 @@ export const router = createBrowserRouter([
         path: "/login",
         element: <LoginPage />,
       },
+      {
+        path: "/welcome",
+        lazy: () =>
+          import("@/features/landing/landing-page").then((m) => ({
+            Component: m.default,
+          })),
+      },
     ],
   },
   {

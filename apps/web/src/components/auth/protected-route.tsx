@@ -42,6 +42,11 @@ export function ProtectedRoute({ roles }: { roles?: UserRole[] }) {
     return <ServiceUnavailableScreen />;
   }
 
+  // Signed-out visitors at the front door see the product landing page.
+  if (location.pathname === "/") {
+    return <Navigate to="/welcome" replace />;
+  }
+
   return <Navigate to="/login" replace state={{ from: location.pathname }} />;
 }
 
