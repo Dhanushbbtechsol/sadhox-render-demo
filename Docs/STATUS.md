@@ -32,7 +32,7 @@ Sadhox is an **ITSM** web app: End Users report issues and request services; Age
 | Realtime | Socket.io (`ticket:{id}` rooms) |
 | Jobs | BullMQ + Redis (SLA breach, auto-close, email) |
 | Email | Resend |
-| Hosting intent | Vercel (web) + Render (API/DB/Redis); CI via GitHub Actions |
+| Hosting intent | Render (Static Site web + Nest API/DB/Redis); client-demo Blueprint in `render.yaml`; CI via GitHub Actions |
 
 Original Better Fullstack scaffold (`bts.jsonc`, generated `CLAUDE.md`/`AGENTS.md` Hono lines) is **historical**. Runtime code is NestJS.
 

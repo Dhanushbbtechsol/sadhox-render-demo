@@ -4,8 +4,8 @@
 
 | Host | Platform | Example origin |
 | --- | --- | --- |
-| Frontend | Vercel | `https://sadhox.vercel.app` |
-| Backend | Render / Railway | `https://sadhox-api-staging.onrender.com` |
+| Frontend | Render Static Site (or Vercel) | `https://sadhox-web-staging.onrender.com` |
+| Backend | Render | `https://sadhox-api-staging.onrender.com` |
 
 These are **different registrable domains** → every browser classifies
 `fetch(API/auth/refresh, { credentials: "include" })` as a **cross-site** request.
@@ -24,11 +24,11 @@ manual check below on real staging domains.
 
 ## Manual staging checklist (required before go-live)
 
-Prerequisites: staging API HTTPS + `CORS_ORIGIN` = exact Vercel origin;
+Prerequisites: staging API HTTPS + `CORS_ORIGIN` = exact Static Site origin;
 frontend `VITE_SERVER_URL` = staging API origin.
 
-1. Open the **Vercel** app in Chrome. DevTools → Application → Cookies: clear
-   site data for both Vercel and API hosts.
+1. Open the **Static Site** app in Chrome. DevTools → Application → Cookies: clear
+   site data for both web and API hosts.
 2. Log in via the UI (hits `POST {API}/auth/login` with `credentials: include`).
 3. On the **API** host cookies, confirm `refresh_token` has:
    - `HttpOnly`

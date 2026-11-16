@@ -1,13 +1,15 @@
-# Render Blueprint — Sadhox API (staging)
-# Spec verified against https://render.com/docs/blueprint-spec (fetched 2026-09-30).
-# Do not apply until TL / lead gives explicit go-ahead to create real services.
+# Render Blueprint — Sadhox client demo (staging)
+# Spec: https://render.com/docs/blueprint-spec
 #
 # Locked: region=oregon, postgresMajorVersion=16, staging plan=free.
 # Production Environment (separate Blueprint / Environment), mirror names:
-#   sadhox-api-prod / sadhox-pg-prod / sadhox-redis-prod
-# CORS_ORIGIN: set at apply to temporary placeholder
-#   https://placeholder-not-yet-deployed.invalid
-#   (exact Vercel origin later — never *).
+#   sadhox-api-prod / sadhox-web-prod / sadhox-pg-prod / sadhox-redis-prod
+#
+# Apply order (secrets):
+#   1. API: RESEND_API_KEY, MAIL_FROM=beth.t@example.com (demo),
+#      CORS_ORIGIN=https://placeholder-not-yet-deployed.invalid (never *)
+#   2. After both URLs exist: set web VITE_SERVER_URL + API CORS_ORIGIN to each other
+#   3. Migrate + full demo seed — see Docs/Phase/Dev D/render-client-demo-bringup.md
 
 services:
   - type: web
@@ -26,8 +28,7 @@ services:
         value: production
       - key: LOG_LEVEL
         value: info
-      # Temporary safe origin until real Vercel URL exists (never *).
-      # Apply value: https://placeholder-not-yet-deployed.invalid
+      # Placeholder at apply; replace with exact Static Site origin (never *).
       - key: CORS_ORIGIN
         sync: false
       - key: JWT_ACCESS_SECRET
@@ -59,6 +60,22 @@ services:
           type: keyvalue
           name: sadhox-redis-staging
           property: connectionString
+
+  # Vite SPA — CDN static site (not Vercel).
+  - type: web
+    name: sadhox-web-staging
+    runtime: static
+    rootDir: .
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter web build
+    staticPublishPath: apps/web/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # HTTPS API origin, e.g. https://sadhox-api-staging.onrender.com (no trailing slash).
+      - key: VITE_SERVER_URL
+        sync: false
 
   # Redis-compatible Key Value for BullMQ. noeviction recommended for queues.
   # ipAllowList: [] = private network only (web service in same region).
