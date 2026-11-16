@@ -81,12 +81,18 @@ SEED_PASSWORD='<shared-demo-password>' pnpm db:seed
 
 Then **redeploy** the Static Site (Vite bakes `VITE_*` at build time) and **restart/redeploy** the API.
 
-## Smoke
+## Smoke (demo piece — CRUD, not realtime)
+
+Goal: walk stakeholders through normal ITSM flows. Live Socket.io comments are **not** required for the demo.
 
 1. Open Static Site URL → login `admin@sadhox.local` (demo password).
-2. DevTools → API host cookies: `refresh_token` is `HttpOnly; Secure; SameSite=None; Path=/auth`.
-3. Confirm Showcase tickets / catalog / KB visible for Agent and EndUser personas.
-4. Optional: post a comment; Socket.IO should connect with JWT.
+2. **Tickets / issues:** open a Showcase incident; create or update status/priority/assignment.
+3. **Problems:** open or link a problem; confirm list/detail works.
+4. **Change management:** open a Showcase change; walk approve/schedule path as Admin.
+5. Optional: catalog request as EndUser; asset or KB browse if time.
+6. Cookies (if login flaky): API host `refresh_token` = `HttpOnly; Secure; SameSite=None; Path=/auth`.
+
+Redis/BullMQ still run in the background (required for Nest boot + SLA jobs). Do not block the demo on live comment push or queue UI.
 
 ## Free-tier notes for clients
 
