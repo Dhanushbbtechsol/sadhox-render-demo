@@ -5,10 +5,12 @@
 # Production Environment (separate Blueprint / Environment), mirror names:
 #   sadhox-api-prod / sadhox-web-prod / sadhox-pg-prod / sadhox-redis-prod
 #
+# Showcase topology: Vercel SPA + this Blueprint's API/DB/Redis.
+# Leave sadhox-web-staging unwired when SPA is on Vercel.
 # Apply order (secrets):
 #   1. API: RESEND_API_KEY, MAIL_FROM=beth.t@example.com (demo),
 #      CORS_ORIGIN=https://placeholder-not-yet-deployed.invalid (never *)
-#   2. After both URLs exist: set web VITE_SERVER_URL + API CORS_ORIGIN to each other
+#   2. After Vercel + API URLs exist: Vercel VITE_SERVER_URL + API CORS_ORIGIN
 #   3. Migrate + full demo seed — see Docs/Phase/Dev D/render-client-demo-bringup.md
 
 services:
@@ -19,7 +21,8 @@ services:
     region: oregon
     rootDir: .
     # pnpm workspace: install from repo root, build Nest server package only.
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter server build
+    # Render already provides pnpm; corepack enable fails (EROFS on /usr/bin).
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter server build
     # Listen on Render-injected $PORT (do not hardcode PORT in envVars).
     startCommand: pnpm --filter server start:prod
     healthCheckPath: /health
@@ -28,7 +31,7 @@ services:
         value: production
       - key: LOG_LEVEL
         value: info
-      # Placeholder at apply; replace with exact Static Site origin (never *).
+      # Placeholder at apply; replace with exact Vercel origin (never *).
       - key: CORS_ORIGIN
         sync: false
       - key: JWT_ACCESS_SECRET
@@ -61,19 +64,20 @@ services:
           name: sadhox-redis-staging
           property: connectionString
 
-  # Vite SPA — CDN static site (not Vercel).
+  # Optional Render Static Site — unused for Vercel showcase; safe to skip wiring.
   - type: web
     name: sadhox-web-staging
     runtime: static
     rootDir: .
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter web build
+    # Static sites auto-install deps; skip corepack (EROFS). Rebuild web only.
+    buildCommand: pnpm --filter web build
     staticPublishPath: apps/web/dist
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
-      # HTTPS API origin, e.g. https://sadhox-api-staging.onrender.com (no trailing slash).
+      # Only if hosting SPA on Render instead of Vercel.
       - key: VITE_SERVER_URL
         sync: false
 
